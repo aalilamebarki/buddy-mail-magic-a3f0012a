@@ -440,14 +440,14 @@ const TeamSection = () => (
    FAMOUS QUOTES CAROUSEL
 ═══════════════════════════════════════════ */
 const famousQuotes = [
-  { text: 'الظلم في أي مكان يهدد العدالة في كل مكان.', author: 'مارتن لوثر كينغ', role: 'ناشط حقوقي أمريكي', initials: 'م.ل', gradient: 'from-blue-600 to-indigo-700' },
-  { text: 'القانون يجب أن يكون كالموت الذي لا يستثني أحداً.', author: 'مونتسكيو', role: 'فيلسوف وفقيه قانوني فرنسي', initials: 'مو', gradient: 'from-amber-600 to-orange-700' },
-  { text: 'حيثما يوجد حق يوجد واجب، وحيثما يوجد واجب يوجد حق.', author: 'المهاتما غاندي', role: 'محامٍ وزعيم حركة الاستقلال الهندية', initials: 'غا', gradient: 'from-emerald-600 to-teal-700' },
-  { text: 'العدل أساس المُلك.', author: 'عمر بن الخطاب', role: 'ثاني الخلفاء الراشدين', initials: 'عم', gradient: 'from-green-700 to-emerald-800' },
-  { text: 'لا حرية بدون قانون، ولا قانون بدون حرية.', author: 'جون لوك', role: 'فيلسوف إنجليزي، أبو الليبرالية', initials: 'ج.ل', gradient: 'from-violet-600 to-purple-700' },
-  { text: 'الحرية لا تُعطى بل تُؤخذ.', author: 'جمال عبد الناصر', role: 'رئيس مصر الأسبق', initials: 'ج.ن', gradient: 'from-red-600 to-rose-700' },
-  { text: 'القانون الذي لا يتساوى أمامه الجميع ليس قانوناً.', author: 'نيلسون مانديلا', role: 'رئيس جنوب أفريقيا ومناضل ضد التمييز', initials: 'ن.م', gradient: 'from-yellow-600 to-amber-700' },
-  { text: 'إن أردت السلام فاعمل من أجل العدالة.', author: 'البابا بولس السادس', role: 'رئيس الكنيسة الكاثوليكية', initials: 'ب.س', gradient: 'from-sky-600 to-blue-700' },
+  { text: 'الظلم في أي مكان يهدد العدالة في كل مكان.', author: 'مارتن لوثر كينغ', role: 'ناشط حقوقي أمريكي', initials: 'م', gradient: 'from-blue-600 to-indigo-700' },
+  { text: 'القانون يجب أن يكون كالموت الذي لا يستثني أحداً.', author: 'مونتسكيو', role: 'فيلسوف وفقيه قانوني فرنسي', initials: 'م', gradient: 'from-amber-600 to-orange-700' },
+  { text: 'حيثما يوجد حق يوجد واجب، وحيثما يوجد واجب يوجد حق.', author: 'المهاتما غاندي', role: 'محامٍ وزعيم حركة الاستقلال الهندية', initials: 'غ', gradient: 'from-emerald-600 to-teal-700' },
+  { text: 'العدل أساس المُلك.', author: 'عمر بن الخطاب', role: 'ثاني الخلفاء الراشدين', initials: 'ع', gradient: 'from-green-700 to-emerald-800' },
+  { text: 'لا حرية بدون قانون، ولا قانون بدون حرية.', author: 'جون لوك', role: 'فيلسوف إنجليزي، أبو الليبرالية', initials: 'ل', gradient: 'from-violet-600 to-purple-700' },
+  { text: 'الحرية لا تُعطى بل تُؤخذ.', author: 'جمال عبد الناصر', role: 'رئيس مصر الأسبق', initials: 'ن', gradient: 'from-red-600 to-rose-700' },
+  { text: 'القانون الذي لا يتساوى أمامه الجميع ليس قانوناً.', author: 'نيلسون مانديلا', role: 'رئيس جنوب أفريقيا ومناضل ضد التمييز', initials: 'م', gradient: 'from-yellow-600 to-amber-700' },
+  { text: 'إن أردت السلام فاعمل من أجل العدالة.', author: 'البابا بولس السادس', role: 'رئيس الكنيسة الكاثوليكية', initials: 'ب', gradient: 'from-sky-600 to-blue-700' },
 ];
 
 const QuotesCarousel = () => {
