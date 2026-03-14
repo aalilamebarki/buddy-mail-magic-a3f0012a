@@ -299,7 +299,7 @@ const FootnotesSection = () => {
     <div className="my-12 md:my-16 p-6 sm:p-8 rounded-[20px] bg-muted/20 border border-border/20">
       <div className="flex items-center gap-2 mb-5">
         <Hash className="h-4 w-4 text-muted-foreground" />
-        <h3 className="text-sm font-bold text-foreground font-display">الهوامش والمراجع</h3>
+        <h3 className="text-sm font-bold text-foreground">الهوامش والمراجع</h3>
       </div>
       <div className="space-y-3">
         {notes.map(fn => (
