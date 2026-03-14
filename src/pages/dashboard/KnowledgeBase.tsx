@@ -308,7 +308,88 @@ const KnowledgeBase = () => {
     setScraping(false);
   };
 
-  const getTypeLabel = (type: string) => DOC_TYPES.find(t => t.value === type)?.label || type;
+  // Auto-ingest from sources
+  const handleAutoIngest = async () => {
+    setAutoIngesting(true);
+    setAutoIngestLog([]);
+    setAutoIngestDocs(0);
+    
+    const sources: ('sgg' | 'cassation')[] = autoIngestSource === 'all' 
+      ? ['sgg', 'cassation'] 
+      : [autoIngestSource];
+    
+    const sourceNames: Record<string, string> = {
+      sgg: 'الجريدة الرسمية',
+      cassation: 'محكمة النقض',
+    };
+
+    // Get totals first
+    let totalSearches = 0;
+    for (const src of sources) {
+      try {
+        const { data } = await supabase.functions.invoke('auto-ingest', {
+          body: { action: 'status' },
+        });
+        if (data?.sources?.[src]) {
+          totalSearches += data.sources[src].total;
+        }
+      } catch {}
+    }
+    setAutoIngestTotal(totalSearches);
+    
+    let completed = 0;
+    let totalDocsAdded = 0;
+    
+    for (const src of sources) {
+      setAutoIngestLog(prev => [...prev, `🔍 بدء الجلب من ${sourceNames[src]}...`]);
+      
+      let nextIndex = 0;
+      let remaining = 1;
+      
+      while (remaining > 0) {
+        try {
+          const { data, error } = await supabase.functions.invoke('auto-ingest', {
+            body: { action: 'batch_search', source: src, start_index: nextIndex, count: 2 },
+          });
+          
+          if (error) {
+            setAutoIngestLog(prev => [...prev, `❌ خطأ: ${error.message}`]);
+            break;
+          }
+          
+          if (data?.ingested?.length > 0) {
+            for (const doc of data.ingested) {
+              setAutoIngestLog(prev => [...prev, `✅ ${doc.title} (${doc.chunks} أجزاء)`]);
+            }
+            totalDocsAdded += data.documentsAdded || 0;
+            setAutoIngestDocs(totalDocsAdded);
+          } else {
+            setAutoIngestLog(prev => [...prev, `📄 تم فحص ${data?.processed || 0} استعلامات - لا جديد`]);
+          }
+          
+          remaining = data?.remaining ?? 0;
+          nextIndex = data?.nextIndex ?? nextIndex + 2;
+          completed += data?.processed || 0;
+          setAutoIngestProgress(Math.round((completed / Math.max(totalSearches, 1)) * 100));
+          
+          // Small delay
+          await new Promise(r => setTimeout(r, 500));
+        } catch (err: any) {
+          setAutoIngestLog(prev => [...prev, `❌ خطأ: ${err.message}`]);
+          break;
+        }
+      }
+      
+      setAutoIngestLog(prev => [...prev, `✨ انتهى الجلب من ${sourceNames[src]}`]);
+    }
+    
+    setAutoIngestLog(prev => [...prev, `🎉 تم الانتهاء! أُضيف ${totalDocsAdded} مستند جديد`]);
+    setAutoIngesting(false);
+    fetchDocuments();
+    toast.success(`تم إضافة ${totalDocsAdded} مستند جديد لقاعدة المعرفة`);
+  };
+
+
 
   return (
     <div className="space-y-6">
