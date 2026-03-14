@@ -591,6 +591,18 @@ const KnowledgeBase = () => {
                             <div className="text-xs opacity-70">juriscassation.cspj.ma - اجتهادات محكمة النقض</div>
                           </div>
                         </Button>
+                        <Button
+                          variant={scrapeUrl.includes('adala.justice') ? 'default' : 'outline'}
+                          size="sm"
+                          className="justify-start gap-2 h-auto py-3"
+                          onClick={() => setScrapeUrl('https://adala.justice.gov.ma')}
+                        >
+                          <BookOpen className="h-4 w-4 shrink-0" />
+                          <div className="text-right">
+                            <div className="font-medium">بوابة عدالة - النصوص والاجتهادات</div>
+                            <div className="text-xs opacity-70">adala.justice.gov.ma - قوانين واجتهادات قضائية</div>
+                          </div>
+                        </Button>
                       </div>
                     </div>
 
