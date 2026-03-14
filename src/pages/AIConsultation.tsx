@@ -110,20 +110,51 @@ const markdownComponents: Components = {
   h1: ({ children }) => (
     <h1 className="text-xl font-bold text-foreground mt-6 mb-3 pb-2 border-b-2 border-primary/20">{children}</h1>
   ),
-  h2: ({ children }) => (
-    <h2 className="text-lg font-bold text-foreground mt-5 mb-2.5 flex items-center gap-2">
-      <span className="w-1 h-5 rounded-full bg-primary inline-block shrink-0" />
-      {children}
-    </h2>
-  ),
-  h3: ({ children }) => (
-    <h3 className="text-base font-bold text-foreground mt-4 mb-2 flex items-center gap-2">
-      <span className="w-1.5 h-1.5 rounded-full bg-legal-gold inline-block shrink-0" />
-      {children}
-    </h3>
-  ),
-  p: ({ children }) => {
+  h2: ({ children }) => {
     const text = typeof children === 'string' ? children : '';
+    const isWarning = /تنبيه|تحذير|⚠️/.test(text);
+    return (
+      <h2 className={`text-[0.95rem] font-bold mt-5 mb-2.5 flex items-center gap-2 ${isWarning ? 'text-destructive' : 'text-foreground'}`}>
+        <span className={`w-1 h-5 rounded-full inline-block shrink-0 ${isWarning ? 'bg-destructive' : 'bg-primary'}`} />
+        {children}
+      </h2>
+    );
+  },
+  h3: ({ children }) => {
+    const text = typeof children === 'string' ? children : '';
+    const icon = text.includes('⚖️') ? '⚖️' : text.includes('📜') ? '📜' : text.includes('🔍') ? '🔍' : text.includes('🛠️') ? '🛠️' : text.includes('📊') ? '📊' : null;
+    return (
+      <h3 className="text-[0.9rem] font-bold text-foreground mt-5 mb-2 flex items-center gap-2 bg-muted/30 rounded-lg px-3 py-2 border border-border/10">
+        {!icon && <span className="w-1.5 h-1.5 rounded-full bg-legal-gold inline-block shrink-0" />}
+        {children}
+      </h3>
+    );
+  },
+  p: ({ children }) => {
+    const text = typeof children === 'string' ? children : 
+      Array.isArray(children) ? children.map(c => typeof c === 'string' ? c : '').join('') : '';
+    
+    // Warning/disclaimer detection
+    if (/^⚠️|^تنبيه|^تحذير/.test(text.trim())) {
+      return (
+        <div className="my-3 flex items-start gap-2 rounded-xl bg-destructive/[0.06] border border-destructive/15 py-3 px-4 text-sm leading-[1.9] text-foreground/90">
+          <span className="shrink-0 mt-0.5 text-base">⚠️</span>
+          <p>{children}</p>
+        </div>
+      );
+    }
+
+    // Recommendation detection
+    if (/^💡|^توصية|^نصيحة/.test(text.trim())) {
+      return (
+        <div className="my-3 flex items-start gap-2 rounded-xl bg-legal-emerald/[0.06] border border-legal-emerald/15 py-3 px-4 text-sm leading-[1.9] text-foreground/90">
+          <span className="shrink-0 mt-0.5 text-base">💡</span>
+          <p>{children}</p>
+        </div>
+      );
+    }
+
+    // Legal citation
     if (isLegalCitation(text)) {
       return (
         <p className="my-2.5 text-sm leading-[1.95] pr-3 border-r-2 border-legal-gold/40 bg-legal-gold/[0.04] rounded-sm py-2 px-3 text-foreground/90">
@@ -131,6 +162,7 @@ const markdownComponents: Components = {
         </p>
       );
     }
+
     return <p className="my-2 text-sm leading-[1.95] text-foreground/85">{children}</p>;
   },
   ul: ({ children }) => (
@@ -141,25 +173,46 @@ const markdownComponents: Components = {
   ),
   li: ({ children, ...props }) => {
     const ordered = (props as any).ordered;
+    const text = typeof children === 'string' ? children :
+      Array.isArray(children) ? children.map(c => typeof c === 'string' ? c : '').join('') : '';
+    
+    // Strength/weakness markers
+    const isStrength = text.startsWith('✅');
+    const isWeakness = text.startsWith('⚠️');
+
     return (
-      <li className={`relative text-sm leading-[1.9] text-foreground/85 pr-4 ${
+      <li className={`relative text-sm leading-[1.9] pr-4 ${
+        isStrength ? 'text-legal-emerald font-medium' :
+        isWeakness ? 'text-legal-amber font-medium' :
+        'text-foreground/85'
+      } ${
         ordered
           ? "before:content-[counter(list-item)'.'] before:counter-increment-[list-item] before:absolute before:right-0 before:font-bold before:text-primary before:text-[0.8rem]"
-          : "before:content-[''] before:absolute before:right-0.5 before:top-[0.7em] before:w-1.5 before:h-1.5 before:rounded-full before:bg-primary/50"
+          : !isStrength && !isWeakness
+            ? "before:content-[''] before:absolute before:right-0.5 before:top-[0.7em] before:w-1.5 before:h-1.5 before:rounded-full before:bg-primary/50"
+            : ""
       }`}>
         {children}
       </li>
     );
   },
-  strong: ({ children }) => (
-    <strong className="font-bold text-foreground">{children}</strong>
-  ),
+  strong: ({ children }) => {
+    const text = typeof children === 'string' ? children : '';
+    // Legal article references in bold
+    if (/^(?:الفصل|المادة|الفقرة)\s/.test(text)) {
+      return <strong className="font-bold text-primary bg-primary/[0.06] px-1 py-0.5 rounded">{children}</strong>;
+    }
+    return <strong className="font-bold text-foreground">{children}</strong>;
+  },
   em: ({ children }) => (
     <em className="text-primary/80 not-italic font-medium">{children}</em>
   ),
   blockquote: ({ children }) => (
-    <blockquote className="my-4 border-r-[3px] border-legal-navy bg-legal-navy/[0.04] dark:bg-legal-navy/[0.15] rounded-lg py-3 px-4 text-sm text-foreground/90">
-      {children}
+    <blockquote className="my-4 border-r-[3px] border-legal-gold bg-legal-gold/[0.04] dark:bg-legal-gold/[0.08] rounded-lg py-3 px-4 text-sm text-foreground/90 italic">
+      <div className="flex items-start gap-2">
+        <span className="text-legal-gold/50 text-lg mt-0.5 shrink-0">❝</span>
+        <div>{children}</div>
+      </div>
     </blockquote>
   ),
   code: ({ children, className }) => {
@@ -202,6 +255,63 @@ const markdownComponents: Components = {
   ),
 };
 
+const THINKING_PHASES = [
+  { text: 'جاري تحليل النازلة القانونية...', icon: '⚖️' },
+  { text: 'مراجعة النصوص القانونية المنطبقة...', icon: '📜' },
+  { text: 'البحث في الاجتهاد القضائي...', icon: '🔍' },
+  { text: 'صياغة الاستشارة القانونية...', icon: '✍️' },
+];
+
+const ThinkingAnimation = () => {
+  const [phase, setPhase] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPhase(p => (p + 1) % THINKING_PHASES.length);
+    }, 2800);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="flex gap-3">
+      <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-legal-navy/10 to-legal-gold/10 flex items-center justify-center">
+        <Bot className="h-4 w-4 text-legal-navy animate-pulse" />
+      </div>
+      <div className="bg-muted/40 rounded-2xl rounded-tl-md px-5 py-4 border border-border/10 max-w-[85%]">
+        <div className="flex items-center gap-3">
+          <motion.span
+            key={phase}
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -5 }}
+            className="text-lg"
+          >
+            {THINKING_PHASES[phase].icon}
+          </motion.span>
+          <div className="space-y-1.5">
+            <AnimatePresence mode="wait">
+              <motion.p
+                key={phase}
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -10 }}
+                className="text-xs font-medium text-foreground/70"
+              >
+                {THINKING_PHASES[phase].text}
+              </motion.p>
+            </AnimatePresence>
+            <div className="flex gap-1">
+              <span className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce" />
+              <span className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }} />
+              <span className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const AIConsultation = () => {
   const [mode, setMode] = useState<'intake' | 'chat'>('intake');
   const [step, setStep] = useState(0);
@@ -215,8 +325,9 @@ const AIConsultation = () => {
   const [caseContext, setCaseContext] = useState('');
   const [mobileNav, setMobileNav] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const bufferRef = useRef('');
 
-  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [messages]);
+  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [messages, loading]);
 
   const selectedType = CASE_TYPES.find(t => t.value === intake.caseType);
 
@@ -229,26 +340,27 @@ const AIConsultation = () => {
     if (!intake.caseType || !intake.facts.trim()) { toast.error('يرجى اختيار نوع القضية وذكر الوقائع'); return; }
     const context = buildCaseContext();
     setCaseContext(context);
-    setMessages([{ role: 'assistant', content: '✅ تم استلام بيانات النازلة. جاري التحليل...' }]);
+    setMessages([]);
     setMode('chat');
-    setTimeout(() => autoAnalyze(context), 500);
+    setTimeout(() => autoAnalyze(context), 300);
   };
 
   const autoAnalyze = async (context: string) => {
     setLoading(true);
+    bufferRef.current = '';
     const analyzeMsg: Message = { role: 'user', content: `حلل هذه النازلة القانونية:\n\n${context}` };
-    let assistantSoFar = '';
-    const upsertAssistant = (chunk: string) => {
-      assistantSoFar += chunk;
-      setMessages(prev => {
-        const last = prev[prev.length - 1];
-        if (last?.role === 'assistant' && assistantSoFar.length > chunk.length)
-          return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: assistantSoFar } : m));
-        return [...prev, { role: 'assistant', content: assistantSoFar }];
-      });
-    };
     try {
-      await streamChat({ messages: [analyzeMsg], caseContext: context, onDelta: upsertAssistant, onDone: () => setLoading(false), onError: (err) => { toast.error(err); setLoading(false); } });
+      await streamChat({
+        messages: [analyzeMsg],
+        caseContext: context,
+        onDelta: (chunk) => { bufferRef.current += chunk; },
+        onDone: () => {
+          setMessages(prev => [...prev, { role: 'assistant', content: bufferRef.current }]);
+          bufferRef.current = '';
+          setLoading(false);
+        },
+        onError: (err) => { toast.error(err); setLoading(false); },
+      });
     } catch { toast.error('حدث خطأ غير متوقع'); setLoading(false); }
   };
 
@@ -259,18 +371,19 @@ const AIConsultation = () => {
     const userMsg: Message = { role: 'user', content: userMessage };
     setMessages(prev => [...prev, userMsg]);
     setLoading(true);
-    let assistantSoFar = '';
-    const upsertAssistant = (chunk: string) => {
-      assistantSoFar += chunk;
-      setMessages(prev => {
-        const last = prev[prev.length - 1];
-        if (last?.role === 'assistant' && assistantSoFar.length > chunk.length)
-          return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: assistantSoFar } : m));
-        return [...prev, { role: 'assistant', content: assistantSoFar }];
-      });
-    };
+    bufferRef.current = '';
     try {
-      await streamChat({ messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })), caseContext, onDelta: upsertAssistant, onDone: () => setLoading(false), onError: (err) => { toast.error(err); setLoading(false); } });
+      await streamChat({
+        messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })),
+        caseContext,
+        onDelta: (chunk) => { bufferRef.current += chunk; },
+        onDone: () => {
+          setMessages(prev => [...prev, { role: 'assistant', content: bufferRef.current }]);
+          bufferRef.current = '';
+          setLoading(false);
+        },
+        onError: (err) => { toast.error(err); setLoading(false); },
+      });
     } catch { toast.error('حدث خطأ غير متوقع'); setLoading(false); }
   };
 
@@ -547,9 +660,10 @@ const AIConsultation = () => {
                 <div ref={scrollRef} className="flex-1 overflow-y-auto p-5" style={{ maxHeight: 'calc(100vh - 220px)' }}>
                   <div className="space-y-4">
                     {messages.map((msg, i) => (
-                      <motion.div key={i}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
+                      <motion.div key={`${i}-${msg.role}`}
+                        initial={{ opacity: 0, y: 15, scale: 0.97 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        transition={{ duration: 0.4, ease: 'easeOut' }}
                         className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
                         <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${
                           msg.role === 'user'
@@ -558,10 +672,10 @@ const AIConsultation = () => {
                         }`}>
                           {msg.role === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
                         </div>
-                        <div className={`rounded-2xl px-5 py-4 max-w-[85%] text-sm leading-relaxed ${
+                        <div className={`rounded-2xl px-5 py-4 text-sm leading-relaxed ${
                           msg.role === 'user'
-                            ? 'bg-primary text-primary-foreground rounded-tr-md'
-                            : 'bg-muted/40 text-foreground border border-border/10 rounded-tl-md'
+                            ? 'bg-primary text-primary-foreground rounded-tr-md max-w-[85%]'
+                            : 'bg-card text-foreground border border-border/15 rounded-tl-md shadow-sm max-w-[92%]'
                         }`}>
                           {msg.role === 'assistant' ? (
                             <div className="legal-prose max-w-none">
@@ -573,20 +687,7 @@ const AIConsultation = () => {
                         </div>
                       </motion.div>
                     ))}
-                    {loading && messages[messages.length - 1]?.role !== 'assistant' && (
-                      <div className="flex gap-3">
-                        <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-legal-navy/10 to-legal-gold/10 flex items-center justify-center">
-                          <Bot className="h-4 w-4 text-legal-navy" />
-                        </div>
-                        <div className="bg-muted/40 rounded-2xl rounded-tl-md px-5 py-4 border border-border/10">
-                          <div className="flex gap-1.5">
-                            <span className="w-2 h-2 bg-primary/40 rounded-full animate-bounce" />
-                            <span className="w-2 h-2 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }} />
-                            <span className="w-2 h-2 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                    {loading && <ThinkingAnimation />}
                   </div>
                 </div>
 
