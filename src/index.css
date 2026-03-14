@@ -51,6 +51,15 @@
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
+
+    /* Premium Legal Palette */
+    --legal-navy: 220 60% 15%;
+    --legal-gold: 38 78% 52%;
+    --legal-emerald: 160 84% 24%;
+    --legal-burgundy: 345 60% 35%;
+    --legal-slate: 215 25% 55%;
+    --legal-cream: 40 33% 96%;
+    --legal-amber: 30 85% 55%;
   }
 
   .dark {
