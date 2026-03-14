@@ -61,6 +61,10 @@ export default {
         "legal-gold": "hsl(var(--legal-gold))",
         "legal-slate": "hsl(var(--legal-slate))",
       },
+      fontFamily: {
+        heading: ['Amiri', 'IBM Plex Sans Arabic', 'serif'],
+        body: ['Cairo', 'IBM Plex Sans Arabic', 'sans-serif'],
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
