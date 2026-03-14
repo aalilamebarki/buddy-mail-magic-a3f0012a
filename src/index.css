@@ -104,6 +104,14 @@
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
+
+    --legal-navy: 220 50% 22%;
+    --legal-gold: 38 78% 58%;
+    --legal-emerald: 160 70% 35%;
+    --legal-burgundy: 345 50% 45%;
+    --legal-slate: 215 20% 60%;
+    --legal-cream: 40 20% 92%;
+    --legal-amber: 30 80% 60%;
   }
 }
 
