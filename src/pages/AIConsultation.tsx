@@ -255,15 +255,48 @@ const markdownComponents: Components = {
   ),
 };
 
-const buildThinkingPhases = (intake: CaseIntake) => {
-  const caseLabel = CASE_TYPES.find(c => c.value === intake.caseType)?.label || 'النازلة';
-  const sub = intake.subCategory || '';
+const buildThinkingPhases = (intake: CaseIntake, followUpQuestion?: string) => {
   const phases: { text: string; icon: string }[] = [];
 
-  // Phase 1: Analyzing the specific case
+  // If it's a follow-up question, generate contextual phases based on the question
+  if (followUpQuestion) {
+    const q = followUpQuestion;
+
+    // Detect question topic and generate relevant phases
+    if (/تعويض|مبلغ|كم|ثمن|مصاريف|رسوم|أتعاب/.test(q)) {
+      phases.push({ text: 'حساب التعويضات المستحقة حسب المعطيات...', icon: '🔢' });
+      phases.push({ text: 'مراجعة معايير التقدير القضائي...', icon: '📊' });
+    } else if (/مدة|أجل|متى|وقت|مهلة|تقادم/.test(q)) {
+      phases.push({ text: 'التحقق من الآجال القانونية المنطبقة...', icon: '⏳' });
+      phases.push({ text: 'مراجعة حالات التقادم والسقوط...', icon: '📅' });
+    } else if (/محكمة|اختصاص|أين|دعوى|مسطرة/.test(q)) {
+      phases.push({ text: 'تحديد المحكمة المختصة والإجراءات...', icon: '🏛️' });
+      phases.push({ text: 'مراجعة قواعد الاختصاص النوعي والمحلي...', icon: '📋' });
+    } else if (/وثائق|إثبات|حجة|شهادة|عقد/.test(q)) {
+      phases.push({ text: 'تحديد الوثائق والحجج المطلوبة...', icon: '📄' });
+      phases.push({ text: 'مراجعة وسائل الإثبات المقبولة...', icon: '🔍' });
+    } else if (/استئناف|طعن|نقض/.test(q)) {
+      phases.push({ text: 'مراجعة شروط وآجال الطعن...', icon: '⚖️' });
+      phases.push({ text: 'تحليل فرص نجاح الطعن...', icon: '📊' });
+    } else if (/صلح|تفاوض|اتفاق/.test(q)) {
+      phases.push({ text: 'دراسة إمكانيات التسوية الودية...', icon: '🤝' });
+      phases.push({ text: 'تقدير الموقف التفاوضي...', icon: '💡' });
+    } else {
+      // Generic follow-up
+      phases.push({ text: 'تحليل سؤالكم في سياق النازلة...', icon: '🧠' });
+      phases.push({ text: 'مراجعة المعطيات والنصوص ذات الصلة...', icon: '📜' });
+    }
+
+    phases.push({ text: 'صياغة الجواب...', icon: '✍️' });
+    return phases;
+  }
+
+  // First consultation - use intake data
+  const caseLabel = CASE_TYPES.find(c => c.value === intake.caseType)?.label || 'النازلة';
+  const sub = intake.subCategory || '';
+
   phases.push({ text: `جاري تحليل نازلة ${caseLabel}${sub ? ` — ${sub}` : ''}...`, icon: '⚖️' });
 
-  // Phase 2: Relevant laws based on case type
   const lawMap: Record<string, string> = {
     family: 'مراجعة مدونة الأسرة والنصوص المكملة...',
     rental: 'مراجعة القانون رقم 67.12 المتعلق بالكراء...',
@@ -276,7 +309,6 @@ const buildThinkingPhases = (intake: CaseIntake) => {
   };
   phases.push({ text: lawMap[intake.caseType] || 'مراجعة النصوص القانونية المنطبقة...', icon: '📜' });
 
-  // Phase 3: Searching precedents
   const courtMap: Record<string, string> = {
     family: 'البحث في قرارات محكمة النقض — قسم الأسرة...',
     labor: 'البحث في اجتهادات الغرفة الاجتماعية بمحكمة النقض...',
@@ -286,18 +318,15 @@ const buildThinkingPhases = (intake: CaseIntake) => {
   };
   phases.push({ text: courtMap[intake.caseType] || 'البحث في الاجتهاد القضائي ذي الصلة...', icon: '🔍' });
 
-  // Phase 4: Drafting
-  phases.push({ text: `صياغة الاستشارة وتحديد المحكمة المختصة...`, icon: '✍️' });
-
-  // Phase 5: Final assessment
+  phases.push({ text: 'صياغة الاستشارة وتحديد المحكمة المختصة...', icon: '✍️' });
   phases.push({ text: 'تقييم الموقف القانوني وفرص النجاح...', icon: '📊' });
 
   return phases;
 };
 
-const ThinkingAnimation = ({ intake }: { intake: CaseIntake }) => {
+const ThinkingAnimation = ({ intake, followUpQuestion }: { intake: CaseIntake; followUpQuestion?: string }) => {
   const [phase, setPhase] = useState(0);
-  const phases = buildThinkingPhases(intake);
+  const phases = buildThinkingPhases(intake, followUpQuestion);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -358,10 +387,17 @@ const AIConsultation = () => {
   const [loading, setLoading] = useState(false);
   const [caseContext, setCaseContext] = useState('');
   const [mobileNav, setMobileNav] = useState(false);
+  const [lastQuestion, setLastQuestion] = useState<string | undefined>(undefined);
   const scrollRef = useRef<HTMLDivElement>(null);
   const bufferRef = useRef('');
+  const lastMsgRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [messages, loading]);
+  // Scroll to the TOP of the latest message when it appears
+  useEffect(() => {
+    if (lastMsgRef.current) {
+      lastMsgRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [messages]);
 
   const selectedType = CASE_TYPES.find(t => t.value === intake.caseType);
 
@@ -380,6 +416,7 @@ const AIConsultation = () => {
   };
 
   const autoAnalyze = async (context: string) => {
+    setLastQuestion(undefined); // First consultation, no follow-up
     setLoading(true);
     bufferRef.current = '';
     const analyzeMsg: Message = { role: 'user', content: `حلل هذه النازلة القانونية:\n\n${context}` };
@@ -404,6 +441,7 @@ const AIConsultation = () => {
     setInput('');
     const userMsg: Message = { role: 'user', content: userMessage };
     setMessages(prev => [...prev, userMsg]);
+    setLastQuestion(userMessage);
     setLoading(true);
     bufferRef.current = '';
     try {
@@ -693,8 +731,11 @@ const AIConsultation = () => {
                 <div className="h-[3px] bg-gradient-to-l from-primary via-legal-gold to-legal-emerald" />
                 <div ref={scrollRef} className="flex-1 overflow-y-auto p-5" style={{ maxHeight: 'calc(100vh - 220px)' }}>
                   <div className="space-y-4">
-                    {messages.map((msg, i) => (
+                    {messages.map((msg, i) => {
+                      const isLast = i === messages.length - 1;
+                      return (
                       <motion.div key={`${i}-${msg.role}`}
+                        ref={isLast ? lastMsgRef : undefined}
                         initial={{ opacity: 0, y: 15, scale: 0.97 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         transition={{ duration: 0.4, ease: 'easeOut' }}
@@ -720,8 +761,9 @@ const AIConsultation = () => {
                           )}
                         </div>
                       </motion.div>
-                    ))}
-                    {loading && <ThinkingAnimation intake={intake} />}
+                      );
+                    })}
+                    {loading && <ThinkingAnimation intake={intake} followUpQuestion={lastQuestion} />}
                   </div>
                 </div>
 
