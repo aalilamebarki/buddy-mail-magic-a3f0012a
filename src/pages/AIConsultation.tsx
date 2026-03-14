@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Scale, Brain, ArrowLeft, Send, Bot, User, FileText, ClipboardList, ChevronLeft, ChevronRight, AlertTriangle, Menu, X, Sparkles, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
+import type { Components } from 'react-markdown';
 import { toast } from 'sonner';
 
 interface Message { role: 'user' | 'assistant'; content: string; }
