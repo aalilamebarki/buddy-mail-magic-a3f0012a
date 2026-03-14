@@ -4,7 +4,7 @@ import { Helmet } from 'react-helmet-async';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { motion, useScroll, useTransform, useInView } from 'framer-motion';
+import { motion, useScroll, useTransform, useInView, AnimatePresence } from 'framer-motion';
 import {
   Scale,
   Calculator,
@@ -36,9 +36,13 @@ import {
   Siren,
   ChevronLeft,
   ChevronRight,
+  Newspaper,
+  AlertCircle,
+  ArrowUp,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import ThemeToggle from '@/components/ThemeToggle';
 import teamPhoto1 from '@/assets/team-1.png';
 import teamPhoto2 from '@/assets/team-2.png';
 import teamPhoto3 from '@/assets/team-3.png';
