@@ -77,7 +77,8 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { source_index, phase } = await req.json();
+    const body = await req.json();
+    const { source_index, phase, url, urls, doc_type } = body;
 
     // Phase 1: Map a single source to discover URLs
     if (phase === "map") {
