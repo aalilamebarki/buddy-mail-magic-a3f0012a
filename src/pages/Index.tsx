@@ -41,6 +41,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import teamPhoto1 from '@/assets/team-1.png';
 import teamPhoto2 from '@/assets/team-2.png';
+import teamPhoto3 from '@/assets/team-3.png';
 
 /* ═══════════════════════════════════════════
    NAVBAR
