@@ -93,6 +93,15 @@ const KnowledgeBase = () => {
   const [scrapeProgress, setScrapeProgress] = useState(0);
   const [scrapeResults, setScrapeResults] = useState<any[]>([]);
   const [scrapeUrl, setScrapeUrl] = useState('https://juriscassation.cspj.ma');
+
+  // Auto-ingest state
+  const [autoIngestOpen, setAutoIngestOpen] = useState(false);
+  const [autoIngesting, setAutoIngesting] = useState(false);
+  const [autoIngestSource, setAutoIngestSource] = useState<'sgg' | 'cassation' | 'all'>('all');
+  const [autoIngestLog, setAutoIngestLog] = useState<string[]>([]);
+  const [autoIngestProgress, setAutoIngestProgress] = useState(0);
+  const [autoIngestTotal, setAutoIngestTotal] = useState(0);
+  const [autoIngestDocs, setAutoIngestDocs] = useState(0);
   const fetchDocuments = async () => {
     setLoading(true);
     let query = supabase
