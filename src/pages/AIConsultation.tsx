@@ -761,8 +761,9 @@ const AIConsultation = () => {
                           )}
                         </div>
                       </motion.div>
-                    ))}
-                    {loading && <ThinkingAnimation intake={intake} />}
+                      );
+                    })}
+                    {loading && <ThinkingAnimation intake={intake} followUpQuestion={lastQuestion} />}
                   </div>
                 </div>
 
