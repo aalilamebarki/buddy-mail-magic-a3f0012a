@@ -875,17 +875,17 @@ const BlogArticle = () => {
                 <span className="text-sm font-medium text-foreground">شارك هذا المقال:</span>
                 <div className="flex items-center gap-2.5">
                   {[
-                    { p: 'facebook', icon: Facebook, hover: 'hover:bg-[#1877F2] hover:text-white hover:border-[#1877F2]' },
-                    { p: 'whatsapp', icon: MessageCircle, hover: 'hover:bg-[#25D366] hover:text-white hover:border-[#25D366]' },
-                    { p: 'twitter', icon: () => <span className="text-xs font-bold">𝕏</span>, hover: 'hover:bg-foreground hover:text-background hover:border-foreground' },
-                    { p: 'copy', icon: Copy, hover: 'hover:bg-primary hover:text-primary-foreground hover:border-primary' },
+                    { p: 'facebook', icon: Facebook, hover: 'hover:bg-[#1877F2] hover:text-white hover:border-[#1877F2]', label: 'فيسبوك' },
+                    { p: 'whatsapp', icon: MessageCircle, hover: 'hover:bg-[#25D366] hover:text-white hover:border-[#25D366]', label: 'واتساب' },
+                    { p: 'twitter', icon: Share2, hover: 'hover:bg-foreground hover:text-background hover:border-foreground', label: '𝕏' },
+                    { p: 'copy', icon: Copy, hover: 'hover:bg-primary hover:text-primary-foreground hover:border-primary', label: 'نسخ' },
                   ].map(s => (
                     <motion.button key={s.p}
                       whileHover={{ scale: 1.1, y: -2 }}
                       whileTap={{ scale: 0.9 }}
                       onClick={() => shareArticle(s.p)}
                       className={`w-11 h-11 rounded-xl border border-border/30 bg-card flex items-center justify-center text-muted-foreground transition-all duration-300 shadow-sm ${s.hover}`}>
-                      {typeof s.icon === 'function' ? <s.icon /> : <s.icon className="h-4 w-4" />}
+                      <s.icon className="h-4 w-4" />
                     </motion.button>
                   ))}
                 </div>
