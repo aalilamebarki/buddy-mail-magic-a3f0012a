@@ -469,21 +469,28 @@
   list-style: none;
   counter-reset: legal-counter;
   padding-right: 0;
+  margin-right: 0;
 }
 
 .legal-prose ol > li {
   counter-increment: legal-counter;
+  padding-right: 1.25rem;
 }
 
 .legal-prose ol > li::before {
   content: counter(legal-counter) ".";
   font-weight: 700;
   color: hsl(var(--primary));
-  margin-left: 0.5rem;
+  margin-left: 0.35rem;
   font-size: 0.8rem;
 }
 
 .legal-prose ul {
   list-style: none;
   padding-right: 0;
+  margin-right: 0;
+}
+
+.legal-prose ul > li {
+  padding-right: 1rem;
 }
