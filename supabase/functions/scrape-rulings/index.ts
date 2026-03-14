@@ -167,7 +167,9 @@ serve(async (req) => {
       }, FIRECRAWL_API_KEY);
 
       const markdown = data.data?.markdown || data.markdown || "";
-      const title = data.data?.metadata?.title || data.metadata?.title || "قرار محكمة النقض";
+      const docType = detectDocType(url);
+      const defaultTitle = docType === 'law' ? 'نص قانوني' : 'قرار محكمة النقض';
+      const title = data.data?.metadata?.title || data.metadata?.title || defaultTitle;
 
       if (!markdown || markdown.length < 100) {
         return new Response(
