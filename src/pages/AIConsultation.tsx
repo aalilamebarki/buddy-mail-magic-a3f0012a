@@ -320,7 +320,7 @@ const ThinkingAnimation = ({ intake }: { intake: CaseIntake }) => {
             exit={{ opacity: 0, y: -5 }}
             className="text-lg"
           >
-            {THINKING_PHASES[phase].icon}
+            {phases[phase].icon}
           </motion.span>
           <div className="space-y-1.5">
             <AnimatePresence mode="wait">
