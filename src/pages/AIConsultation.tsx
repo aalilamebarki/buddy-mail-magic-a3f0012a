@@ -463,8 +463,8 @@ const AIConsultation = () => {
                             : 'bg-muted/40 text-foreground border border-border/10 rounded-tl-md'
                         }`}>
                           {msg.role === 'assistant' ? (
-                            <div className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-[1.9] prose-li:leading-[1.9]">
-                              <ReactMarkdown>{msg.content}</ReactMarkdown>
+                            <div className="legal-prose max-w-none">
+                              <ReactMarkdown components={markdownComponents}>{msg.content}</ReactMarkdown>
                             </div>
                           ) : (
                             <span className="whitespace-pre-wrap">{msg.content}</span>
