@@ -130,6 +130,7 @@ serve(async (req) => {
     // Detect doc type from URL if not specified
     const detectDocType = (pageUrl: string) => {
       if (pageUrl.includes('sgg.gov.ma') || pageUrl.includes('BulletinOfficiel') || pageUrl.includes('TextesLegislatifs')) return 'law';
+      if (pageUrl.includes('adala.justice')) return 'law';
       if (pageUrl.includes('juriscassation') || pageUrl.includes('arret') || pageUrl.includes('decision')) return 'ruling';
       return requestedDocType || 'law';
     };
