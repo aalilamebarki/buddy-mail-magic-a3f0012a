@@ -32,6 +32,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import teamPhoto1 from '@/assets/team-1.png';
+import teamPhoto2 from '@/assets/team-2.png';
 
 /* ═══════════════════════════════════════════
    NAVBAR
@@ -370,10 +372,62 @@ const ToolsSection = () => (
 );
 
 /* ═══════════════════════════════════════════
+   TEAM FACES
+═══════════════════════════════════════════ */
+const TeamSection = () => (
+  <AnimatedSection className="py-20 md:py-28">
+    <div className="container mx-auto px-4">
+      <div className="text-center mb-14 space-y-4">
+        <Badge variant="outline" className="rounded-full px-4 py-1 text-xs">من نحن</Badge>
+        <h2 className="text-3xl md:text-4xl font-bold text-foreground">
+          الوجوه وراء <span className="text-primary">المحتوى</span>
+        </h2>
+        <p className="text-muted-foreground max-w-xl mx-auto">
+          فريق شغوف بتبسيط القانون وجعله في متناول الجميع
+        </p>
+      </div>
+
+      <div className="flex flex-col md:flex-row gap-8 md:gap-12 items-center justify-center max-w-4xl mx-auto">
+        {[
+          { img: teamPhoto1, name: 'المؤسّس', role: 'كاتب المحتوى القانوني' },
+          { img: teamPhoto2, name: 'الشريك', role: 'المستشار والمراجع' },
+        ].map((member, i) => (
+          <motion.div key={i}
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: i * 0.15 }}
+            className="group text-center space-y-5"
+          >
+            <div className="relative mx-auto w-52 h-52 md:w-64 md:h-64">
+              {/* Glow ring */}
+              <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-primary/20 via-legal-gold/20 to-legal-emerald/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+              {/* Photo */}
+              <div className="relative w-full h-full rounded-3xl overflow-hidden border-2 border-border/20 shadow-2xl shadow-foreground/[0.06] group-hover:border-primary/20 transition-all duration-500">
+                <img src={member.img} alt={member.name}
+                  className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-700" />
+                <div className="absolute inset-0 bg-gradient-to-t from-foreground/20 via-transparent to-transparent" />
+              </div>
+              {/* Decorative badge */}
+              <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-card border border-border/30 rounded-full px-4 py-1.5 shadow-lg">
+                <span className="text-[11px] font-semibold text-primary">{member.role}</span>
+              </div>
+            </div>
+            <div className="pt-2">
+              <h3 className="text-lg font-bold text-foreground">{member.name}</h3>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  </AnimatedSection>
+);
+
+/* ═══════════════════════════════════════════
    QUOTE
 ═══════════════════════════════════════════ */
 const QuoteSection = () => (
-  <AnimatedSection className="py-20 md:py-28">
+  <AnimatedSection className="py-20 md:py-28 bg-muted/30">
     <div className="container mx-auto px-4">
       <div className="max-w-3xl mx-auto text-center relative">
         <Quote className="h-10 w-10 text-legal-gold/20 mx-auto mb-6" />
@@ -382,9 +436,7 @@ const QuoteSection = () => (
           وكل سؤال يستحق إجابة واضحة ومؤسّسة."
         </blockquote>
         <div className="flex items-center justify-center gap-3">
-          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-legal-navy to-primary flex items-center justify-center text-primary-foreground text-sm font-bold">
-            م
-          </div>
+          <img src={teamPhoto1} alt="المؤسس" className="h-11 w-11 rounded-full object-cover object-top border-2 border-primary/20 shadow-md" />
           <div className="text-start">
             <div className="text-sm font-semibold text-foreground">محاماة ذكية</div>
             <div className="text-xs text-muted-foreground">فلسفتنا</div>
@@ -567,6 +619,7 @@ const Index = () => (
         <StatsStrip />
         <DomainsSection />
         <ToolsSection />
+        <TeamSection />
         <QuoteSection />
         <TrustSection />
         <CTASection />
