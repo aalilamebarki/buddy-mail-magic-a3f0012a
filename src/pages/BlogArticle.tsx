@@ -588,6 +588,15 @@ const BlogArticle = () => {
 
                 <Tooltip>
                   <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" onClick={() => { toast.success('جاري تحميل PDF...'); window.print(); }} className="h-8 w-8 text-muted-foreground hover:text-legal-emerald">
+                      <Download className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>تحميل PDF</TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
                     <Button variant="ghost" size="icon" onClick={() => { toast.success('تمت الإضافة للمفضلة'); }} className="h-8 w-8 text-muted-foreground hover:text-legal-gold">
                       <Bookmark className="h-3.5 w-3.5" />
                     </Button>
