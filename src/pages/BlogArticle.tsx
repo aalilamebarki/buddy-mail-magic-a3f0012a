@@ -925,7 +925,7 @@ const BlogArticle = () => {
                             </Badge>
                           </div>
                           <CardContent className="p-5 space-y-3">
-                            <h3 className="text-sm font-bold text-foreground line-clamp-2 group-hover:text-primary transition-colors leading-relaxed font-display">
+                            <h3 className="text-sm font-bold text-foreground line-clamp-2 group-hover:text-primary transition-colors leading-relaxed">
                               {r.title}
                             </h3>
                             <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
