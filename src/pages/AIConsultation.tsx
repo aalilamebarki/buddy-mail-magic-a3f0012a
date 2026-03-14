@@ -1,55 +1,178 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Scale, Brain, ArrowLeft, Send, Bot, User } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import ReactMarkdown from 'react-markdown';
+import { toast } from 'sonner';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
 }
 
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/legal-chat`;
+
+async function streamChat({
+  messages,
+  onDelta,
+  onDone,
+  onError,
+}: {
+  messages: Message[];
+  onDelta: (text: string) => void;
+  onDone: () => void;
+  onError: (err: string) => void;
+}) {
+  const resp = await fetch(CHAT_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+    },
+    body: JSON.stringify({ messages }),
+  });
+
+  if (!resp.ok) {
+    if (resp.status === 429) {
+      onError('تم تجاوز حد الطلبات، يرجى المحاولة لاحقاً.');
+      return;
+    }
+    if (resp.status === 402) {
+      onError('يرجى إضافة رصيد لحساب Lovable AI.');
+      return;
+    }
+    onError('حدث خطأ في الاتصال بخدمة الذكاء الاصطناعي');
+    return;
+  }
+
+  if (!resp.body) {
+    onError('لا توجد استجابة');
+    return;
+  }
+
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let textBuffer = '';
+  let streamDone = false;
+
+  while (!streamDone) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    textBuffer += decoder.decode(value, { stream: true });
+
+    let newlineIndex: number;
+    while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
+      let line = textBuffer.slice(0, newlineIndex);
+      textBuffer = textBuffer.slice(newlineIndex + 1);
+
+      if (line.endsWith('\r')) line = line.slice(0, -1);
+      if (line.startsWith(':') || line.trim() === '') continue;
+      if (!line.startsWith('data: ')) continue;
+
+      const jsonStr = line.slice(6).trim();
+      if (jsonStr === '[DONE]') {
+        streamDone = true;
+        break;
+      }
+
+      try {
+        const parsed = JSON.parse(jsonStr);
+        const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+        if (content) onDelta(content);
+      } catch {
+        textBuffer = line + '\n' + textBuffer;
+        break;
+      }
+    }
+  }
+
+  // Flush remaining
+  if (textBuffer.trim()) {
+    for (let raw of textBuffer.split('\n')) {
+      if (!raw) continue;
+      if (raw.endsWith('\r')) raw = raw.slice(0, -1);
+      if (raw.startsWith(':') || raw.trim() === '') continue;
+      if (!raw.startsWith('data: ')) continue;
+      const jsonStr = raw.slice(6).trim();
+      if (jsonStr === '[DONE]') continue;
+      try {
+        const parsed = JSON.parse(jsonStr);
+        const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+        if (content) onDelta(content);
+      } catch { /* ignore */ }
+    }
+  }
+
+  onDone();
+}
+
 const AIConsultation = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: 'مرحباً! أنا المساعد القانوني الذكي. يمكنك طرح أسئلتك القانونية وسأحاول مساعدتك.\n\n⚠️ ملاحظة: هذه استشارة أولية ولا تغني عن استشارة محامٍ مختص.',
+      content:
+        'مرحباً! أنا المستشار القانوني الذكي المتخصص في **القانون المغربي**. يمكنني مساعدتك في:\n\n- 📜 القانون المدني وقانون الالتزامات والعقود\n- ⚖️ القانون الجنائي والمسطرة الجنائية\n- 👨‍👩‍👧‍👦 مدونة الأسرة (الزواج، الطلاق، الحضانة، الإرث)\n- 🏢 القانون التجاري وقانون الشركات\n- 🏠 القانون العقاري والتحفيظ العقاري\n- 💼 مدونة الشغل وقانون العمل\n- 🏛️ القانون الإداري والمنازعات الإدارية\n\nاطرح سؤالك القانوني وسأجيبك بالاستناد إلى النصوص القانونية واجتهادات **محكمة النقض**.\n\n⚠️ *ملاحظة: هذه استشارة أولية توجيهية ولا تغني عن استشارة محامٍ مختص.*',
     },
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
 
   const handleSend = async () => {
     if (!input.trim() || loading) return;
 
     const userMessage = input.trim();
     setInput('');
-    setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
+    const userMsg: Message = { role: 'user', content: userMessage };
+    setMessages((prev) => [...prev, userMsg]);
     setLoading(true);
 
-    // Simulated AI response (would connect to an AI edge function in production)
-    setTimeout(() => {
-      const responses = [
-        'شكراً على سؤالك. بناءً على القانون المغربي، هذه المسألة تتطلب دراسة معمقة. أنصحك بالتواصل مع محامٍ مختص للحصول على استشارة دقيقة.',
-        'هذا سؤال مهم. في إطار القانون المغربي، يمكنني إفادتك أن المسطرة المتبعة تتضمن عدة مراحل. يُفضل تقديم ملف كامل لمحاميك لدراسة كافة الجوانب.',
-        'بحسب مقتضيات القانون المغربي، هذه المسألة تخضع لعدة نصوص قانونية. أنصحك بجمع كافة الوثائق ذات الصلة والتواصل مع محامٍ.',
-      ];
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: responses[Math.floor(Math.random() * responses.length)] },
-      ]);
+    let assistantSoFar = '';
+    const upsertAssistant = (chunk: string) => {
+      assistantSoFar += chunk;
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.role === 'assistant' && prev.length > 1 && last.content === assistantSoFar.slice(0, -chunk.length)) {
+          return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: assistantSoFar } : m));
+        }
+        if (last?.role === 'assistant' && assistantSoFar.length > chunk.length) {
+          return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: assistantSoFar } : m));
+        }
+        return [...prev, { role: 'assistant', content: assistantSoFar }];
+      });
+    };
+
+    try {
+      await streamChat({
+        messages: [...messages, userMsg].map((m) => ({ role: m.role, content: m.content })),
+        onDelta: (chunk) => upsertAssistant(chunk),
+        onDone: () => setLoading(false),
+        onError: (err) => {
+          toast.error(err);
+          setLoading(false);
+        },
+      });
+    } catch (e) {
+      console.error(e);
+      toast.error('حدث خطأ غير متوقع');
       setLoading(false);
-    }, 1500);
+    }
   };
 
   return (
     <>
       <Helmet>
         <title>الاستشارة الذكية - محاماة ذكية</title>
-        <meta name="description" content="استشارة قانونية ذكية بالذكاء الاصطناعي" />
+        <meta name="description" content="استشارة قانونية ذكية بالذكاء الاصطناعي متخصصة في القانون المغربي واجتهادات محكمة النقض" />
       </Helmet>
       <div className="min-h-screen bg-background flex flex-col">
         <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
@@ -70,11 +193,11 @@ const AIConsultation = () => {
               <Brain className="h-7 w-7 text-primary" />
             </div>
             <h1 className="text-2xl font-bold text-foreground">الاستشارة الذكية</h1>
-            <p className="text-sm text-muted-foreground">اطرح سؤالك القانوني واحصل على إجابة فورية</p>
+            <p className="text-sm text-muted-foreground">مستشار قانوني ذكي متخصص في القانون المغربي واجتهادات محكمة النقض</p>
           </div>
 
           <Card className="flex-1 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-4" style={{ maxHeight: 'calc(100vh - 350px)' }}>
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4" style={{ maxHeight: 'calc(100vh - 350px)' }}>
               <div className="space-y-4">
                 {messages.map((msg, i) => (
                   <div
@@ -89,17 +212,23 @@ const AIConsultation = () => {
                       {msg.role === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
                     </div>
                     <div
-                      className={`rounded-xl px-4 py-3 max-w-[80%] text-sm whitespace-pre-wrap ${
+                      className={`rounded-xl px-4 py-3 max-w-[80%] text-sm ${
                         msg.role === 'user'
                           ? 'bg-primary text-primary-foreground'
                           : 'bg-muted text-foreground'
                       }`}
                     >
-                      {msg.content}
+                      {msg.role === 'assistant' ? (
+                        <div className="prose prose-sm dark:prose-invert max-w-none">
+                          <ReactMarkdown>{msg.content}</ReactMarkdown>
+                        </div>
+                      ) : (
+                        <span className="whitespace-pre-wrap">{msg.content}</span>
+                      )}
                     </div>
                   </div>
                 ))}
-                {loading && (
+                {loading && messages[messages.length - 1]?.role !== 'assistant' && (
                   <div className="flex gap-3">
                     <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
                       <Bot className="h-4 w-4" />
