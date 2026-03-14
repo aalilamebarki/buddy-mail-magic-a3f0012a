@@ -660,9 +660,10 @@ const AIConsultation = () => {
                 <div ref={scrollRef} className="flex-1 overflow-y-auto p-5" style={{ maxHeight: 'calc(100vh - 220px)' }}>
                   <div className="space-y-4">
                     {messages.map((msg, i) => (
-                      <motion.div key={i}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
+                      <motion.div key={`${i}-${msg.role}`}
+                        initial={{ opacity: 0, y: 15, scale: 0.97 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        transition={{ duration: 0.4, ease: 'easeOut' }}
                         className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
                         <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${
                           msg.role === 'user'
@@ -671,10 +672,10 @@ const AIConsultation = () => {
                         }`}>
                           {msg.role === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
                         </div>
-                        <div className={`rounded-2xl px-5 py-4 max-w-[85%] text-sm leading-relaxed ${
+                        <div className={`rounded-2xl px-5 py-4 text-sm leading-relaxed ${
                           msg.role === 'user'
-                            ? 'bg-primary text-primary-foreground rounded-tr-md'
-                            : 'bg-muted/40 text-foreground border border-border/10 rounded-tl-md'
+                            ? 'bg-primary text-primary-foreground rounded-tr-md max-w-[85%]'
+                            : 'bg-card text-foreground border border-border/15 rounded-tl-md shadow-sm max-w-[92%]'
                         }`}>
                           {msg.role === 'assistant' ? (
                             <div className="legal-prose max-w-none">
@@ -686,20 +687,7 @@ const AIConsultation = () => {
                         </div>
                       </motion.div>
                     ))}
-                    {loading && messages[messages.length - 1]?.role !== 'assistant' && (
-                      <div className="flex gap-3">
-                        <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-legal-navy/10 to-legal-gold/10 flex items-center justify-center">
-                          <Bot className="h-4 w-4 text-legal-navy" />
-                        </div>
-                        <div className="bg-muted/40 rounded-2xl rounded-tl-md px-5 py-4 border border-border/10">
-                          <div className="flex gap-1.5">
-                            <span className="w-2 h-2 bg-primary/40 rounded-full animate-bounce" />
-                            <span className="w-2 h-2 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }} />
-                            <span className="w-2 h-2 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                    {loading && <ThinkingAnimation />}
                   </div>
                 </div>
 
