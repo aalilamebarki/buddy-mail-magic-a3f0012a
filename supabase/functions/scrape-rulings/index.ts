@@ -228,8 +228,10 @@ serve(async (req) => {
             waitFor: 3000,
           }, FIRECRAWL_API_KEY);
 
+          const batchDocType = detectDocType(urls[i]);
+          const defaultTitle = batchDocType === 'law' ? 'نص قانوني' : 'قرار محكمة النقض';
           const markdown = data.data?.markdown || data.markdown || "";
-          const title = data.data?.metadata?.title || data.metadata?.title || "قرار محكمة النقض";
+          const title = data.data?.metadata?.title || data.metadata?.title || defaultTitle;
 
           if (markdown && markdown.length >= 100) {
             const meta = extractRulingMetadata(markdown, urls[i]);
@@ -242,10 +244,10 @@ serve(async (req) => {
                 title: title.slice(0, 500),
                 content: chunk,
                 source: urls[i],
-                doc_type: "ruling",
+                doc_type: batchDocType,
                 category: meta.category,
                 reference_number: meta.referenceNumber || null,
-                court_chamber: meta.chamber || null,
+                court_chamber: batchDocType === 'ruling' ? (meta.chamber || null) : null,
                 decision_date: meta.decisionDate || null,
                 embedding: JSON.stringify(embedding),
                 metadata: { scraped: true, scraped_at: new Date().toISOString() },
