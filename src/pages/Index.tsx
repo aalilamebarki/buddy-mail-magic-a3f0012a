@@ -387,61 +387,10 @@ const ToolsSection = () => (
 );
 
 /* ═══════════════════════════════════════════
-   TEAM FACES
+   TEAM FACES (uses shared component)
 ═══════════════════════════════════════════ */
-const TeamSection = () => (
-  <AnimatedSection className="py-20 md:py-28 relative overflow-hidden">
-    <div className="absolute inset-0 bg-gradient-to-b from-muted/30 via-transparent to-muted/30" />
-    <div className="container mx-auto px-4 relative z-10">
-      <div className="text-center mb-14 space-y-4">
-        <Badge variant="outline" className="rounded-full px-4 py-1 text-xs">
-          <Users className="h-3 w-3 ml-1" /> من نحن
-        </Badge>
-        <h2 className="text-3xl md:text-4xl font-bold text-foreground">
-          الوجوه وراء <span className="text-primary">المحتوى</span>
-        </h2>
-        <p className="text-muted-foreground max-w-xl mx-auto">
-          فريق شغوف بتبسيط القانون وجعله في متناول الجميع
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 md:gap-10 max-w-4xl mx-auto">
-        {[
-          { img: teamPhoto1, name: 'المؤسّس', role: 'كاتب المحتوى القانوني', desc: 'متخصص في صياغة المحتوى القانوني بأسلوب مبسّط' },
-          { img: teamPhoto3, name: 'المحررة', role: 'التحرير والمراجعة', desc: 'مسؤولة عن جودة المحتوى والتدقيق اللغوي' },
-          { img: teamPhoto2, name: 'الشريك', role: 'المستشار والمراجع', desc: 'مراجعة المحتوى القانوني وضمان دقة المعلومات' },
-        ].map((member, i) => (
-          <motion.div key={i}
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: i * 0.15 }}
-            className="group text-center"
-          >
-            <div className="relative mx-auto w-44 h-44 sm:w-48 sm:h-48 md:w-56 md:h-56 mb-5">
-              {/* Glow */}
-              <div className="absolute -inset-3 rounded-full bg-gradient-to-br from-primary/25 via-legal-gold/20 to-legal-emerald/25 blur-2xl opacity-0 group-hover:opacity-60 transition-opacity duration-700" />
-              {/* Image container */}
-              <div className="relative w-full h-full rounded-full overflow-hidden border-[3px] border-border/30 shadow-xl group-hover:border-primary/30 group-hover:shadow-2xl group-hover:shadow-primary/10 transition-all duration-500">
-                <img src={member.img} alt={member.name} loading="eager"
-                  className="w-full h-full object-cover object-top group-hover:scale-110 transition-transform duration-700" />
-                <div className="absolute inset-0 bg-gradient-to-t from-legal-navy/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              </div>
-              {/* Role badge */}
-              <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-card border border-border/40 rounded-full px-4 py-1.5 shadow-lg whitespace-nowrap">
-                <span className="text-[10px] sm:text-[11px] font-semibold text-primary">{member.role}</span>
-              </div>
-            </div>
-            <div className="pt-3 space-y-1">
-              <h3 className="text-base md:text-lg font-bold text-foreground">{member.name}</h3>
-              <p className="text-xs text-muted-foreground leading-relaxed max-w-[200px] mx-auto">{member.desc}</p>
-            </div>
-          </motion.div>
-        ))}
-      </div>
-    </div>
-  </AnimatedSection>
-);
+import TeamSectionComponent from '@/components/TeamSection';
+const TeamSection = () => <TeamSectionComponent variant="compact" />;
 
 /* ═══════════════════════════════════════════
    FAMOUS QUOTES CAROUSEL

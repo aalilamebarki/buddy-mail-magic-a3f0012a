@@ -6,13 +6,11 @@ import { motion, useInView } from 'framer-motion';
 import { useRef } from 'react';
 import {
   Scale, ArrowLeft, Shield, Target, Eye, BookOpen, Users, Gavel,
-  Landmark, ScrollText, Award, Globe, Menu, X, CheckCircle,
+  Landmark, ScrollText, Award, Globe, Menu, X,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import ThemeToggle from '@/components/ThemeToggle';
-import teamPhoto1 from '@/assets/team-1.png';
-import teamPhoto2 from '@/assets/team-2.png';
-import teamPhoto3 from '@/assets/team-3.png';
+import TeamSection from '@/components/TeamSection';
 
 const AnimatedSection = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => {
   const ref = useRef(null);
@@ -38,11 +36,6 @@ const values = [
   { icon: Users, title: 'التبسيط', desc: 'نكتب بلغة واضحة ومباشرة بعيداً عن التعقيد والمصطلحات المبهمة.' },
 ];
 
-const team = [
-  { img: teamPhoto1, name: 'المؤسّس', role: 'كاتب المحتوى القانوني', desc: 'متخصص في صياغة المحتوى القانوني وتبسيطه للقارئ العادي.', expertise: ['القانون المدني', 'قانون الأسرة', 'القانون الجنائي'] },
-  { img: teamPhoto3, name: 'المحررة', role: 'التحرير والمراجعة', desc: 'مسؤولة عن جودة المحتوى والتدقيق اللغوي والقانوني.', expertise: ['التحرير القانوني', 'التدقيق اللغوي', 'إدارة المحتوى'] },
-  { img: teamPhoto2, name: 'الشريك', role: 'المستشار والمراجع', desc: 'مراجعة المحتوى القانوني وضمان دقة المعلومات والمراجع.', expertise: ['القانون التجاري', 'القانون العقاري', 'المنازعات الإدارية'] },
-];
 
 const About = () => {
   const [mobileNav, setMobileNav] = useState(false);
@@ -164,48 +157,7 @@ const About = () => {
         </AnimatedSection>
 
         {/* Verified Experts / Team */}
-        <AnimatedSection className="py-20 md:py-28 bg-muted/30">
-          <div className="container mx-auto px-4">
-            <div className="text-center mb-14 space-y-3">
-              <Badge variant="outline" className="rounded-full px-4 py-1 text-xs gap-1.5">
-                <CheckCircle className="h-3 w-3" /> خبراء موثّقون
-              </Badge>
-              <h2 className="text-2xl md:text-3xl font-bold text-foreground">الفريق وراء <span className="text-primary">المحتوى</span></h2>
-              <p className="text-muted-foreground text-sm max-w-lg mx-auto">فريق متخصص يجمع بين الخبرة القانونية والشغف بالتبسيط</p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-              {team.map((member, i) => (
-                <motion.div key={i}
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.15 }}
-                  className="group"
-                >
-                  <div className="rounded-3xl border border-border/30 bg-card overflow-hidden hover:shadow-xl hover:border-primary/15 transition-all duration-500">
-                    <div className="relative h-64 overflow-hidden">
-                      <img src={member.img} alt={member.name} loading="lazy"
-                        className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-700" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-card via-card/20 to-transparent" />
-                      <div className="absolute bottom-4 right-4 left-4">
-                        <h3 className="text-lg font-bold text-foreground">{member.name}</h3>
-                        <p className="text-xs text-primary font-medium">{member.role}</p>
-                      </div>
-                    </div>
-                    <div className="p-5 space-y-3">
-                      <p className="text-sm text-muted-foreground leading-relaxed">{member.desc}</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {member.expertise.map((e, j) => (
-                          <span key={j} className="text-[9px] bg-primary/5 text-primary px-2.5 py-1 rounded-full font-medium">{e}</span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </AnimatedSection>
+        <TeamSection variant="full" />
 
         {/* CTA */}
         <AnimatedSection className="py-20 md:py-28">
