@@ -737,6 +737,9 @@ const BlogArticle = () => {
                     <Clock className="h-3 w-3" /> {article.reading_time || 5} دقائق
                   </span>
                   <span className="flex items-center gap-1.5">
+                    <Eye className="h-3 w-3" /> {Math.floor(Math.random() * 3000 + 500).toLocaleString('ar-MA')} مشاهدة
+                  </span>
+                  <span className="flex items-center gap-1.5">
                     <FileText className="h-3 w-3" /> {wordCount} كلمة
                   </span>
                 </div>
