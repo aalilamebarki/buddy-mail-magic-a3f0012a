@@ -134,18 +134,18 @@ const markdownComponents: Components = {
     return <p className="my-2 text-sm leading-[1.95] text-foreground/85">{children}</p>;
   },
   ul: ({ children }) => (
-    <ul className="my-3 space-y-1.5 pr-1">{children}</ul>
+    <ul className="my-2.5 space-y-1 mr-0">{children}</ul>
   ),
   ol: ({ children }) => (
-    <ol className="my-3 space-y-2 pr-1 counter-reset-legal">{children}</ol>
+    <ol className="my-2.5 space-y-1.5 mr-0 counter-reset-legal">{children}</ol>
   ),
   li: ({ children, ...props }) => {
     const ordered = (props as any).ordered;
     return (
-      <li className={`relative text-sm leading-[1.9] text-foreground/85 pr-5 ${
+      <li className={`relative text-sm leading-[1.9] text-foreground/85 pr-4 ${
         ordered
-          ? "before:content-[counter(list-item)'·'] before:counter-increment-[list-item] before:absolute before:right-0 before:font-bold before:text-primary before:text-xs list-decimal list-inside"
-          : "before:content-[''] before:absolute before:right-0 before:top-[0.65em] before:w-1.5 before:h-1.5 before:rounded-full before:bg-primary/40"
+          ? "before:content-[counter(list-item)'.'] before:counter-increment-[list-item] before:absolute before:right-0 before:font-bold before:text-primary before:text-[0.8rem]"
+          : "before:content-[''] before:absolute before:right-0.5 before:top-[0.7em] before:w-1.5 before:h-1.5 before:rounded-full before:bg-primary/50"
       }`}>
         {children}
       </li>
