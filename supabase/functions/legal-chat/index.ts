@@ -1,4 +1,4 @@
-// Legal AI Chat with real-time web search for Moroccan court decisions
+// Legal AI Chat - Moroccan Law with RAG + Enhanced Reasoning
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -8,68 +8,49 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `أنت مستشار قانوني متخصص في القانون المغربي ذو خبرة عالية. مهمتك هي تقديم استشارات قانونية دقيقة ومفصلة تقارب مستوى ما يقدمه المحامي المتخصص.
+const SYSTEM_PROMPT = `أنت مستشار قانوني متخصص في القانون المغربي ذو خبرة عالية في تحليل النوازل القضائية. تقدم استشارات بمستوى محامٍ متمرس.
 
-## منهجيتك في الإجابة:
+## منهجية التحليل (اتبعها في كل إجابة):
 
-### 1. تحليل النازلة (الوقائع)
-- حدد الوقائع الجوهرية من سؤال المستخدم
-- صنّف النازلة (مدني، جنائي، أسري، تجاري، عقاري، شغل، إداري)
-- حدد الأطراف والعلاقة القانونية بينهم
+### 1. تحليل النازلة
+- حدد الوقائع الجوهرية وصنّف النازلة
+- حدد الأطراف والعلاقة القانونية
 
 ### 2. التأطير القانوني
-- حدد النصوص القانونية المنطبقة مع ذكر أرقام الفصول والمواد بدقة
-- اشرح كيف تنطبق هذه النصوص على النازلة المعروضة
-- ميّز بين النصوص العامة والخاصة
+- حدد النصوص المنطبقة مع أرقام الفصول/المواد بدقة
+- اشرح كيف تنطبق على النازلة
 
-### 3. الاجتهاد القضائي
-- استحضر قرارات محكمة النقض ذات الصلة
-- اذكر الغرفة المختصة (مدنية، تجارية، جنائية، أحوال شخصية، إدارية، اجتماعية)
-- وضّح المبدأ القانوني المستخلص من كل قرار
-- قارن بين النازلة المعروضة والنوازل المماثلة في الاجتهاد القضائي
+### 3. اجتهاد محكمة النقض
+- استحضر الاجتهاد القضائي المستقر في الموضوع
+- اذكر المبادئ القضائية ذات الصلة
+- حدد الغرفة المختصة
+- ⚠️ لا تختلق أرقام قرارات - قل "استقر الاجتهاد القضائي على..." إذا لم تتذكر الرقم بدقة
 
-### 4. المسطرة العملية
-- اشرح الخطوات الإجرائية بالتفصيل وبالترتيب
-- حدد المحكمة المختصة نوعياً ومحلياً
-- اذكر الآجال القانونية الواجب احترامها
-- حدد الوثائق والمستندات المطلوبة
-- قدّر التكاليف والرسوم القضائية إن أمكن
+### 4. المسطرة خطوة بخطوة
+- الإجراءات بالترتيب الزمني
+- المحكمة المختصة نوعياً ومحلياً
+- الآجال القانونية
+- الوثائق المطلوبة
+- تقدير الرسوم والتكاليف
 
-### 5. النصيحة القانونية
-- قدم رأيك القانوني بوضوح
-- نبّه إلى المخاطر القانونية
-- اقترح البدائل الممكنة
-- حدد فرص النجاح بشكل واقعي
+### 5. النصيحة والرأي
+- رأيك القانوني بوضوح
+- المخاطر والبدائل
+- فرص النجاح
 
-## القوانين الأساسية التي تعتمد عليها:
-- **ق.ل.ع** (قانون الالتزامات والعقود - ظهير 12 أغسطس 1913)
-- **القانون الجنائي** (ظهير 26 نونبر 1962)
-- **قانون المسطرة المدنية** (ظهير 28 شتنبر 1974)
-- **قانون المسطرة الجنائية** (قانون 22.01)
-- **مدونة الأسرة** (قانون 70.03)
-- **مدونة التجارة** (قانون 15.95)
-- **مدونة الشغل** (قانون 65.99)
-- **القانون العقاري**: ظهير التحفيظ العقاري + مدونة الحقوق العينية (قانون 39.08)
-- **قانون الكراء السكني والمهني** (قانون 67.12)
-- **قانون الكراء التجاري** (قانون 49.16)
-- **قانون المحاكم الإدارية** (قانون 41.90)
-- **قانون المحاكم التجارية** (قانون 53.95)
+## القوانين الأساسية:
+- ق.ل.ع (ظهير 12/08/1913) | القانون الجنائي (ظهير 26/11/1962)
+- ق.م.م (ظهير 28/09/1974) | ق.م.ج (قانون 22.01)
+- مدونة الأسرة (70.03) | مدونة التجارة (15.95) | مدونة الشغل (65.99)
+- قانون التحفيظ العقاري + مدونة الحقوق العينية (39.08)
+- الكراء السكني/المهني (67.12) | الكراء التجاري (49.16)
+- المحاكم الإدارية (41.90) | المحاكم التجارية (53.95)
 
-## غرف محكمة النقض:
-- الغرفة المدنية | الغرفة التجارية | الغرفة الجنائية
-- غرفة الأحوال الشخصية والميراث | الغرفة الإدارية | الغرفة الاجتماعية
-
-## قواعد صارمة:
-1. أجب باللغة العربية الفصحى (اقبل الدارجة المغربية من السائل)
-2. لا تختلق أرقام قرارات أو أحكام - إذا لم تكن متأكداً، قل "هناك اجتهاد قضائي مستقر في هذا الاتجاه" دون اختلاق أرقام
-3. استخدم السياق المقدم من قاعدة المعرفة القانونية إن وُجد
-4. كن دقيقاً في أرقام الفصول والمواد
-5. في نهاية كل إجابة، ذكّر أن هذه استشارة أولية توجيهية
-
-## إذا تم تزويدك بسياق من قاعدة المعرفة:
-- اعتمد عليه بشكل أساسي في إجابتك
-- اذكر المصادر والمراجع الواردة فيه
-- قارن النازلة المعروضة بالقرارات الواردة في السياق`;
+## قواعد:
+1. أجب بالعربية الفصحى (اقبل الدارجة من السائل)
+2. كن دقيقاً في أرقام الفصول والمواد
+3. استخدم السياق من قاعدة المعرفة إن وُجد
+4. اختم بتنبيه أن هذه استشارة أولية توجيهية`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -79,30 +60,28 @@ serve(async (req) => {
   try {
     const { messages } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    // Get the last user message for context enrichment
+    // Search local knowledge base
     const lastUserMessage = [...messages].reverse().find((m: any) => m.role === "user");
     let ragContext = "";
 
-    // Search local knowledge base
     if (lastUserMessage) {
       try {
         const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
         const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
         const supabase = createClient(supabaseUrl, supabaseKey);
 
-        // Check if we have any documents at all
         const { count } = await supabase
           .from("legal_documents")
           .select("*", { count: "exact", head: true });
 
         if (count && count > 0) {
-          // Simple text search as fallback (more reliable than vector search without proper embeddings)
-          const searchTerms = lastUserMessage.content.split(/\s+/).filter((t: string) => t.length > 3).slice(0, 5);
-          
+          const searchTerms = lastUserMessage.content
+            .split(/\s+/)
+            .filter((t: string) => t.length > 3)
+            .slice(0, 5);
+
           if (searchTerms.length > 0) {
             const { data: docs } = await supabase
               .from("legal_documents")
@@ -111,9 +90,9 @@ serve(async (req) => {
               .limit(5);
 
             if (docs && docs.length > 0) {
-              ragContext = "\n\n## سياق من قاعدة المعرفة القانونية المحلية:\n" +
+              ragContext = "\n\n## سياق من قاعدة المعرفة:\n" +
                 docs.map((d: any) =>
-                  `### ${d.title}${d.reference_number ? ' (رقم: ' + d.reference_number + ')' : ''}${d.court_chamber ? ' - ' + d.court_chamber : ''}\nالنوع: ${d.doc_type}\n${d.content.slice(0, 1500)}`
+                  `### ${d.title}${d.reference_number ? ' (' + d.reference_number + ')' : ''}${d.court_chamber ? ' - ' + d.court_chamber : ''}\n${d.content.slice(0, 1500)}`
                 ).join("\n\n---\n\n");
             }
           }
@@ -123,54 +102,8 @@ serve(async (req) => {
       }
     }
 
-    // Step 1: Use a separate AI call to research the legal question
-    let researchContext = "";
-    if (lastUserMessage) {
-      try {
-        const researchResponse = await fetch(
-          "https://ai.gateway.lovable.dev/v1/chat/completions",
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${LOVABLE_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "google/gemini-2.5-flash",
-              messages: [
-                {
-                  role: "system",
-                  content: `أنت باحث قانوني مغربي. مهمتك هي البحث عن:
-1. النصوص القانونية المغربية المنطبقة (مع أرقام الفصول)
-2. قرارات محكمة النقض المغربية ذات الصلة (مع أرقام القرارات والتواريخ إن أمكن)
-3. المبادئ القضائية المستقرة في الموضوع
+    const finalPrompt = SYSTEM_PROMPT + ragContext;
 
-أجب بشكل مختصر ومنظم. ركز فقط على المعلومات القانونية الدقيقة.`,
-                },
-                {
-                  role: "user",
-                  content: `ابحث عن النصوص القانونية المغربية وقرارات محكمة النقض المتعلقة بهذه النازلة: ${lastUserMessage.content}`,
-                },
-              ],
-            }),
-          }
-        );
-
-        if (researchResponse.ok) {
-          const researchData = await researchResponse.json();
-          researchContext = researchData.choices?.[0]?.message?.content || "";
-          if (researchContext) {
-            researchContext = "\n\n## نتائج البحث القانوني:\n" + researchContext;
-          }
-        }
-      } catch (err) {
-        console.error("Research step error (non-fatal):", err);
-      }
-    }
-
-    const enrichedSystemPrompt = SYSTEM_PROMPT + ragContext + researchContext;
-
-    // Step 2: Generate the final response with all context
     const response = await fetch(
       "https://ai.gateway.lovable.dev/v1/chat/completions",
       {
@@ -182,7 +115,7 @@ serve(async (req) => {
         body: JSON.stringify({
           model: "google/gemini-2.5-pro",
           messages: [
-            { role: "system", content: enrichedSystemPrompt },
+            { role: "system", content: finalPrompt },
             ...messages,
           ],
           stream: true,
