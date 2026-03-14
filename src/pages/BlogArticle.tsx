@@ -514,7 +514,7 @@ const BlogArticle = () => {
       <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-legal-navy/10 to-legal-gold/10 flex items-center justify-center">
         <BookOpen className="h-12 w-12 text-legal-navy" />
       </div>
-      <h1 className="text-2xl font-bold text-foreground font-display">المقال غير موجود</h1>
+      <h1 className="text-2xl font-bold text-foreground">المقال غير موجود</h1>
       <Link to="/blog"><Button className="gap-2 rounded-xl"><ArrowRight className="h-4 w-4" /> العودة للمدونة</Button></Link>
     </div>
   );
