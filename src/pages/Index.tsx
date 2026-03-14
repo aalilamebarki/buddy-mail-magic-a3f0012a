@@ -29,6 +29,13 @@ import {
   Users,
   Globe,
   Gavel,
+  Landmark,
+  ScrollText,
+  Handshake,
+  HeartHandshake,
+  Siren,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -141,7 +148,7 @@ const HeroSection = () => {
         <div className="max-w-4xl mx-auto text-center space-y-8">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
             <Badge className="bg-legal-gold/10 text-legal-gold border-legal-gold/20 hover:bg-legal-gold/15 px-4 py-1.5 text-xs font-medium rounded-full">
-              <Sparkles className="h-3 w-3 ml-1.5" />
+              <Landmark className="h-3 w-3 ml-1.5" />
               محتوى قانوني مغربي بمعايير عالمية
             </Badge>
           </motion.div>
@@ -177,7 +184,7 @@ const HeroSection = () => {
           >
             <Link to="/ai-consultation">
               <Button size="lg" className="rounded-full px-8 gap-2 text-base shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all">
-                <Brain className="h-4 w-4" />
+                <Gavel className="h-4 w-4" />
                 اطرح سؤالك الآن
               </Button>
             </Link>
@@ -196,8 +203,8 @@ const HeroSection = () => {
             className="flex flex-wrap justify-center gap-6 pt-8 text-xs text-muted-foreground"
           >
             {[
-              { icon: FileText, text: '+200 مقال متخصص' },
-              { icon: Users, text: '+5,000 قارئ شهرياً' },
+              { icon: ScrollText, text: '+200 مقال متخصص' },
+              { icon: Gavel, text: '+5,000 قارئ شهرياً' },
               { icon: Shield, text: 'مراجع رسمية موثّقة' },
             ].map((item, i) => (
               <div key={i} className="flex items-center gap-1.5 opacity-70">
@@ -242,10 +249,10 @@ const StatsStrip = () => (
     <div className="container mx-auto px-4">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
         {[
-          { value: '200+', label: 'مقال منشور', icon: FileText },
-          { value: '6', label: 'تخصصات قانونية', icon: Scale },
-          { value: '5K+', label: 'قارئ شهرياً', icon: Users },
-          { value: 'AI', label: 'مستشار ذكي', icon: Brain },
+          { value: '200+', label: 'مقال منشور', icon: ScrollText },
+          { value: '6', label: 'تخصصات قانونية', icon: Gavel },
+          { value: '5K+', label: 'قارئ شهرياً', icon: HeartHandshake },
+          { value: 'AI', label: 'مستشار ذكي', icon: Landmark },
         ].map((stat, i) => (
           <div key={i} className="text-center space-y-2">
             <div className="inline-flex items-center justify-center h-10 w-10 rounded-xl bg-primary/10 mx-auto">
@@ -264,11 +271,11 @@ const StatsStrip = () => (
    DOMAINS
 ═══════════════════════════════════════════ */
 const legalDomains = [
-  { icon: Users, title: 'قانون الأسرة', description: 'الزواج، الطلاق، الحضانة، النفقة، والإرث وفق مدونة الأسرة', color: 'from-blue-500/10 to-blue-600/5', iconColor: 'text-blue-600', articles: 45 },
-  { icon: Gavel, title: 'القانون الجنائي', description: 'الجرائم والعقوبات، حقوق المتهم، الإجراءات القضائية', color: 'from-red-500/10 to-red-600/5', iconColor: 'text-red-600', articles: 38 },
-  { icon: FileText, title: 'القانون المدني', description: 'العقود، الالتزامات، المسؤولية المدنية، والتعويضات', color: 'from-emerald-500/10 to-emerald-600/5', iconColor: 'text-emerald-600', articles: 52 },
-  { icon: TrendingUp, title: 'قانون الأعمال', description: 'تأسيس الشركات، النزاعات التجارية، والملكية الفكرية', color: 'from-amber-500/10 to-amber-600/5', iconColor: 'text-amber-600', articles: 31 },
-  { icon: Shield, title: 'القانون العقاري', description: 'الملكية، التحفيظ العقاري، وعقود البيع والشراء', color: 'from-violet-500/10 to-violet-600/5', iconColor: 'text-violet-600', articles: 28 },
+  { icon: HeartHandshake, title: 'قانون الأسرة', description: 'الزواج، الطلاق، الحضانة، النفقة، والإرث وفق مدونة الأسرة', color: 'from-blue-500/10 to-blue-600/5', iconColor: 'text-blue-600', articles: 45 },
+  { icon: Siren, title: 'القانون الجنائي', description: 'الجرائم والعقوبات، حقوق المتهم، الإجراءات القضائية', color: 'from-red-500/10 to-red-600/5', iconColor: 'text-red-600', articles: 38 },
+  { icon: ScrollText, title: 'القانون المدني', description: 'العقود، الالتزامات، المسؤولية المدنية، والتعويضات', color: 'from-emerald-500/10 to-emerald-600/5', iconColor: 'text-emerald-600', articles: 52 },
+  { icon: Handshake, title: 'قانون الأعمال', description: 'تأسيس الشركات، النزاعات التجارية، والملكية الفكرية', color: 'from-amber-500/10 to-amber-600/5', iconColor: 'text-amber-600', articles: 31 },
+  { icon: Landmark, title: 'القانون العقاري', description: 'الملكية، التحفيظ العقاري، وعقود البيع والشراء', color: 'from-violet-500/10 to-violet-600/5', iconColor: 'text-violet-600', articles: 28 },
   { icon: Globe, title: 'القانون الإداري', description: 'الصفقات العمومية، المنازعات الإدارية، وحقوق الموظف', color: 'from-cyan-500/10 to-cyan-600/5', iconColor: 'text-cyan-600', articles: 22 },
 ];
 
@@ -320,9 +327,9 @@ const DomainsSection = () => (
    TOOLS
 ═══════════════════════════════════════════ */
 const smartTools = [
-  { icon: Brain, title: 'المستشار الذكي', description: 'اطرح سؤالك واحصل على إجابة فورية مدعومة بالذكاء الاصطناعي مع مراجع قانونية', link: '/ai-consultation', badge: 'AI', gradient: 'from-primary to-blue-600' },
-  { icon: Calculator, title: 'حاسبة الرسوم', description: 'احسب تكلفة الإجراءات القضائية بدقة حسب نوع القضية والمحكمة', link: '/legal-fee-calculator', badge: 'مجاني', gradient: 'from-legal-emerald to-emerald-600' },
-  { icon: Search, title: 'تتبع القضايا', description: 'تابع مراحل قضيتك واعرف آخر المستجدات بسهولة', link: '/case-tracker', badge: 'مباشر', gradient: 'from-legal-gold to-amber-600' },
+  { icon: Brain, title: 'المستشار الذكي', description: 'اطرح سؤالك واحصل على إجابة فورية مدعومة بالذكاء الاصطناعي مع مراجع قانونية', link: '/ai-consultation', badge: 'ذكي', gradient: 'from-primary to-blue-600' },
+  { icon: Scale, title: 'حاسبة الرسوم', description: 'احسب تكلفة الإجراءات القضائية بدقة حسب نوع القضية والمحكمة', link: '/legal-fee-calculator', badge: 'مجاني', gradient: 'from-legal-emerald to-emerald-600' },
+  { icon: Gavel, title: 'تتبع القضايا', description: 'تابع مراحل قضيتك واعرف آخر المستجدات بسهولة', link: '/case-tracker', badge: 'مباشر', gradient: 'from-legal-gold to-amber-600' },
 ];
 
 const ToolsSection = () => (
@@ -400,15 +407,12 @@ const TeamSection = () => (
             className="group text-center space-y-5"
           >
             <div className="relative mx-auto w-52 h-52 md:w-64 md:h-64">
-              {/* Glow ring */}
               <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-primary/20 via-legal-gold/20 to-legal-emerald/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-              {/* Photo */}
               <div className="relative w-full h-full rounded-3xl overflow-hidden border-2 border-border/20 shadow-2xl shadow-foreground/[0.06] group-hover:border-primary/20 transition-all duration-500">
                 <img src={member.img} alt={member.name}
                   className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-700" />
                 <div className="absolute inset-0 bg-gradient-to-t from-foreground/20 via-transparent to-transparent" />
               </div>
-              {/* Decorative badge */}
               <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-card border border-border/30 rounded-full px-4 py-1.5 shadow-lg">
                 <span className="text-[11px] font-semibold text-primary">{member.role}</span>
               </div>
@@ -424,34 +428,141 @@ const TeamSection = () => (
 );
 
 /* ═══════════════════════════════════════════
-   QUOTE
+   FAMOUS QUOTES CAROUSEL
 ═══════════════════════════════════════════ */
-const QuoteSection = () => (
-  <AnimatedSection className="py-20 md:py-28 bg-muted/30">
-    <div className="container mx-auto px-4">
-      <div className="max-w-3xl mx-auto text-center relative">
-        <Quote className="h-10 w-10 text-legal-gold/20 mx-auto mb-6" />
-        <blockquote className="text-xl md:text-2xl text-foreground leading-relaxed mb-8">
-          "المعرفة القانونية ليست رفاهية — بل حق لكل مواطن. 
-          وكل سؤال يستحق إجابة واضحة ومؤسّسة."
-        </blockquote>
-        <div className="flex items-center justify-center gap-3">
-          <img src={teamPhoto1} alt="المؤسس" className="h-11 w-11 rounded-full object-cover object-top border-2 border-primary/20 shadow-md" />
-          <div className="text-start">
-            <div className="text-sm font-semibold text-foreground">محاماة ذكية</div>
-            <div className="text-xs text-muted-foreground">فلسفتنا</div>
+const famousQuotes = [
+  {
+    text: 'الظلم في أي مكان يهدد العدالة في كل مكان.',
+    author: 'مارتن لوثر كينغ',
+    role: 'ناشط حقوقي أمريكي',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Martin_Luther_King%2C_Jr..jpg/220px-Martin_Luther_King%2C_Jr..jpg',
+  },
+  {
+    text: 'القانون يجب أن يكون كالموت الذي لا يستثني أحداً.',
+    author: 'مونتسكيو',
+    role: 'فيلسوف وفقيه قانوني فرنسي',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fc/Montesquieu_1.png/220px-Montesquieu_1.png',
+  },
+  {
+    text: 'حيثما يوجد حق يوجد واجب، وحيثما يوجد واجب يوجد حق.',
+    author: 'المهاتما غاندي',
+    role: 'محامٍ وزعيم حركة الاستقلال الهندية',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7a/Mahatma-Gandhi%2C_studio%2C_1931.jpg/220px-Mahatma-Gandhi%2C_studio%2C_1931.jpg',
+  },
+  {
+    text: 'العدل أساس المُلك.',
+    author: 'عمر بن الخطاب',
+    role: 'ثاني الخلفاء الراشدين',
+    img: '',
+  },
+  {
+    text: 'لا حرية بدون قانون، ولا قانون بدون حرية.',
+    author: 'جون لوك',
+    role: 'فيلسوف إنجليزي، أبو الليبرالية',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d1/JohnLocke.png/220px-JohnLocke.png',
+  },
+  {
+    text: 'الحرية لا تُعطى بل تُؤخذ.',
+    author: 'جمال عبد الناصر',
+    role: 'رئيس مصر الأسبق',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Nasser_portrait2.jpg/220px-Nasser_portrait2.jpg',
+  },
+  {
+    text: 'القانون الذي لا يتساوى أمامه الجميع ليس قانوناً.',
+    author: 'نيلسون مانديلا',
+    role: 'رئيس جنوب أفريقيا ومناضل ضد التمييز',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/02/Nelson_Mandela_1994.jpg/220px-Nelson_Mandela_1994.jpg',
+  },
+  {
+    text: 'إن أردت السلام فاعمل من أجل العدالة.',
+    author: 'البابا بولس السادس',
+    role: 'رئيس الكنيسة الكاثوليكية',
+    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Paolovi.jpg/220px-Paolovi.jpg',
+  },
+];
+
+const QuotesCarousel = () => {
+  const [active, setActive] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => setActive(prev => (prev + 1) % famousQuotes.length), 6000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const q = famousQuotes[active];
+
+  return (
+    <AnimatedSection className="py-20 md:py-28 bg-muted/30 overflow-hidden">
+      <div className="container mx-auto px-4">
+        <div className="text-center mb-10 space-y-3">
+          <Badge variant="outline" className="rounded-full px-4 py-1 text-xs gap-1.5">
+            <Landmark className="h-3 w-3" /> أقوال خالدة
+          </Badge>
+          <h2 className="text-3xl md:text-4xl font-bold text-foreground">
+            كلمات صنعت <span className="text-primary">العدالة</span>
+          </h2>
+          <p className="text-muted-foreground text-sm">أقوال مأثورة لأعظم المدافعين عن الحقوق والحريات عبر التاريخ</p>
+        </div>
+
+        <div className="max-w-3xl mx-auto relative min-h-[280px] flex items-center">
+          <motion.div
+            key={active}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.5 }}
+            className="text-center space-y-6 w-full"
+          >
+            <Quote className="h-10 w-10 text-legal-gold/30 mx-auto" />
+            <blockquote className="text-xl md:text-2xl lg:text-3xl text-foreground leading-relaxed font-semibold px-4">
+              «{q.text}»
+            </blockquote>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              {q.img ? (
+                <img src={q.img} alt={q.author}
+                  className="h-12 w-12 rounded-full object-cover border-2 border-primary/20 shadow-md bg-muted" />
+              ) : (
+                <div className="h-12 w-12 rounded-full bg-gradient-to-br from-legal-navy to-primary flex items-center justify-center text-primary-foreground font-bold text-lg shadow-md">
+                  {q.author.charAt(0)}
+                </div>
+              )}
+              <div className="text-start">
+                <div className="text-sm font-bold text-foreground">{q.author}</div>
+                <div className="text-xs text-muted-foreground">{q.role}</div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Navigation */}
+        <div className="flex items-center justify-center gap-4 mt-8">
+          <button onClick={() => setActive((active - 1 + famousQuotes.length) % famousQuotes.length)}
+            className="h-9 w-9 rounded-full border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-border transition-all hover:bg-accent">
+            <ChevronRight className="h-4 w-4" />
+          </button>
+          <div className="flex gap-1.5">
+            {famousQuotes.map((_, i) => (
+              <button key={i} onClick={() => setActive(i)}
+                className={`h-2 rounded-full transition-all duration-300 ${
+                  i === active ? 'w-6 bg-primary' : 'w-2 bg-border hover:bg-muted-foreground/30'
+                }`} />
+            ))}
           </div>
+          <button onClick={() => setActive((active + 1) % famousQuotes.length)}
+            className="h-9 w-9 rounded-full border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-border transition-all hover:bg-accent">
+            <ChevronLeft className="h-4 w-4" />
+          </button>
         </div>
       </div>
-    </div>
-  </AnimatedSection>
-);
+    </AnimatedSection>
+  );
+};
 
 /* ═══════════════════════════════════════════
    WHY US
 ═══════════════════════════════════════════ */
 const TrustSection = () => (
-  <AnimatedSection className="py-20 md:py-28 bg-muted/30">
+  <AnimatedSection className="py-20 md:py-28">
     <div className="container mx-auto px-4">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center max-w-6xl mx-auto">
         <div className="space-y-6">
@@ -469,9 +580,9 @@ const TrustSection = () => (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {[
             { icon: Target, title: 'دقة المعلومات', description: 'كل مقال مبني على نصوص قانونية رسمية واجتهادات قضائية محدّثة' },
-            { icon: Sparkles, title: 'ذكاء اصطناعي', description: 'تقنيات تحلل آلاف الوثائق لتقديم إجابات سريعة ودقيقة' },
+            { icon: Shield, title: 'حماية الحقوق', description: 'نساعدك على معرفة حقوقك وكيفية الدفاع عنها بطريقة قانونية سليمة' },
             { icon: Eye, title: 'شفافية المصادر', description: 'نذكر دائماً المراجع والمصادر حتى تتحقق بنفسك من كل معلومة' },
-            { icon: BookOpen, title: 'أسلوب واضح', description: 'نكتب بلغة بسيطة ومباشرة بعيداً عن التعقيد والمصطلحات المبهمة' },
+            { icon: Handshake, title: 'أسلوب واضح', description: 'نكتب بلغة بسيطة ومباشرة بعيداً عن التعقيد والمصطلحات المبهمة' },
           ].map((reason, i) => (
             <motion.div key={i} whileHover={{ scale: 1.02 }}
               className="rounded-2xl border border-border/50 bg-card p-5 space-y-3">
@@ -620,7 +731,7 @@ const Index = () => (
         <DomainsSection />
         <ToolsSection />
         <TeamSection />
-        <QuoteSection />
+        <QuotesCarousel />
         <TrustSection />
         <CTASection />
       </main>
