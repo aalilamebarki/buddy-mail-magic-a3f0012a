@@ -7,8 +7,8 @@ import {
   Menu, X, ChevronUp, Facebook, MessageCircle, Copy, Printer, Mail,
   Gavel, AlertTriangle, Lightbulb, FileText, User, Send,
   Hash, ChevronDown, Eye, Shield, Download,
-  Bookmark, BadgeCheck, ChevronLeft, Quote,
-  Sparkles, BookMarked, Library, CircleCheck, Zap, Award, TrendingUp
+  Bookmark, ChevronLeft, Quote,
+  Sparkles, BookMarked, Library, CircleCheck, Zap, TrendingUp
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -161,34 +161,7 @@ const LegalAlert = ({ type, title, children }: { type: 'caution' | 'judicial' | 
   );
 };
 
-/* ═══════════════════════════════════════════
-   EXPERT OPINION
-═══════════════════════════════════════════ */
-const ExpertOpinion = ({ quote, expert, role }: { quote: string; expert: string; role: string }) => (
-  <motion.div initial="hidden" whileInView="show" viewport={{ once: true }} variants={revealUp} className="my-12 md:my-16 relative">
-    <div className="absolute -top-5 right-8 z-10">
-      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-legal-gold to-legal-amber flex items-center justify-center shadow-xl shadow-legal-gold/30 ring-4 ring-background rotate-3">
-        <Quote className="h-6 w-6 text-primary-foreground" />
-      </div>
-    </div>
-    <div className="rounded-[20px] border border-border/30 bg-card p-7 sm:p-9 pt-12 shadow-xl shadow-foreground/[0.03] relative overflow-hidden">
-      <div className="absolute bottom-0 left-0 w-40 h-40 bg-legal-gold/[0.03] rounded-full translate-y-1/2 -translate-x-1/2 blur-3xl" />
-      <p className="text-foreground/80 text-lg sm:text-xl leading-[2.2] font-legal mb-8 relative z-10">«{quote}»</p>
-      <div className="flex items-center gap-4 border-t border-border/20 pt-5 relative z-10">
-        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-legal-navy/10 to-legal-gold/10 flex items-center justify-center">
-          <Award className="h-5 w-5 text-legal-navy" />
-        </div>
-        <div>
-          <div className="flex items-center gap-1.5">
-            <p className="text-sm font-bold text-foreground">{expert}</p>
-            <BadgeCheck className="h-4 w-4 text-legal-emerald" />
-          </div>
-          <p className="text-xs text-muted-foreground">{role}</p>
-        </div>
-      </div>
-    </div>
-  </motion.div>
-);
+/* ExpertOpinion removed - no expert/lawyer references */
 
 /* ═══════════════════════════════════════════
    INLINE AI CONSULTATION
