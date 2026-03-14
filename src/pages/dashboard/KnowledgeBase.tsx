@@ -388,7 +388,7 @@ const KnowledgeBase = () => {
     fetchDocuments();
     toast.success(`تم إضافة ${totalDocsAdded} مستند جديد لقاعدة المعرفة`);
   };
-
+  const getTypeLabel = (type: string) => DOC_TYPES.find(t => t.value === type)?.label || type;
 
 
   return (
