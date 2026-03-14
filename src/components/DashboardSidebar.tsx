@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -19,9 +20,12 @@ import {
   BookOpen,
   LogOut,
   ChevronLeft,
+  Menu,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import RoleGuard from './RoleGuard';
 
 const menuItems = [
@@ -41,15 +45,15 @@ const menuItems = [
   { icon: User, label: 'الملف الشخصي', path: '/dashboard/profile', roles: ['director', 'partner', 'clerk', 'content_writer', 'client'] as const },
 ];
 
-const DashboardSidebar = () => {
+const SidebarContent = ({ onNavigate }: { onNavigate?: () => void }) => {
   const location = useLocation();
   const { signOut, user, role } = useAuth();
 
   return (
-    <aside className="w-64 bg-card border-l border-border flex flex-col h-screen sticky top-0">
+    <div className="flex flex-col h-full">
       {/* Logo */}
       <div className="p-4 border-b border-border">
-        <Link to="/dashboard" className="flex items-center gap-2">
+        <Link to="/dashboard" className="flex items-center gap-2" onClick={onNavigate}>
           <Scale className="h-6 w-6 text-primary" />
           <span className="font-bold text-foreground">محاماة ذكية</span>
         </Link>
@@ -68,6 +72,7 @@ const DashboardSidebar = () => {
             <RoleGuard key={item.path} allowedRoles={[...item.roles]}>
               <Link
                 to={item.path}
+                onClick={onNavigate}
                 className={cn(
                   'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
                   location.pathname === item.path
@@ -85,7 +90,7 @@ const DashboardSidebar = () => {
 
       {/* Footer */}
       <div className="p-3 border-t border-border space-y-2">
-        <Link to="/">
+        <Link to="/" onClick={onNavigate}>
           <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-muted-foreground">
             <ChevronLeft className="h-4 w-4" />
             الموقع الرئيسي
@@ -101,7 +106,38 @@ const DashboardSidebar = () => {
           تسجيل الخروج
         </Button>
       </div>
-    </aside>
+    </div>
+  );
+};
+
+const DashboardSidebar = () => {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      {/* Mobile: hamburger + sheet */}
+      <div className="lg:hidden fixed top-0 right-0 left-0 z-40 bg-background/80 backdrop-blur-md border-b border-border flex items-center h-14 px-4">
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="shrink-0">
+              <Menu className="h-5 w-5" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="right" className="p-0 w-72">
+            <SidebarContent onNavigate={() => setOpen(false)} />
+          </SheetContent>
+        </Sheet>
+        <Link to="/dashboard" className="flex items-center gap-2 mr-2">
+          <Scale className="h-5 w-5 text-primary" />
+          <span className="font-bold text-sm text-foreground">محاماة ذكية</span>
+        </Link>
+      </div>
+
+      {/* Desktop: fixed sidebar */}
+      <aside className="hidden lg:flex w-64 bg-card border-l border-border flex-col h-screen sticky top-0 shrink-0">
+        <SidebarContent />
+      </aside>
+    </>
   );
 };
 
