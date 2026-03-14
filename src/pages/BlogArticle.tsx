@@ -50,7 +50,7 @@ const ExecutiveSummary = ({ points }: { points: string[] }) => {
               <Sparkles className="h-5 w-5 text-primary-foreground" />
             </div>
             <div>
-              <h3 className="font-bold text-foreground text-[15px] font-display">خلاصة المقال</h3>
+              <h3 className="font-bold text-foreground text-[15px]">خلاصة المقال</h3>
               <p className="text-[11px] text-muted-foreground">ما ستتعلمه في هذا المقال</p>
             </div>
           </div>
@@ -93,7 +93,7 @@ const LegalArticleHighlight = ({ articleNumber, lawName, content }: { articleNum
               </div>
               <div>
                 <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">{lawName}</p>
-                <p className="text-base font-bold text-legal-navy font-display">{articleNumber}</p>
+                <p className="text-base font-bold text-legal-navy">{articleNumber}</p>
               </div>
             </div>
             <button onClick={copyCitation}
@@ -153,7 +153,7 @@ const LegalAlert = ({ type, title, children }: { type: 'caution' | 'judicial' | 
         </div>
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${c.dot} animate-pulse`} />
-          <span className={`text-sm font-bold ${c.accent} font-display`}>{c.label}</span>
+          <span className={`text-sm font-bold ${c.accent}`}>{c.label}</span>
         </div>
       </div>
       <div className="px-6 pb-6 text-foreground/80 text-[15px] leading-[2.1]">{children}</div>
@@ -213,7 +213,7 @@ const InlineAIConsultation = ({ category }: { category: string }) => {
               <Sparkles className="h-5 w-5 text-primary-foreground" />
             </motion.div>
             <div>
-              <h3 className="font-bold text-primary-foreground text-[15px] font-display">هل لديك سؤال حول {category}؟</h3>
+              <h3 className="font-bold text-primary-foreground text-[15px]">هل لديك سؤال حول {category}؟</h3>
               <p className="text-[11px] text-primary-foreground/60">احصل على إجابة فورية من المستشار الذكي</p>
             </div>
           </div>
@@ -261,7 +261,7 @@ const DocumentGallery = () => {
           <Library className="h-5 w-5 text-legal-burgundy" />
         </div>
         <div>
-          <h3 className="text-[15px] font-bold text-foreground font-display">مستندات ومرفقات</h3>
+          <h3 className="text-[15px] font-bold text-foreground">مستندات ومرفقات</h3>
           <p className="text-[11px] text-muted-foreground">وثائق رسمية قابلة للتحميل</p>
         </div>
       </div>
@@ -299,7 +299,7 @@ const FootnotesSection = () => {
     <div className="my-12 md:my-16 p-6 sm:p-8 rounded-[20px] bg-muted/20 border border-border/20">
       <div className="flex items-center gap-2 mb-5">
         <Hash className="h-4 w-4 text-muted-foreground" />
-        <h3 className="text-sm font-bold text-foreground font-display">الهوامش والمراجع</h3>
+        <h3 className="text-sm font-bold text-foreground">الهوامش والمراجع</h3>
       </div>
       <div className="space-y-3">
         {notes.map(fn => (
@@ -332,18 +332,15 @@ const AuthorBioCard = () => (
             </motion.div>
             <div className="flex-1 space-y-3">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-lg font-bold text-foreground font-display">فريق محاماة ذكية</h3>
-                <Badge className="bg-legal-emerald/10 text-legal-emerald border-legal-emerald/20 text-[10px] px-2 py-0.5 gap-1 rounded-lg">
-                  <BadgeCheck className="h-3 w-3" /> خبراء معتمدون
-                </Badge>
+                <h3 className="text-lg font-bold text-foreground">محاماة ذكية</h3>
               </div>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                فريق من المحامين والمستشارين القانونيين المتخصصين في القانون المغربي، يقدمون محتوى قانونياً موثوقاً ومحدثاً.
+                مدوّنة قانونية مغربية تهدف لتبسيط المعرفة القانونية وجعلها في متناول الجميع بأسلوب واضح ومحتوى محدّث.
               </p>
               <div className="flex items-center gap-2 pt-2 flex-wrap">
                 <Link to="/ai-consultation">
                   <Button size="sm" className="gap-1.5 text-xs rounded-xl h-9 shadow-md">
-                    <MessageCircle className="h-3.5 w-3.5" /> اسأل الخبير
+                    <MessageCircle className="h-3.5 w-3.5" /> اطرح سؤالاً
                   </Button>
                 </Link>
                 <Link to="/blog">
@@ -397,7 +394,7 @@ const NewsletterCTA = () => {
           <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-legal-navy to-primary flex items-center justify-center mx-auto shadow-xl shadow-legal-navy/20">
             <Mail className="h-6 w-6 text-primary-foreground" />
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-foreground font-display">النشرة القانونية</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-foreground">النشرة القانونية</h2>
           <p className="text-muted-foreground text-sm">تحليلات وتحديثات أسبوعية مباشرة في بريدك</p>
           <div className="flex gap-2 max-w-sm mx-auto">
             <input type="email" value={email} onChange={e => setEmail(e.target.value)}
@@ -517,7 +514,7 @@ const BlogArticle = () => {
       <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-legal-navy/10 to-legal-gold/10 flex items-center justify-center">
         <BookOpen className="h-12 w-12 text-legal-navy" />
       </div>
-      <h1 className="text-2xl font-bold text-foreground font-display">المقال غير موجود</h1>
+      <h1 className="text-2xl font-bold text-foreground">المقال غير موجود</h1>
       <Link to="/blog"><Button className="gap-2 rounded-xl"><ArrowRight className="h-4 w-4" /> العودة للمدونة</Button></Link>
     </div>
   );
@@ -582,7 +579,7 @@ const BlogArticle = () => {
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-legal-navy to-primary flex items-center justify-center">
                   <Scale className="h-4 w-4 text-primary-foreground" />
                 </div>
-                <span className="text-sm font-bold text-foreground hidden sm:block font-display">محاماة ذكية</span>
+                <span className="text-sm font-bold text-foreground hidden sm:block">محاماة ذكية</span>
               </Link>
 
               <div className="hidden md:flex items-center gap-1">
@@ -684,7 +681,7 @@ const BlogArticle = () => {
                 initial={{ opacity: 0, y: 25 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.15, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-                className="text-[1.7rem] sm:text-[2.2rem] md:text-[2.8rem] lg:text-[3.2rem] font-bold text-foreground leading-[1.3] mb-6 font-display"
+                className="text-[1.7rem] sm:text-[2.2rem] md:text-[2.8rem] lg:text-[3.2rem] font-bold text-foreground leading-[1.3] mb-6"
               >
                 {article.title}
               </motion.h1>
@@ -706,10 +703,9 @@ const BlogArticle = () => {
                   </div>
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-semibold text-foreground">فريق محاماة ذكية</span>
-                      <BadgeCheck className="h-3.5 w-3.5 text-legal-emerald" />
+                      <span className="text-sm font-semibold text-foreground">محاماة ذكية</span>
                     </div>
-                    <span className="text-[11px] text-muted-foreground">خبراء قانونيون معتمدون</span>
+                    <span className="text-[11px] text-muted-foreground">محتوى قانوني موثّق</span>
                   </div>
                 </div>
 
@@ -828,7 +824,7 @@ const BlogArticle = () => {
               <div id="article-body"
                 className="legal-article-content
                   prose prose-lg max-w-none dark:prose-invert
-                  prose-headings:text-foreground prose-headings:font-bold prose-headings:font-display prose-headings:leading-[1.4]
+                  prose-headings:text-foreground prose-headings:font-bold prose-headings:leading-[1.4]
                   prose-h2:text-[1.35rem] sm:prose-h2:text-[1.55rem] md:prose-h2:text-[1.75rem] prose-h2:mt-14 prose-h2:mb-6
                   prose-h3:text-[1.15rem] sm:prose-h3:text-[1.25rem] md:prose-h3:text-[1.35rem] prose-h3:mt-10 prose-h3:mb-4
                   prose-p:text-foreground/75 prose-p:leading-[2.15] prose-p:text-[15px] sm:prose-p:text-[16px] md:prose-p:text-[17px] prose-p:mb-6
@@ -904,7 +900,7 @@ const BlogArticle = () => {
               <div className="max-w-5xl mx-auto">
                 <div className="flex items-center justify-between mb-10">
                   <div>
-                    <h2 className="text-xl sm:text-2xl font-bold text-foreground font-display">مقالات ذات صلة</h2>
+                    <h2 className="text-xl sm:text-2xl font-bold text-foreground">مقالات ذات صلة</h2>
                     <p className="text-xs text-muted-foreground mt-1">تابع القراءة حول {article.category}</p>
                   </div>
                   <Link to="/blog">
@@ -929,7 +925,7 @@ const BlogArticle = () => {
                             </Badge>
                           </div>
                           <CardContent className="p-5 space-y-3">
-                            <h3 className="text-sm font-bold text-foreground line-clamp-2 group-hover:text-primary transition-colors leading-relaxed font-display">
+                            <h3 className="text-sm font-bold text-foreground line-clamp-2 group-hover:text-primary transition-colors leading-relaxed">
                               {r.title}
                             </h3>
                             <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
@@ -955,7 +951,7 @@ const BlogArticle = () => {
               <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-legal-navy to-primary flex items-center justify-center">
                 <Scale className="h-3.5 w-3.5 text-primary-foreground" />
               </div>
-              <span className="font-bold text-foreground text-sm font-display">محاماة ذكية</span>
+              <span className="font-bold text-foreground text-sm">محاماة ذكية</span>
             </div>
             <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
               <Link to="/blog" className="hover:text-foreground transition-colors">المدونة</Link>
