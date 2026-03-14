@@ -4,7 +4,7 @@ import { Helmet } from 'react-helmet-async';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { motion, useScroll, useTransform, useInView } from 'framer-motion';
+import { motion, useScroll, useTransform, useInView, AnimatePresence } from 'framer-motion';
 import {
   Scale,
   Calculator,
@@ -36,9 +36,13 @@ import {
   Siren,
   ChevronLeft,
   ChevronRight,
+  Newspaper,
+  AlertCircle,
+  ArrowUp,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import ThemeToggle from '@/components/ThemeToggle';
 import teamPhoto1 from '@/assets/team-1.png';
 import teamPhoto2 from '@/assets/team-2.png';
 import teamPhoto3 from '@/assets/team-3.png';
@@ -73,14 +77,16 @@ const Navbar = () => {
         <div className="hidden md:flex items-center gap-1">
           {[
             { to: '/blog', label: 'المقالات' },
-            { to: '/legal-fee-calculator', label: 'الأدوات' },
+            { to: '/documents', label: 'الوثائق' },
             { to: '/ai-consultation', label: 'المستشار الذكي' },
+            { to: '/about', label: 'من نحن' },
           ].map(link => (
             <Link key={link.to} to={link.to}
               className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-accent">
               {link.label}
             </Link>
           ))}
+          <ThemeToggle />
           <div className="w-px h-6 bg-border mx-2" />
           <Link to="/auth">
             <Button size="sm" className="rounded-full px-5 gap-2">
@@ -103,9 +109,10 @@ const Navbar = () => {
         >
           {[
             { to: '/blog', label: 'المقالات القانونية' },
+            { to: '/documents', label: 'مركز الوثائق' },
             { to: '/legal-fee-calculator', label: 'حاسبة الرسوم' },
-            { to: '/case-tracker', label: 'تتبع القضايا' },
             { to: '/ai-consultation', label: 'المستشار الذكي' },
+            { to: '/about', label: 'من نحن' },
           ].map(link => (
             <Link key={link.to} to={link.to}
               className="block px-4 py-3 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-all"
@@ -620,6 +627,122 @@ const CTASection = () => {
 };
 
 /* ═══════════════════════════════════════════
+   BENTO FEATURED GRID
+═══════════════════════════════════════════ */
+const bentoItems = [
+  { title: 'مدونة الأسرة', desc: 'أحكام الزواج والطلاق والحضانة والنفقة', icon: HeartHandshake, color: 'from-blue-500/10 to-blue-600/5', iconColor: 'text-blue-600', span: 'col-span-1 row-span-1' },
+  { title: 'المستجدات التشريعية', desc: 'آخر التعديلات القانونية والظهائر الجديدة الصادرة', icon: Newspaper, color: 'from-legal-gold/10 to-legal-gold/5', iconColor: 'text-legal-gold', span: 'col-span-1 sm:col-span-2 row-span-1' },
+  { title: 'القرارات القضائية', desc: 'اجتهادات محكمة النقض ومحاكم الاستئناف', icon: Gavel, color: 'from-legal-emerald/10 to-legal-emerald/5', iconColor: 'text-legal-emerald', span: 'col-span-1 sm:col-span-2 row-span-1' },
+  { title: 'القانون الجنائي', desc: 'الجرائم والعقوبات وحقوق المتهم', icon: Siren, color: 'from-destructive/10 to-destructive/5', iconColor: 'text-destructive', span: 'col-span-1 row-span-1' },
+  { title: 'المسطرة المدنية', desc: 'إجراءات التقاضي والطعون والتنفيذ', icon: ScrollText, color: 'from-violet-500/10 to-violet-600/5', iconColor: 'text-violet-600', span: 'col-span-1 row-span-1' },
+  { title: 'الحريات العامة', desc: 'حقوق الإنسان والحريات الأساسية في الدستور', icon: Shield, color: 'from-cyan-500/10 to-cyan-600/5', iconColor: 'text-cyan-600', span: 'col-span-1 row-span-1' },
+  { title: 'القانون التجاري', desc: 'تأسيس الشركات والملكية الفكرية والنزاعات', icon: TrendingUp, color: 'from-amber-500/10 to-amber-600/5', iconColor: 'text-amber-600', span: 'col-span-1 row-span-1' },
+];
+
+const BentoGrid = () => (
+  <AnimatedSection className="py-20 md:py-28 bg-muted/20">
+    <div className="container mx-auto px-4">
+      <div className="text-center mb-14 space-y-4">
+        <Badge variant="outline" className="rounded-full px-4 py-1 text-xs gap-1.5">
+          <Sparkles className="h-3 w-3" /> أبرز المحتوى
+        </Badge>
+        <h2 className="text-3xl md:text-4xl font-bold text-foreground">
+          اكتشف أهم <span className="text-primary">المواضيع</span>
+        </h2>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-5xl mx-auto">
+        {bentoItems.map((item, i) => (
+          <motion.div key={i}
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: i * 0.06 }}
+            whileHover={{ y: -3 }}
+            className={item.span}
+          >
+            <Link to="/blog" className="block h-full">
+              <div className={`relative h-full min-h-[140px] rounded-2xl border border-border/30 bg-gradient-to-br ${item.color} p-6 hover:border-border/60 transition-all duration-300 group overflow-hidden`}>
+                <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-l from-transparent via-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="flex items-start justify-between">
+                  <div className={`w-11 h-11 rounded-xl bg-card/80 border border-border/30 flex items-center justify-center ${item.iconColor}`}>
+                    <item.icon className="h-5 w-5" />
+                  </div>
+                  <ArrowLeft className="h-4 w-4 text-muted-foreground/30 group-hover:text-primary group-hover:-translate-x-1 transition-all" />
+                </div>
+                <div className="mt-4">
+                  <h3 className="font-bold text-foreground text-[15px] mb-1">{item.title}</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{item.desc}</p>
+                </div>
+              </div>
+            </Link>
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  </AnimatedSection>
+);
+
+/* ═══════════════════════════════════════════
+   LIVE BULLETIN TICKER
+═══════════════════════════════════════════ */
+const bulletins = [
+  { text: 'صدور ظهير شريف رقم 1.24.57 بتنفيذ قانون المالية لسنة 2026', type: 'جديد' },
+  { text: 'تعديل الفصل 49 من مدونة الأسرة المتعلق بتدبير الأموال المكتسبة', type: 'تعديل' },
+  { text: 'قرار محكمة النقض: عدم جواز الطلاق الشفوي وفق المادة 79', type: 'اجتهاد' },
+  { text: 'مرسوم جديد ينظم مهنة التوثيق العدلي بالمغرب', type: 'مرسوم' },
+  { text: 'دورية وزارة العدل بشأن رقمنة الإجراءات القضائية', type: 'دورية' },
+];
+
+const LiveTicker = () => {
+  const [current, setCurrent] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setCurrent(prev => (prev + 1) % bulletins.length), 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <AnimatedSection className="py-6 border-y border-border/30 bg-legal-navy/[0.02]">
+      <div className="container mx-auto px-4">
+        <div className="flex items-center gap-4">
+          <div className="shrink-0 flex items-center gap-2">
+            <div className="relative">
+              <div className="w-2.5 h-2.5 rounded-full bg-destructive animate-pulse" />
+              <div className="absolute inset-0 w-2.5 h-2.5 rounded-full bg-destructive animate-ping opacity-50" />
+            </div>
+            <span className="text-xs font-bold text-foreground hidden sm:inline">نشرة رسمية</span>
+          </div>
+          <div className="flex-1 overflow-hidden relative h-7">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={current}
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: -20, opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="absolute inset-0 flex items-center gap-2"
+              >
+                <Badge className="bg-primary/10 text-primary border-0 text-[9px] rounded-full px-2 shrink-0">{bulletins[current].type}</Badge>
+                <span className="text-xs text-foreground/80 truncate">{bulletins[current].text}</span>
+              </motion.div>
+            </AnimatePresence>
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <button onClick={() => setCurrent((current - 1 + bulletins.length) % bulletins.length)}
+              className="h-6 w-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-all">
+              <ChevronRight className="h-3 w-3" />
+            </button>
+            <button onClick={() => setCurrent((current + 1) % bulletins.length)}
+              className="h-6 w-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-all">
+              <ChevronLeft className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </AnimatedSection>
+  );
+};
+
+/* ═══════════════════════════════════════════
    FOOTER
 ═══════════════════════════════════════════ */
 const Footer = () => (
@@ -648,9 +771,10 @@ const Footer = () => (
           <div className="space-y-2.5">
             {[
               { to: '/blog', label: 'المقالات' },
+              { to: '/documents', label: 'مركز الوثائق' },
               { to: '/legal-fee-calculator', label: 'حاسبة الرسوم' },
-              { to: '/case-tracker', label: 'تتبع القضايا' },
               { to: '/ai-consultation', label: 'المستشار الذكي' },
+              { to: '/about', label: 'من نحن' },
             ].map(link => (
               <Link key={link.to} to={link.to} className="block text-sm text-muted-foreground hover:text-foreground transition-colors">{link.label}</Link>
             ))}
@@ -688,7 +812,9 @@ const Index = () => (
       <Navbar />
       <main className="flex-1">
         <HeroSection />
+        <LiveTicker />
         <StatsStrip />
+        <BentoGrid />
         <DomainsSection />
         <ToolsSection />
         <TeamSection />
