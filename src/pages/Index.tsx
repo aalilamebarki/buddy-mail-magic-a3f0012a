@@ -619,6 +619,7 @@ const Index = () => (
         <StatsStrip />
         <DomainsSection />
         <ToolsSection />
+        <TeamSection />
         <QuoteSection />
         <TrustSection />
         <CTASection />
