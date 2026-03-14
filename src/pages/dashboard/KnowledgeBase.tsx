@@ -808,6 +808,104 @@ const KnowledgeBase = () => {
                   </div>
                 </DialogContent>
               </Dialog>
+
+              {/* Auto-Ingest Dialog */}
+              <Dialog open={autoIngestOpen} onOpenChange={setAutoIngestOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="gap-1 bg-green-600 hover:bg-green-700 text-white">
+                    <Database className="h-4 w-4" />
+                    جلب شامل
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <Database className="h-5 w-5 text-green-600" />
+                      جلب شامل من المصادر الرسمية
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 mt-4">
+                    <p className="text-sm text-muted-foreground">
+                      سيتم البحث في المصادر الرسمية وجلب القوانين والقرارات القضائية تلقائياً.
+                    </p>
+                    
+                    <div className="space-y-2">
+                      <Label>اختر المصدر</Label>
+                      <div className="grid grid-cols-1 gap-2">
+                        <Button
+                          variant={autoIngestSource === 'all' ? 'default' : 'outline'}
+                          size="sm"
+                          className="justify-start gap-2 h-auto py-3"
+                          onClick={() => setAutoIngestSource('all')}
+                          disabled={autoIngesting}
+                        >
+                          <Globe className="h-4 w-4 shrink-0" />
+                          <div className="text-right">
+                            <div className="font-medium">جميع المصادر</div>
+                            <div className="text-xs opacity-70">الجريدة الرسمية + محكمة النقض</div>
+                          </div>
+                        </Button>
+                        <Button
+                          variant={autoIngestSource === 'sgg' ? 'default' : 'outline'}
+                          size="sm"
+                          className="justify-start gap-2 h-auto py-3"
+                          onClick={() => setAutoIngestSource('sgg')}
+                          disabled={autoIngesting}
+                        >
+                          <FileText className="h-4 w-4 shrink-0" />
+                          <div className="text-right">
+                            <div className="font-medium">الجريدة الرسمية فقط</div>
+                            <div className="text-xs opacity-70">sgg.gov.ma - القوانين والمراسيم والظهائر</div>
+                          </div>
+                        </Button>
+                        <Button
+                          variant={autoIngestSource === 'cassation' ? 'default' : 'outline'}
+                          size="sm"
+                          className="justify-start gap-2 h-auto py-3"
+                          onClick={() => setAutoIngestSource('cassation')}
+                          disabled={autoIngesting}
+                        >
+                          <Scale className="h-4 w-4 shrink-0" />
+                          <div className="text-right">
+                            <div className="font-medium">محكمة النقض فقط</div>
+                            <div className="text-xs opacity-70">juriscassation.cspj.ma - اجتهادات محكمة النقض</div>
+                          </div>
+                        </Button>
+                      </div>
+                    </div>
+
+                    <Button
+                      onClick={handleAutoIngest}
+                      disabled={autoIngesting}
+                      className="w-full gap-2 bg-green-600 hover:bg-green-700"
+                    >
+                      {autoIngesting ? (
+                        <><Loader2 className="h-4 w-4 animate-spin" /> جاري الجلب...</>
+                      ) : (
+                        <><Database className="h-4 w-4" /> ابدأ الجلب الشامل</>
+                      )}
+                    </Button>
+
+                    {autoIngesting && (
+                      <div className="space-y-1">
+                        <Progress value={autoIngestProgress} className="h-2" />
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>{autoIngestProgress}%</span>
+                          <span>{autoIngestDocs} مستند جديد</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {autoIngestLog.length > 0 && (
+                      <div className="bg-muted/50 rounded-lg p-3 space-y-1 max-h-60 overflow-y-auto">
+                        {autoIngestLog.map((log, i) => (
+                          <p key={i} className="text-xs">{log}</p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
         </CardContent>
