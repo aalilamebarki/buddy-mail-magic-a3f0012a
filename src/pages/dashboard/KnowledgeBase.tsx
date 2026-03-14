@@ -85,6 +85,14 @@ const KnowledgeBase = () => {
   const [bulkType, setBulkType] = useState('ruling');
   const [bulkCategory, setBulkCategory] = useState('');
 
+  // Scraping state
+  const [scrapeDialogOpen, setScrapeDialogOpen] = useState(false);
+  const [scraping, setScraping] = useState(false);
+  const [scrapeStep, setScrapeStep] = useState<'idle' | 'mapping' | 'scraping' | 'done'>('idle');
+  const [discoveredUrls, setDiscoveredUrls] = useState<string[]>([]);
+  const [scrapeProgress, setScrapeProgress] = useState(0);
+  const [scrapeResults, setScrapeResults] = useState<any[]>([]);
+  const [scrapeUrl, setScrapeUrl] = useState('https://juriscassation.cspj.ma');
   const fetchDocuments = async () => {
     setLoading(true);
     let query = supabase
