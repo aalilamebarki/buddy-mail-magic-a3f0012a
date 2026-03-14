@@ -57,20 +57,54 @@ function detectCategory(text: string): string {
   return "أخرى";
 }
 
-// Search queries to find Moroccan legal content
-const LEGAL_SEARCHES = [
-  // Court of Cassation rulings
+// Organized by source
+const SGG_SEARCHES = [
+  "site:sgg.gov.ma ظهير شريف قانون",
+  "site:sgg.gov.ma الجريدة الرسمية نص قانوني",
+  "site:sgg.gov.ma قانون الالتزامات والعقود",
+  "site:sgg.gov.ma مدونة الأسرة",
+  "site:sgg.gov.ma مدونة الشغل",
+  "site:sgg.gov.ma قانون المسطرة المدنية",
+  "site:sgg.gov.ma قانون المسطرة الجنائية",
+  "site:sgg.gov.ma القانون الجنائي",
+  "site:sgg.gov.ma قانون الكراء",
+  "site:sgg.gov.ma مدونة التجارة",
+  "site:sgg.gov.ma قانون التحفيظ العقاري",
+  "site:sgg.gov.ma قانون الشركات",
+  "site:sgg.gov.ma قانون المحاماة",
+  "site:sgg.gov.ma قانون التوثيق",
+  "site:sgg.gov.ma ظهير التحفيظ العقاري",
+  "site:sgg.gov.ma قانون حماية المستهلك",
+  "site:sgg.gov.ma قانون حرية الأسعار والمنافسة",
+  "site:sgg.gov.ma قانون الجنسية المغربية",
+  "site:sgg.gov.ma قانون المالية",
+  "site:sgg.gov.ma مدونة الضرائب",
+];
+
+const CASSATION_SEARCHES = [
+  "site:juriscassation.cspj.ma قرار محكمة النقض",
+  "site:juriscassation.cspj.ma الغرفة المدنية",
+  "site:juriscassation.cspj.ma الغرفة الجنائية",
+  "site:juriscassation.cspj.ma الغرفة التجارية",
+  "site:juriscassation.cspj.ma الغرفة الاجتماعية",
+  "site:juriscassation.cspj.ma الغرفة الإدارية",
+  "site:juriscassation.cspj.ma غرفة الأحوال الشخصية",
+  "site:juriscassation.cspj.ma قرار الكراء الإفراغ",
+  "site:juriscassation.cspj.ma قرار الطلاق النفقة",
+  "site:juriscassation.cspj.ma قرار التحفيظ العقاري",
+  "site:juriscassation.cspj.ma قرار الفصل التعسفي الشغل",
+  "site:juriscassation.cspj.ma قرار المسؤولية التعويض",
+  "site:juriscassation.cspj.ma قرار الشركات التجاري",
+  "site:juriscassation.cspj.ma اجتهاد قضائي",
+  "site:juriscassation.cspj.ma نقض حكم",
+];
+
+const GENERAL_SEARCHES = [
   "قرار محكمة النقض المغربية الكراء الإفراغ",
   "قرار محكمة النقض المغربية مدونة الأسرة الطلاق",
   "قرار محكمة النقض المغربية القانون الجنائي",
   "قرار محكمة النقض المغربية قانون الشغل الفصل التعسفي",
   "قرار محكمة النقض المغربية التحفيظ العقاري",
-  "قرار محكمة النقض المغربية القانون التجاري",
-  "قرار محكمة النقض المغربية المسؤولية المدنية التعويض",
-  "قرار محكمة النقض المغربية القانون الإداري",
-  "اجتهاد قضائي مغربي محكمة النقض",
-  "قرار محكمة النقض المغربية النفقة الحضانة",
-  // Laws and legal texts
   "قانون الالتزامات والعقود المغربي ظهير 1913",
   "مدونة الأسرة المغربية قانون 70.03",
   "مدونة الشغل المغربية قانون 65.99",
@@ -83,6 +117,88 @@ const LEGAL_SEARCHES = [
   "قانون التحفيظ العقاري المغربي",
 ];
 
+const ALL_SOURCES: Record<string, string[]> = {
+  sgg: SGG_SEARCHES,
+  cassation: CASSATION_SEARCHES,
+  general: GENERAL_SEARCHES,
+};
+
+async function searchAndIngest(
+  query: string,
+  apiKey: string,
+  supabase: any,
+): Promise<{ ingested: number; docs: any[] }> {
+  const resp = await fetch(`${FIRECRAWL_API}/search`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      query,
+      limit: 5,
+      lang: "ar",
+      country: "ma",
+      scrapeOptions: { formats: ["markdown"] },
+    }),
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text();
+    console.error(`Search failed for "${query}":`, errText);
+    return { ingested: 0, docs: [] };
+  }
+
+  const data = await resp.json();
+  const results = data.data || [];
+  let ingested = 0;
+  const docs: any[] = [];
+
+  for (const result of results) {
+    const markdown = result.markdown || "";
+    const title = result.title || "مستند قانوني";
+    const url = result.url || "";
+
+    if (!markdown || markdown.length < 100) continue;
+
+    // Check duplicate
+    const { data: existing } = await supabase
+      .from("legal_documents")
+      .select("id")
+      .eq("source", url)
+      .limit(1);
+
+    if (existing && existing.length > 0) continue;
+
+    const category = detectCategory(markdown);
+    const isCassation = url.includes("juriscassation") || url.includes("cspj");
+    const isRuling = isCassation || /(?:قرار|حكم|اجتهاد|محكمة النقض)/.test(title + " " + markdown.slice(0, 500));
+    const docType = isRuling ? "ruling" : "law";
+    const chunks = chunkText(markdown);
+
+    let chunkCount = 0;
+    for (const chunk of chunks) {
+      const { error } = await supabase.from("legal_documents").insert({
+        title: title.slice(0, 500),
+        content: chunk,
+        source: url,
+        doc_type: docType,
+        category,
+        embedding: JSON.stringify(generateHashEmbedding(chunk)),
+        metadata: { scraped: true, query, scraped_at: new Date().toISOString() },
+      });
+      if (!error) chunkCount++;
+    }
+
+    if (chunkCount > 0) {
+      ingested += chunkCount;
+      docs.push({ title: title.slice(0, 100), url, doc_type: docType, chunks: chunkCount });
+    }
+  }
+
+  return { ingested, docs };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -94,203 +210,63 @@ serve(async (req) => {
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
     const body = await req.json();
-    const { action, search_index, custom_query } = body;
+    const { action, source, search_index, custom_query, start_index, count: reqCount } = body;
 
-    // Action: search - search for legal content and ingest results
+    // Action: search - single query
     if (action === "search") {
-      const query = custom_query || LEGAL_SEARCHES[search_index ?? 0];
+      const sourceList = ALL_SOURCES[source] || GENERAL_SEARCHES;
+      const query = custom_query || sourceList[search_index ?? 0];
       if (!query) throw new Error("No query");
 
       console.log(`[SEARCH] "${query}"`);
-
-      const resp = await fetch(`${FIRECRAWL_API}/search`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          query,
-          limit: 5,
-          lang: "ar",
-          country: "ma",
-          scrapeOptions: { formats: ["markdown"] },
-        }),
-      });
-
-      const data = await resp.json();
-      if (!resp.ok) {
-        console.error("Search error:", JSON.stringify(data));
-        throw new Error(`Firecrawl search error: ${data.error || resp.status}`);
-      }
-
-      const results = data.data || [];
-      console.log(`[SEARCH] Got ${results.length} results`);
-
-      let totalIngested = 0;
-      const ingested: any[] = [];
-
-      for (const result of results) {
-        const markdown = result.markdown || "";
-        const title = result.title || result.metadata?.title || "مستند قانوني";
-        const url = result.url || result.metadata?.sourceURL || "";
-
-        if (!markdown || markdown.length < 100) continue;
-
-        // Check if already ingested
-        const { data: existing } = await supabase
-          .from("legal_documents")
-          .select("id")
-          .eq("source", url)
-          .limit(1);
-
-        if (existing && existing.length > 0) {
-          console.log(`[SKIP] Already exists: ${url}`);
-          continue;
-        }
-
-        const category = detectCategory(markdown);
-        const isRuling = /(?:قرار|حكم|اجتهاد|محكمة النقض)/.test(title + " " + markdown.slice(0, 500));
-        const docType = isRuling ? "ruling" : "law";
-        const chunks = chunkText(markdown);
-
-        let chunkCount = 0;
-        for (const chunk of chunks) {
-          const { error } = await supabase.from("legal_documents").insert({
-            title: title.slice(0, 500),
-            content: chunk,
-            source: url,
-            doc_type: docType,
-            category,
-            embedding: JSON.stringify(generateHashEmbedding(chunk)),
-            metadata: { scraped: true, query, scraped_at: new Date().toISOString() },
-          });
-          if (!error) chunkCount++;
-        }
-
-        if (chunkCount > 0) {
-          totalIngested += chunkCount;
-          ingested.push({ title, url, chunks: chunkCount, doc_type: docType, category });
-          console.log(`[INGESTED] ${title} → ${chunkCount} chunks (${docType})`);
-        }
-      }
+      const result = await searchAndIngest(query, FIRECRAWL_API_KEY, supabase);
 
       return new Response(
-        JSON.stringify({
-          success: true,
-          query,
-          searchResults: results.length,
-          ingested,
-          totalIngested,
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ success: true, query, ...result }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // Action: batch_search - run multiple searches sequentially
+    // Action: batch_search - multiple queries from a source
     if (action === "batch_search") {
-      const startIndex = body.start_index ?? 0;
-      const count = Math.min(body.count ?? 3, 5); // Max 5 searches per call
-      const allIngested: any[] = [];
-      let totalChunks = 0;
+      const sourceList = ALL_SOURCES[source] || GENERAL_SEARCHES;
+      const start = start_index ?? 0;
+      const count = Math.min(reqCount ?? 3, 5);
+      const allDocs: any[] = [];
+      let totalIngested = 0;
 
-      for (let i = startIndex; i < startIndex + count && i < LEGAL_SEARCHES.length; i++) {
-        const query = LEGAL_SEARCHES[i];
-        console.log(`[BATCH ${i + 1}/${startIndex + count}] "${query}"`);
-
+      for (let i = start; i < start + count && i < sourceList.length; i++) {
+        console.log(`[BATCH ${i + 1 - start}/${count}] "${sourceList[i]}"`);
         try {
-          const resp = await fetch(`${FIRECRAWL_API}/search`, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              query,
-              limit: 5,
-              lang: "ar",
-              country: "ma",
-              scrapeOptions: { formats: ["markdown"] },
-            }),
-          });
-
-          if (!resp.ok) {
-            const errText = await resp.text();
-            console.error(`Search ${i} failed:`, errText);
-            continue;
-          }
-
-          const data = await resp.json();
-          const results = data.data || [];
-
-          for (const result of results) {
-            const markdown = result.markdown || "";
-            const title = result.title || "مستند قانوني";
-            const url = result.url || "";
-
-            if (!markdown || markdown.length < 100) continue;
-
-            const { data: existing } = await supabase
-              .from("legal_documents")
-              .select("id")
-              .eq("source", url)
-              .limit(1);
-
-            if (existing && existing.length > 0) continue;
-
-            const category = detectCategory(markdown);
-            const isRuling = /(?:قرار|حكم|اجتهاد|محكمة النقض)/.test(title + " " + markdown.slice(0, 500));
-            const docType = isRuling ? "ruling" : "law";
-            const chunks = chunkText(markdown);
-
-            let chunkCount = 0;
-            for (const chunk of chunks) {
-              const { error } = await supabase.from("legal_documents").insert({
-                title: title.slice(0, 500),
-                content: chunk,
-                source: url,
-                doc_type: docType,
-                category,
-                embedding: JSON.stringify(generateHashEmbedding(chunk)),
-                metadata: { scraped: true, query, scraped_at: new Date().toISOString() },
-              });
-              if (!error) chunkCount++;
-            }
-
-            if (chunkCount > 0) {
-              totalChunks += chunkCount;
-              allIngested.push({ title: title.slice(0, 100), doc_type: docType, chunks: chunkCount });
-            }
-          }
-
-          // Delay between searches
-          await new Promise(r => setTimeout(r, 1000));
+          const result = await searchAndIngest(sourceList[i], FIRECRAWL_API_KEY, supabase);
+          totalIngested += result.ingested;
+          allDocs.push(...result.docs);
         } catch (err) {
           console.error(`Search ${i} error:`, err);
         }
+        await new Promise(r => setTimeout(r, 800));
       }
-
-      const remaining = LEGAL_SEARCHES.length - (startIndex + count);
 
       return new Response(
         JSON.stringify({
           success: true,
+          source: source || "general",
           processed: count,
-          totalIngested: totalChunks,
-          documentsAdded: allIngested.length,
-          ingested: allIngested,
-          remaining: Math.max(0, remaining),
-          nextIndex: startIndex + count,
+          totalIngested,
+          documentsAdded: allDocs.length,
+          ingested: allDocs,
+          remaining: Math.max(0, sourceList.length - (start + count)),
+          nextIndex: start + count,
         }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // Action: status - get available searches info
+    // Action: status
     if (action === "status") {
       const { count } = await supabase
         .from("legal_documents")
@@ -298,23 +274,26 @@ serve(async (req) => {
 
       return new Response(
         JSON.stringify({
-          totalSearches: LEGAL_SEARCHES.length,
-          searches: LEGAL_SEARCHES,
+          sources: {
+            sgg: { name: "الجريدة الرسمية", total: SGG_SEARCHES.length },
+            cassation: { name: "محكمة النقض", total: CASSATION_SEARCHES.length },
+            general: { name: "بحث عام", total: GENERAL_SEARCHES.length },
+          },
           documentsInDB: count || 0,
         }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     return new Response(
       JSON.stringify({ error: "Use action: search, batch_search, or status" }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e) {
     console.error("auto-ingest error:", e);
     return new Response(
       JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });
