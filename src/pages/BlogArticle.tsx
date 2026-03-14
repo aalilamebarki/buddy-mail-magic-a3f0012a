@@ -27,15 +27,15 @@ const LawArticleBox = ({ title, content, reference }: { title: string; content: 
     toast.success('تم نسخ الاستشهاد');
   };
   return (
-    <div className="my-8 rounded-xl border-2 border-legal-gold/30 bg-gradient-to-br from-legal-gold/5 to-transparent overflow-hidden">
-      <div className="bg-legal-gold/10 px-5 py-3 flex items-center justify-between border-b border-legal-gold/20">
+    <div className="my-8 rounded-xl border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-transparent overflow-hidden">
+      <div className="bg-primary/10 px-5 py-3 flex items-center justify-between border-b border-primary/20">
         <div className="flex items-center gap-2">
-          <Gavel className="h-4 w-4 text-legal-gold" />
-          <span className="font-semibold text-sm text-foreground font-heading">{title}</span>
+          <Gavel className="h-4 w-4 text-primary" />
+          <span className="font-semibold text-sm text-foreground">{title}</span>
         </div>
         <button
           onClick={copyCitation}
-          className="flex items-center gap-1.5 text-xs text-legal-gold hover:text-legal-gold/80 transition-colors px-2 py-1 rounded-md hover:bg-legal-gold/10"
+          className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors px-2 py-1 rounded-md hover:bg-primary/10"
         >
           <Copy className="h-3 w-3" /> نسخ الاستشهاد
         </button>
@@ -64,18 +64,18 @@ const LegalAlert = ({ type, children }: { type: 'warning' | 'important' | 'tip';
     important: {
       icon: Info,
       label: 'ملاحظة مهمة',
-      border: 'border-legal-gold/40',
-      bg: 'bg-legal-gold/5',
-      iconColor: 'text-legal-gold',
-      headerBg: 'bg-legal-gold/10',
+      border: 'border-accent-foreground/40',
+      bg: 'bg-accent/50',
+      iconColor: 'text-accent-foreground',
+      headerBg: 'bg-accent',
     },
     tip: {
       icon: Lightbulb,
       label: 'نصيحة قانونية',
-      border: 'border-legal-emerald/40',
-      bg: 'bg-legal-emerald/5',
-      iconColor: 'text-legal-emerald',
-      headerBg: 'bg-legal-emerald/10',
+      border: 'border-primary/40',
+      bg: 'bg-primary/5',
+      iconColor: 'text-primary',
+      headerBg: 'bg-primary/10',
     },
   };
   const c = config[type];
@@ -94,21 +94,21 @@ const LegalAlert = ({ type, children }: { type: 'warning' | 'important' | 'tip';
 // ── Author Bio Card ──
 const AuthorBioCard = () => (
   <div className="mt-14 rounded-2xl border border-border/60 bg-card overflow-hidden">
-    <div className="h-20 bg-gradient-to-l from-legal-emerald/20 via-legal-emerald/10 to-transparent" />
+    <div className="h-20 bg-gradient-to-l from-primary/20 via-primary/10 to-transparent" />
     <div className="px-6 pb-6 -mt-10">
       <div className="flex items-start gap-4">
-        <div className="w-20 h-20 rounded-2xl bg-legal-emerald/10 border-4 border-card flex items-center justify-center shrink-0">
-          <Scale className="h-8 w-8 text-legal-emerald" />
+        <div className="w-20 h-20 rounded-2xl bg-primary/10 border-4 border-card flex items-center justify-center shrink-0">
+          <Scale className="h-8 w-8 text-primary" />
         </div>
         <div className="pt-10 space-y-2 flex-1">
-          <h3 className="text-lg font-bold text-foreground font-heading">فريق محاماة ذكية</h3>
+          <h3 className="text-lg font-bold text-foreground">فريق محاماة ذكية</h3>
           <p className="text-sm text-muted-foreground">محامون ومستشارون قانونيون متخصصون في القانون المغربي</p>
           <p className="text-sm text-muted-foreground leading-relaxed">
             نقدم محتوى قانونياً موثوقاً ومحدثاً يستند إلى التشريعات المغربية والاجتهادات القضائية، بهدف تعزيز الثقافة القانونية وتسهيل الوصول إلى العدالة.
           </p>
           <div className="flex items-center gap-3 pt-1">
             <Link to="/ai-consultation">
-              <Button size="sm" variant="outline" className="gap-1.5 text-xs rounded-lg border-legal-emerald/30 text-legal-emerald hover:bg-legal-emerald/5">
+              <Button size="sm" variant="outline" className="gap-1.5 text-xs rounded-lg border-primary/30 text-primary hover:bg-primary/5">
                 <MessageCircle className="h-3 w-3" /> استشارة مجانية
               </Button>
             </Link>
@@ -140,13 +140,13 @@ const NewsletterSection = () => {
   };
 
   return (
-    <section className="py-16 bg-legal-emerald/[0.03] border-t border-border/40">
+    <section className="py-16 bg-primary/[0.03] border-t border-border/40">
       <div className="container mx-auto px-4">
         <div className="max-w-2xl mx-auto text-center space-y-5">
-          <div className="w-14 h-14 rounded-2xl bg-legal-gold/10 flex items-center justify-center mx-auto">
-            <Mail className="h-6 w-6 text-legal-gold" />
+          <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
+            <Mail className="h-6 w-6 text-primary" />
           </div>
-          <h2 className="text-2xl font-bold text-foreground font-heading">اشترك في النشرة القانونية</h2>
+          <h2 className="text-2xl font-bold text-foreground">اشترك في النشرة القانونية</h2>
           <p className="text-muted-foreground text-sm">احصل على أحدث المقالات والتحديثات القانونية مباشرة في بريدك</p>
           <div className="flex gap-2 max-w-md mx-auto">
             <input
@@ -154,13 +154,13 @@ const NewsletterSection = () => {
               value={email}
               onChange={e => setEmail(e.target.value)}
               placeholder="بريدك الإلكتروني"
-              className="flex-1 h-11 rounded-xl border border-border bg-card px-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-legal-emerald/30 focus:border-legal-emerald/50"
+              className="flex-1 h-11 rounded-xl border border-border bg-card px-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50"
               dir="ltr"
             />
             <Button
               onClick={handleSubscribe}
               disabled={submitting}
-              className="h-11 rounded-xl bg-legal-emerald hover:bg-legal-emerald/90 text-white px-6"
+              className="h-11 rounded-xl px-6"
             >
               اشتراك
             </Button>
@@ -287,8 +287,8 @@ const BlogArticle = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <div className="h-[3px] bg-legal-emerald/20 fixed top-0 left-0 right-0 z-[60]">
-          <div className="h-full bg-legal-emerald animate-pulse w-1/3" />
+        <div className="h-[3px] bg-primary/20 fixed top-0 left-0 right-0 z-[60]">
+          <div className="h-full bg-primary animate-pulse w-1/3" />
         </div>
         <div className="container mx-auto px-4 pt-32">
           <div className="max-w-3xl mx-auto space-y-8">
@@ -311,12 +311,12 @@ const BlogArticle = () => {
   if (!article) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-6 bg-background px-4">
-        <div className="w-24 h-24 rounded-full bg-legal-emerald/10 flex items-center justify-center">
-          <BookOpen className="h-12 w-12 text-legal-emerald" />
+        <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center">
+          <BookOpen className="h-12 w-12 text-primary" />
         </div>
-        <h1 className="text-3xl font-bold text-foreground font-heading">المقال غير موجود</h1>
+        <h1 className="text-3xl font-bold text-foreground">المقال غير موجود</h1>
         <p className="text-muted-foreground">ربما تم حذفه أو تغيير رابطه</p>
-        <Link to="/blog"><Button className="gap-2 bg-legal-emerald hover:bg-legal-emerald/90 text-white rounded-xl"><ArrowRight className="h-4 w-4" /> العودة للمدونة</Button></Link>
+        <Link to="/blog"><Button className="gap-2 rounded-xl"><ArrowRight className="h-4 w-4" /> العودة للمدونة</Button></Link>
       </div>
     );
   }
@@ -394,7 +394,7 @@ const BlogArticle = () => {
       {/* ═══ Progress Bar ═══ */}
       <div className="fixed top-0 left-0 right-0 z-[70] h-[3px] bg-muted/50">
         <div
-          className="h-full bg-gradient-to-l from-legal-gold via-legal-emerald to-legal-emerald transition-all duration-200 ease-out"
+          className="h-full bg-gradient-to-l from-primary/70 via-primary to-primary transition-all duration-200 ease-out"
           style={{ width: `${progress}%` }}
         />
       </div>
@@ -404,10 +404,10 @@ const BlogArticle = () => {
         <nav className="sticky top-0 z-50 bg-card/90 backdrop-blur-xl border-b border-border/40 print:hidden">
           <div className="container mx-auto px-4 flex items-center justify-between h-14">
             <Link to="/" className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-legal-emerald flex items-center justify-center">
-                <Scale className="h-4.5 w-4.5 text-white" />
+              <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
+                <Scale className="h-4 w-4 text-primary-foreground" />
               </div>
-              <span className="text-base font-bold text-foreground hidden sm:block font-heading">محاماة ذكية</span>
+              <span className="text-base font-bold text-foreground hidden sm:block">محاماة ذكية</span>
             </Link>
             <div className="hidden md:flex items-center gap-1">
               <Link to="/blog">
@@ -454,63 +454,58 @@ const BlogArticle = () => {
 
         {/* ═══ Hero Section ═══ */}
         <header className="relative overflow-hidden">
-          {/* Decorative pattern */}
-          <div className="absolute inset-0 opacity-[0.03]" style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23064e3b' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }} />
-
-          <div className="relative container mx-auto px-4 pt-8 pb-0 md:pt-12">
+          <div className="relative container mx-auto px-4 pt-6 pb-0 md:pt-10">
             <div className="max-w-4xl mx-auto">
               {/* Breadcrumbs */}
               <nav className="flex items-center gap-2 text-xs text-muted-foreground mb-6" aria-label="breadcrumb">
-                <Link to="/" className="hover:text-legal-emerald transition-colors flex items-center gap-1">
+                <Link to="/" className="hover:text-primary transition-colors flex items-center gap-1">
                   الرئيسية
                 </Link>
                 <ChevronDown className="h-3 w-3 -rotate-90" />
-                <Link to="/blog" className="hover:text-legal-emerald transition-colors">المدونة</Link>
+                <Link to="/blog" className="hover:text-primary transition-colors">المدونة</Link>
                 <ChevronDown className="h-3 w-3 -rotate-90" />
-                <Link to={`/blog?category=${article.category}`} className="hover:text-legal-emerald transition-colors text-legal-emerald font-medium">
+                <Link to={`/blog?category=${article.category}`} className="hover:text-primary transition-colors text-primary font-medium">
                   {article.category || 'عام'}
                 </Link>
               </nav>
 
               {/* Category Badge */}
-              <Badge className="mb-5 bg-legal-emerald/10 text-legal-emerald border-legal-emerald/20 hover:bg-legal-emerald/15 text-xs px-3 py-1 rounded-full font-medium">
+              <Badge className="mb-5 bg-primary/10 text-primary border-primary/20 hover:bg-primary/15 text-xs px-3 py-1 rounded-full font-medium">
                 <Gavel className="h-3 w-3 ml-1" />
                 {article.category || 'عام'}
               </Badge>
 
               {/* Title */}
-              <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground leading-[1.35] tracking-tight mb-5 font-heading">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-foreground leading-[1.35] tracking-tight mb-5">
                 {article.title}
               </h1>
 
               {/* Excerpt */}
               {article.excerpt && (
-                <p className="text-base md:text-lg text-muted-foreground leading-relaxed mb-6 max-w-3xl">
+                <p className="text-sm sm:text-base md:text-lg text-muted-foreground leading-relaxed mb-6 max-w-3xl">
                   {article.excerpt}
                 </p>
               )}
 
               {/* Meta Row */}
-              <div className="flex flex-wrap items-center gap-4 pb-8 border-b border-border/40">
+              <div className="flex flex-wrap items-center gap-3 sm:gap-4 pb-6 sm:pb-8 border-b border-border/40">
                 {/* Author */}
                 <div className="flex items-center gap-2.5">
-                  <div className="w-10 h-10 rounded-full bg-legal-emerald/10 flex items-center justify-center">
-                    <User className="h-5 w-5 text-legal-emerald" />
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <User className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-foreground">فريق محاماة ذكية</p>
-                    <p className="text-xs text-muted-foreground">محامون ومستشارون</p>
+                    <p className="text-xs sm:text-sm font-semibold text-foreground">فريق محاماة ذكية</p>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground">محامون ومستشارون</p>
                   </div>
                 </div>
                 <div className="hidden sm:block w-px h-8 bg-border" />
-                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <div className="flex items-center gap-3 sm:gap-4 text-[11px] sm:text-xs text-muted-foreground">
                   <span className="flex items-center gap-1.5">
-                    <Calendar className="h-3.5 w-3.5" /> {formattedDate}
+                    <Calendar className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> {formattedDate}
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <Clock className="h-3.5 w-3.5" /> {article.reading_time || 5} دقائق قراءة
+                    <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> {article.reading_time || 5} دقائق قراءة
                   </span>
                 </div>
               </div>
@@ -519,18 +514,18 @@ const BlogArticle = () => {
 
           {/* Featured Image */}
           {article.cover_image && (
-            <div className="container mx-auto px-4 mt-8">
+            <div className="container mx-auto px-4 mt-6 sm:mt-8">
               <figure className="max-w-4xl mx-auto">
-                <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-legal-emerald/10">
+                <div className="relative rounded-xl sm:rounded-2xl overflow-hidden shadow-2xl shadow-primary/10">
                   <img
                     src={article.cover_image}
                     alt={article.title}
-                    className="w-full aspect-[21/9] object-cover"
+                    className="w-full aspect-[16/9] sm:aspect-[21/9] object-cover"
                     loading="eager"
                   />
-                  <div className="absolute inset-0 rounded-2xl ring-1 ring-inset ring-foreground/10" />
+                  <div className="absolute inset-0 rounded-xl sm:rounded-2xl ring-1 ring-inset ring-foreground/10" />
                 </div>
-                <figcaption className="text-center text-xs text-muted-foreground mt-3">
+                <figcaption className="text-center text-[11px] sm:text-xs text-muted-foreground mt-2 sm:mt-3">
                   صورة توضيحية — {article.category || 'القانون المغربي'}
                 </figcaption>
               </figure>
@@ -539,7 +534,7 @@ const BlogArticle = () => {
         </header>
 
         {/* ═══ Main Content Area with Sidebar ═══ */}
-        <div className="container mx-auto px-4 py-10 md:py-14">
+        <div className="container mx-auto px-4 py-8 sm:py-10 md:py-14">
           <div className="max-w-6xl mx-auto flex gap-10">
 
             {/* ── Sticky Sidebar (TOC) ── */}
@@ -552,7 +547,7 @@ const BlogArticle = () => {
                       className="w-full px-5 py-4 flex items-center justify-between bg-muted/30 border-b border-border/40 hover:bg-muted/50 transition-colors"
                     >
                       <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                        <Hash className="h-4 w-4 text-legal-emerald" /> فهرس المقال
+                        <Hash className="h-4 w-4 text-primary" /> فهرس المقال
                       </span>
                       <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${tocOpen ? '' : '-rotate-90'}`} />
                     </button>
@@ -565,7 +560,7 @@ const BlogArticle = () => {
                             <span>{Math.round(progress)}%</span>
                           </div>
                           <div className="h-1 bg-muted rounded-full overflow-hidden">
-                            <div className="h-full bg-legal-emerald rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
+                            <div className="h-full bg-primary rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
                           </div>
                         </div>
                         {toc.map(item => (
@@ -576,7 +571,7 @@ const BlogArticle = () => {
                               item.level === 3 ? 'pr-6 text-xs' : ''
                             } ${
                               activeHeading === item.id
-                                ? 'bg-legal-emerald/10 text-legal-emerald font-medium border-r-2 border-legal-emerald'
+                                ? 'bg-primary/10 text-primary font-medium border-r-2 border-primary'
                                 : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                             }`}
                           >
@@ -594,15 +589,15 @@ const BlogArticle = () => {
             <article className="flex-1 min-w-0" ref={articleRef}>
               <div id="article-body"
                 className="legal-article-content prose prose-lg max-w-none dark:prose-invert
-                  prose-headings:text-foreground prose-headings:font-heading prose-headings:font-bold prose-headings:leading-snug
-                  prose-h2:text-[1.4rem] prose-h2:md:text-[1.6rem] prose-h2:mt-12 prose-h2:mb-5 prose-h2:pb-3 prose-h2:border-b prose-h2:border-border/30
-                  prose-h3:text-[1.15rem] prose-h3:md:text-[1.3rem] prose-h3:mt-9 prose-h3:mb-4
-                  prose-p:text-foreground/85 prose-p:leading-[2] prose-p:text-[0.975rem] prose-p:md:text-[1.05rem] prose-p:mb-5
-                  prose-a:text-legal-emerald prose-a:font-medium prose-a:no-underline prose-a:border-b prose-a:border-legal-emerald/30 hover:prose-a:border-legal-emerald
+                  prose-headings:text-foreground prose-headings:font-bold prose-headings:leading-snug
+                  prose-h2:text-[1.3rem] prose-h2:sm:text-[1.4rem] prose-h2:md:text-[1.6rem] prose-h2:mt-10 prose-h2:sm:mt-12 prose-h2:mb-4 prose-h2:sm:mb-5 prose-h2:pb-3 prose-h2:border-b prose-h2:border-border/30
+                  prose-h3:text-[1.1rem] prose-h3:sm:text-[1.15rem] prose-h3:md:text-[1.3rem] prose-h3:mt-8 prose-h3:sm:mt-9 prose-h3:mb-3 prose-h3:sm:mb-4
+                  prose-p:text-foreground/85 prose-p:leading-[1.9] prose-p:sm:leading-[2] prose-p:text-[0.9rem] prose-p:sm:text-[0.975rem] prose-p:md:text-[1.05rem] prose-p:mb-4 prose-p:sm:mb-5
+                  prose-a:text-primary prose-a:font-medium prose-a:no-underline prose-a:border-b prose-a:border-primary/30 hover:prose-a:border-primary
                   prose-strong:text-foreground prose-strong:font-semibold
-                  prose-img:rounded-2xl prose-img:shadow-xl prose-img:my-8
-                  prose-blockquote:border-r-[3px] prose-blockquote:border-legal-gold prose-blockquote:bg-legal-gold/5 prose-blockquote:rounded-xl prose-blockquote:py-4 prose-blockquote:px-6 prose-blockquote:not-italic prose-blockquote:text-foreground/80 prose-blockquote:my-8
-                  prose-li:text-foreground/85 prose-li:leading-[2]
+                  prose-img:rounded-xl prose-img:sm:rounded-2xl prose-img:shadow-xl prose-img:my-6 prose-img:sm:my-8
+                  prose-blockquote:border-r-[3px] prose-blockquote:border-primary/40 prose-blockquote:bg-primary/5 prose-blockquote:rounded-xl prose-blockquote:py-3 prose-blockquote:sm:py-4 prose-blockquote:px-4 prose-blockquote:sm:px-6 prose-blockquote:not-italic prose-blockquote:text-foreground/80 prose-blockquote:my-6 prose-blockquote:sm:my-8
+                  prose-li:text-foreground/85 prose-li:leading-[1.9] prose-li:sm:leading-[2]
                   prose-ul:mr-0 prose-ol:mr-0
                   prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-code:font-normal"
                 dir="rtl"
@@ -611,14 +606,14 @@ const BlogArticle = () => {
 
               {/* ── Tags ── */}
               {article.tags && article.tags.length > 0 && (
-                <div className="mt-14 p-6 bg-muted/20 rounded-2xl border border-border/40">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Tag className="h-4 w-4 text-legal-gold" />
-                    <span className="text-sm font-semibold text-foreground font-heading">الوسوم والكلمات المفتاحية</span>
+                <div className="mt-10 sm:mt-14 p-4 sm:p-6 bg-muted/20 rounded-xl sm:rounded-2xl border border-border/40">
+                  <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                    <Tag className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-semibold text-foreground">الوسوم والكلمات المفتاحية</span>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     {article.tags.map((tag: string) => (
-                      <Badge key={tag} variant="outline" className="text-xs bg-card hover:bg-legal-emerald/5 hover:border-legal-emerald/30 hover:text-legal-emerald transition-colors cursor-pointer rounded-full px-3 py-1">
+                      <Badge key={tag} variant="outline" className="text-xs bg-card hover:bg-primary/5 hover:border-primary/30 hover:text-primary transition-colors cursor-pointer rounded-full px-3 py-1">
                         {tag}
                       </Badge>
                     ))}
@@ -627,7 +622,7 @@ const BlogArticle = () => {
               )}
 
               {/* ── Share Section ── */}
-              <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 py-8 border-y border-border/40 print:hidden">
+              <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 py-6 sm:py-8 border-y border-border/40 print:hidden">
                 <span className="text-sm font-medium text-foreground">شارك هذا المقال:</span>
                 <div className="flex items-center gap-2">
                   {[
@@ -652,25 +647,25 @@ const BlogArticle = () => {
               <AuthorBioCard />
 
               {/* ── CTA Section ── */}
-              <div className="mt-14 relative overflow-hidden rounded-2xl bg-gradient-to-br from-legal-emerald/10 via-legal-emerald/5 to-legal-gold/5 border border-legal-emerald/20 p-8 md:p-10 print:hidden">
-                <div className="absolute top-0 left-0 w-40 h-40 bg-legal-gold/10 rounded-full -translate-x-1/2 -translate-y-1/2 blur-3xl" />
-                <div className="absolute bottom-0 right-0 w-48 h-48 bg-legal-emerald/5 rounded-full translate-x-1/4 translate-y-1/4 blur-3xl" />
-                <div className="relative z-10 text-center space-y-5">
-                  <div className="w-16 h-16 rounded-2xl bg-legal-emerald/10 flex items-center justify-center mx-auto">
-                    <Scale className="h-8 w-8 text-legal-emerald" />
+              <div className="mt-10 sm:mt-14 relative overflow-hidden rounded-xl sm:rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-accent/30 border border-primary/20 p-6 sm:p-8 md:p-10 print:hidden">
+                <div className="absolute top-0 left-0 w-40 h-40 bg-primary/10 rounded-full -translate-x-1/2 -translate-y-1/2 blur-3xl" />
+                <div className="absolute bottom-0 right-0 w-48 h-48 bg-primary/5 rounded-full translate-x-1/4 translate-y-1/4 blur-3xl" />
+                <div className="relative z-10 text-center space-y-4 sm:space-y-5">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
+                    <Scale className="h-7 w-7 sm:h-8 sm:w-8 text-primary" />
                   </div>
-                  <h3 className="text-xl md:text-2xl font-bold text-foreground font-heading">هل لديك سؤال حول هذا الموضوع؟</h3>
-                  <p className="text-muted-foreground max-w-lg mx-auto text-sm">
+                  <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-foreground">هل لديك سؤال حول هذا الموضوع؟</h3>
+                  <p className="text-muted-foreground max-w-lg mx-auto text-xs sm:text-sm">
                     احصل على استشارة قانونية ذكية فورية مبنية على القانون المغربي والاجتهادات القضائية
                   </p>
                   <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
                     <Link to="/ai-consultation">
-                      <Button size="lg" className="gap-2 rounded-xl bg-legal-emerald hover:bg-legal-emerald/90 text-white shadow-lg shadow-legal-emerald/20">
+                      <Button size="lg" className="gap-2 rounded-xl shadow-lg shadow-primary/20">
                         استشارة ذكية مجانية <ArrowLeft className="h-4 w-4" />
                       </Button>
                     </Link>
                     <Link to="/legal-fee-calculator">
-                      <Button variant="outline" size="lg" className="gap-2 rounded-xl border-legal-gold/30 text-legal-gold hover:bg-legal-gold/5">
+                      <Button variant="outline" size="lg" className="gap-2 rounded-xl">
                         حاسبة الرسوم القضائية
                       </Button>
                     </Link>
@@ -683,24 +678,24 @@ const BlogArticle = () => {
 
         {/* ═══ Related Articles ═══ */}
         {related.length > 0 && (
-          <section className="border-t border-border/40 py-14 md:py-20 bg-muted/20 print:hidden">
+          <section className="border-t border-border/40 py-10 sm:py-14 md:py-20 bg-muted/20 print:hidden">
             <div className="container mx-auto px-4">
               <div className="max-w-5xl mx-auto">
-                <div className="flex items-center justify-between mb-10">
+                <div className="flex items-center justify-between mb-8 sm:mb-10">
                   <div className="space-y-1">
-                    <h2 className="text-2xl md:text-3xl font-bold text-foreground font-heading">مقالات ذات صلة</h2>
-                    <p className="text-sm text-muted-foreground">تابع القراءة حول {article.category || 'هذا الموضوع'}</p>
+                    <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">مقالات ذات صلة</h2>
+                    <p className="text-xs sm:text-sm text-muted-foreground">تابع القراءة حول {article.category || 'هذا الموضوع'}</p>
                   </div>
                   <Link to="/blog">
-                    <Button variant="outline" size="sm" className="gap-1.5 rounded-lg text-muted-foreground hover:text-legal-emerald hover:border-legal-emerald/30">
+                    <Button variant="outline" size="sm" className="gap-1.5 rounded-lg text-muted-foreground hover:text-primary hover:border-primary/30">
                       عرض الكل <ArrowLeft className="h-3.5 w-3.5" />
                     </Button>
                   </Link>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                   {related.map(r => (
                     <Link to={`/blog/${r.slug}`} key={r.id} className="group">
-                      <Card className="overflow-hidden border-border/40 hover:shadow-xl hover:shadow-legal-emerald/5 hover:border-legal-emerald/20 transition-all duration-500 hover:-translate-y-1 h-full bg-card">
+                      <Card className="overflow-hidden border-border/40 hover:shadow-xl hover:shadow-primary/5 hover:border-primary/20 transition-all duration-500 hover:-translate-y-1 h-full bg-card">
                         <div className="aspect-[16/10] overflow-hidden">
                           <img
                             src={r.cover_image || 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=400&h=250&fit=crop'}
@@ -709,11 +704,11 @@ const BlogArticle = () => {
                             loading="lazy"
                           />
                         </div>
-                        <CardContent className="p-5 space-y-3">
-                          <Badge variant="outline" className="text-[10px] px-2 py-0.5 rounded-full border-legal-emerald/20 text-legal-emerald">
+                        <CardContent className="p-4 sm:p-5 space-y-2 sm:space-y-3">
+                          <Badge variant="outline" className="text-[10px] px-2 py-0.5 rounded-full border-primary/20 text-primary">
                             {r.category || 'عام'}
                           </Badge>
-                          <h3 className="text-sm font-bold text-foreground line-clamp-2 group-hover:text-legal-emerald transition-colors leading-relaxed font-heading">
+                          <h3 className="text-sm font-bold text-foreground line-clamp-2 group-hover:text-primary transition-colors leading-relaxed">
                             {r.title}
                           </h3>
                           <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
@@ -740,20 +735,20 @@ const BlogArticle = () => {
         <NewsletterSection />
 
         {/* ═══ Footer ═══ */}
-        <footer className="py-10 border-t border-border/40 print:hidden">
-          <div className="container mx-auto px-4 text-center space-y-4">
-            <div className="flex items-center justify-center gap-2.5 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-legal-emerald flex items-center justify-center">
-                <Scale className="h-4 w-4 text-white" />
+        <footer className="py-8 sm:py-10 border-t border-border/40 print:hidden">
+          <div className="container mx-auto px-4 text-center space-y-3 sm:space-y-4">
+            <div className="flex items-center justify-center gap-2.5 mb-3 sm:mb-4">
+              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                <Scale className="h-4 w-4 text-primary-foreground" />
               </div>
-              <span className="font-bold text-foreground font-heading">محاماة ذكية</span>
+              <span className="font-bold text-foreground">محاماة ذكية</span>
             </div>
-            <p className="text-sm text-muted-foreground">منصة قانونية مغربية متكاملة — محتوى موثوق واستشارات ذكية</p>
-            <div className="flex items-center justify-center gap-5 text-xs text-muted-foreground">
-              <Link to="/blog" className="hover:text-legal-emerald transition-colors">المدونة</Link>
-              <Link to="/ai-consultation" className="hover:text-legal-emerald transition-colors">استشارة ذكية</Link>
-              <Link to="/legal-fee-calculator" className="hover:text-legal-emerald transition-colors">حاسبة الرسوم</Link>
-              <Link to="/case-tracker" className="hover:text-legal-emerald transition-colors">تتبع القضايا</Link>
+            <p className="text-xs sm:text-sm text-muted-foreground">منصة قانونية مغربية متكاملة — محتوى موثوق واستشارات ذكية</p>
+            <div className="flex items-center justify-center gap-3 sm:gap-5 text-xs text-muted-foreground flex-wrap">
+              <Link to="/blog" className="hover:text-primary transition-colors">المدونة</Link>
+              <Link to="/ai-consultation" className="hover:text-primary transition-colors">استشارة ذكية</Link>
+              <Link to="/legal-fee-calculator" className="hover:text-primary transition-colors">حاسبة الرسوم</Link>
+              <Link to="/case-tracker" className="hover:text-primary transition-colors">تتبع القضايا</Link>
             </div>
           </div>
         </footer>
@@ -781,7 +776,7 @@ const BlogArticle = () => {
       {showScrollTop && (
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className="fixed bottom-6 left-6 xl:left-20 z-50 w-12 h-12 rounded-full bg-legal-emerald text-white shadow-lg shadow-legal-emerald/30 flex items-center justify-center hover:scale-110 transition-transform animate-in fade-in slide-in-from-bottom-4 print:hidden"
+          className="fixed bottom-6 left-6 xl:left-20 z-50 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 flex items-center justify-center hover:scale-110 transition-transform animate-in fade-in slide-in-from-bottom-4 print:hidden"
           aria-label="العودة للأعلى"
         >
           <ChevronUp className="h-5 w-5" />
