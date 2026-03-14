@@ -250,7 +250,7 @@ const DocumentCenter = () => {
                         <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
                           {doc.reference_number && <span className="flex items-center gap-1"><ScrollText className="h-3 w-3" /> {doc.reference_number}</span>}
                           {doc.decision_date && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {new Date(doc.decision_date).toLocaleDateString('ar-MA')}</span>}
-                          <span className="flex items-center gap-1"><BookOpen className="h-3 w-3" /> {doc.doc_type}</span>
+                          <span className="flex items-center gap-1"><BookOpen className="h-3 w-3" /> {getDocTypeLabel(doc.doc_type)}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
