@@ -255,6 +255,63 @@ const markdownComponents: Components = {
   ),
 };
 
+const THINKING_PHASES = [
+  { text: 'جاري تحليل النازلة القانونية...', icon: '⚖️' },
+  { text: 'مراجعة النصوص القانونية المنطبقة...', icon: '📜' },
+  { text: 'البحث في الاجتهاد القضائي...', icon: '🔍' },
+  { text: 'صياغة الاستشارة القانونية...', icon: '✍️' },
+];
+
+const ThinkingAnimation = () => {
+  const [phase, setPhase] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPhase(p => (p + 1) % THINKING_PHASES.length);
+    }, 2800);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="flex gap-3">
+      <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-legal-navy/10 to-legal-gold/10 flex items-center justify-center">
+        <Bot className="h-4 w-4 text-legal-navy animate-pulse" />
+      </div>
+      <div className="bg-muted/40 rounded-2xl rounded-tl-md px-5 py-4 border border-border/10 max-w-[85%]">
+        <div className="flex items-center gap-3">
+          <motion.span
+            key={phase}
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -5 }}
+            className="text-lg"
+          >
+            {THINKING_PHASES[phase].icon}
+          </motion.span>
+          <div className="space-y-1.5">
+            <AnimatePresence mode="wait">
+              <motion.p
+                key={phase}
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -10 }}
+                className="text-xs font-medium text-foreground/70"
+              >
+                {THINKING_PHASES[phase].text}
+              </motion.p>
+            </AnimatePresence>
+            <div className="flex gap-1">
+              <span className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce" />
+              <span className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }} />
+              <span className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const AIConsultation = () => {
   const [mode, setMode] = useState<'intake' | 'chat'>('intake');
   const [step, setStep] = useState(0);
@@ -268,8 +325,9 @@ const AIConsultation = () => {
   const [caseContext, setCaseContext] = useState('');
   const [mobileNav, setMobileNav] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const bufferRef = useRef('');
 
-  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [messages]);
+  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [messages, loading]);
 
   const selectedType = CASE_TYPES.find(t => t.value === intake.caseType);
 
@@ -282,26 +340,27 @@ const AIConsultation = () => {
     if (!intake.caseType || !intake.facts.trim()) { toast.error('يرجى اختيار نوع القضية وذكر الوقائع'); return; }
     const context = buildCaseContext();
     setCaseContext(context);
-    setMessages([{ role: 'assistant', content: '✅ تم استلام بيانات النازلة. جاري التحليل...' }]);
+    setMessages([]);
     setMode('chat');
-    setTimeout(() => autoAnalyze(context), 500);
+    setTimeout(() => autoAnalyze(context), 300);
   };
 
   const autoAnalyze = async (context: string) => {
     setLoading(true);
+    bufferRef.current = '';
     const analyzeMsg: Message = { role: 'user', content: `حلل هذه النازلة القانونية:\n\n${context}` };
-    let assistantSoFar = '';
-    const upsertAssistant = (chunk: string) => {
-      assistantSoFar += chunk;
-      setMessages(prev => {
-        const last = prev[prev.length - 1];
-        if (last?.role === 'assistant' && assistantSoFar.length > chunk.length)
-          return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: assistantSoFar } : m));
-        return [...prev, { role: 'assistant', content: assistantSoFar }];
-      });
-    };
     try {
-      await streamChat({ messages: [analyzeMsg], caseContext: context, onDelta: upsertAssistant, onDone: () => setLoading(false), onError: (err) => { toast.error(err); setLoading(false); } });
+      await streamChat({
+        messages: [analyzeMsg],
+        caseContext: context,
+        onDelta: (chunk) => { bufferRef.current += chunk; },
+        onDone: () => {
+          setMessages(prev => [...prev, { role: 'assistant', content: bufferRef.current }]);
+          bufferRef.current = '';
+          setLoading(false);
+        },
+        onError: (err) => { toast.error(err); setLoading(false); },
+      });
     } catch { toast.error('حدث خطأ غير متوقع'); setLoading(false); }
   };
 
@@ -312,18 +371,19 @@ const AIConsultation = () => {
     const userMsg: Message = { role: 'user', content: userMessage };
     setMessages(prev => [...prev, userMsg]);
     setLoading(true);
-    let assistantSoFar = '';
-    const upsertAssistant = (chunk: string) => {
-      assistantSoFar += chunk;
-      setMessages(prev => {
-        const last = prev[prev.length - 1];
-        if (last?.role === 'assistant' && assistantSoFar.length > chunk.length)
-          return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: assistantSoFar } : m));
-        return [...prev, { role: 'assistant', content: assistantSoFar }];
-      });
-    };
+    bufferRef.current = '';
     try {
-      await streamChat({ messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })), caseContext, onDelta: upsertAssistant, onDone: () => setLoading(false), onError: (err) => { toast.error(err); setLoading(false); } });
+      await streamChat({
+        messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })),
+        caseContext,
+        onDelta: (chunk) => { bufferRef.current += chunk; },
+        onDone: () => {
+          setMessages(prev => [...prev, { role: 'assistant', content: bufferRef.current }]);
+          bufferRef.current = '';
+          setLoading(false);
+        },
+        onError: (err) => { toast.error(err); setLoading(false); },
+      });
     } catch { toast.error('حدث خطأ غير متوقع'); setLoading(false); }
   };
 
