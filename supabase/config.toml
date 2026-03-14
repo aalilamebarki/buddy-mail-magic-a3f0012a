@@ -1,5 +1,5 @@
 [project]
-id = ""
+id = "sxfoanwvwogmubjqxelv"
 
 [functions.legal-chat]
 verify_jwt = false
