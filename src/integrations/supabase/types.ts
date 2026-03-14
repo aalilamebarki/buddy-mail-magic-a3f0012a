@@ -233,6 +233,57 @@ export type Database = {
         }
         Relationships: []
       }
+      site_settings: {
+        Row: {
+          created_at: string
+          domain_verified: boolean | null
+          email_domain: string | null
+          id: string
+          notify_case: boolean | null
+          notify_reset: boolean | null
+          notify_signup: boolean | null
+          office_address: string | null
+          office_email: string | null
+          office_name: string | null
+          office_phone: string | null
+          sender_email: string | null
+          sender_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          domain_verified?: boolean | null
+          email_domain?: string | null
+          id?: string
+          notify_case?: boolean | null
+          notify_reset?: boolean | null
+          notify_signup?: boolean | null
+          office_address?: string | null
+          office_email?: string | null
+          office_name?: string | null
+          office_phone?: string | null
+          sender_email?: string | null
+          sender_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          domain_verified?: boolean | null
+          email_domain?: string | null
+          id?: string
+          notify_case?: boolean | null
+          notify_reset?: boolean | null
+          notify_signup?: boolean | null
+          office_address?: string | null
+          office_email?: string | null
+          office_name?: string | null
+          office_phone?: string | null
+          sender_email?: string | null
+          sender_name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
