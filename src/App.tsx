@@ -74,6 +74,7 @@ const App = () => (
                 <Route path="seo" element={<SeoSettings />} />
                 <Route path="audit-log" element={<AuditLog />} />
                 <Route path="client-dashboard" element={<ClientDashboard />} />
+                <Route path="knowledge-base" element={<KnowledgeBase />} />
               </Route>
 
               <Route path="*" element={<NotFound />} />
