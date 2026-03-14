@@ -77,14 +77,16 @@ const Navbar = () => {
         <div className="hidden md:flex items-center gap-1">
           {[
             { to: '/blog', label: 'المقالات' },
-            { to: '/legal-fee-calculator', label: 'الأدوات' },
+            { to: '/documents', label: 'الوثائق' },
             { to: '/ai-consultation', label: 'المستشار الذكي' },
+            { to: '/about', label: 'من نحن' },
           ].map(link => (
             <Link key={link.to} to={link.to}
               className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-accent">
               {link.label}
             </Link>
           ))}
+          <ThemeToggle />
           <div className="w-px h-6 bg-border mx-2" />
           <Link to="/auth">
             <Button size="sm" className="rounded-full px-5 gap-2">
