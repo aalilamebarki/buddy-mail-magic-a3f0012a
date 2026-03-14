@@ -57,9 +57,6 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
-        "legal-emerald": "hsl(var(--legal-emerald))",
-        "legal-gold": "hsl(var(--legal-gold))",
-        "legal-slate": "hsl(var(--legal-slate))",
       },
       fontFamily: {
         heading: ['Amiri', 'IBM Plex Sans Arabic', 'serif'],
