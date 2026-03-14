@@ -197,7 +197,6 @@ async function searchAndIngest(
     if (existing && existing.length > 0) continue;
 
     const category = detectCategory(markdown);
-    const isCassation = url.includes("juriscassation") || url.includes("cspj");
     const isRuling = isCassation || /(?:قرار|حكم|اجتهاد|محكمة النقض)/.test(title + " " + markdown.slice(0, 500));
     const docType = isRuling ? "ruling" : "law";
     const chunks = chunkText(markdown);
