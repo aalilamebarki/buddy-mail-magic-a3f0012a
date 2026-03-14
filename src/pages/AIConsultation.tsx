@@ -110,20 +110,51 @@ const markdownComponents: Components = {
   h1: ({ children }) => (
     <h1 className="text-xl font-bold text-foreground mt-6 mb-3 pb-2 border-b-2 border-primary/20">{children}</h1>
   ),
-  h2: ({ children }) => (
-    <h2 className="text-lg font-bold text-foreground mt-5 mb-2.5 flex items-center gap-2">
-      <span className="w-1 h-5 rounded-full bg-primary inline-block shrink-0" />
-      {children}
-    </h2>
-  ),
-  h3: ({ children }) => (
-    <h3 className="text-base font-bold text-foreground mt-4 mb-2 flex items-center gap-2">
-      <span className="w-1.5 h-1.5 rounded-full bg-legal-gold inline-block shrink-0" />
-      {children}
-    </h3>
-  ),
-  p: ({ children }) => {
+  h2: ({ children }) => {
     const text = typeof children === 'string' ? children : '';
+    const isWarning = /تنبيه|تحذير|⚠️/.test(text);
+    return (
+      <h2 className={`text-[0.95rem] font-bold mt-5 mb-2.5 flex items-center gap-2 ${isWarning ? 'text-destructive' : 'text-foreground'}`}>
+        <span className={`w-1 h-5 rounded-full inline-block shrink-0 ${isWarning ? 'bg-destructive' : 'bg-primary'}`} />
+        {children}
+      </h2>
+    );
+  },
+  h3: ({ children }) => {
+    const text = typeof children === 'string' ? children : '';
+    const icon = text.includes('⚖️') ? '⚖️' : text.includes('📜') ? '📜' : text.includes('🔍') ? '🔍' : text.includes('🛠️') ? '🛠️' : text.includes('📊') ? '📊' : null;
+    return (
+      <h3 className="text-[0.9rem] font-bold text-foreground mt-5 mb-2 flex items-center gap-2 bg-muted/30 rounded-lg px-3 py-2 border border-border/10">
+        {!icon && <span className="w-1.5 h-1.5 rounded-full bg-legal-gold inline-block shrink-0" />}
+        {children}
+      </h3>
+    );
+  },
+  p: ({ children }) => {
+    const text = typeof children === 'string' ? children : 
+      Array.isArray(children) ? children.map(c => typeof c === 'string' ? c : '').join('') : '';
+    
+    // Warning/disclaimer detection
+    if (/^⚠️|^تنبيه|^تحذير/.test(text.trim())) {
+      return (
+        <div className="my-3 flex items-start gap-2 rounded-xl bg-destructive/[0.06] border border-destructive/15 py-3 px-4 text-sm leading-[1.9] text-foreground/90">
+          <span className="shrink-0 mt-0.5 text-base">⚠️</span>
+          <p>{children}</p>
+        </div>
+      );
+    }
+
+    // Recommendation detection
+    if (/^💡|^توصية|^نصيحة/.test(text.trim())) {
+      return (
+        <div className="my-3 flex items-start gap-2 rounded-xl bg-legal-emerald/[0.06] border border-legal-emerald/15 py-3 px-4 text-sm leading-[1.9] text-foreground/90">
+          <span className="shrink-0 mt-0.5 text-base">💡</span>
+          <p>{children}</p>
+        </div>
+      );
+    }
+
+    // Legal citation
     if (isLegalCitation(text)) {
       return (
         <p className="my-2.5 text-sm leading-[1.95] pr-3 border-r-2 border-legal-gold/40 bg-legal-gold/[0.04] rounded-sm py-2 px-3 text-foreground/90">
@@ -131,6 +162,7 @@ const markdownComponents: Components = {
         </p>
       );
     }
+
     return <p className="my-2 text-sm leading-[1.95] text-foreground/85">{children}</p>;
   },
   ul: ({ children }) => (
@@ -141,25 +173,46 @@ const markdownComponents: Components = {
   ),
   li: ({ children, ...props }) => {
     const ordered = (props as any).ordered;
+    const text = typeof children === 'string' ? children :
+      Array.isArray(children) ? children.map(c => typeof c === 'string' ? c : '').join('') : '';
+    
+    // Strength/weakness markers
+    const isStrength = text.startsWith('✅');
+    const isWeakness = text.startsWith('⚠️');
+
     return (
-      <li className={`relative text-sm leading-[1.9] text-foreground/85 pr-4 ${
+      <li className={`relative text-sm leading-[1.9] pr-4 ${
+        isStrength ? 'text-legal-emerald font-medium' :
+        isWeakness ? 'text-legal-amber font-medium' :
+        'text-foreground/85'
+      } ${
         ordered
           ? "before:content-[counter(list-item)'.'] before:counter-increment-[list-item] before:absolute before:right-0 before:font-bold before:text-primary before:text-[0.8rem]"
-          : "before:content-[''] before:absolute before:right-0.5 before:top-[0.7em] before:w-1.5 before:h-1.5 before:rounded-full before:bg-primary/50"
+          : !isStrength && !isWeakness
+            ? "before:content-[''] before:absolute before:right-0.5 before:top-[0.7em] before:w-1.5 before:h-1.5 before:rounded-full before:bg-primary/50"
+            : ""
       }`}>
         {children}
       </li>
     );
   },
-  strong: ({ children }) => (
-    <strong className="font-bold text-foreground">{children}</strong>
-  ),
+  strong: ({ children }) => {
+    const text = typeof children === 'string' ? children : '';
+    // Legal article references in bold
+    if (/^(?:الفصل|المادة|الفقرة)\s/.test(text)) {
+      return <strong className="font-bold text-primary bg-primary/[0.06] px-1 py-0.5 rounded">{children}</strong>;
+    }
+    return <strong className="font-bold text-foreground">{children}</strong>;
+  },
   em: ({ children }) => (
     <em className="text-primary/80 not-italic font-medium">{children}</em>
   ),
   blockquote: ({ children }) => (
-    <blockquote className="my-4 border-r-[3px] border-legal-navy bg-legal-navy/[0.04] dark:bg-legal-navy/[0.15] rounded-lg py-3 px-4 text-sm text-foreground/90">
-      {children}
+    <blockquote className="my-4 border-r-[3px] border-legal-gold bg-legal-gold/[0.04] dark:bg-legal-gold/[0.08] rounded-lg py-3 px-4 text-sm text-foreground/90 italic">
+      <div className="flex items-start gap-2">
+        <span className="text-legal-gold/50 text-lg mt-0.5 shrink-0">❝</span>
+        <div>{children}</div>
+      </div>
     </blockquote>
   ),
   code: ({ children, className }) => {
