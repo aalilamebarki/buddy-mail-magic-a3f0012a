@@ -158,21 +158,20 @@ async function searchAndIngest(
     const markdown = result.markdown || "";
     let title = result.title || "";
     const url = result.url || "";
+    const isCassation = url.includes("juriscassation") || url.includes("cspj");
 
     // Extract a meaningful title from content if the page title is generic
     if (!title || title.length < 5 || /^(home|index|page|untitled)/i.test(title)) {
-      // Try first heading in markdown
       const headingMatch = markdown.match(/^#+\s*(.+)/m);
       if (headingMatch) {
         title = headingMatch[1].trim().slice(0, 200);
       } else {
-        // Use first meaningful line
         const firstLine = markdown.split('\n').find(l => l.trim().length > 10);
         title = firstLine ? firstLine.trim().slice(0, 200) : "مستند قانوني";
       }
     }
 
-    // For cassation rulings, try to build a descriptive title
+    // For cassation rulings, build a descriptive title with reference number
     if (isCassation || /(?:قرار|حكم|محكمة النقض)/.test(title)) {
       const refMatch = markdown.match(/(?:قرار\s+)?عدد\s*[:\s]*(\d+(?:\/\d+)?)/);
       const dateMatch = markdown.match(/(\d{4}[-/]\d{2}[-/]\d{2})/);
@@ -185,8 +184,6 @@ async function searchAndIngest(
         title = parts.join(' ');
       }
     }
-
-    const isCassation = url.includes("juriscassation") || url.includes("cspj");
 
     if (!markdown || markdown.length < 100) continue;
 
