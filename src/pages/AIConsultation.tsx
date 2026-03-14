@@ -731,8 +731,11 @@ const AIConsultation = () => {
                 <div className="h-[3px] bg-gradient-to-l from-primary via-legal-gold to-legal-emerald" />
                 <div ref={scrollRef} className="flex-1 overflow-y-auto p-5" style={{ maxHeight: 'calc(100vh - 220px)' }}>
                   <div className="space-y-4">
-                    {messages.map((msg, i) => (
+                    {messages.map((msg, i) => {
+                      const isLast = i === messages.length - 1;
+                      return (
                       <motion.div key={`${i}-${msg.role}`}
+                        ref={isLast ? lastMsgRef : undefined}
                         initial={{ opacity: 0, y: 15, scale: 0.97 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         transition={{ duration: 0.4, ease: 'easeOut' }}
