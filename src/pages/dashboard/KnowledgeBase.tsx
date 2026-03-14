@@ -543,6 +543,137 @@ const KnowledgeBase = () => {
                   </div>
                 </DialogContent>
               </Dialog>
+
+              <Dialog open={scrapeDialogOpen} onOpenChange={setScrapeDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="outline" className="gap-1 text-primary border-primary">
+                    <Globe className="h-4 w-4" />
+                    جلب من محكمة النقض
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <Globe className="h-5 w-5 text-primary" />
+                      جلب قرارات محكمة النقض تلقائياً
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 mt-4">
+                    <p className="text-sm text-muted-foreground">
+                      سيقوم النظام بجلب القرارات من موقع محكمة النقض وحفظها في قاعدة المعرفة تلقائياً.
+                    </p>
+
+                    <div className="space-y-2">
+                      <Label>رابط الموقع</Label>
+                      <Input
+                        value={scrapeUrl}
+                        onChange={e => setScrapeUrl(e.target.value)}
+                        placeholder="https://juriscassation.cspj.ma"
+                      />
+                    </div>
+
+                    {/* Step 1: Map */}
+                    <div className="space-y-2">
+                      <Button
+                        onClick={handleMapWebsite}
+                        disabled={scraping}
+                        variant="outline"
+                        className="w-full gap-2"
+                      >
+                        {scrapeStep === 'mapping' ? (
+                          <><Loader2 className="h-4 w-4 animate-spin" /> جاري اكتشاف الروابط...</>
+                        ) : (
+                          <><Search className="h-4 w-4" /> الخطوة 1: اكتشاف روابط القرارات</>
+                        )}
+                      </Button>
+
+                      {discoveredUrls.length > 0 && (
+                        <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                          <p className="text-sm font-medium text-foreground">
+                            تم اكتشاف {discoveredUrls.length} رابط
+                          </p>
+                          <div className="max-h-32 overflow-y-auto text-xs text-muted-foreground space-y-1">
+                            {discoveredUrls.slice(0, 20).map((u, i) => (
+                              <div key={i} className="flex items-center justify-between gap-2">
+                                <span className="truncate flex-1" dir="ltr">{u}</span>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 text-xs shrink-0"
+                                  onClick={() => handleScrapeSingle(u)}
+                                  disabled={scraping}
+                                >
+                                  جلب
+                                </Button>
+                              </div>
+                            ))}
+                            {discoveredUrls.length > 20 && (
+                              <p className="text-muted-foreground">... و {discoveredUrls.length - 20} رابط آخر</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Step 2: Scrape All */}
+                    {discoveredUrls.length > 0 && (
+                      <div className="space-y-2">
+                        <Button
+                          onClick={handleScrapeUrls}
+                          disabled={scraping}
+                          className="w-full gap-2"
+                        >
+                          {scrapeStep === 'scraping' ? (
+                            <><Loader2 className="h-4 w-4 animate-spin" /> جاري الجلب...</>
+                          ) : (
+                            <>الخطوة 2: جلب كل القرارات ({discoveredUrls.length})</>
+                          )}
+                        </Button>
+
+                        {scrapeStep === 'scraping' && (
+                          <div className="space-y-1">
+                            <Progress value={scrapeProgress} className="h-2" />
+                            <p className="text-xs text-muted-foreground text-center">{scrapeProgress}%</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Results */}
+                    {scrapeResults.length > 0 && (
+                      <div className="bg-muted/50 rounded-lg p-3 space-y-1">
+                        <p className="text-sm font-medium text-foreground">
+                          النتائج: {scrapeResults.filter(r => r.success).length} ناجح من {scrapeResults.length}
+                        </p>
+                        <div className="max-h-40 overflow-y-auto text-xs space-y-1">
+                          {scrapeResults.map((r, i) => (
+                            <div key={i} className={`flex items-center gap-2 ${r.success ? 'text-green-600' : 'text-destructive'}`}>
+                              <span>{r.success ? '✅' : '❌'}</span>
+                              <span className="truncate">{r.title || r.url}</span>
+                              {r.success && <span className="text-muted-foreground">({r.ingested} أجزاء)</span>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {scrapeStep === 'done' && (
+                      <Button
+                        onClick={() => {
+                          setScrapeDialogOpen(false);
+                          setScrapeStep('idle');
+                          setDiscoveredUrls([]);
+                          setScrapeResults([]);
+                        }}
+                        variant="outline"
+                        className="w-full"
+                      >
+                        إغلاق
+                      </Button>
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
         </CardContent>
