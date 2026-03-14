@@ -50,6 +50,10 @@
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
+
+    --legal-emerald: 164 87% 16%;
+    --legal-gold: 36 72% 48%;
+    --legal-slate: 215 16% 47%;
   }
 
   .dark {
