@@ -900,7 +900,7 @@ const BlogArticle = () => {
               <div className="max-w-5xl mx-auto">
                 <div className="flex items-center justify-between mb-10">
                   <div>
-                    <h2 className="text-xl sm:text-2xl font-bold text-foreground font-display">مقالات ذات صلة</h2>
+                    <h2 className="text-xl sm:text-2xl font-bold text-foreground">مقالات ذات صلة</h2>
                     <p className="text-xs text-muted-foreground mt-1">تابع القراءة حول {article.category}</p>
                   </div>
                   <Link to="/blog">
