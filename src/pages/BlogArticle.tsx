@@ -213,7 +213,7 @@ const InlineAIConsultation = ({ category }: { category: string }) => {
               <Sparkles className="h-5 w-5 text-primary-foreground" />
             </motion.div>
             <div>
-              <h3 className="font-bold text-primary-foreground text-[15px] font-display">هل لديك سؤال حول {category}؟</h3>
+              <h3 className="font-bold text-primary-foreground text-[15px]">هل لديك سؤال حول {category}؟</h3>
               <p className="text-[11px] text-primary-foreground/60">احصل على إجابة فورية من المستشار الذكي</p>
             </div>
           </div>
