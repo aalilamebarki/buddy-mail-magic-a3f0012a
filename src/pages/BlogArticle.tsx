@@ -895,6 +895,12 @@ const BlogArticle = () => {
                 </div>
               )}
 
+              {/* Document Gallery */}
+              <DocumentGallery />
+
+              {/* Footnotes */}
+              <FootnotesSection />
+
               {/* Legal Disclaimer */}
               <LegalDisclaimer />
 
