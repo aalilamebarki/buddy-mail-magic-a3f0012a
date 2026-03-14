@@ -548,7 +548,7 @@ const KnowledgeBase = () => {
                 <DialogTrigger asChild>
                   <Button size="sm" variant="outline" className="gap-1 text-primary border-primary">
                     <Globe className="h-4 w-4" />
-                    جلب من محكمة النقض
+                    جلب تلقائي
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
