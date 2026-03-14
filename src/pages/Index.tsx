@@ -440,54 +440,14 @@ const TeamSection = () => (
    FAMOUS QUOTES CAROUSEL
 ═══════════════════════════════════════════ */
 const famousQuotes = [
-  {
-    text: 'الظلم في أي مكان يهدد العدالة في كل مكان.',
-    author: 'مارتن لوثر كينغ',
-    role: 'ناشط حقوقي أمريكي',
-    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Martin_Luther_King%2C_Jr..jpg/220px-Martin_Luther_King%2C_Jr..jpg',
-  },
-  {
-    text: 'القانون يجب أن يكون كالموت الذي لا يستثني أحداً.',
-    author: 'مونتسكيو',
-    role: 'فيلسوف وفقيه قانوني فرنسي',
-    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fc/Montesquieu_1.png/220px-Montesquieu_1.png',
-  },
-  {
-    text: 'حيثما يوجد حق يوجد واجب، وحيثما يوجد واجب يوجد حق.',
-    author: 'المهاتما غاندي',
-    role: 'محامٍ وزعيم حركة الاستقلال الهندية',
-    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7a/Mahatma-Gandhi%2C_studio%2C_1931.jpg/220px-Mahatma-Gandhi%2C_studio%2C_1931.jpg',
-  },
-  {
-    text: 'العدل أساس المُلك.',
-    author: 'عمر بن الخطاب',
-    role: 'ثاني الخلفاء الراشدين',
-    img: '',
-  },
-  {
-    text: 'لا حرية بدون قانون، ولا قانون بدون حرية.',
-    author: 'جون لوك',
-    role: 'فيلسوف إنجليزي، أبو الليبرالية',
-    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d1/JohnLocke.png/220px-JohnLocke.png',
-  },
-  {
-    text: 'الحرية لا تُعطى بل تُؤخذ.',
-    author: 'جمال عبد الناصر',
-    role: 'رئيس مصر الأسبق',
-    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Nasser_portrait2.jpg/220px-Nasser_portrait2.jpg',
-  },
-  {
-    text: 'القانون الذي لا يتساوى أمامه الجميع ليس قانوناً.',
-    author: 'نيلسون مانديلا',
-    role: 'رئيس جنوب أفريقيا ومناضل ضد التمييز',
-    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/02/Nelson_Mandela_1994.jpg/220px-Nelson_Mandela_1994.jpg',
-  },
-  {
-    text: 'إن أردت السلام فاعمل من أجل العدالة.',
-    author: 'البابا بولس السادس',
-    role: 'رئيس الكنيسة الكاثوليكية',
-    img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Paolovi.jpg/220px-Paolovi.jpg',
-  },
+  { text: 'الظلم في أي مكان يهدد العدالة في كل مكان.', author: 'مارتن لوثر كينغ', role: 'ناشط حقوقي أمريكي', initials: 'م.ل', gradient: 'from-blue-600 to-indigo-700' },
+  { text: 'القانون يجب أن يكون كالموت الذي لا يستثني أحداً.', author: 'مونتسكيو', role: 'فيلسوف وفقيه قانوني فرنسي', initials: 'مو', gradient: 'from-amber-600 to-orange-700' },
+  { text: 'حيثما يوجد حق يوجد واجب، وحيثما يوجد واجب يوجد حق.', author: 'المهاتما غاندي', role: 'محامٍ وزعيم حركة الاستقلال الهندية', initials: 'غا', gradient: 'from-emerald-600 to-teal-700' },
+  { text: 'العدل أساس المُلك.', author: 'عمر بن الخطاب', role: 'ثاني الخلفاء الراشدين', initials: 'عم', gradient: 'from-green-700 to-emerald-800' },
+  { text: 'لا حرية بدون قانون، ولا قانون بدون حرية.', author: 'جون لوك', role: 'فيلسوف إنجليزي، أبو الليبرالية', initials: 'ج.ل', gradient: 'from-violet-600 to-purple-700' },
+  { text: 'الحرية لا تُعطى بل تُؤخذ.', author: 'جمال عبد الناصر', role: 'رئيس مصر الأسبق', initials: 'ج.ن', gradient: 'from-red-600 to-rose-700' },
+  { text: 'القانون الذي لا يتساوى أمامه الجميع ليس قانوناً.', author: 'نيلسون مانديلا', role: 'رئيس جنوب أفريقيا ومناضل ضد التمييز', initials: 'ن.م', gradient: 'from-yellow-600 to-amber-700' },
+  { text: 'إن أردت السلام فاعمل من أجل العدالة.', author: 'البابا بولس السادس', role: 'رئيس الكنيسة الكاثوليكية', initials: 'ب.س', gradient: 'from-sky-600 to-blue-700' },
 ];
 
 const QuotesCarousel = () => {
@@ -501,59 +461,51 @@ const QuotesCarousel = () => {
   const q = famousQuotes[active];
 
   return (
-    <AnimatedSection className="py-20 md:py-28 bg-muted/30 overflow-hidden">
+    <AnimatedSection className="py-16 md:py-24 bg-muted/30 overflow-hidden">
       <div className="container mx-auto px-4">
-        <div className="text-center mb-10 space-y-3">
+        <div className="text-center mb-8 space-y-3">
           <Badge variant="outline" className="rounded-full px-4 py-1 text-xs gap-1.5">
-            <Landmark className="h-3 w-3" /> أقوال خالدة
+            <Scale className="h-3 w-3" /> أقوال خالدة
           </Badge>
-          <h2 className="text-3xl md:text-4xl font-bold text-foreground">
+          <h2 className="text-2xl md:text-3xl font-bold text-foreground">
             كلمات صنعت <span className="text-primary">العدالة</span>
           </h2>
-          <p className="text-muted-foreground text-sm">أقوال مأثورة لأعظم المدافعين عن الحقوق والحريات عبر التاريخ</p>
         </div>
 
-        <div className="max-w-3xl mx-auto relative min-h-[280px] flex items-center">
+        <div className="max-w-2xl mx-auto relative min-h-[220px] flex items-center">
           <motion.div
             key={active}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.5 }}
-            className="text-center space-y-6 w-full"
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.4 }}
+            className="text-center space-y-5 w-full"
           >
-            <Quote className="h-10 w-10 text-legal-gold/30 mx-auto" />
-            <blockquote className="text-xl md:text-2xl lg:text-3xl text-foreground leading-relaxed font-semibold px-4">
+            <Quote className="h-8 w-8 text-legal-gold/25 mx-auto" />
+            <blockquote className="text-lg sm:text-xl md:text-2xl text-foreground leading-relaxed font-semibold px-2">
               «{q.text}»
             </blockquote>
-            <div className="flex items-center justify-center gap-3 pt-2">
-              {q.img ? (
-                <img src={q.img} alt={q.author}
-                  className="h-12 w-12 rounded-full object-cover border-2 border-primary/20 shadow-md bg-muted" />
-              ) : (
-                <div className="h-12 w-12 rounded-full bg-gradient-to-br from-legal-navy to-primary flex items-center justify-center text-primary-foreground font-bold text-lg shadow-md">
-                  {q.author.charAt(0)}
-                </div>
-              )}
+            <div className="flex items-center justify-center gap-3 pt-1">
+              <div className={`h-11 w-11 rounded-full bg-gradient-to-br ${q.gradient} flex items-center justify-center text-white font-bold text-sm shadow-lg`}>
+                {q.initials}
+              </div>
               <div className="text-start">
                 <div className="text-sm font-bold text-foreground">{q.author}</div>
-                <div className="text-xs text-muted-foreground">{q.role}</div>
+                <div className="text-[11px] text-muted-foreground">{q.role}</div>
               </div>
             </div>
           </motion.div>
         </div>
 
-        {/* Navigation */}
-        <div className="flex items-center justify-center gap-4 mt-8">
+        <div className="flex items-center justify-center gap-4 mt-6">
           <button onClick={() => setActive((active - 1 + famousQuotes.length) % famousQuotes.length)}
-            className="h-9 w-9 rounded-full border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-border transition-all hover:bg-accent">
+            className="h-8 w-8 rounded-full border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-border transition-all hover:bg-accent">
             <ChevronRight className="h-4 w-4" />
           </button>
           <div className="flex gap-1.5">
             {famousQuotes.map((_, i) => (
               <button key={i} onClick={() => setActive(i)}
-                className={`h-2 rounded-full transition-all duration-300 ${
-                  i === active ? 'w-6 bg-primary' : 'w-2 bg-border hover:bg-muted-foreground/30'
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  i === active ? 'w-5 bg-primary' : 'w-1.5 bg-border hover:bg-muted-foreground/30'
                 }`} />
             ))}
           </div>
