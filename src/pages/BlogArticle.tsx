@@ -579,7 +579,7 @@ const BlogArticle = () => {
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-legal-navy to-primary flex items-center justify-center">
                   <Scale className="h-4 w-4 text-primary-foreground" />
                 </div>
-                <span className="text-sm font-bold text-foreground hidden sm:block font-display">محاماة ذكية</span>
+                <span className="text-sm font-bold text-foreground hidden sm:block">محاماة ذكية</span>
               </Link>
 
               <div className="hidden md:flex items-center gap-1">
