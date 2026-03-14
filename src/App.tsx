@@ -28,6 +28,7 @@ import Reports from "./pages/dashboard/Reports";
 import SeoSettings from "./pages/dashboard/SeoSettings";
 import AuditLog from "./pages/dashboard/AuditLog";
 import ClientDashboard from "./pages/dashboard/ClientDashboard";
+import KnowledgeBase from "./pages/dashboard/KnowledgeBase";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -73,6 +74,7 @@ const App = () => (
                 <Route path="seo" element={<SeoSettings />} />
                 <Route path="audit-log" element={<AuditLog />} />
                 <Route path="client-dashboard" element={<ClientDashboard />} />
+                <Route path="knowledge-base" element={<KnowledgeBase />} />
               </Route>
 
               <Route path="*" element={<NotFound />} />
