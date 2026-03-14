@@ -41,12 +41,12 @@ const CaseTracker = () => {
 
     const { data, error } = await supabase
       .from('cases')
-      .select('id, case_number, title, status, court, next_session, updated_at')
+      .select('id, case_number, title, status, court, updated_at')
       .ilike('case_number', `%${caseNumber}%`)
       .limit(10);
 
     if (!error && data) {
-      setResults(data as CaseResult[]);
+      setResults(data as unknown as CaseResult[]);
     } else {
       setResults([]);
     }
