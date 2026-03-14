@@ -8,6 +8,8 @@ import { AuthProvider } from "@/hooks/useAuth";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Blog from "./pages/Blog";
 import BlogArticle from "./pages/BlogArticle";
 import LegalFeeCalculator from "./pages/LegalFeeCalculator";
