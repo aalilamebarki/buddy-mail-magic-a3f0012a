@@ -10,7 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { BookOpen, Plus, Upload, Search, Trash2, FileText, Scale, Database } from 'lucide-react';
+import { BookOpen, Plus, Upload, Search, Trash2, FileText, Scale, Database, Globe, Loader2 } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 
 interface LegalDocument {
   id: string;
@@ -84,6 +85,14 @@ const KnowledgeBase = () => {
   const [bulkType, setBulkType] = useState('ruling');
   const [bulkCategory, setBulkCategory] = useState('');
 
+  // Scraping state
+  const [scrapeDialogOpen, setScrapeDialogOpen] = useState(false);
+  const [scraping, setScraping] = useState(false);
+  const [scrapeStep, setScrapeStep] = useState<'idle' | 'mapping' | 'scraping' | 'done'>('idle');
+  const [discoveredUrls, setDiscoveredUrls] = useState<string[]>([]);
+  const [scrapeProgress, setScrapeProgress] = useState(0);
+  const [scrapeResults, setScrapeResults] = useState<any[]>([]);
+  const [scrapeUrl, setScrapeUrl] = useState('https://juriscassation.cspj.ma');
   const fetchDocuments = async () => {
     setLoading(true);
     let query = supabase
@@ -198,6 +207,96 @@ const KnowledgeBase = () => {
       console.error(e);
     }
     setSubmitting(false);
+  };
+
+  // Step 1: Discover URLs from the website
+  const handleMapWebsite = async () => {
+    setScraping(true);
+    setScrapeStep('mapping');
+    setScrapeResults([]);
+    setDiscoveredUrls([]);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('scrape-rulings', {
+        body: { action: 'map', url: scrapeUrl, limit: 500 },
+      });
+
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'فشل في اكتشاف الروابط');
+
+      const urls = (data.links || []).filter((u: string) => 
+        u.includes('juriscassation') || u.includes('adala') || u.includes('decision') || u.includes('arret')
+      );
+      
+      setDiscoveredUrls(urls);
+      setScrapeStep('idle');
+      toast.success(`تم اكتشاف ${urls.length} رابط`);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e.message || 'خطأ في اكتشاف الروابط');
+      setScrapeStep('idle');
+    }
+    setScraping(false);
+  };
+
+  // Step 2: Scrape discovered URLs in batches
+  const handleScrapeUrls = async () => {
+    if (discoveredUrls.length === 0) {
+      toast.error('لا توجد روابط لجلبها');
+      return;
+    }
+
+    setScraping(true);
+    setScrapeStep('scraping');
+    setScrapeProgress(0);
+    const allResults: any[] = [];
+    const batchSize = 10;
+    const total = discoveredUrls.length;
+
+    for (let i = 0; i < total; i += batchSize) {
+      const batch = discoveredUrls.slice(i, i + batchSize);
+      
+      try {
+        const { data, error } = await supabase.functions.invoke('scrape-rulings', {
+          body: { action: 'batch', urls: batch },
+        });
+
+        if (!error && data?.results) {
+          allResults.push(...data.results);
+        }
+      } catch (e) {
+        console.error('Batch error:', e);
+      }
+
+      setScrapeProgress(Math.round(((i + batch.length) / total) * 100));
+      setScrapeResults([...allResults]);
+    }
+
+    setScrapeStep('done');
+    setScraping(false);
+    
+    const successCount = allResults.filter(r => r.success).length;
+    toast.success(`تم جلب ${successCount} قرار من أصل ${total} رابط`);
+    fetchDocuments();
+  };
+
+  // Scrape a single URL
+  const handleScrapeSingle = async (url: string) => {
+    setScraping(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('scrape-rulings', {
+        body: { action: 'scrape', url },
+      });
+
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'فشل الجلب');
+
+      toast.success(`تم جلب: ${data.title} (${data.ingested} أجزاء)`);
+      fetchDocuments();
+    } catch (e: any) {
+      toast.error(e.message || 'خطأ في الجلب');
+    }
+    setScraping(false);
   };
 
   const getTypeLabel = (type: string) => DOC_TYPES.find(t => t.value === type)?.label || type;
@@ -441,6 +540,137 @@ const KnowledgeBase = () => {
                     <Button onClick={handleBulkAdd} disabled={submitting} className="w-full">
                       {submitting ? 'جاري الإضافة...' : `إضافة المستندات`}
                     </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={scrapeDialogOpen} onOpenChange={setScrapeDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="outline" className="gap-1 text-primary border-primary">
+                    <Globe className="h-4 w-4" />
+                    جلب من محكمة النقض
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <Globe className="h-5 w-5 text-primary" />
+                      جلب قرارات محكمة النقض تلقائياً
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 mt-4">
+                    <p className="text-sm text-muted-foreground">
+                      سيقوم النظام بجلب القرارات من موقع محكمة النقض وحفظها في قاعدة المعرفة تلقائياً.
+                    </p>
+
+                    <div className="space-y-2">
+                      <Label>رابط الموقع</Label>
+                      <Input
+                        value={scrapeUrl}
+                        onChange={e => setScrapeUrl(e.target.value)}
+                        placeholder="https://juriscassation.cspj.ma"
+                      />
+                    </div>
+
+                    {/* Step 1: Map */}
+                    <div className="space-y-2">
+                      <Button
+                        onClick={handleMapWebsite}
+                        disabled={scraping}
+                        variant="outline"
+                        className="w-full gap-2"
+                      >
+                        {scrapeStep === 'mapping' ? (
+                          <><Loader2 className="h-4 w-4 animate-spin" /> جاري اكتشاف الروابط...</>
+                        ) : (
+                          <><Search className="h-4 w-4" /> الخطوة 1: اكتشاف روابط القرارات</>
+                        )}
+                      </Button>
+
+                      {discoveredUrls.length > 0 && (
+                        <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                          <p className="text-sm font-medium text-foreground">
+                            تم اكتشاف {discoveredUrls.length} رابط
+                          </p>
+                          <div className="max-h-32 overflow-y-auto text-xs text-muted-foreground space-y-1">
+                            {discoveredUrls.slice(0, 20).map((u, i) => (
+                              <div key={i} className="flex items-center justify-between gap-2">
+                                <span className="truncate flex-1" dir="ltr">{u}</span>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 text-xs shrink-0"
+                                  onClick={() => handleScrapeSingle(u)}
+                                  disabled={scraping}
+                                >
+                                  جلب
+                                </Button>
+                              </div>
+                            ))}
+                            {discoveredUrls.length > 20 && (
+                              <p className="text-muted-foreground">... و {discoveredUrls.length - 20} رابط آخر</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Step 2: Scrape All */}
+                    {discoveredUrls.length > 0 && (
+                      <div className="space-y-2">
+                        <Button
+                          onClick={handleScrapeUrls}
+                          disabled={scraping}
+                          className="w-full gap-2"
+                        >
+                          {scrapeStep === 'scraping' ? (
+                            <><Loader2 className="h-4 w-4 animate-spin" /> جاري الجلب...</>
+                          ) : (
+                            <>الخطوة 2: جلب كل القرارات ({discoveredUrls.length})</>
+                          )}
+                        </Button>
+
+                        {scrapeStep === 'scraping' && (
+                          <div className="space-y-1">
+                            <Progress value={scrapeProgress} className="h-2" />
+                            <p className="text-xs text-muted-foreground text-center">{scrapeProgress}%</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Results */}
+                    {scrapeResults.length > 0 && (
+                      <div className="bg-muted/50 rounded-lg p-3 space-y-1">
+                        <p className="text-sm font-medium text-foreground">
+                          النتائج: {scrapeResults.filter(r => r.success).length} ناجح من {scrapeResults.length}
+                        </p>
+                        <div className="max-h-40 overflow-y-auto text-xs space-y-1">
+                          {scrapeResults.map((r, i) => (
+                            <div key={i} className={`flex items-center gap-2 ${r.success ? 'text-green-600' : 'text-destructive'}`}>
+                              <span>{r.success ? '✅' : '❌'}</span>
+                              <span className="truncate">{r.title || r.url}</span>
+                              {r.success && <span className="text-muted-foreground">({r.ingested} أجزاء)</span>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {scrapeStep === 'done' && (
+                      <Button
+                        onClick={() => {
+                          setScrapeDialogOpen(false);
+                          setScrapeStep('idle');
+                          setDiscoveredUrls([]);
+                          setScrapeResults([]);
+                        }}
+                        variant="outline"
+                        className="w-full"
+                      >
+                        إغلاق
+                      </Button>
+                    )}
                   </div>
                 </DialogContent>
               </Dialog>
