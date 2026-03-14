@@ -387,10 +387,17 @@ const AIConsultation = () => {
   const [loading, setLoading] = useState(false);
   const [caseContext, setCaseContext] = useState('');
   const [mobileNav, setMobileNav] = useState(false);
+  const [lastQuestion, setLastQuestion] = useState<string | undefined>(undefined);
   const scrollRef = useRef<HTMLDivElement>(null);
   const bufferRef = useRef('');
+  const lastMsgRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [messages, loading]);
+  // Scroll to the TOP of the latest message when it appears
+  useEffect(() => {
+    if (lastMsgRef.current) {
+      lastMsgRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [messages]);
 
   const selectedType = CASE_TYPES.find(t => t.value === intake.caseType);
 
