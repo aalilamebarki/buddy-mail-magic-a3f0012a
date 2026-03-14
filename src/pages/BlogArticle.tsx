@@ -50,7 +50,7 @@ const ExecutiveSummary = ({ points }: { points: string[] }) => {
               <Sparkles className="h-5 w-5 text-primary-foreground" />
             </div>
             <div>
-              <h3 className="font-bold text-foreground text-[15px] font-display">خلاصة المقال</h3>
+              <h3 className="font-bold text-foreground text-[15px]">خلاصة المقال</h3>
               <p className="text-[11px] text-muted-foreground">ما ستتعلمه في هذا المقال</p>
             </div>
           </div>
