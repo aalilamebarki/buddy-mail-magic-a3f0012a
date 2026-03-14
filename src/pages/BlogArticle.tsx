@@ -932,6 +932,9 @@ const BlogArticle = () => {
               {/* Author Bio */}
               <AuthorBioCard />
 
+              {/* Comments Section */}
+              <CommentsSection articleId={article.id} />
+
               {/* CTA Block */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
