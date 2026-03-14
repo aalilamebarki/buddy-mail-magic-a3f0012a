@@ -109,9 +109,10 @@ const Navbar = () => {
         >
           {[
             { to: '/blog', label: 'المقالات القانونية' },
+            { to: '/documents', label: 'مركز الوثائق' },
             { to: '/legal-fee-calculator', label: 'حاسبة الرسوم' },
-            { to: '/case-tracker', label: 'تتبع القضايا' },
             { to: '/ai-consultation', label: 'المستشار الذكي' },
+            { to: '/about', label: 'من نحن' },
           ].map(link => (
             <Link key={link.to} to={link.to}
               className="block px-4 py-3 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-all"
