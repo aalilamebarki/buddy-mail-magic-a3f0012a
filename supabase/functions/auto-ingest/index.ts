@@ -106,7 +106,7 @@ serve(async (req) => {
 
     // Phase 2: Scrape a single URL and ingest
     if (phase === "ingest") {
-      const { url, doc_type } = await req.json();
+      // url and doc_type already destructured from body
       if (!url) throw new Error("url required");
 
       console.log(`[INGEST] ${url}`);
