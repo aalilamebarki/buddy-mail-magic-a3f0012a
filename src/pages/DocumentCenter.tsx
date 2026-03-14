@@ -23,6 +23,65 @@ const statusConfig: Record<DocStatus, { label: string; color: string; icon: type
 
 const categoryFilters = ['الكل', 'ظهائر', 'قوانين', 'مراسيم', 'قرارات قضائية', 'اجتهادات'];
 
+const getDocTypeLabel = (docType: string) => docType === 'ruling' ? 'قرار قضائي' : 'نص قانوني';
+
+const docKey = (doc: any) => (doc.source || `${doc.title}|${doc.doc_type}`).trim();
+
+const dedupeDocuments = (rows: any[]) => {
+  const map = new Map<string, any>();
+
+  for (const row of rows) {
+    const key = docKey(row);
+    const existing = map.get(key);
+
+    if (!existing) {
+      map.set(key, { ...row, content: row.content || '' });
+      continue;
+    }
+
+    const mergedContent = [existing.content, row.content]
+      .filter(Boolean)
+      .join('\n')
+      .slice(0, 2500);
+
+    map.set(key, {
+      ...existing,
+      content: mergedContent,
+      created_at: new Date(existing.created_at) > new Date(row.created_at) ? existing.created_at : row.created_at,
+      reference_number: existing.reference_number || row.reference_number,
+      decision_date: existing.decision_date || row.decision_date,
+      category: existing.category || row.category,
+      metadata: existing.metadata || row.metadata,
+    });
+  }
+
+  return Array.from(map.values()).sort((a, b) =>
+    new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  );
+};
+
+const matchesFilter = (doc: any, activeFilter: string) => {
+  if (activeFilter === 'الكل') return true;
+
+  if (activeFilter === 'قرارات قضائية' || activeFilter === 'اجتهادات') {
+    return doc.doc_type === 'ruling';
+  }
+
+  if (activeFilter === 'مراسيم') {
+    return doc.doc_type === 'law' && /مرسوم/.test(`${doc.title || ''} ${doc.category || ''}`);
+  }
+
+  if (activeFilter === 'ظهائر') {
+    return doc.doc_type === 'law' && /ظهير/.test(`${doc.title || ''} ${doc.category || ''}`);
+  }
+
+  if (activeFilter === 'قوانين') {
+    return doc.doc_type === 'law';
+  }
+
+  return true;
+};
+
 const DocumentCenter = () => {
   const [documents, setDocuments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,16 +96,23 @@ const DocumentCenter = () => {
         .from('legal_documents')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(100);
-      if (!error && data) setDocuments(data);
+        .limit(1000);
+
+      if (!error && data) {
+        setDocuments(dedupeDocuments(data));
+      }
+
       setLoading(false);
     };
+
     fetchDocs();
   }, []);
 
-  const filtered = documents.filter(d => {
-    const matchSearch = !search || d.title?.includes(search) || d.reference_number?.includes(search);
-    const matchFilter = activeFilter === 'الكل' || d.doc_type === activeFilter;
+  const filtered = documents.filter((d) => {
+    const q = search.trim();
+    const searchable = `${d.title || ''} ${d.reference_number || ''} ${d.category || ''}`;
+    const matchSearch = !q || searchable.includes(q);
+    const matchFilter = matchesFilter(d, activeFilter);
     return matchSearch && matchFilter;
   });
 
@@ -184,7 +250,7 @@ const DocumentCenter = () => {
                         <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
                           {doc.reference_number && <span className="flex items-center gap-1"><ScrollText className="h-3 w-3" /> {doc.reference_number}</span>}
                           {doc.decision_date && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {new Date(doc.decision_date).toLocaleDateString('ar-MA')}</span>}
-                          <span className="flex items-center gap-1"><BookOpen className="h-3 w-3" /> {doc.doc_type}</span>
+                          <span className="flex items-center gap-1"><BookOpen className="h-3 w-3" /> {getDocTypeLabel(doc.doc_type)}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
