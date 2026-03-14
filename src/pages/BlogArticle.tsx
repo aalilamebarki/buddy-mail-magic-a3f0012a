@@ -951,7 +951,7 @@ const BlogArticle = () => {
               <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-legal-navy to-primary flex items-center justify-center">
                 <Scale className="h-3.5 w-3.5 text-primary-foreground" />
               </div>
-              <span className="font-bold text-foreground text-sm font-display">محاماة ذكية</span>
+              <span className="font-bold text-foreground text-sm">محاماة ذكية</span>
             </div>
             <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
               <Link to="/blog" className="hover:text-foreground transition-colors">المدونة</Link>
