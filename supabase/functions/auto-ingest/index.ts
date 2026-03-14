@@ -156,8 +156,37 @@ async function searchAndIngest(
 
   for (const result of results) {
     const markdown = result.markdown || "";
-    const title = result.title || "مستند قانوني";
+    let title = result.title || "";
     const url = result.url || "";
+
+    // Extract a meaningful title from content if the page title is generic
+    if (!title || title.length < 5 || /^(home|index|page|untitled)/i.test(title)) {
+      // Try first heading in markdown
+      const headingMatch = markdown.match(/^#+\s*(.+)/m);
+      if (headingMatch) {
+        title = headingMatch[1].trim().slice(0, 200);
+      } else {
+        // Use first meaningful line
+        const firstLine = markdown.split('\n').find(l => l.trim().length > 10);
+        title = firstLine ? firstLine.trim().slice(0, 200) : "مستند قانوني";
+      }
+    }
+
+    // For cassation rulings, try to build a descriptive title
+    if (isCassation || /(?:قرار|حكم|محكمة النقض)/.test(title)) {
+      const refMatch = markdown.match(/(?:قرار\s+)?عدد\s*[:\s]*(\d+(?:\/\d+)?)/);
+      const dateMatch = markdown.match(/(\d{4}[-/]\d{2}[-/]\d{2})/);
+      const chamberMatch = markdown.match(/(الغرفة\s+(?:المدنية|الجنائية|التجارية|الاجتماعية|الإدارية)|غرفة\s+الأحوال)/);
+      if (refMatch || chamberMatch) {
+        const parts = ['قرار محكمة النقض'];
+        if (refMatch) parts.push(`عدد ${refMatch[1]}`);
+        if (chamberMatch) parts.push(`- ${chamberMatch[1]}`);
+        if (dateMatch) parts.push(`بتاريخ ${dateMatch[1]}`);
+        title = parts.join(' ');
+      }
+    }
+
+    const isCassation = url.includes("juriscassation") || url.includes("cspj");
 
     if (!markdown || markdown.length < 100) continue;
 
