@@ -261,7 +261,7 @@ const DocumentGallery = () => {
           <Library className="h-5 w-5 text-legal-burgundy" />
         </div>
         <div>
-          <h3 className="text-[15px] font-bold text-foreground font-display">مستندات ومرفقات</h3>
+          <h3 className="text-[15px] font-bold text-foreground">مستندات ومرفقات</h3>
           <p className="text-[11px] text-muted-foreground">وثائق رسمية قابلة للتحميل</p>
         </div>
       </div>
