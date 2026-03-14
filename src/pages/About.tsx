@@ -157,48 +157,7 @@ const About = () => {
         </AnimatedSection>
 
         {/* Verified Experts / Team */}
-        <AnimatedSection className="py-20 md:py-28 bg-muted/30">
-          <div className="container mx-auto px-4">
-            <div className="text-center mb-14 space-y-3">
-              <Badge variant="outline" className="rounded-full px-4 py-1 text-xs gap-1.5">
-                <CheckCircle className="h-3 w-3" /> خبراء موثّقون
-              </Badge>
-              <h2 className="text-2xl md:text-3xl font-bold text-foreground">الفريق وراء <span className="text-primary">المحتوى</span></h2>
-              <p className="text-muted-foreground text-sm max-w-lg mx-auto">فريق متخصص يجمع بين الخبرة القانونية والشغف بالتبسيط</p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-              {team.map((member, i) => (
-                <motion.div key={i}
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.15 }}
-                  className="group"
-                >
-                  <div className="rounded-3xl border border-border/30 bg-card overflow-hidden hover:shadow-xl hover:border-primary/15 transition-all duration-500">
-                    <div className="relative h-64 overflow-hidden">
-                      <img src={member.img} alt={member.name} loading="lazy"
-                        className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-700" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-card via-card/20 to-transparent" />
-                      <div className="absolute bottom-4 right-4 left-4">
-                        <h3 className="text-lg font-bold text-foreground">{member.name}</h3>
-                        <p className="text-xs text-primary font-medium">{member.role}</p>
-                      </div>
-                    </div>
-                    <div className="p-5 space-y-3">
-                      <p className="text-sm text-muted-foreground leading-relaxed">{member.desc}</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {member.expertise.map((e, j) => (
-                          <span key={j} className="text-[9px] bg-primary/5 text-primary px-2.5 py-1 rounded-full font-medium">{e}</span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </AnimatedSection>
+        <TeamSection variant="full" />
 
         {/* CTA */}
         <AnimatedSection className="py-20 md:py-28">
