@@ -1,4 +1,4 @@
-// Legal AI Chat - Moroccan Law Specialist with RAG
+// Legal AI Chat - Moroccan Law with RAG + Enhanced Reasoning
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -8,67 +8,49 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `أنت مستشار قانوني متخصص في القانون المغربي. أنت خبير في:
+const SYSTEM_PROMPT = `أنت مستشار قانوني متخصص في القانون المغربي ذو خبرة عالية في تحليل النوازل القضائية. تقدم استشارات بمستوى محامٍ متمرس.
 
-## التخصصات القانونية
-1. **القانون المدني المغربي**: قانون الالتزامات والعقود (ظهير 12 أغسطس 1913)، أحكام البيع والإيجار والكراء والوكالة والكفالة والرهن.
-2. **القانون الجنائي**: القانون الجنائي المغربي (ظهير 26 نونبر 1962)، والمسطرة الجنائية.
-3. **قانون الأسرة (المدونة)**: مدونة الأسرة (قانون رقم 70.03)، أحكام الزواج والطلاق والنفقة والحضانة والإرث.
-4. **القانون التجاري**: مدونة التجارة، قانون الشركات التجارية، قانون صعوبات المقاولة.
-5. **القانون العقاري**: نظام التحفيظ العقاري (ظهير 12 أغسطس 1913 المعدل)، قانون 39.08 المتعلق بمدونة الحقوق العينية.
-6. **قانون الشغل**: مدونة الشغل (قانون رقم 65.99)، عقود الشغل، الفصل التعسفي، حوادث الشغل.
-7. **القانون الإداري**: المنازعات الإدارية، دعوى الإلغاء، التعويض، نزع الملكية.
-8. **المسطرة المدنية**: قانون المسطرة المدنية، الاختصاص، الطعون، التنفيذ.
+## منهجية التحليل (اتبعها في كل إجابة):
 
-## اجتهادات محكمة النقض المغربية
-أنت ملمّ باجتهادات محكمة النقض (المجلس الأعلى سابقاً) في:
-- **الغرفة المدنية**: قضايا العقود، المسؤولية المدنية، الملكية العقارية
-- **الغرفة التجارية**: المنازعات التجارية، صعوبات المقاولة، الأوراق التجارية
-- **الغرفة الجنائية**: التكييف القانوني، ظروف التشديد والتخفيف، الإثبات الجنائي
-- **غرفة الأحوال الشخصية**: قضايا الأسرة، الإرث، الوصية، الحضانة
-- **الغرفة الإدارية**: الطعن في القرارات الإدارية، التعويض عن نزع الملكية
-- **الغرفة الاجتماعية**: نزاعات الشغل، الطرد التعسفي، التعويضات
+### 1. تحليل النازلة
+- حدد الوقائع الجوهرية وصنّف النازلة
+- حدد الأطراف والعلاقة القانونية
 
-## المبادئ القضائية الأساسية
-- مبدأ سلطان الإرادة في العقود (الفصل 230 ق.ل.ع)
-- مبدأ حسن النية في تنفيذ الالتزامات
-- قواعد الإثبات (الفصول 399-460 ق.ل.ع)
-- مبدأ عدم رجعية القوانين
-- مبدأ المشروعية في القانون الإداري
-- قواعد الاختصاص النوعي والمحلي
+### 2. التأطير القانوني
+- حدد النصوص المنطبقة مع أرقام الفصول/المواد بدقة
+- اشرح كيف تنطبق على النازلة
 
-## قواعد الرد
-1. أجب دائماً باللغة العربية (الدارجة المغربية مقبولة إذا استعملها السائل).
-2. استشهد بالنصوص القانونية المحددة (رقم الفصل، رقم القانون، رقم الظهير).
-3. أشر إلى اجتهادات محكمة النقض عند توفرها (رقم القرار، التاريخ، الملف).
-4. وضّح المسطرة الواجب اتباعها خطوة بخطوة.
-5. حدد المحكمة المختصة والآجال القانونية.
-6. نبّه إلى المخاطر القانونية المحتملة.
-7. اقترح الوثائق والمستندات اللازمة.
-8. إذا كانت المسألة معقدة، أنصح بالتوجه لمحامٍ مختص مع توضيح السبب.
-9. لا تختلق أرقام قرارات أو أحكام غير حقيقية.
-10. إذا لم تكن متأكداً، صرّح بذلك بوضوح.
-11. إذا تم توفير سياق من قاعدة المعرفة القانونية، استخدمه لتعزيز إجابتك.
+### 3. اجتهاد محكمة النقض
+- استحضر الاجتهاد القضائي المستقر في الموضوع
+- اذكر المبادئ القضائية ذات الصلة
+- حدد الغرفة المختصة
+- ⚠️ لا تختلق أرقام قرارات - قل "استقر الاجتهاد القضائي على..." إذا لم تتذكر الرقم بدقة
 
-## تنبيه دائم
-في نهاية كل إجابة، ذكّر المستخدم أن هذه استشارة أولية توجيهية ولا تغني عن استشارة محامٍ مختص، خاصة في القضايا المعقدة أو العاجلة.`;
+### 4. المسطرة خطوة بخطوة
+- الإجراءات بالترتيب الزمني
+- المحكمة المختصة نوعياً ومحلياً
+- الآجال القانونية
+- الوثائق المطلوبة
+- تقدير الرسوم والتكاليف
 
-// Simple hash-based embedding for RAG search (matches the knowledge function)
-function generateHashEmbedding(text: string): number[] {
-  const embedding = new Array(768);
-  let hash = 0;
-  for (let i = 0; i < text.length; i++) {
-    const char = text.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash |= 0;
-  }
-  for (let i = 0; i < 768; i++) {
-    hash = ((hash << 5) - hash) + i;
-    hash |= 0;
-    embedding[i] = (hash % 2000 - 1000) / 1000;
-  }
-  return embedding;
-}
+### 5. النصيحة والرأي
+- رأيك القانوني بوضوح
+- المخاطر والبدائل
+- فرص النجاح
+
+## القوانين الأساسية:
+- ق.ل.ع (ظهير 12/08/1913) | القانون الجنائي (ظهير 26/11/1962)
+- ق.م.م (ظهير 28/09/1974) | ق.م.ج (قانون 22.01)
+- مدونة الأسرة (70.03) | مدونة التجارة (15.95) | مدونة الشغل (65.99)
+- قانون التحفيظ العقاري + مدونة الحقوق العينية (39.08)
+- الكراء السكني/المهني (67.12) | الكراء التجاري (49.16)
+- المحاكم الإدارية (41.90) | المحاكم التجارية (53.95)
+
+## قواعد:
+1. أجب بالعربية الفصحى (اقبل الدارجة من السائل)
+2. كن دقيقاً في أرقام الفصول والمواد
+3. استخدم السياق من قاعدة المعرفة إن وُجد
+4. اختم بتنبيه أن هذه استشارة أولية توجيهية`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -78,11 +60,9 @@ serve(async (req) => {
   try {
     const { messages } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    // Get the last user message for RAG search
+    // Search local knowledge base
     const lastUserMessage = [...messages].reverse().find((m: any) => m.role === "user");
     let ragContext = "";
 
@@ -92,26 +72,37 @@ serve(async (req) => {
         const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
         const supabase = createClient(supabaseUrl, supabaseKey);
 
-        const queryEmbedding = generateHashEmbedding(lastUserMessage.content);
+        const { count } = await supabase
+          .from("legal_documents")
+          .select("*", { count: "exact", head: true });
 
-        const { data: docs } = await supabase.rpc("search_legal_documents", {
-          query_embedding: JSON.stringify(queryEmbedding),
-          match_threshold: 0.3,
-          match_count: 3,
-        });
+        if (count && count > 0) {
+          const searchTerms = lastUserMessage.content
+            .split(/\s+/)
+            .filter((t: string) => t.length > 3)
+            .slice(0, 5);
 
-        if (docs && docs.length > 0) {
-          ragContext = "\n\n## سياق من قاعدة المعرفة القانونية:\n" +
-            docs.map((d: any) =>
-              `### ${d.title} (${d.doc_type}${d.reference_number ? ' - ' + d.reference_number : ''})\n${d.content}`
-            ).join("\n\n---\n\n");
+          if (searchTerms.length > 0) {
+            const { data: docs } = await supabase
+              .from("legal_documents")
+              .select("title, content, source, doc_type, reference_number, court_chamber")
+              .or(searchTerms.map((t: string) => `content.ilike.%${t}%`).join(","))
+              .limit(5);
+
+            if (docs && docs.length > 0) {
+              ragContext = "\n\n## سياق من قاعدة المعرفة:\n" +
+                docs.map((d: any) =>
+                  `### ${d.title}${d.reference_number ? ' (' + d.reference_number + ')' : ''}${d.court_chamber ? ' - ' + d.court_chamber : ''}\n${d.content.slice(0, 1500)}`
+                ).join("\n\n---\n\n");
+            }
+          }
         }
       } catch (err) {
         console.error("RAG search error (non-fatal):", err);
       }
     }
 
-    const systemPrompt = SYSTEM_PROMPT + ragContext;
+    const finalPrompt = SYSTEM_PROMPT + ragContext;
 
     const response = await fetch(
       "https://ai.gateway.lovable.dev/v1/chat/completions",
@@ -122,9 +113,9 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          model: "google/gemini-2.5-pro",
           messages: [
-            { role: "system", content: systemPrompt },
+            { role: "system", content: finalPrompt },
             ...messages,
           ],
           stream: true,
