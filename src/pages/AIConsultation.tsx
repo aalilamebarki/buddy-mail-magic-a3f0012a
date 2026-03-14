@@ -721,7 +721,7 @@ const AIConsultation = () => {
                         </div>
                       </motion.div>
                     ))}
-                    {loading && <ThinkingAnimation />}
+                    {loading && <ThinkingAnimation intake={intake} />}
                   </div>
                 </div>
 
