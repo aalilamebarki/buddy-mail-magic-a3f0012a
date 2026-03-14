@@ -10,7 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { BookOpen, Plus, Upload, Search, Trash2, FileText, Scale, Database } from 'lucide-react';
+import { BookOpen, Plus, Upload, Search, Trash2, FileText, Scale, Database, Globe, Loader2 } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 
 interface LegalDocument {
   id: string;
