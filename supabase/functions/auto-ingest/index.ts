@@ -158,7 +158,7 @@ serve(async (req) => {
 
     // Phase 3: Bulk ingest - accepts array of URLs, processes sequentially
     if (phase === "bulk") {
-      const { urls, doc_type } = await req.json();
+      // urls and doc_type already destructured from body
       if (!urls || !Array.isArray(urls)) throw new Error("urls array required");
 
       const limit = Math.min(urls.length, 10); // Max 10 per call to avoid timeout
