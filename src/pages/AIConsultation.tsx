@@ -100,8 +100,109 @@ async function streamChat({ messages, caseContext, onDelta, onDone, onError }: {
   }
   onDone();
 }
+/* ═══════════════════════════════════════════
+   LEGAL MARKDOWN COMPONENTS
+═══════════════════════════════════════════ */
+const isLegalCitation = (text: string) =>
+  /(?:الفصل|المادة|الفقرة|البند|القانون رقم|ظهير|مرسوم|قرار رقم)\s/i.test(text);
 
-const AIConsultation = () => {
+const markdownComponents: Components = {
+  h1: ({ children }) => (
+    <h1 className="text-xl font-bold text-foreground mt-6 mb-3 pb-2 border-b-2 border-primary/20">{children}</h1>
+  ),
+  h2: ({ children }) => (
+    <h2 className="text-lg font-bold text-foreground mt-5 mb-2.5 flex items-center gap-2">
+      <span className="w-1 h-5 rounded-full bg-primary inline-block shrink-0" />
+      {children}
+    </h2>
+  ),
+  h3: ({ children }) => (
+    <h3 className="text-base font-bold text-foreground mt-4 mb-2 flex items-center gap-2">
+      <span className="w-1.5 h-1.5 rounded-full bg-legal-gold inline-block shrink-0" />
+      {children}
+    </h3>
+  ),
+  p: ({ children }) => {
+    const text = typeof children === 'string' ? children : '';
+    if (isLegalCitation(text)) {
+      return (
+        <p className="my-2.5 text-sm leading-[1.95] pr-3 border-r-2 border-legal-gold/40 bg-legal-gold/[0.04] rounded-sm py-2 px-3 text-foreground/90">
+          {children}
+        </p>
+      );
+    }
+    return <p className="my-2 text-sm leading-[1.95] text-foreground/85">{children}</p>;
+  },
+  ul: ({ children }) => (
+    <ul className="my-3 space-y-1.5 pr-1">{children}</ul>
+  ),
+  ol: ({ children }) => (
+    <ol className="my-3 space-y-2 pr-1 counter-reset-legal">{children}</ol>
+  ),
+  li: ({ children, ...props }) => {
+    const ordered = (props as any).ordered;
+    return (
+      <li className={`relative text-sm leading-[1.9] text-foreground/85 pr-5 ${
+        ordered
+          ? "before:content-[counter(list-item)'·'] before:counter-increment-[list-item] before:absolute before:right-0 before:font-bold before:text-primary before:text-xs list-decimal list-inside"
+          : "before:content-[''] before:absolute before:right-0 before:top-[0.65em] before:w-1.5 before:h-1.5 before:rounded-full before:bg-primary/40"
+      }`}>
+        {children}
+      </li>
+    );
+  },
+  strong: ({ children }) => (
+    <strong className="font-bold text-foreground">{children}</strong>
+  ),
+  em: ({ children }) => (
+    <em className="text-primary/80 not-italic font-medium">{children}</em>
+  ),
+  blockquote: ({ children }) => (
+    <blockquote className="my-4 border-r-[3px] border-legal-navy bg-legal-navy/[0.04] dark:bg-legal-navy/[0.15] rounded-lg py-3 px-4 text-sm text-foreground/90">
+      {children}
+    </blockquote>
+  ),
+  code: ({ children, className }) => {
+    const isBlock = className?.includes('language-');
+    if (isBlock) {
+      return (
+        <code className="block my-3 bg-muted/60 border border-border/30 rounded-xl p-4 text-xs font-mono overflow-x-auto text-foreground/80">
+          {children}
+        </code>
+      );
+    }
+    return (
+      <code className="bg-primary/8 text-primary px-1.5 py-0.5 rounded-md text-xs font-semibold border border-primary/10">
+        {children}
+      </code>
+    );
+  },
+  hr: () => (
+    <hr className="my-5 border-0 h-px bg-gradient-to-l from-transparent via-border to-transparent" />
+  ),
+  a: ({ children, href }) => (
+    <a href={href} target="_blank" rel="noopener noreferrer"
+      className="text-primary underline underline-offset-2 decoration-primary/30 hover:decoration-primary/60 transition-colors font-medium">
+      {children}
+    </a>
+  ),
+  table: ({ children }) => (
+    <div className="my-4 overflow-x-auto rounded-xl border border-border/30">
+      <table className="w-full text-sm">{children}</table>
+    </div>
+  ),
+  thead: ({ children }) => (
+    <thead className="bg-muted/40 text-foreground font-semibold">{children}</thead>
+  ),
+  th: ({ children }) => (
+    <th className="px-3 py-2.5 text-right text-xs font-bold border-b border-border/30">{children}</th>
+  ),
+  td: ({ children }) => (
+    <td className="px-3 py-2 text-xs border-b border-border/10">{children}</td>
+  ),
+};
+
+
   const [mode, setMode] = useState<'intake' | 'chat'>('intake');
   const [step, setStep] = useState(0);
   const [intake, setIntake] = useState<CaseIntake>({
