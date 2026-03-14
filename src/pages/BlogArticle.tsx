@@ -332,13 +332,10 @@ const AuthorBioCard = () => (
             </motion.div>
             <div className="flex-1 space-y-3">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-lg font-bold text-foreground font-display">فريق محاماة ذكية</h3>
-                <Badge className="bg-legal-emerald/10 text-legal-emerald border-legal-emerald/20 text-[10px] px-2 py-0.5 gap-1 rounded-lg">
-                  <BadgeCheck className="h-3 w-3" /> خبراء معتمدون
-                </Badge>
+                <h3 className="text-lg font-bold text-foreground">محاماة ذكية</h3>
               </div>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                فريق من المحامين والمستشارين القانونيين المتخصصين في القانون المغربي، يقدمون محتوى قانونياً موثوقاً ومحدثاً.
+                مدوّنة قانونية مغربية تهدف لتبسيط المعرفة القانونية وجعلها في متناول الجميع بأسلوب واضح ومحتوى محدّث.
               </p>
               <div className="flex items-center gap-2 pt-2 flex-wrap">
                 <Link to="/ai-consultation">
