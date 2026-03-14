@@ -57,6 +57,18 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        "legal-navy": "hsl(var(--legal-navy))",
+        "legal-gold": "hsl(var(--legal-gold))",
+        "legal-emerald": "hsl(var(--legal-emerald))",
+        "legal-burgundy": "hsl(var(--legal-burgundy))",
+        "legal-slate": "hsl(var(--legal-slate))",
+        "legal-cream": "hsl(var(--legal-cream))",
+        "legal-amber": "hsl(var(--legal-amber))",
+      },
+      fontFamily: {
+        display: ['"Playfair Display"', '"Noto Naskh Arabic"', 'serif'],
+        legal: ['"Noto Naskh Arabic"', '"IBM Plex Sans Arabic"', 'serif'],
+        sans: ['"IBM Plex Sans Arabic"', 'sans-serif'],
       },
       borderRadius: {
         lg: "var(--radius)",

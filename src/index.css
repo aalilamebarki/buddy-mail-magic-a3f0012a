@@ -1,4 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@100;200;300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -49,6 +51,15 @@
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
+
+    /* Premium Legal Palette */
+    --legal-navy: 220 60% 15%;
+    --legal-gold: 38 78% 52%;
+    --legal-emerald: 160 84% 24%;
+    --legal-burgundy: 345 60% 35%;
+    --legal-slate: 215 25% 55%;
+    --legal-cream: 40 33% 96%;
+    --legal-amber: 30 85% 55%;
   }
 
   .dark {
@@ -93,6 +104,14 @@
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
+
+    --legal-navy: 220 50% 22%;
+    --legal-gold: 38 78% 58%;
+    --legal-emerald: 160 70% 35%;
+    --legal-burgundy: 345 50% 45%;
+    --legal-slate: 215 20% 60%;
+    --legal-cream: 40 20% 92%;
+    --legal-amber: 30 80% 60%;
   }
 }
 
