@@ -93,7 +93,7 @@ const LegalArticleHighlight = ({ articleNumber, lawName, content }: { articleNum
               </div>
               <div>
                 <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">{lawName}</p>
-                <p className="text-base font-bold text-legal-navy font-display">{articleNumber}</p>
+                <p className="text-base font-bold text-legal-navy">{articleNumber}</p>
               </div>
             </div>
             <button onClick={copyCitation}
