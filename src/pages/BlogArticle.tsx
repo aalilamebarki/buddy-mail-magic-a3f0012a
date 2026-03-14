@@ -203,6 +203,107 @@ const AuthorBioCard = () => (
 );
 
 /* ═══════════════════════════════════════════════════════
+   TERMINOLOGY TOOLTIP
+   ═══════════════════════════════════════════════════════ */
+const TermTooltip = ({ term, definition }: { term: string; definition: string }) => (
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <span className="border-b border-dotted border-legal-navy/40 text-legal-navy cursor-help hover:border-legal-navy transition-colors">
+        {term}
+      </span>
+    </TooltipTrigger>
+    <TooltipContent side="top" className="max-w-xs text-right leading-relaxed bg-card border-border shadow-xl">
+      <p className="text-xs font-semibold text-foreground mb-1">{term}</p>
+      <p className="text-[11px] text-muted-foreground">{definition}</p>
+    </TooltipContent>
+  </Tooltip>
+);
+
+/* ═══════════════════════════════════════════════════════
+   DOCUMENT GALLERY
+   ═══════════════════════════════════════════════════════ */
+const DocumentGallery = () => {
+  const documents = [
+    { name: 'ظهير شريف رقم 1.04.22', type: 'PDF', size: '2.4 MB', icon: '📜' },
+    { name: 'مدونة الأسرة — النص الكامل', type: 'PDF', size: '5.1 MB', icon: '📕' },
+    { name: 'نموذج عقد الزواج الرسمي', type: 'DOCX', size: '340 KB', icon: '📄' },
+    { name: 'قرار محكمة النقض عدد 2847', type: 'PDF', size: '1.2 MB', icon: '⚖️' },
+  ];
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      className="my-10 rounded-2xl border border-border/40 bg-card overflow-hidden shadow-sm"
+    >
+      <div className="px-5 py-4 bg-muted/20 border-b border-border/30 flex items-center gap-2.5">
+        <div className="w-8 h-8 rounded-lg bg-legal-burgundy/10 flex items-center justify-center">
+          <FileText className="h-4 w-4 text-legal-burgundy" />
+        </div>
+        <div>
+          <h3 className="text-sm font-bold text-foreground font-legal">مستندات ومرفقات قانونية</h3>
+          <p className="text-[10px] text-muted-foreground">ظهائر، نشرات رسمية، ونماذج قابلة للتحميل</p>
+        </div>
+      </div>
+      <div className="divide-y divide-border/20">
+        {documents.map((doc, i) => (
+          <motion.div
+            key={i}
+            whileHover={{ backgroundColor: 'hsl(var(--muted) / 0.15)' }}
+            className="flex items-center justify-between gap-3 px-5 py-3.5 transition-colors group cursor-pointer"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="text-lg">{doc.icon}</span>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground truncate group-hover:text-legal-navy transition-colors">{doc.name}</p>
+                <p className="text-[10px] text-muted-foreground">{doc.type} • {doc.size}</p>
+              </div>
+            </div>
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-legal-navy hover:bg-legal-navy/5">
+              <Download className="h-3.5 w-3.5" />
+            </Button>
+          </motion.div>
+        ))}
+      </div>
+    </motion.div>
+  );
+};
+
+/* ═══════════════════════════════════════════════════════
+   FOOTNOTES SECTION
+   ═══════════════════════════════════════════════════════ */
+const FootnotesSection = () => {
+  const footnotes = [
+    { id: 1, text: 'ظهير شريف رقم 1.04.22 صادر في 12 من ذي الحجة 1424 (3 فبراير 2004) بتنفيذ القانون رقم 70.03 بمثابة مدونة الأسرة، الجريدة الرسمية عدد 5184.' },
+    { id: 2, text: 'قرار محكمة النقض عدد 2847 الصادر بتاريخ 14/06/2019 في الملف الشرعي عدد 2018/1/2/547.' },
+    { id: 3, text: 'دليل المساطر القضائية في مادة الأحوال الشخصية، منشورات وزارة العدل، الطبعة الثالثة 2022.' },
+  ];
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      className="my-10 rounded-2xl border border-border/40 bg-card overflow-hidden"
+    >
+      <div className="px-5 py-3.5 bg-muted/20 border-b border-border/30 flex items-center gap-2">
+        <Hash className="h-4 w-4 text-legal-slate" />
+        <h3 className="text-sm font-bold text-foreground font-legal">الهوامش والمراجع</h3>
+      </div>
+      <div className="p-5 space-y-3">
+        {footnotes.map(fn => (
+          <div key={fn.id} className="flex gap-3 text-xs text-muted-foreground leading-relaxed">
+            <span className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-foreground/60 shrink-0 mt-0.5">
+              {fn.id}
+            </span>
+            <p>{fn.text}</p>
+          </div>
+        ))}
+      </div>
+    </motion.div>
+  );
+};
+
+/* ═══════════════════════════════════════════════════════
    LEGAL DISCLAIMER
    ═══════════════════════════════════════════════════════ */
 const LegalDisclaimer = () => (
@@ -487,6 +588,15 @@ const BlogArticle = () => {
 
                 <Tooltip>
                   <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" onClick={() => { toast.success('جاري تحميل PDF...'); window.print(); }} className="h-8 w-8 text-muted-foreground hover:text-legal-emerald">
+                      <Download className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>تحميل PDF</TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
                     <Button variant="ghost" size="icon" onClick={() => { toast.success('تمت الإضافة للمفضلة'); }} className="h-8 w-8 text-muted-foreground hover:text-legal-gold">
                       <Bookmark className="h-3.5 w-3.5" />
                     </Button>
@@ -625,6 +735,9 @@ const BlogArticle = () => {
                   </span>
                   <span className="flex items-center gap-1.5">
                     <Clock className="h-3 w-3" /> {article.reading_time || 5} دقائق
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Eye className="h-3 w-3" /> {Math.floor(Math.random() * 3000 + 500).toLocaleString('ar-MA')} مشاهدة
                   </span>
                   <span className="flex items-center gap-1.5">
                     <FileText className="h-3 w-3" /> {wordCount} كلمة
@@ -781,6 +894,12 @@ const BlogArticle = () => {
                   </div>
                 </div>
               )}
+
+              {/* Document Gallery */}
+              <DocumentGallery />
+
+              {/* Footnotes */}
+              <FootnotesSection />
 
               {/* Legal Disclaimer */}
               <LegalDisclaimer />
