@@ -255,22 +255,56 @@ const markdownComponents: Components = {
   ),
 };
 
-const THINKING_PHASES = [
-  { text: 'جاري تحليل النازلة القانونية...', icon: '⚖️' },
-  { text: 'مراجعة النصوص القانونية المنطبقة...', icon: '📜' },
-  { text: 'البحث في الاجتهاد القضائي...', icon: '🔍' },
-  { text: 'صياغة الاستشارة القانونية...', icon: '✍️' },
-];
+const buildThinkingPhases = (intake: CaseIntake) => {
+  const caseLabel = CASE_TYPES.find(c => c.value === intake.caseType)?.label || 'النازلة';
+  const sub = intake.subCategory || '';
+  const phases: { text: string; icon: string }[] = [];
 
-const ThinkingAnimation = () => {
+  // Phase 1: Analyzing the specific case
+  phases.push({ text: `جاري تحليل نازلة ${caseLabel}${sub ? ` — ${sub}` : ''}...`, icon: '⚖️' });
+
+  // Phase 2: Relevant laws based on case type
+  const lawMap: Record<string, string> = {
+    family: 'مراجعة مدونة الأسرة والنصوص المكملة...',
+    rental: 'مراجعة القانون رقم 67.12 المتعلق بالكراء...',
+    property: 'مراجعة قانون التحفيظ العقاري ومدونة الحقوق العينية...',
+    labor: 'مراجعة مدونة الشغل والنصوص التنظيمية...',
+    commercial: 'مراجعة مدونة التجارة وقانون الشركات...',
+    criminal: 'مراجعة القانون الجنائي والمسطرة الجنائية...',
+    admin: 'مراجعة قانون المسطرة المدنية والقانون الإداري...',
+    civil: 'مراجعة قانون الالتزامات والعقود...',
+  };
+  phases.push({ text: lawMap[intake.caseType] || 'مراجعة النصوص القانونية المنطبقة...', icon: '📜' });
+
+  // Phase 3: Searching precedents
+  const courtMap: Record<string, string> = {
+    family: 'البحث في قرارات محكمة النقض — قسم الأسرة...',
+    labor: 'البحث في اجتهادات الغرفة الاجتماعية بمحكمة النقض...',
+    commercial: 'البحث في قرارات الغرفة التجارية...',
+    criminal: 'البحث في قرارات الغرفة الجنائية...',
+    admin: 'البحث في اجتهادات المحاكم الإدارية...',
+  };
+  phases.push({ text: courtMap[intake.caseType] || 'البحث في الاجتهاد القضائي ذي الصلة...', icon: '🔍' });
+
+  // Phase 4: Drafting
+  phases.push({ text: `صياغة الاستشارة وتحديد المحكمة المختصة...`, icon: '✍️' });
+
+  // Phase 5: Final assessment
+  phases.push({ text: 'تقييم الموقف القانوني وفرص النجاح...', icon: '📊' });
+
+  return phases;
+};
+
+const ThinkingAnimation = ({ intake }: { intake: CaseIntake }) => {
   const [phase, setPhase] = useState(0);
+  const phases = buildThinkingPhases(intake);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setPhase(p => (p + 1) % THINKING_PHASES.length);
-    }, 2800);
+      setPhase(p => (p + 1) % phases.length);
+    }, 3200);
     return () => clearInterval(interval);
-  }, []);
+  }, [phases.length]);
 
   return (
     <div className="flex gap-3">
@@ -286,7 +320,7 @@ const ThinkingAnimation = () => {
             exit={{ opacity: 0, y: -5 }}
             className="text-lg"
           >
-            {THINKING_PHASES[phase].icon}
+            {phases[phase].icon}
           </motion.span>
           <div className="space-y-1.5">
             <AnimatePresence mode="wait">
@@ -297,7 +331,7 @@ const ThinkingAnimation = () => {
                 exit={{ opacity: 0, x: -10 }}
                 className="text-xs font-medium text-foreground/70"
               >
-                {THINKING_PHASES[phase].text}
+                {phases[phase].text}
               </motion.p>
             </AnimatePresence>
             <div className="flex gap-1">
@@ -687,7 +721,7 @@ const AIConsultation = () => {
                         </div>
                       </motion.div>
                     ))}
-                    {loading && <ThinkingAnimation />}
+                    {loading && <ThinkingAnimation intake={intake} />}
                   </div>
                 </div>
 
