@@ -153,7 +153,7 @@ const LegalAlert = ({ type, title, children }: { type: 'caution' | 'judicial' | 
         </div>
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${c.dot} animate-pulse`} />
-          <span className={`text-sm font-bold ${c.accent} font-display`}>{c.label}</span>
+          <span className={`text-sm font-bold ${c.accent}`}>{c.label}</span>
         </div>
       </div>
       <div className="px-6 pb-6 text-foreground/80 text-[15px] leading-[2.1]">{children}</div>
