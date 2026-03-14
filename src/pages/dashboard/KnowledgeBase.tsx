@@ -209,6 +209,96 @@ const KnowledgeBase = () => {
     setSubmitting(false);
   };
 
+  // Step 1: Discover URLs from the website
+  const handleMapWebsite = async () => {
+    setScraping(true);
+    setScrapeStep('mapping');
+    setScrapeResults([]);
+    setDiscoveredUrls([]);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('scrape-rulings', {
+        body: { action: 'map', url: scrapeUrl, limit: 500 },
+      });
+
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'فشل في اكتشاف الروابط');
+
+      const urls = (data.links || []).filter((u: string) => 
+        u.includes('juriscassation') || u.includes('adala') || u.includes('decision') || u.includes('arret')
+      );
+      
+      setDiscoveredUrls(urls);
+      setScrapeStep('idle');
+      toast.success(`تم اكتشاف ${urls.length} رابط`);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e.message || 'خطأ في اكتشاف الروابط');
+      setScrapeStep('idle');
+    }
+    setScraping(false);
+  };
+
+  // Step 2: Scrape discovered URLs in batches
+  const handleScrapeUrls = async () => {
+    if (discoveredUrls.length === 0) {
+      toast.error('لا توجد روابط لجلبها');
+      return;
+    }
+
+    setScraping(true);
+    setScrapeStep('scraping');
+    setScrapeProgress(0);
+    const allResults: any[] = [];
+    const batchSize = 10;
+    const total = discoveredUrls.length;
+
+    for (let i = 0; i < total; i += batchSize) {
+      const batch = discoveredUrls.slice(i, i + batchSize);
+      
+      try {
+        const { data, error } = await supabase.functions.invoke('scrape-rulings', {
+          body: { action: 'batch', urls: batch },
+        });
+
+        if (!error && data?.results) {
+          allResults.push(...data.results);
+        }
+      } catch (e) {
+        console.error('Batch error:', e);
+      }
+
+      setScrapeProgress(Math.round(((i + batch.length) / total) * 100));
+      setScrapeResults([...allResults]);
+    }
+
+    setScrapeStep('done');
+    setScraping(false);
+    
+    const successCount = allResults.filter(r => r.success).length;
+    toast.success(`تم جلب ${successCount} قرار من أصل ${total} رابط`);
+    fetchDocuments();
+  };
+
+  // Scrape a single URL
+  const handleScrapeSingle = async (url: string) => {
+    setScraping(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('scrape-rulings', {
+        body: { action: 'scrape', url },
+      });
+
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'فشل الجلب');
+
+      toast.success(`تم جلب: ${data.title} (${data.ingested} أجزاء)`);
+      fetchDocuments();
+    } catch (e: any) {
+      toast.error(e.message || 'خطأ في الجلب');
+    }
+    setScraping(false);
+  };
+
   const getTypeLabel = (type: string) => DOC_TYPES.find(t => t.value === type)?.label || type;
 
   return (
