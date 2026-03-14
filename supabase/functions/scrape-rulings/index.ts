@@ -125,7 +125,14 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { action, url, limit } = await req.json();
+    const { action, url, limit, doc_type: requestedDocType } = await req.json();
+    
+    // Detect doc type from URL if not specified
+    const detectDocType = (pageUrl: string) => {
+      if (pageUrl.includes('sgg.gov.ma') || pageUrl.includes('BulletinOfficiel') || pageUrl.includes('TextesLegislatifs')) return 'law';
+      if (pageUrl.includes('juriscassation') || pageUrl.includes('arret') || pageUrl.includes('decision')) return 'ruling';
+      return requestedDocType || 'law';
+    };
 
     // Action 1: Map the website to discover ruling URLs
     if (action === "map") {
