@@ -73,8 +73,8 @@ const AIConsultation = () => {
             <p className="text-sm text-muted-foreground">اطرح سؤالك القانوني واحصل على إجابة فورية</p>
           </div>
 
-          <Card className="flex-1 flex flex-col min-h-0">
-            <ScrollArea className="flex-1 p-4" style={{ maxHeight: 'calc(100vh - 350px)' }}>
+          <Card className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 overflow-y-auto p-4" style={{ maxHeight: 'calc(100vh - 350px)' }}>
               <div className="space-y-4">
                 {messages.map((msg, i) => (
                   <div
@@ -114,7 +114,7 @@ const AIConsultation = () => {
                   </div>
                 )}
               </div>
-            </ScrollArea>
+            </div>
 
             <CardContent className="border-t border-border p-4">
               <div className="flex gap-2">
