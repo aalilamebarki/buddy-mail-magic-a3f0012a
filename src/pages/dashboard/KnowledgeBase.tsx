@@ -93,6 +93,15 @@ const KnowledgeBase = () => {
   const [scrapeProgress, setScrapeProgress] = useState(0);
   const [scrapeResults, setScrapeResults] = useState<any[]>([]);
   const [scrapeUrl, setScrapeUrl] = useState('https://juriscassation.cspj.ma');
+
+  // Auto-ingest state
+  const [autoIngestOpen, setAutoIngestOpen] = useState(false);
+  const [autoIngesting, setAutoIngesting] = useState(false);
+  const [autoIngestSource, setAutoIngestSource] = useState<'sgg' | 'cassation' | 'all'>('all');
+  const [autoIngestLog, setAutoIngestLog] = useState<string[]>([]);
+  const [autoIngestProgress, setAutoIngestProgress] = useState(0);
+  const [autoIngestTotal, setAutoIngestTotal] = useState(0);
+  const [autoIngestDocs, setAutoIngestDocs] = useState(0);
   const fetchDocuments = async () => {
     setLoading(true);
     let query = supabase
@@ -299,7 +308,88 @@ const KnowledgeBase = () => {
     setScraping(false);
   };
 
+  // Auto-ingest from sources
+  const handleAutoIngest = async () => {
+    setAutoIngesting(true);
+    setAutoIngestLog([]);
+    setAutoIngestDocs(0);
+    
+    const sources: ('sgg' | 'cassation')[] = autoIngestSource === 'all' 
+      ? ['sgg', 'cassation'] 
+      : [autoIngestSource];
+    
+    const sourceNames: Record<string, string> = {
+      sgg: 'الجريدة الرسمية',
+      cassation: 'محكمة النقض',
+    };
+
+    // Get totals first
+    let totalSearches = 0;
+    for (const src of sources) {
+      try {
+        const { data } = await supabase.functions.invoke('auto-ingest', {
+          body: { action: 'status' },
+        });
+        if (data?.sources?.[src]) {
+          totalSearches += data.sources[src].total;
+        }
+      } catch {}
+    }
+    setAutoIngestTotal(totalSearches);
+    
+    let completed = 0;
+    let totalDocsAdded = 0;
+    
+    for (const src of sources) {
+      setAutoIngestLog(prev => [...prev, `🔍 بدء الجلب من ${sourceNames[src]}...`]);
+      
+      let nextIndex = 0;
+      let remaining = 1;
+      
+      while (remaining > 0) {
+        try {
+          const { data, error } = await supabase.functions.invoke('auto-ingest', {
+            body: { action: 'batch_search', source: src, start_index: nextIndex, count: 2 },
+          });
+          
+          if (error) {
+            setAutoIngestLog(prev => [...prev, `❌ خطأ: ${error.message}`]);
+            break;
+          }
+          
+          if (data?.ingested?.length > 0) {
+            for (const doc of data.ingested) {
+              setAutoIngestLog(prev => [...prev, `✅ ${doc.title} (${doc.chunks} أجزاء)`]);
+            }
+            totalDocsAdded += data.documentsAdded || 0;
+            setAutoIngestDocs(totalDocsAdded);
+          } else {
+            setAutoIngestLog(prev => [...prev, `📄 تم فحص ${data?.processed || 0} استعلامات - لا جديد`]);
+          }
+          
+          remaining = data?.remaining ?? 0;
+          nextIndex = data?.nextIndex ?? nextIndex + 2;
+          completed += data?.processed || 0;
+          setAutoIngestProgress(Math.round((completed / Math.max(totalSearches, 1)) * 100));
+          
+          // Small delay
+          await new Promise(r => setTimeout(r, 500));
+        } catch (err: any) {
+          setAutoIngestLog(prev => [...prev, `❌ خطأ: ${err.message}`]);
+          break;
+        }
+      }
+      
+      setAutoIngestLog(prev => [...prev, `✨ انتهى الجلب من ${sourceNames[src]}`]);
+    }
+    
+    setAutoIngestLog(prev => [...prev, `🎉 تم الانتهاء! أُضيف ${totalDocsAdded} مستند جديد`]);
+    setAutoIngesting(false);
+    fetchDocuments();
+    toast.success(`تم إضافة ${totalDocsAdded} مستند جديد لقاعدة المعرفة`);
+  };
   const getTypeLabel = (type: string) => DOC_TYPES.find(t => t.value === type)?.label || type;
+
 
   return (
     <div className="space-y-6">
@@ -714,6 +804,104 @@ const KnowledgeBase = () => {
                       >
                         إغلاق
                       </Button>
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              {/* Auto-Ingest Dialog */}
+              <Dialog open={autoIngestOpen} onOpenChange={setAutoIngestOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="gap-1 bg-green-600 hover:bg-green-700 text-white">
+                    <Database className="h-4 w-4" />
+                    جلب شامل
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <Database className="h-5 w-5 text-green-600" />
+                      جلب شامل من المصادر الرسمية
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 mt-4">
+                    <p className="text-sm text-muted-foreground">
+                      سيتم البحث في المصادر الرسمية وجلب القوانين والقرارات القضائية تلقائياً.
+                    </p>
+                    
+                    <div className="space-y-2">
+                      <Label>اختر المصدر</Label>
+                      <div className="grid grid-cols-1 gap-2">
+                        <Button
+                          variant={autoIngestSource === 'all' ? 'default' : 'outline'}
+                          size="sm"
+                          className="justify-start gap-2 h-auto py-3"
+                          onClick={() => setAutoIngestSource('all')}
+                          disabled={autoIngesting}
+                        >
+                          <Globe className="h-4 w-4 shrink-0" />
+                          <div className="text-right">
+                            <div className="font-medium">جميع المصادر</div>
+                            <div className="text-xs opacity-70">الجريدة الرسمية + محكمة النقض</div>
+                          </div>
+                        </Button>
+                        <Button
+                          variant={autoIngestSource === 'sgg' ? 'default' : 'outline'}
+                          size="sm"
+                          className="justify-start gap-2 h-auto py-3"
+                          onClick={() => setAutoIngestSource('sgg')}
+                          disabled={autoIngesting}
+                        >
+                          <FileText className="h-4 w-4 shrink-0" />
+                          <div className="text-right">
+                            <div className="font-medium">الجريدة الرسمية فقط</div>
+                            <div className="text-xs opacity-70">sgg.gov.ma - القوانين والمراسيم والظهائر</div>
+                          </div>
+                        </Button>
+                        <Button
+                          variant={autoIngestSource === 'cassation' ? 'default' : 'outline'}
+                          size="sm"
+                          className="justify-start gap-2 h-auto py-3"
+                          onClick={() => setAutoIngestSource('cassation')}
+                          disabled={autoIngesting}
+                        >
+                          <Scale className="h-4 w-4 shrink-0" />
+                          <div className="text-right">
+                            <div className="font-medium">محكمة النقض فقط</div>
+                            <div className="text-xs opacity-70">juriscassation.cspj.ma - اجتهادات محكمة النقض</div>
+                          </div>
+                        </Button>
+                      </div>
+                    </div>
+
+                    <Button
+                      onClick={handleAutoIngest}
+                      disabled={autoIngesting}
+                      className="w-full gap-2 bg-green-600 hover:bg-green-700"
+                    >
+                      {autoIngesting ? (
+                        <><Loader2 className="h-4 w-4 animate-spin" /> جاري الجلب...</>
+                      ) : (
+                        <><Database className="h-4 w-4" /> ابدأ الجلب الشامل</>
+                      )}
+                    </Button>
+
+                    {autoIngesting && (
+                      <div className="space-y-1">
+                        <Progress value={autoIngestProgress} className="h-2" />
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>{autoIngestProgress}%</span>
+                          <span>{autoIngestDocs} مستند جديد</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {autoIngestLog.length > 0 && (
+                      <div className="bg-muted/50 rounded-lg p-3 space-y-1 max-h-60 overflow-y-auto">
+                        {autoIngestLog.map((log, i) => (
+                          <p key={i} className="text-xs">{log}</p>
+                        ))}
+                      </div>
                     )}
                   </div>
                 </DialogContent>
