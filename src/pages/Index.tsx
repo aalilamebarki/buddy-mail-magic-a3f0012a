@@ -41,6 +41,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import teamPhoto1 from '@/assets/team-1.png';
 import teamPhoto2 from '@/assets/team-2.png';
+import teamPhoto3 from '@/assets/team-3.png';
 
 /* ═══════════════════════════════════════════
    NAVBAR
@@ -397,6 +398,7 @@ const TeamSection = () => (
       <div className="flex flex-col md:flex-row gap-8 md:gap-12 items-center justify-center max-w-4xl mx-auto">
         {[
           { img: teamPhoto1, name: 'المؤسّس', role: 'كاتب المحتوى القانوني' },
+          { img: teamPhoto3, name: 'المحررة', role: 'التحرير والمراجعة' },
           { img: teamPhoto2, name: 'الشريك', role: 'المستشار والمراجع' },
         ].map((member, i) => (
           <motion.div key={i}
