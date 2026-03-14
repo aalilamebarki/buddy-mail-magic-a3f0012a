@@ -16,6 +16,7 @@ import {
   FileBarChart,
   Globe,
   ScrollText,
+  BookOpen,
   LogOut,
   ChevronLeft,
 } from 'lucide-react';
