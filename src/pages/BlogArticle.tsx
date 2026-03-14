@@ -703,10 +703,9 @@ const BlogArticle = () => {
                   </div>
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-semibold text-foreground">فريق محاماة ذكية</span>
-                      <BadgeCheck className="h-3.5 w-3.5 text-legal-emerald" />
+                      <span className="text-sm font-semibold text-foreground">محاماة ذكية</span>
                     </div>
-                    <span className="text-[11px] text-muted-foreground">خبراء قانونيون معتمدون</span>
+                    <span className="text-[11px] text-muted-foreground">محتوى قانوني موثّق</span>
                   </div>
                 </div>
 
