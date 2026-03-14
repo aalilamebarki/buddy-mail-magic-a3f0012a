@@ -441,6 +441,7 @@ const AIConsultation = () => {
     setInput('');
     const userMsg: Message = { role: 'user', content: userMessage };
     setMessages(prev => [...prev, userMsg]);
+    setLastQuestion(userMessage);
     setLoading(true);
     bufferRef.current = '';
     try {
