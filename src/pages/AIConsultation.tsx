@@ -331,7 +331,7 @@ const ThinkingAnimation = ({ intake }: { intake: CaseIntake }) => {
                 exit={{ opacity: 0, x: -10 }}
                 className="text-xs font-medium text-foreground/70"
               >
-                {THINKING_PHASES[phase].text}
+                {phases[phase].text}
               </motion.p>
             </AnimatePresence>
             <div className="flex gap-1">
