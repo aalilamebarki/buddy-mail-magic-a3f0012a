@@ -6,13 +6,11 @@ import { motion, useInView } from 'framer-motion';
 import { useRef } from 'react';
 import {
   Scale, ArrowLeft, Shield, Target, Eye, BookOpen, Users, Gavel,
-  Landmark, ScrollText, Award, Globe, Menu, X, CheckCircle,
+  Landmark, ScrollText, Award, Globe, Menu, X,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import ThemeToggle from '@/components/ThemeToggle';
-import teamPhoto1 from '@/assets/team-1.png';
-import teamPhoto2 from '@/assets/team-2.png';
-import teamPhoto3 from '@/assets/team-3.png';
+import TeamSection from '@/components/TeamSection';
 
 const AnimatedSection = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => {
   const ref = useRef(null);
