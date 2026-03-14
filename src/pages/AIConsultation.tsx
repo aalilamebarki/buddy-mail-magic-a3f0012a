@@ -202,7 +202,7 @@ const markdownComponents: Components = {
   ),
 };
 
-
+const AIConsultation = () => {
   const [mode, setMode] = useState<'intake' | 'chat'>('intake');
   const [step, setStep] = useState(0);
   const [intake, setIntake] = useState<CaseIntake>({
