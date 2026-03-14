@@ -548,27 +548,59 @@ const KnowledgeBase = () => {
                 <DialogTrigger asChild>
                   <Button size="sm" variant="outline" className="gap-1 text-primary border-primary">
                     <Globe className="h-4 w-4" />
-                    جلب من محكمة النقض
+                    جلب تلقائي
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                       <Globe className="h-5 w-5 text-primary" />
-                      جلب قرارات محكمة النقض تلقائياً
+                      جلب النصوص القانونية والقرارات تلقائياً
                     </DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4 mt-4">
                     <p className="text-sm text-muted-foreground">
-                      سيقوم النظام بجلب القرارات من موقع محكمة النقض وحفظها في قاعدة المعرفة تلقائياً.
+                      اختر المصدر ثم ابدأ الجلب. سيتم حفظ كل شيء في قاعدة المعرفة تلقائياً.
                     </p>
 
+                    {/* Quick source buttons */}
                     <div className="space-y-2">
-                      <Label>رابط الموقع</Label>
+                      <Label>اختر المصدر</Label>
+                      <div className="grid grid-cols-1 gap-2">
+                        <Button
+                          variant={scrapeUrl.includes('sgg.gov.ma') ? 'default' : 'outline'}
+                          size="sm"
+                          className="justify-start gap-2 h-auto py-3"
+                          onClick={() => setScrapeUrl('https://www.sgg.gov.ma/arabe/BulletinOfficiel.aspx')}
+                        >
+                          <FileText className="h-4 w-4 shrink-0" />
+                          <div className="text-right">
+                            <div className="font-medium">الجريدة الرسمية - النصوص القانونية</div>
+                            <div className="text-xs opacity-70">sgg.gov.ma - القوانين والمراسيم والظهائر</div>
+                          </div>
+                        </Button>
+                        <Button
+                          variant={scrapeUrl.includes('juriscassation') ? 'default' : 'outline'}
+                          size="sm"
+                          className="justify-start gap-2 h-auto py-3"
+                          onClick={() => setScrapeUrl('https://juriscassation.cspj.ma')}
+                        >
+                          <Scale className="h-4 w-4 shrink-0" />
+                          <div className="text-right">
+                            <div className="font-medium">محكمة النقض - القرارات القضائية</div>
+                            <div className="text-xs opacity-70">juriscassation.cspj.ma - اجتهادات محكمة النقض</div>
+                          </div>
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>أو أدخل رابطاً مخصصاً</Label>
                       <Input
                         value={scrapeUrl}
                         onChange={e => setScrapeUrl(e.target.value)}
-                        placeholder="https://juriscassation.cspj.ma"
+                        placeholder="https://..."
+                        dir="ltr"
                       />
                     </div>
 

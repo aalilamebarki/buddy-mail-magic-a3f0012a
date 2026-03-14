@@ -125,7 +125,14 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { action, url, limit } = await req.json();
+    const { action, url, limit, doc_type: requestedDocType } = await req.json();
+    
+    // Detect doc type from URL if not specified
+    const detectDocType = (pageUrl: string) => {
+      if (pageUrl.includes('sgg.gov.ma') || pageUrl.includes('BulletinOfficiel') || pageUrl.includes('TextesLegislatifs')) return 'law';
+      if (pageUrl.includes('juriscassation') || pageUrl.includes('arret') || pageUrl.includes('decision')) return 'ruling';
+      return requestedDocType || 'law';
+    };
 
     // Action 1: Map the website to discover ruling URLs
     if (action === "map") {
@@ -160,7 +167,9 @@ serve(async (req) => {
       }, FIRECRAWL_API_KEY);
 
       const markdown = data.data?.markdown || data.markdown || "";
-      const title = data.data?.metadata?.title || data.metadata?.title || "قرار محكمة النقض";
+      const docType = detectDocType(url);
+      const defaultTitle = docType === 'law' ? 'نص قانوني' : 'قرار محكمة النقض';
+      const title = data.data?.metadata?.title || data.metadata?.title || defaultTitle;
 
       if (!markdown || markdown.length < 100) {
         return new Response(
@@ -179,10 +188,10 @@ serve(async (req) => {
           title: title.slice(0, 500),
           content: chunk,
           source: url,
-          doc_type: "ruling",
+          doc_type: docType,
           category: meta.category,
           reference_number: meta.referenceNumber || null,
-          court_chamber: meta.chamber || null,
+          court_chamber: docType === 'ruling' ? (meta.chamber || null) : null,
           decision_date: meta.decisionDate || null,
           embedding: JSON.stringify(embedding),
           metadata: { scraped: true, scraped_at: new Date().toISOString() },
@@ -219,8 +228,10 @@ serve(async (req) => {
             waitFor: 3000,
           }, FIRECRAWL_API_KEY);
 
+          const batchDocType = detectDocType(urls[i]);
+          const defaultTitle = batchDocType === 'law' ? 'نص قانوني' : 'قرار محكمة النقض';
           const markdown = data.data?.markdown || data.markdown || "";
-          const title = data.data?.metadata?.title || data.metadata?.title || "قرار محكمة النقض";
+          const title = data.data?.metadata?.title || data.metadata?.title || defaultTitle;
 
           if (markdown && markdown.length >= 100) {
             const meta = extractRulingMetadata(markdown, urls[i]);
@@ -233,10 +244,10 @@ serve(async (req) => {
                 title: title.slice(0, 500),
                 content: chunk,
                 source: urls[i],
-                doc_type: "ruling",
+                doc_type: batchDocType,
                 category: meta.category,
                 reference_number: meta.referenceNumber || null,
-                court_chamber: meta.chamber || null,
+                court_chamber: batchDocType === 'ruling' ? (meta.chamber || null) : null,
                 decision_date: meta.decisionDate || null,
                 embedding: JSON.stringify(embedding),
                 metadata: { scraped: true, scraped_at: new Date().toISOString() },
