@@ -7,8 +7,8 @@ import {
   Menu, X, ChevronUp, Facebook, MessageCircle, Copy, Printer, Mail,
   Gavel, AlertTriangle, Lightbulb, FileText, User, Send,
   Hash, ChevronDown, Eye, Shield, Download,
-  Bookmark, BadgeCheck, ChevronLeft, Quote,
-  Sparkles, BookMarked, Library, CircleCheck, Zap, Award, TrendingUp
+  Bookmark, ChevronLeft, Quote,
+  Sparkles, BookMarked, Library, CircleCheck, Zap, TrendingUp
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
