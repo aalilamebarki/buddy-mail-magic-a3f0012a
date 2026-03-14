@@ -114,7 +114,7 @@ const AIConsultation = () => {
                   </div>
                 )}
               </div>
-            </ScrollArea>
+            </div>
 
             <CardContent className="border-t border-border p-4">
               <div className="flex gap-2">
