@@ -4,23 +4,11 @@ import { Helmet } from 'react-helmet-async';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Scale, Search, Calendar, User, ArrowLeft } from 'lucide-react';
+import { Scale, Search, Calendar, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
-interface Article {
-  id: string;
-  title: string;
-  excerpt: string;
-  slug: string;
-  category: string;
-  author_name: string;
-  created_at: string;
-  featured_image?: string;
-  published: boolean;
-}
-
 const Blog = () => {
-  const [articles, setArticles] = useState<Article[]>([]);
+  const [articles, setArticles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
@@ -29,11 +17,11 @@ const Blog = () => {
       const { data, error } = await supabase
         .from('articles')
         .select('*')
-        .eq('published', true)
+        .eq('status', 'published')
         .order('created_at', { ascending: false });
 
       if (!error && data) {
-        setArticles(data as Article[]);
+        setArticles(data);
       }
       setLoading(false);
     };
@@ -42,9 +30,8 @@ const Blog = () => {
 
   const filtered = articles.filter(
     (a) =>
-      a.title.includes(search) ||
-      a.excerpt?.includes(search) ||
-      a.category?.includes(search)
+      a.title?.includes(search) ||
+      a.excerpt?.includes(search)
   );
 
   return (
@@ -100,27 +87,21 @@ const Blog = () => {
                 {filtered.map((article) => (
                   <Link to={`/blog/${article.slug}`} key={article.id}>
                     <Card className="hover:shadow-lg transition-all hover:-translate-y-1 h-full">
-                      {article.featured_image && (
+                      {article.cover_image && (
                         <div className="h-48 overflow-hidden rounded-t-lg">
                           <img
-                            src={article.featured_image}
+                            src={article.cover_image}
                             alt={article.title}
                             className="w-full h-full object-cover"
                           />
                         </div>
                       )}
                       <CardHeader>
-                        {article.category && (
-                          <Badge variant="secondary" className="w-fit">{article.category}</Badge>
-                        )}
                         <CardTitle className="text-lg leading-tight">{article.title}</CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-3">
                         <p className="text-sm text-muted-foreground line-clamp-2">{article.excerpt}</p>
                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <User className="h-3 w-3" /> {article.author_name}
-                          </span>
                           <span className="flex items-center gap-1">
                             <Calendar className="h-3 w-3" />
                             {new Date(article.created_at).toLocaleDateString('ar-MA')}

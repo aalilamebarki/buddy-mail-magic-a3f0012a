@@ -179,7 +179,7 @@ const NewsletterSection = () => {
     if (!email) return;
     setSubmitting(true);
     try {
-      const { error } = await supabase.from('newsletter_subscribers').insert({ email });
+      const { error } = await (supabase as any).from('newsletter_subscribers').insert({ email });
       if (error) throw error;
       toast.success('تم الاشتراك بنجاح!');
       setEmail('');

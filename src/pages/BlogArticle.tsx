@@ -1,27 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { Badge } from '@/components/ui/badge';
-import { Scale, Calendar, User, ArrowRight } from 'lucide-react';
+import { Scale, Calendar, ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-
-interface Article {
-  id: string;
-  title: string;
-  content: string;
-  excerpt: string;
-  slug: string;
-  category: string;
-  author_name: string;
-  created_at: string;
-  featured_image?: string;
-  meta_title?: string;
-  meta_description?: string;
-}
 
 const BlogArticle = () => {
   const { slug } = useParams();
-  const [article, setArticle] = useState<Article | null>(null);
+  const [article, setArticle] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -31,11 +16,11 @@ const BlogArticle = () => {
         .from('articles')
         .select('*')
         .eq('slug', slug)
-        .eq('published', true)
+        .eq('status', 'published')
         .single();
 
       if (!error && data) {
-        setArticle(data as Article);
+        setArticle(data);
       }
       setLoading(false);
     };
@@ -62,8 +47,8 @@ const BlogArticle = () => {
   return (
     <>
       <Helmet>
-        <title>{article.meta_title || article.title} - محاماة ذكية</title>
-        <meta name="description" content={article.meta_description || article.excerpt} />
+        <title>{article.seo_title || article.title} - محاماة ذكية</title>
+        <meta name="description" content={article.seo_description || article.excerpt} />
       </Helmet>
       <div className="min-h-screen bg-background">
         <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
@@ -79,17 +64,15 @@ const BlogArticle = () => {
         </nav>
 
         <article className="container mx-auto px-4 py-12 max-w-3xl">
-          {article.featured_image && (
+          {article.cover_image && (
             <div className="h-64 md:h-96 overflow-hidden rounded-xl mb-8">
-              <img src={article.featured_image} alt={article.title} className="w-full h-full object-cover" />
+              <img src={article.cover_image} alt={article.title} className="w-full h-full object-cover" />
             </div>
           )}
 
           <div className="space-y-4 mb-8">
-            {article.category && <Badge variant="secondary">{article.category}</Badge>}
             <h1 className="text-3xl md:text-4xl font-bold text-foreground leading-tight">{article.title}</h1>
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              <span className="flex items-center gap-1"><User className="h-4 w-4" /> {article.author_name}</span>
               <span className="flex items-center gap-1">
                 <Calendar className="h-4 w-4" />
                 {new Date(article.created_at).toLocaleDateString('ar-MA', { year: 'numeric', month: 'long', day: 'numeric' })}

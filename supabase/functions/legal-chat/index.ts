@@ -1,5 +1,6 @@
-// Legal AI Chat - Moroccan Law Specialist
+// Legal AI Chat - Moroccan Law Specialist with RAG
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -47,9 +48,27 @@ const SYSTEM_PROMPT = `أنت مستشار قانوني متخصص في القا
 8. إذا كانت المسألة معقدة، أنصح بالتوجه لمحامٍ مختص مع توضيح السبب.
 9. لا تختلق أرقام قرارات أو أحكام غير حقيقية.
 10. إذا لم تكن متأكداً، صرّح بذلك بوضوح.
+11. إذا تم توفير سياق من قاعدة المعرفة القانونية، استخدمه لتعزيز إجابتك.
 
 ## تنبيه دائم
 في نهاية كل إجابة، ذكّر المستخدم أن هذه استشارة أولية توجيهية ولا تغني عن استشارة محامٍ مختص، خاصة في القضايا المعقدة أو العاجلة.`;
+
+// Simple hash-based embedding for RAG search (matches the knowledge function)
+function generateHashEmbedding(text: string): number[] {
+  const embedding = new Array(768);
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) {
+    const char = text.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash |= 0;
+  }
+  for (let i = 0; i < 768; i++) {
+    hash = ((hash << 5) - hash) + i;
+    hash |= 0;
+    embedding[i] = (hash % 2000 - 1000) / 1000;
+  }
+  return embedding;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -63,6 +82,37 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
+    // Get the last user message for RAG search
+    const lastUserMessage = [...messages].reverse().find((m: any) => m.role === "user");
+    let ragContext = "";
+
+    if (lastUserMessage) {
+      try {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        const supabase = createClient(supabaseUrl, supabaseKey);
+
+        const queryEmbedding = generateHashEmbedding(lastUserMessage.content);
+
+        const { data: docs } = await supabase.rpc("search_legal_documents", {
+          query_embedding: JSON.stringify(queryEmbedding),
+          match_threshold: 0.3,
+          match_count: 3,
+        });
+
+        if (docs && docs.length > 0) {
+          ragContext = "\n\n## سياق من قاعدة المعرفة القانونية:\n" +
+            docs.map((d: any) =>
+              `### ${d.title} (${d.doc_type}${d.reference_number ? ' - ' + d.reference_number : ''})\n${d.content}`
+            ).join("\n\n---\n\n");
+        }
+      } catch (err) {
+        console.error("RAG search error (non-fatal):", err);
+      }
+    }
+
+    const systemPrompt = SYSTEM_PROMPT + ragContext;
+
     const response = await fetch(
       "https://ai.gateway.lovable.dev/v1/chat/completions",
       {
@@ -74,7 +124,7 @@ serve(async (req) => {
         body: JSON.stringify({
           model: "google/gemini-3-flash-preview",
           messages: [
-            { role: "system", content: SYSTEM_PROMPT },
+            { role: "system", content: systemPrompt },
             ...messages,
           ],
           stream: true,
