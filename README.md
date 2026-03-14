@@ -1,73 +1,126 @@
-# Welcome to your Lovable project
+<div align="center">
 
-## Project info
+# ⚖️ Outlook Genie
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+### بوابة معرفية قانونية مغربية ذكية
 
-## How can I edit this code?
+منصة متكاملة تجمع بين المحتوى القانوني المغربي والذكاء الاصطناعي لتقديم تجربة فريدة في الوصول للمعلومة القانونية.
 
-There are several ways of editing your application.
+[![Built with Lovable](https://img.shields.io/badge/Built%20with-Lovable-ff69b4)](https://lovable.dev)
+[![React](https://img.shields.io/badge/React-18-61dafb)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6)](https://typescriptlang.org)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-3-38bdf8)](https://tailwindcss.com)
 
-**Use Lovable**
+</div>
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+---
 
-Changes made via Lovable will be committed automatically to this repo.
+## 🌟 نظرة عامة
 
-**Use your preferred IDE**
+**Outlook Genie** هي بوابة معرفية قانونية مغربية تهدف إلى تسهيل الوصول للنصوص القانونية والاجتهادات القضائية المغربية، مدعومة بنظام ذكاء اصطناعي يستند إلى قاعدة معرفية غنية بالمحتوى القانوني.
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## ✨ المميزات الرئيسية
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### 🤖 المستشار الذكي (AI Consultation)
+- محادثة ذكية مع نموذج ذكاء اصطناعي متخصص في القانون المغربي
+- إجابات مستندة لقرارات محكمة النقض والنصوص التشريعية
+- نظام RAG (Retrieval-Augmented Generation) لضمان دقة المعلومات
 
-Follow these steps:
+### 📚 قاعدة المعرفة القانونية
+- جلب تلقائي للنصوص القانونية من الجريدة الرسمية وقرارات محكمة النقض
+- تصنيف ذكي حسب الفرع القانوني (أسرة، شغل، عقاري، تجاري...)
+- فهرسة وبحث دلالي في المحتوى القانوني
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
+### 📝 المدونة القانونية
+- نظام نشر متكامل مع محرر TipTap غني
+- تصنيف المقالات وإدارة الوسوم
+- نظام تعليقات وتفاعلات القراء
+- تحسين محركات البحث (SEO) لكل مقال
+
+### 🔢 حاسبة الرسوم القضائية
+- حساب تلقائي للرسوم القضائية حسب نوع الدعوى
+- مرجع سريع للمحامين والمتقاضين
+
+### 📊 لوحة تحكم متقدمة
+- إدارة القضايا والموكلين
+- تقارير مالية وإحصائيات
+- إدارة المستخدمين والأدوار (مدير، شريك، كاتب، محرر، موكل)
+- سجل المراجعة والنشاط
+
+### 🔐 نظام أدوار وصلاحيات
+- 5 أدوار: `director` · `partner` · `clerk` · `content_writer` · `client`
+- سياسات أمان على مستوى قاعدة البيانات (RLS)
+- حماية المسارات حسب الدور
+
+## 🛠️ التقنيات المستخدمة
+
+| التقنية | الاستخدام |
+|---------|-----------|
+| **React 18** | واجهة المستخدم |
+| **TypeScript** | أمان الأنواع |
+| **Vite** | أداة البناء |
+| **Tailwind CSS** | التنسيق |
+| **shadcn/ui** | مكتبة المكونات |
+| **Lovable Cloud** | قاعدة البيانات والمصادقة والوظائف السحابية |
+| **TipTap** | محرر النصوص الغني |
+| **Framer Motion** | الحركات والانتقالات |
+| **Recharts** | الرسوم البيانية |
+| **React Query** | إدارة حالة البيانات |
+
+## 📁 هيكل المشروع
+
+```
+src/
+├── components/          # المكونات المشتركة
+│   ├── ui/             # مكونات shadcn/ui
+│   └── article/        # مكونات المقالات
+├── hooks/              # الهوكس المخصصة
+│   ├── useAuth.tsx     # المصادقة والأدوار
+│   └── useTheme.tsx    # الوضع الليلي/النهاري
+├── pages/              # الصفحات
+│   ├── dashboard/      # صفحات لوحة التحكم
+│   ├── Index.tsx       # الصفحة الرئيسية
+│   ├── Blog.tsx        # المدونة
+│   └── AIConsultation.tsx  # المستشار الذكي
+├── integrations/       # تكامل الخدمات
+└── lib/               # أدوات مساعدة
+
+supabase/
+├── functions/          # الوظائف السحابية
+│   ├── legal-chat/    # محادثة الذكاء الاصطناعي
+│   ├── auto-ingest/   # الجلب التلقائي للنصوص
+│   └── ...
+└── migrations/        # تحديثات قاعدة البيانات
+```
+
+## 🚀 التشغيل المحلي
+
+```bash
+# استنساخ المستودع
 git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
 cd <YOUR_PROJECT_NAME>
 
-# Step 3: Install the necessary dependencies.
-npm i
+# تثبيت التبعيات
+npm install
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# تشغيل خادم التطوير
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## 🌐 النشر
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+المشروع مستضاف على **Lovable** ويمكن نشره مباشرة من المنصة عبر:
+1. فتح المشروع في [Lovable](https://lovable.dev)
+2. النقر على **Share → Publish**
 
-**Use GitHub Codespaces**
+## 📄 الرخصة
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+هذا المشروع خاص. جميع الحقوق محفوظة.
 
-## What technologies are used for this project?
+---
 
-This project is built with:
+<div align="center">
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+صُنع بـ ❤️ باستخدام [Lovable](https://lovable.dev)
 
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+</div>
