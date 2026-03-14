@@ -394,7 +394,7 @@ const NewsletterCTA = () => {
           <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-legal-navy to-primary flex items-center justify-center mx-auto shadow-xl shadow-legal-navy/20">
             <Mail className="h-6 w-6 text-primary-foreground" />
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-foreground font-display">النشرة القانونية</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-foreground">النشرة القانونية</h2>
           <p className="text-muted-foreground text-sm">تحليلات وتحديثات أسبوعية مباشرة في بريدك</p>
           <div className="flex gap-2 max-w-sm mx-auto">
             <input type="email" value={email} onChange={e => setEmail(e.target.value)}
