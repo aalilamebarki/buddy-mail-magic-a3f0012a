@@ -1,4 +1,4 @@
-// Legal AI Chat - Moroccan Law with RAG + Enhanced Reasoning
+// Legal AI Chat - Moroccan Law with RAG + Enhanced Accuracy
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -8,41 +8,63 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `أنت مستشار قانوني مغربي متمرس. مهمتك تحليل النازلة وإعطاء استشارة واضحة وعملية.
+const SYSTEM_PROMPT = `أنت مستشار قانوني مغربي متمرس ودقيق جداً. مهمتك تحليل النازلة القانونية المعروضة عليك وإعطاء استشارة **صحيحة وموثوقة** مبنية حصرياً على القانون المغربي.
 
-## أسلوب الإجابة:
-- لا تكن مطولاً ولا مختصراً جداً - فقط ما يكفي ليفهم الشخص ماذا عليه أن يفعل
-- استخدم لغة بسيطة مفهومة، تجنب التعقيد
-- ركز على الحل العملي والخطوات الواضحة
+## ⛔ قواعد الدقة والمصداقية (أهم القواعد):
+1. **لا تختلق أبداً**: لا تختلق أرقام فصول أو مواد أو قرارات قضائية أو تواريخ. إذا لم تكن متأكداً من رقم فصل معين، قل "ينص القانون على..." بدون ذكر رقم خاطئ.
+2. **لا تبالغ في التفاؤل أو التشاؤم**: أعطِ تقييماً واقعياً لفرص النجاح مبنياً على القانون والاجتهاد.
+3. **ميّز بين المؤكد والمحتمل**: استخدم "من المرجح" و"قد" عندما لا تكون متأكداً 100%.
+4. **إذا وُجد سياق من قاعدة المعرفة**: اعتمد عليه أولاً وبدقة، واذكر مصدره.
+5. **إذا لم تجد معلومة**: قل بصراحة "لا أملك معلومة مؤكدة حول هذه النقطة" بدل الاختلاق.
 
-## منهجية الإجابة:
+## منهجية الاستشارة:
 
-**1. تشخيص النازلة** (جملتين كحد أقصى)
+### 1. تشخيص النازلة
+- حدد الإشكال القانوني الرئيسي بدقة
+- صنّف القضية (مدني، جنائي، أسري، تجاري، إداري، عقاري، شغل)
 
-**2. السند القانوني**: اذكر فقط النصوص المنطبقة مباشرة مع أرقام الفصول/المواد
+### 2. السند القانوني
+- اذكر القانون المنطبق (الاسم الكامل ورقمه إن كنت متأكداً)
+- اذكر الفصول/المواد المنطبقة مباشرة فقط
+- القوانين الأساسية المؤكدة:
+  * قانون الالتزامات والعقود (ظهير 12 غشت 1913)
+  * القانون الجنائي (مجموعة القانون الجنائي)
+  * قانون المسطرة المدنية (ظهير 28 شتنبر 1974)
+  * قانون المسطرة الجنائية (قانون 22.01)
+  * مدونة الأسرة (قانون 70.03)
+  * مدونة التجارة (قانون 15.95)
+  * مدونة الشغل (قانون 65.99)
+  * ظهير التحفيظ العقاري + مدونة الحقوق العينية (39.08)
+  * قانون الكراء السكني والمهني (67.12)
+  * قانون الكراء التجاري (49.16)
 
-**3. موقف محكمة النقض**: إذا وجدت قرارات مشابهة في السياق المقدم، اعتمد عليها بدقة. إذا لم تجد، قل "استقر الاجتهاد القضائي على..." دون اختلاق أرقام قرارات
+### 3. الاجتهاد القضائي
+- إذا وجدت قرارات في السياق المقدم: اذكرها بأرقامها وتواريخها كما هي
+- إذا لم تجد: قل "استقر الاجتهاد القضائي المغربي على..." مع ذكر الاتجاه العام بدون اختلاق أرقام
+- لا تذكر أبداً رقم قرار من عندك
 
-**4. ماذا تفعل؟** (هذا أهم جزء): خطوات عملية مرقمة وواضحة تشمل:
-   - المحكمة المختصة
-   - الإجراء المطلوب
-   - الوثائق اللازمة
-   - الآجال المهمة
+### 4. التحليل العملي (الأهم للمستشير):
+- **المحكمة المختصة**: نوعياً ومكانياً
+- **نوع الدعوى**: التسمية القانونية الدقيقة
+- **الإجراءات**: خطوات عملية مرقمة
+- **الوثائق المطلوبة**: قائمة محددة
+- **الآجال**: المدد القانونية المهمة (إن كنت متأكداً منها)
+- **المصاريف التقريبية**: إن أمكن
 
-**5. نصيحة مختصرة**: رأيك في فرص النجاح وأي تحذير مهم
+### 5. تقييم واقعي:
+- نقاط القوة في الموقف
+- نقاط الضعف والمخاطر
+- تقييم واقعي لفرص النجاح (لا تبالغ)
+- نصيحة عملية
 
-## القوانين الأساسية:
-- ق.ل.ع (ظهير 12/08/1913) | القانون الجنائي (ظهير 26/11/1962)
-- ق.م.م (ظهير 28/09/1974) | ق.م.ج (قانون 22.01)
-- مدونة الأسرة (70.03) | مدونة التجارة (15.95) | مدونة الشغل (65.99)
-- قانون التحفيظ العقاري + مدونة الحقوق العينية (39.08)
-- الكراء السكني/المهني (67.12) | الكراء التجاري (49.16)
+## أسلوب الكتابة:
+- اكتب بالعربية الفصحى الواضحة
+- اقبل الدارجة المغربية من السائل
+- استخدم العناوين والتنظيم بالماركداون
+- كن مفصلاً بما يكفي لكن بدون حشو
 
-## قواعد صارمة:
-1. أجب بالعربية الفصحى (اقبل الدارجة من السائل)
-2. إذا وُجد سياق من قاعدة المعرفة، اعتمد عليه أولاً وبدقة
-3. لا تختلق أرقام قرارات أبداً
-4. اختم بـ "⚠️ هذه استشارة أولية توجيهية ولا تغني عن محامٍ"`;
+## اختم دائماً بـ:
+⚠️ **تنبيه**: هذه استشارة أولية توجيهية مبنية على المعلومات المقدمة، ولا تغني عن استشارة محامٍ مختص يطّلع على كافة الوثائق والملابسات.`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -50,11 +72,11 @@ serve(async (req) => {
   }
 
   try {
-    const { messages } = await req.json();
+    const { messages, caseContext } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    // Search local knowledge base
+    // Build RAG context
     const lastUserMessage = [...messages].reverse().find((m: any) => m.role === "user");
     let ragContext = "";
 
@@ -69,23 +91,44 @@ serve(async (req) => {
           .select("*", { count: "exact", head: true });
 
         if (count && count > 0) {
-          const searchTerms = lastUserMessage.content
+          // Extract meaningful search terms
+          const fullText = (caseContext || "") + " " + lastUserMessage.content;
+          const searchTerms = fullText
             .split(/\s+/)
             .filter((t: string) => t.length > 3)
-            .slice(0, 5);
+            .slice(0, 8);
 
           if (searchTerms.length > 0) {
+            // Search with OR conditions across multiple terms
             const { data: docs } = await supabase
               .from("legal_documents")
-              .select("title, content, source, doc_type, reference_number, court_chamber")
+              .select("title, content, source, doc_type, reference_number, court_chamber, category")
               .or(searchTerms.map((t: string) => `content.ilike.%${t}%`).join(","))
-              .limit(5);
+              .order("created_at", { ascending: false })
+              .limit(8);
 
             if (docs && docs.length > 0) {
-              ragContext = "\n\n## سياق من قاعدة المعرفة:\n" +
-                docs.map((d: any) =>
-                  `### ${d.title}${d.reference_number ? ' (' + d.reference_number + ')' : ''}${d.court_chamber ? ' - ' + d.court_chamber : ''}\n${d.content.slice(0, 1500)}`
-                ).join("\n\n---\n\n");
+              // Separate laws and rulings
+              const laws = docs.filter((d: any) => d.doc_type === "law");
+              const rulings = docs.filter((d: any) => d.doc_type === "ruling");
+
+              ragContext = "\n\n## مراجع من قاعدة المعرفة القانونية:";
+
+              if (laws.length > 0) {
+                ragContext += "\n\n### نصوص قانونية:\n" +
+                  laws.map((d: any) =>
+                    `**${d.title}** ${d.category ? '(' + d.category + ')' : ''}\n${d.content.slice(0, 1200)}`
+                  ).join("\n\n---\n\n");
+              }
+
+              if (rulings.length > 0) {
+                ragContext += "\n\n### قرارات قضائية:\n" +
+                  rulings.map((d: any) =>
+                    `**${d.title}**${d.reference_number ? ' (قرار عدد ' + d.reference_number + ')' : ''}${d.court_chamber ? ' - ' + d.court_chamber : ''}\n${d.content.slice(0, 1200)}`
+                  ).join("\n\n---\n\n");
+              }
+
+              ragContext += "\n\n**تعليمات**: اعتمد على هذه المراجع في إجابتك. إذا ذكرت قراراً قضائياً، اذكر رقمه وتاريخه كما ورد أعلاه فقط. لا تختلق أرقام قرارات غير موجودة.";
             }
           }
         }
@@ -94,7 +137,13 @@ serve(async (req) => {
       }
     }
 
-    const finalPrompt = SYSTEM_PROMPT + ragContext;
+    // Build final system prompt
+    let finalPrompt = SYSTEM_PROMPT + ragContext;
+
+    // Add case context if provided from intake form
+    if (caseContext) {
+      finalPrompt += "\n\n" + caseContext;
+    }
 
     const response = await fetch(
       "https://ai.gateway.lovable.dev/v1/chat/completions",
