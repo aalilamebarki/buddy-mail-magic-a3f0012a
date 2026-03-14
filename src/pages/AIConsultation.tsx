@@ -416,6 +416,7 @@ const AIConsultation = () => {
   };
 
   const autoAnalyze = async (context: string) => {
+    setLastQuestion(undefined); // First consultation, no follow-up
     setLoading(true);
     bufferRef.current = '';
     const analyzeMsg: Message = { role: 'user', content: `حلل هذه النازلة القانونية:\n\n${context}` };
