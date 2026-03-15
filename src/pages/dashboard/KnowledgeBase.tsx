@@ -411,7 +411,7 @@ const KnowledgeBase = () => {
     setAdalaProgress(0);
     setAdalaLog(prev => [...prev, `🚀 بدء جلب ${adalaNewIds.length} مورد من بوابة عدالة...`]);
     let totalIngested = 0;
-    const batchSize = 3;
+    const batchSize = 1;
     const total = adalaNewIds.length;
     let processedCount = 0;
     for (let i = 0; i < total; i += batchSize) {

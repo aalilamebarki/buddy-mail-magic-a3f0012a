@@ -214,25 +214,40 @@ serve(async (req) => {
         try {
           console.log(`Scraping Adala resource page ${resourceId}...`);
 
-          // Step 1: Scrape the resource index page to find PDF links
-          const pageResp = await fetch(`${FIRECRAWL_API}/scrape`, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              url: pageUrl,
-              formats: ["markdown", "html"],
-              onlyMainContent: false,
-              waitFor: 3000,
-            }),
-          });
+          // Step 1: Scrape the resource index page to find PDF links (with retry)
+          let pageResp: Response | null = null;
+          let pageSuccess = false;
+          for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+              pageResp = await fetch(`${FIRECRAWL_API}/scrape`, {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  url: pageUrl,
+                  formats: ["markdown", "html"],
+                  onlyMainContent: false,
+                  waitFor: 15000,
+                  timeout: 60000,
+                }),
+              });
+              if (pageResp.ok) {
+                pageSuccess = true;
+                break;
+              }
+              const errText = await pageResp.text();
+              console.error(`Firecrawl attempt ${attempt + 1} for page ${resourceId}: ${errText}`);
+              if (attempt < 2) await new Promise(r => setTimeout(r, 2000));
+            } catch (fetchErr) {
+              console.error(`Fetch error attempt ${attempt + 1} for page ${resourceId}:`, fetchErr);
+              if (attempt < 2) await new Promise(r => setTimeout(r, 2000));
+            }
+          }
 
-          if (!pageResp.ok) {
-            const errText = await pageResp.text();
-            console.error(`Firecrawl error for page ${resourceId}: ${errText}`);
-            results.push({ resourceId, url: pageUrl, success: false, error: `HTTP ${pageResp.status}` });
+          if (!pageSuccess || !pageResp) {
+            results.push({ resourceId, url: pageUrl, success: false, error: "فشل بعد 3 محاولات" });
             continue;
           }
 
@@ -287,7 +302,8 @@ serve(async (req) => {
                 body: JSON.stringify({
                   url: pdfUrl,
                   formats: ["markdown"],
-                  waitFor: 5000,
+                  waitFor: 15000,
+                  timeout: 60000,
                 }),
               });
 
