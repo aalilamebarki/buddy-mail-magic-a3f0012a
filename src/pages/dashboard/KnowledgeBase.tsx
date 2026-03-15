@@ -372,6 +372,83 @@ const KnowledgeBase = () => {
     fetchStats();
   };
 
+  // Adala Scraper
+  const handleAdalaCheck = async () => {
+    setAdalaScraping(true);
+    setAdalaStep('checking');
+    setAdalaLog(['🔍 جاري فحص الموارد من 1 إلى 1070 على بوابة عدالة...']);
+    setAdalaNewIds([]);
+    setAdalaTotalIngested(0);
+    try {
+      const { data, error } = await supabase.functions.invoke('scrape-adala', {
+        body: { action: 'check_existing', start_id: 1, end_id: 1070 },
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'فشل الفحص');
+      setAdalaNewIds(data.newIds || []);
+      setAdalaStats({ total: data.totalRange || 0, existing: data.alreadyScraped || 0, newCount: data.newCount || 0 });
+      setAdalaLog(prev => [
+        ...prev,
+        `📊 إجمالي الموارد: ${data.totalRange}`,
+        `✅ تم جلبها مسبقاً: ${data.alreadyScraped}`,
+        `🆕 موارد جديدة: ${data.newCount}`,
+      ]);
+      setAdalaStep('idle');
+      if (data.newCount === 0) toast.info('جميع الموارد المتوفرة تم جلبها مسبقاً');
+      else toast.success(`تم اكتشاف ${data.newCount} مورد جديد`);
+    } catch (e: any) {
+      toast.error(e.message || 'خطأ في الفحص');
+      setAdalaLog(prev => [...prev, `❌ خطأ: ${e.message}`]);
+      setAdalaStep('idle');
+    }
+    setAdalaScraping(false);
+  };
+
+  const handleAdalaScrapeAll = async () => {
+    if (adalaNewIds.length === 0) { toast.error('لا توجد موارد جديدة'); return; }
+    setAdalaScraping(true);
+    setAdalaStep('scraping');
+    setAdalaProgress(0);
+    setAdalaLog(prev => [...prev, `🚀 بدء جلب ${adalaNewIds.length} مورد من بوابة عدالة...`]);
+    let totalIngested = 0;
+    const batchSize = 5;
+    const total = adalaNewIds.length;
+    let processedCount = 0;
+    for (let i = 0; i < total; i += batchSize) {
+      const batchIds = adalaNewIds.slice(i, i + batchSize);
+      try {
+        const { data, error } = await supabase.functions.invoke('scrape-adala', {
+          body: { action: 'scrape_batch', resource_ids: batchIds, batch_size: batchSize },
+        });
+        if (error) { setAdalaLog(prev => [...prev, `❌ خطأ في الدفعة: ${error.message}`]); continue; }
+        if (data?.results) {
+          for (const r of data.results) {
+            if (r.success) {
+              const typeLabel = DOC_TYPES.find(t => t.value === r.doc_type)?.label || r.doc_type || 'نص';
+              setAdalaLog(prev => [...prev, `✅ [${typeLabel}] #${r.resourceId}: ${r.title} [${r.category}] (${r.ingested} أجزاء)`]);
+            } else if (r.skipped) {
+              setAdalaLog(prev => [...prev, `⏭️ #${r.resourceId}: موجود مسبقاً`]);
+            } else {
+              setAdalaLog(prev => [...prev, `⚠️ #${r.resourceId}: ${r.error}`]);
+            }
+          }
+          totalIngested += data.totalIngested || 0;
+          setAdalaTotalIngested(totalIngested);
+        }
+        processedCount += batchIds.length;
+        setAdalaProgress(Math.round((processedCount / total) * 100));
+      } catch (err: any) {
+        setAdalaLog(prev => [...prev, `❌ خطأ: ${err.message}`]);
+      }
+    }
+    setAdalaStep('done');
+    setAdalaScraping(false);
+    setAdalaLog(prev => [...prev, `🎉 انتهى الجلب! تم إضافة ${totalIngested} جزء قانوني جديد`]);
+    toast.success(`تم إضافة ${totalIngested} جزء قانوني من بوابة عدالة`);
+    fetchDocuments();
+    fetchStats();
+  };
+
   const getTypeLabel = (type: string) => DOC_TYPES.find(t => t.value === type)?.label || type;
 
   const getTypeBadgeVariant = (type: string) => {
