@@ -86,6 +86,16 @@ const KnowledgeBase = () => {
   const [autoIngestTotal, setAutoIngestTotal] = useState(0);
   const [autoIngestDocs, setAutoIngestDocs] = useState(0);
 
+  // SGG Archive scraper state
+  const [sggDialogOpen, setSggDialogOpen] = useState(false);
+  const [sggScraping, setSggScraping] = useState(false);
+  const [sggStep, setSggStep] = useState<'idle' | 'discovering' | 'scraping' | 'done'>('idle');
+  const [sggNewUrls, setSggNewUrls] = useState<string[]>([]);
+  const [sggProgress, setSggProgress] = useState(0);
+  const [sggLog, setSggLog] = useState<string[]>([]);
+  const [sggStats, setSggStats] = useState({ found: 0, new: 0, alreadyScraped: 0 });
+  const [sggTotalIngested, setSggTotalIngested] = useState(0);
+
   // Fetch real stats from DB
   const fetchStats = async () => {
     const [totalRes, rulingsRes, lawsRes, categoriesRes] = await Promise.all([
@@ -304,6 +314,100 @@ const KnowledgeBase = () => {
     fetchDocuments();
     fetchStats();
     toast.success(`تم إضافة ${totalDocsAdded} مستند جديد لقاعدة المعرفة`);
+  };
+
+  // SGG Archive Scraper
+  const handleSggDiscover = async () => {
+    setSggScraping(true);
+    setSggStep('discovering');
+    setSggLog(['🔍 جاري اكتشاف صفحات القوانين من الأمانة العامة للحكومة...']);
+    setSggNewUrls([]);
+    setSggTotalIngested(0);
+    try {
+      const { data, error } = await supabase.functions.invoke('scrape-sgg-laws', {
+        body: { action: 'discover', base_url: 'https://www.sgg.gov.ma' },
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'فشل الاكتشاف');
+      
+      setSggNewUrls(data.urls || []);
+      setSggStats({
+        found: data.lawLinks || 0,
+        new: data.newLinks || 0,
+        alreadyScraped: data.alreadyScraped || 0,
+      });
+      setSggLog(prev => [
+        ...prev,
+        `📊 إجمالي الروابط: ${data.totalFound}`,
+        `📄 روابط القوانين: ${data.lawLinks}`,
+        `✅ تم جلبها مسبقاً: ${data.alreadyScraped}`,
+        `🆕 روابط جديدة: ${data.newLinks}`,
+      ]);
+      setSggStep('idle');
+      
+      if (data.newLinks === 0) {
+        toast.info('جميع القوانين المتوفرة تم جلبها مسبقاً');
+      } else {
+        toast.success(`تم اكتشاف ${data.newLinks} قانون جديد`);
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'خطأ في الاكتشاف');
+      setSggLog(prev => [...prev, `❌ خطأ: ${e.message}`]);
+      setSggStep('idle');
+    }
+    setSggScraping(false);
+  };
+
+  const handleSggScrapeAll = async () => {
+    if (sggNewUrls.length === 0) { toast.error('لا توجد روابط جديدة'); return; }
+    setSggScraping(true);
+    setSggStep('scraping');
+    setSggProgress(0);
+    setSggLog(prev => [...prev, `🚀 بدء جلب ${sggNewUrls.length} قانون...`]);
+    
+    let totalIngested = 0;
+    const batchSize = 10;
+    const total = sggNewUrls.length;
+    let processedCount = 0;
+    
+    for (let i = 0; i < total; i += batchSize) {
+      const batch = sggNewUrls.slice(i, i + batchSize);
+      try {
+        const { data, error } = await supabase.functions.invoke('scrape-sgg-laws', {
+          body: { action: 'scrape_batch', urls_to_scrape: batch },
+        });
+        if (error) {
+          setSggLog(prev => [...prev, `❌ خطأ في الدفعة: ${error.message}`]);
+          continue;
+        }
+        
+        if (data?.results) {
+          for (const r of data.results) {
+            if (r.success) {
+              setSggLog(prev => [...prev, `✅ ${r.title} [${r.category}] (${r.ingested} أجزاء)`]);
+            } else if (r.skipped) {
+              setSggLog(prev => [...prev, `⏭️ ${r.url.split('/').pop()} - موجود مسبقاً`]);
+            } else {
+              setSggLog(prev => [...prev, `⚠️ ${r.url.split('/').pop()} - ${r.error}`]);
+            }
+          }
+          totalIngested += data.totalIngested || 0;
+          setSggTotalIngested(totalIngested);
+        }
+        
+        processedCount += batch.length;
+        setSggProgress(Math.round((processedCount / total) * 100));
+      } catch (err: any) {
+        setSggLog(prev => [...prev, `❌ خطأ: ${err.message}`]);
+      }
+    }
+    
+    setSggStep('done');
+    setSggScraping(false);
+    setSggLog(prev => [...prev, `🎉 انتهى الجلب! تم إضافة ${totalIngested} جزء قانوني جديد`]);
+    toast.success(`تم إضافة ${totalIngested} جزء قانوني من الأمانة العامة للحكومة`);
+    fetchDocuments();
+    fetchStats();
   };
 
   const getTypeLabel = (type: string) => DOC_TYPES.find(t => t.value === type)?.label || type;
@@ -652,6 +756,103 @@ const KnowledgeBase = () => {
                       <div className="bg-muted/50 rounded-lg p-3 space-y-1 max-h-60 overflow-y-auto">
                         {autoIngestLog.map((log, i) => (<p key={i} className="text-xs">{log}</p>))}
                       </div>
+                    )}
+                  </div>
+                </DialogContent>
+               </Dialog>
+
+              {/* SGG Archive Scraper */}
+              <Dialog open={sggDialogOpen} onOpenChange={setSggDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="gap-1 bg-amber-600 hover:bg-amber-700 text-white text-xs sm:text-sm">
+                    <FileText className="h-3.5 w-3.5" />
+                    جلب القوانين (SGG)
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5 text-amber-600" />
+                      جلب القوانين من الأمانة العامة للحكومة
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 mt-4">
+                    <p className="text-sm text-muted-foreground">
+                      يقوم هذا النظام باكتشاف جميع صفحات القوانين من موقع الأمانة العامة للحكومة (sgg.gov.ma) 
+                      ثم يجلبها صفحة بصفحة مع تجنب التكرار تلقائياً.
+                    </p>
+
+                    {/* Step 1: Discover */}
+                    <div className="border rounded-lg p-4 space-y-3">
+                      <h3 className="font-semibold text-sm flex items-center gap-2">
+                        <span className="bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 rounded-full w-6 h-6 flex items-center justify-center text-xs">1</span>
+                        اكتشاف الصفحات
+                      </h3>
+                      <p className="text-xs text-muted-foreground">مسح موقع الأمانة العامة للحكومة لاكتشاف جميع روابط القوانين المتوفرة</p>
+                      <Button onClick={handleSggDiscover} disabled={sggScraping} variant="outline" className="w-full gap-2">
+                        {sggStep === 'discovering' ? (
+                          <><Loader2 className="h-4 w-4 animate-spin" /> جاري الاكتشاف...</>
+                        ) : (
+                          <><Search className="h-4 w-4" /> اكتشاف صفحات القوانين</>
+                        )}
+                      </Button>
+                      {sggStats.found > 0 && (
+                        <div className="grid grid-cols-3 gap-2 text-center">
+                          <div className="bg-muted/50 rounded p-2">
+                            <p className="text-lg font-bold text-foreground">{sggStats.found}</p>
+                            <p className="text-[10px] text-muted-foreground">رابط قانوني</p>
+                          </div>
+                          <div className="bg-muted/50 rounded p-2">
+                            <p className="text-lg font-bold text-primary">{sggStats.new}</p>
+                            <p className="text-[10px] text-muted-foreground">جديد</p>
+                          </div>
+                          <div className="bg-muted/50 rounded p-2">
+                            <p className="text-lg font-bold text-muted-foreground">{sggStats.alreadyScraped}</p>
+                            <p className="text-[10px] text-muted-foreground">موجود مسبقاً</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Step 2: Scrape */}
+                    {sggNewUrls.length > 0 && (
+                      <div className="border rounded-lg p-4 space-y-3">
+                        <h3 className="font-semibold text-sm flex items-center gap-2">
+                          <span className="bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 rounded-full w-6 h-6 flex items-center justify-center text-xs">2</span>
+                          جلب القوانين ({sggNewUrls.length} صفحة جديدة)
+                        </h3>
+                        <Button onClick={handleSggScrapeAll} disabled={sggScraping} className="w-full gap-2 bg-amber-600 hover:bg-amber-700">
+                          {sggStep === 'scraping' ? (
+                            <><Loader2 className="h-4 w-4 animate-spin" /> جاري الجلب...</>
+                          ) : (
+                            <><Database className="h-4 w-4" /> جلب كل القوانين الجديدة</>
+                          )}
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Progress */}
+                    {sggStep === 'scraping' && (
+                      <div className="space-y-1">
+                        <Progress value={sggProgress} className="h-2" />
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>{sggProgress}%</span>
+                          <span>{sggTotalIngested} جزء جديد</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Log */}
+                    {sggLog.length > 0 && (
+                      <div className="bg-muted/50 rounded-lg p-3 space-y-1 max-h-60 overflow-y-auto">
+                        {sggLog.map((log, i) => (<p key={i} className="text-xs">{log}</p>))}
+                      </div>
+                    )}
+
+                    {sggStep === 'done' && (
+                      <Button onClick={() => { setSggDialogOpen(false); setSggStep('idle'); setSggLog([]); setSggNewUrls([]); setSggStats({ found: 0, new: 0, alreadyScraped: 0 }); }} variant="outline" className="w-full">
+                        إغلاق
+                      </Button>
                     )}
                   </div>
                 </DialogContent>
