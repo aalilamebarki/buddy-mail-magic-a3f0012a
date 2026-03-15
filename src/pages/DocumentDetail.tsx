@@ -73,7 +73,8 @@ const DocumentDetail = () => {
 
   const formatContent = (content: string) => {
     if (!content) return [];
-    return content.split('\n').filter(Boolean);
+    const cleaned = sanitizeLegalContent(content);
+    return cleaned.split('\n').filter(Boolean);
   };
 
   if (loading) {
