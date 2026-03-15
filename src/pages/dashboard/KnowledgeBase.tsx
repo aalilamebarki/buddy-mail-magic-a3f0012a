@@ -874,45 +874,45 @@ const KnowledgeBase = () => {
                     </DialogContent>
                   </Dialog>
 
-                  {/* Adala Portal */}
+                  {/* Adala Portal - Direct PDF Links */}
                   <Dialog open={adalaDialogOpen} onOpenChange={setAdalaDialogOpen}>
                     <DialogTrigger asChild>
                       <Button size="sm" className="gap-1 bg-blue-600 hover:bg-blue-700 text-white text-xs">
-                        <Scale className="h-3.5 w-3.5" /> بوابة عدالة (1-1070)
+                        <Scale className="h-3.5 w-3.5" /> بوابة عدالة ({'>'}7500 PDF)
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                       <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2"><Scale className="h-5 w-5 text-blue-600" /> جلب من بوابة عدالة - وزارة العدل</DialogTitle>
+                        <DialogTitle className="flex items-center gap-2"><Scale className="h-5 w-5 text-blue-600" /> جلب ملفات PDF من بوابة عدالة</DialogTitle>
                       </DialogHeader>
                       <div className="space-y-4 mt-4">
                         <p className="text-sm text-muted-foreground">
-                          يجلب جميع النصوص القانونية من بوابة عدالة (الموارد من 1 إلى 1070) مع تصنيف تلقائي وتنظيم دقيق لكل نوع: قوانين، ظهائر، مراسيم، دوريات، قرارات، اتفاقيات.
+                          يجلب أكثر من 7500 ملف PDF قانوني مباشرة من بوابة عدالة مع تصنيف تلقائي وتنظيم دقيق.
                         </p>
                         <div className="border rounded-lg p-4 space-y-3">
                           <h3 className="font-semibold text-sm flex items-center gap-2">
                             <span className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full w-6 h-6 flex items-center justify-center text-xs">1</span>
-                            فحص الموارد المتاحة
+                            تحميل الروابط وفحص الموجود
                           </h3>
-                          <Button onClick={handleAdalaCheck} disabled={adalaScraping} variant="outline" className="w-full gap-2">
-                            {adalaStep === 'checking' ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري الفحص...</> : <><Search className="h-4 w-4" /> فحص الموارد (1 - 1070)</>}
+                          <Button onClick={handleAdalaLoadAndCheck} disabled={adalaScraping} variant="outline" className="w-full gap-2">
+                            {(adalaStep === 'loading' || adalaStep === 'checking') ? <><Loader2 className="h-4 w-4 animate-spin" /> {adalaStep === 'loading' ? 'جاري تحميل الروابط...' : 'جاري الفحص...'}</> : <><Search className="h-4 w-4" /> تحميل وفحص روابط PDF</>}
                           </Button>
                           {adalaStats.total > 0 && (
                             <div className="grid grid-cols-3 gap-2 text-center">
-                              <div className="bg-muted/50 rounded p-2"><p className="text-lg font-bold text-foreground">{adalaStats.total}</p><p className="text-[10px] text-muted-foreground">إجمالي</p></div>
+                              <div className="bg-muted/50 rounded p-2"><p className="text-lg font-bold text-foreground">{adalaStats.total}</p><p className="text-[10px] text-muted-foreground">إجمالي PDF</p></div>
                               <div className="bg-muted/50 rounded p-2"><p className="text-lg font-bold text-primary">{adalaStats.newCount}</p><p className="text-[10px] text-muted-foreground">جديد</p></div>
                               <div className="bg-muted/50 rounded p-2"><p className="text-lg font-bold text-muted-foreground">{adalaStats.existing}</p><p className="text-[10px] text-muted-foreground">موجود مسبقاً</p></div>
                             </div>
                           )}
                         </div>
-                        {adalaNewIds.length > 0 && (
+                        {adalaNewUrls.length > 0 && (
                           <div className="border rounded-lg p-4 space-y-3">
                             <h3 className="font-semibold text-sm flex items-center gap-2">
                               <span className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full w-6 h-6 flex items-center justify-center text-xs">2</span>
-                              جلب ({adalaNewIds.length} مورد جديد)
+                              جلب ({adalaNewUrls.length} ملف PDF جديد)
                             </h3>
                             <Button onClick={handleAdalaScrapeAll} disabled={adalaScraping} className="w-full gap-2 bg-blue-600 hover:bg-blue-700">
-                              {adalaStep === 'scraping' ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري الجلب...</> : <><Database className="h-4 w-4" /> جلب كل الموارد الجديدة</>}
+                              {adalaStep === 'scraping' ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري الجلب...</> : <><Database className="h-4 w-4" /> جلب كل ملفات PDF الجديدة</>}
                             </Button>
                           </div>
                         )}
@@ -928,7 +928,7 @@ const KnowledgeBase = () => {
                           </div>
                         )}
                         {adalaStep === 'done' && (
-                          <Button onClick={() => { setAdalaDialogOpen(false); setAdalaStep('idle'); setAdalaLog([]); setAdalaNewIds([]); setAdalaStats({ total: 0, existing: 0, newCount: 0 }); }} variant="outline" className="w-full">إغلاق</Button>
+                          <Button onClick={() => { setAdalaDialogOpen(false); setAdalaStep('idle'); setAdalaLog([]); setAdalaNewUrls([]); setAdalaStats({ total: 0, existing: 0, newCount: 0 }); }} variant="outline" className="w-full">إغلاق</Button>
                         )}
                       </div>
                     </DialogContent>
