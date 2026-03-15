@@ -302,7 +302,8 @@ serve(async (req) => {
                 body: JSON.stringify({
                   url: pdfUrl,
                   formats: ["markdown"],
-                  waitFor: 5000,
+                  waitFor: 15000,
+                  timeout: 60000,
                 }),
               });
 
