@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { motion } from 'framer-motion';
+import { sanitizeLegalContent } from '@/lib/sanitize-content';
 import {
   Scale, ArrowRight, FileText, Download, ExternalLink, Calendar,
   BookOpen, ScrollText, Landmark, CheckCircle, AlertTriangle, XCircle,
