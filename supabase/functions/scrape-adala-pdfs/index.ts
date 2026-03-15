@@ -250,7 +250,7 @@ serve(async (req) => {
 
     // ─── AUTO PROCESS: Runs from cron, no user interaction needed ───
     if (action === "auto_process") {
-      const BATCH_SIZE = 3;
+      const BATCH_SIZE = 2;
 
       // 1. Load links file from storage
       const { data: fileData, error: fileError } = await supabase.storage
