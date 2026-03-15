@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { motion } from 'framer-motion';
+import { sanitizeLegalContent } from '@/lib/sanitize-content';
 import {
   Scale, ArrowRight, FileText, Download, ExternalLink, Calendar,
   BookOpen, ScrollText, Landmark, CheckCircle, AlertTriangle, XCircle,
@@ -72,7 +73,8 @@ const DocumentDetail = () => {
 
   const formatContent = (content: string) => {
     if (!content) return [];
-    return content.split('\n').filter(Boolean);
+    const cleaned = sanitizeLegalContent(content);
+    return cleaned.split('\n').filter(Boolean);
   };
 
   if (loading) {

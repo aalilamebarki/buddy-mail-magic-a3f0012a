@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import ThemeToggle from '@/components/ThemeToggle';
+import { getCleanExcerpt } from '@/lib/sanitize-content';
 
 type DocStatus = 'official' | 'modified' | 'repealed';
 
@@ -264,7 +265,7 @@ const DocumentCenter = () => {
                     {previewDoc?.id === doc.id && (
                       <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
                         className="border-t border-border/20 bg-muted/20 p-5">
-                        <p className="text-sm text-foreground/80 leading-relaxed line-clamp-6">{doc.content}</p>
+                        <p className="text-sm text-foreground/80 leading-relaxed line-clamp-6">{getCleanExcerpt(doc.content, 500)}</p>
                         <div className="flex items-center gap-3 mt-4">
                           <Badge variant="outline" className="text-[10px] rounded-full">{doc.category || doc.doc_type}</Badge>
                           {doc.court_chamber && <Badge variant="secondary" className="text-[10px] rounded-full">{doc.court_chamber}</Badge>}
