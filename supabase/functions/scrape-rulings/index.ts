@@ -216,27 +216,27 @@ serve(async (req) => {
       const batchUrls: string[] = urls || [];
       if (!batchUrls || batchUrls.length === 0) throw new Error("URLs array is required");
 
-      const batchLimit = Math.min(urls.length, 20); // Process max 20 at a time
+      const batchLimit = Math.min(batchUrls.length, 20); // Process max 20 at a time
       const results: any[] = [];
 
       for (let i = 0; i < batchLimit; i++) {
         try {
-          console.log(`Scraping ${i + 1}/${batchLimit}: ${urls[i]}`);
+          console.log(`Scraping ${i + 1}/${batchLimit}: ${batchUrls[i]}`);
           
           const data = await firecrawlRequest("/scrape", {
-            url: urls[i],
+            url: batchUrls[i],
             formats: ["markdown"],
             onlyMainContent: true,
             waitFor: 3000,
           }, FIRECRAWL_API_KEY);
 
-          const batchDocType = detectDocType(urls[i]);
+          const batchDocType = detectDocType(batchUrls[i]);
           const defaultTitle = batchDocType === 'law' ? 'نص قانوني' : 'قرار محكمة النقض';
           const markdown = data.data?.markdown || data.markdown || "";
           const title = data.data?.metadata?.title || data.metadata?.title || defaultTitle;
 
           if (markdown && markdown.length >= 100) {
-            const meta = extractRulingMetadata(markdown, urls[i]);
+            const meta = extractRulingMetadata(markdown, batchUrls[i]);
             const chunks = chunkText(markdown);
             let ingested = 0;
 
@@ -245,7 +245,7 @@ serve(async (req) => {
               const { error } = await supabase.from("legal_documents").insert({
                 title: title.slice(0, 500),
                 content: chunk,
-                source: urls[i],
+                source: batchUrls[i],
                 doc_type: batchDocType,
                 category: meta.category,
                 reference_number: meta.referenceNumber || null,
@@ -257,15 +257,15 @@ serve(async (req) => {
               if (!error) ingested++;
             }
 
-            results.push({ url: urls[i], success: true, title, ingested });
+            results.push({ url: batchUrls[i], success: true, title, ingested });
           } else {
-            results.push({ url: urls[i], success: false, error: "محتوى قصير" });
+            results.push({ url: batchUrls[i], success: false, error: "محتوى قصير" });
           }
 
           // Small delay between requests
           await new Promise(r => setTimeout(r, 1000));
         } catch (err) {
-          results.push({ url: urls[i], success: false, error: String(err) });
+          results.push({ url: batchUrls[i], success: false, error: String(err) });
         }
       }
 
