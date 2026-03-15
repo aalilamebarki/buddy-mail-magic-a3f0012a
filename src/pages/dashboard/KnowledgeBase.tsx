@@ -86,6 +86,16 @@ const KnowledgeBase = () => {
   const [autoIngestTotal, setAutoIngestTotal] = useState(0);
   const [autoIngestDocs, setAutoIngestDocs] = useState(0);
 
+  // SGG Archive scraper state
+  const [sggDialogOpen, setSggDialogOpen] = useState(false);
+  const [sggScraping, setSggScraping] = useState(false);
+  const [sggStep, setSggStep] = useState<'idle' | 'discovering' | 'scraping' | 'done'>('idle');
+  const [sggNewUrls, setSggNewUrls] = useState<string[]>([]);
+  const [sggProgress, setSggProgress] = useState(0);
+  const [sggLog, setSggLog] = useState<string[]>([]);
+  const [sggStats, setSggStats] = useState({ found: 0, new: 0, alreadyScraped: 0 });
+  const [sggTotalIngested, setSggTotalIngested] = useState(0);
+
   // Fetch real stats from DB
   const fetchStats = async () => {
     const [totalRes, rulingsRes, lawsRes, categoriesRes] = await Promise.all([
