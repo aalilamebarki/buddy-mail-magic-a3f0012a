@@ -101,11 +101,12 @@ const KnowledgeBase = () => {
   const [sggStats, setSggStats] = useState({ found: 0, new: 0, alreadyScraped: 0 });
   const [sggTotalIngested, setSggTotalIngested] = useState(0);
 
-  // Adala scraper state
+  // Adala PDF scraper state
   const [adalaDialogOpen, setAdalaDialogOpen] = useState(false);
   const [adalaScraping, setAdalaScraping] = useState(false);
-  const [adalaStep, setAdalaStep] = useState<'idle' | 'checking' | 'scraping' | 'done'>('idle');
-  const [adalaNewIds, setAdalaNewIds] = useState<number[]>([]);
+  const [adalaStep, setAdalaStep] = useState<'idle' | 'loading' | 'checking' | 'scraping' | 'done'>('idle');
+  const [adalaAllUrls, setAdalaAllUrls] = useState<string[]>([]);
+  const [adalaNewUrls, setAdalaNewUrls] = useState<string[]>([]);
   const [adalaProgress, setAdalaProgress] = useState(0);
   const [adalaLog, setAdalaLog] = useState<string[]>([]);
   const [adalaStats, setAdalaStats] = useState({ total: 0, existing: 0, newCount: 0 });
