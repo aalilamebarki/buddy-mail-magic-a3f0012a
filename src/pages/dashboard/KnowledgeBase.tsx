@@ -373,32 +373,71 @@ const KnowledgeBase = () => {
     fetchStats();
   };
 
-  // Adala Scraper
-  const handleAdalaCheck = async () => {
+  // Adala PDF Scraper - Load links file, check existing, scrape new
+  const handleAdalaLoadAndCheck = async () => {
     setAdalaScraping(true);
-    setAdalaStep('checking');
-    setAdalaLog(['🔍 جاري فحص الموارد من 1 إلى 1070 على بوابة عدالة...']);
-    setAdalaNewIds([]);
+    setAdalaStep('loading');
+    setAdalaLog(['📂 جاري تحميل قائمة روابط PDF من بوابة عدالة...']);
+    setAdalaAllUrls([]);
+    setAdalaNewUrls([]);
     setAdalaTotalIngested(0);
+
     try {
-      const { data, error } = await supabase.functions.invoke('scrape-adala', {
-        body: { action: 'check_existing', start_id: 1, end_id: 1070 },
-      });
-      if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || 'فشل الفحص');
-      setAdalaNewIds(data.newIds || []);
-      setAdalaStats({ total: data.totalRange || 0, existing: data.alreadyScraped || 0, newCount: data.newCount || 0 });
+      // Step 1: Fetch the links file
+      const resp = await fetch('/data/adala_pdf_links.txt');
+      if (!resp.ok) throw new Error('فشل تحميل ملف الروابط');
+      const text = await resp.text();
+      
+      // Parse PDF URLs from lines like: المصدر (Resource 3) | الرابط: https://...pdf#toolbar=0
+      const urls: string[] = [];
+      for (const line of text.split('\n')) {
+        const match = line.match(/الرابط:\s*(https?:\/\/[^\s]+)/);
+        if (match) urls.push(match[1].trim());
+      }
+
+      setAdalaAllUrls(urls);
+      setAdalaLog(prev => [...prev, `📊 تم العثور على ${urls.length} رابط PDF`]);
+      setAdalaStep('checking');
+      setAdalaLog(prev => [...prev, '🔍 جاري فحص الروابط الموجودة مسبقاً...']);
+
+      // Step 2: Check existing in batches (send cleaned URLs for DB check)
+      const cleanedUrls = urls.map(u => u.split('#')[0]);
+      const CHUNK = 200;
+      const allNew: string[] = [];
+      let existingCount = 0;
+
+      for (let i = 0; i < urls.length; i += CHUNK) {
+        const batchClean = cleanedUrls.slice(i, i + CHUNK);
+        const batchOriginal = urls.slice(i, i + CHUNK);
+        
+        const { data, error } = await supabase.functions.invoke('scrape-adala-pdfs', {
+          body: { action: 'check_existing', pdf_urls: batchClean },
+        });
+        if (error) throw error;
+        
+        const existingSet = new Set(batchClean.filter((_, idx) => !data.newUrls.includes(batchClean[idx])));
+        for (let j = 0; j < batchClean.length; j++) {
+          if (!existingSet.has(batchClean[j])) {
+            allNew.push(batchOriginal[j]);
+          } else {
+            existingCount++;
+          }
+        }
+      }
+
+      setAdalaNewUrls(allNew);
+      setAdalaStats({ total: urls.length, existing: existingCount, newCount: allNew.length });
       setAdalaLog(prev => [
         ...prev,
-        `📊 إجمالي الموارد: ${data.totalRange}`,
-        `✅ تم جلبها مسبقاً: ${data.alreadyScraped}`,
-        `🆕 موارد جديدة: ${data.newCount}`,
+        `📊 إجمالي الروابط: ${urls.length}`,
+        `✅ موجود مسبقاً: ${existingCount}`,
+        `🆕 روابط جديدة: ${allNew.length}`,
       ]);
       setAdalaStep('idle');
-      if (data.newCount === 0) toast.info('جميع الموارد المتوفرة تم جلبها مسبقاً');
-      else toast.success(`تم اكتشاف ${data.newCount} مورد جديد`);
+      if (allNew.length === 0) toast.info('جميع روابط PDF تم جلبها مسبقاً');
+      else toast.success(`تم اكتشاف ${allNew.length} رابط PDF جديد`);
     } catch (e: any) {
-      toast.error(e.message || 'خطأ في الفحص');
+      toast.error(e.message || 'خطأ في التحميل');
       setAdalaLog(prev => [...prev, `❌ خطأ: ${e.message}`]);
       setAdalaStep('idle');
     }
@@ -406,42 +445,35 @@ const KnowledgeBase = () => {
   };
 
   const handleAdalaScrapeAll = async () => {
-    if (adalaNewIds.length === 0) { toast.error('لا توجد موارد جديدة'); return; }
+    if (adalaNewUrls.length === 0) { toast.error('لا توجد روابط جديدة'); return; }
     setAdalaScraping(true);
     setAdalaStep('scraping');
     setAdalaProgress(0);
-    setAdalaLog(prev => [...prev, `🚀 بدء جلب ${adalaNewIds.length} مورد من بوابة عدالة...`]);
+    setAdalaLog(prev => [...prev, `🚀 بدء جلب ${adalaNewUrls.length} ملف PDF...`]);
     let totalIngested = 0;
-    const batchSize = 1;
-    const total = adalaNewIds.length;
+    const batchSize = 3;
+    const total = adalaNewUrls.length;
     let processedCount = 0;
+
     for (let i = 0; i < total; i += batchSize) {
-      const batchIds = adalaNewIds.slice(i, i + batchSize);
+      const batch = adalaNewUrls.slice(i, i + batchSize);
       try {
-        const { data, error } = await supabase.functions.invoke('scrape-adala', {
-          body: { action: 'scrape_batch', resource_ids: batchIds, batch_size: batchSize },
+        const { data, error } = await supabase.functions.invoke('scrape-adala-pdfs', {
+          body: { action: 'scrape_batch', pdf_urls: batch, batch_size: batchSize },
         });
         if (error) { setAdalaLog(prev => [...prev, `❌ خطأ في الدفعة: ${error.message}`]); continue; }
         if (data?.results) {
           for (const r of data.results) {
             if (r.success) {
-              setAdalaLog(prev => [...prev, `✅ #${r.resourceId}: ${r.title} (${r.pdfCount || 0} PDF، ${r.ingested} أجزاء)`]);
-              // Show individual PDF results if available
-              if (r.pdfResults) {
-                for (const pr of r.pdfResults) {
-                  setAdalaLog(prev => [...prev, `   📄 ${pr}`]);
-                }
-              }
-            } else if (r.skipped) {
-              setAdalaLog(prev => [...prev, `⏭️ #${r.resourceId}: موجود مسبقاً`]);
+              setAdalaLog(prev => [...prev, `✅ [${r.docType}] ${r.title} (${r.ingested} أجزاء) [${r.category}]`]);
             } else {
-              setAdalaLog(prev => [...prev, `⚠️ #${r.resourceId}: ${r.error}`]);
+              setAdalaLog(prev => [...prev, `⚠️ ${r.title}: ${r.error}`]);
             }
           }
           totalIngested += data.totalIngested || 0;
           setAdalaTotalIngested(totalIngested);
         }
-        processedCount += batchIds.length;
+        processedCount += batch.length;
         setAdalaProgress(Math.round((processedCount / total) * 100));
       } catch (err: any) {
         setAdalaLog(prev => [...prev, `❌ خطأ: ${err.message}`]);
