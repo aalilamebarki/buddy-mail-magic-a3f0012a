@@ -214,7 +214,7 @@ serve(async (req) => {
     // Action 3: Batch scrape multiple URLs
     if (action === "batch") {
       const batchUrls: string[] = urls || [];
-      if (!urls || urls.length === 0) throw new Error("URLs array is required");
+      if (!batchUrls || batchUrls.length === 0) throw new Error("URLs array is required");
 
       const batchLimit = Math.min(urls.length, 20); // Process max 20 at a time
       const results: any[] = [];
