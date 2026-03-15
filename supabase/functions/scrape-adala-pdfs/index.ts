@@ -135,7 +135,6 @@ async function processPdf(pdfUrl: string, supabase: any): Promise<{ success: boo
       doc_type: docType,
       category,
       reference_number: refNum || null,
-      embedding: JSON.stringify(generateHashEmbedding(chunk)),
       metadata: {
         scraped: true, scraped_at: new Date().toISOString(),
         source_site: "adala", is_pdf: true,
