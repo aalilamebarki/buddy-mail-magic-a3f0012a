@@ -7,8 +7,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const FIRECRAWL_API = "https://api.firecrawl.dev/v1";
-
 function generateHashEmbedding(text: string): number[] {
   const embedding = new Array(768);
   let hash = 0;
@@ -68,14 +66,14 @@ function detectCategory(text: string): string {
 
 function detectDocType(text: string): string {
   const snippet = text.slice(0, 3000);
-  if (/(?:ظهير\s+شريف|الظهير\s+الشريف|ظــهــيــر)/.test(snippet)) return "dahir";
-  if (/(?:قانون\s+تنظيمي|القانون\s+التنظيمي)/.test(snippet)) return "organic_law";
-  if (/(?:مرسوم\s+رقم|المرسوم\s+رقم|مرسوم\s+بقانون|مرسوم\s+ملكي|مرسوم\s+ملکی)/.test(snippet)) return "decree";
-  if (/(?:دورية|منشور|مذكرة\s+توجيهية)/.test(snippet)) return "circular";
-  if (/(?:اتفاقية|معاهدة|بروتوكول|مصادقة\s+على)/.test(snippet)) return "convention";
-  if (/(?:قرار\s+(?:وزير|لوزير|للوزير|مشترك)|قرار\s+رقم)/.test(snippet)) return "decision";
-  if (/(?:قرار\s+محكمة|قرار\s+عدد|حكم\s+قضائي|اجتهاد)/.test(snippet)) return "ruling";
-  if (/(?:قانون\s+رقم|القانون\s+رقم|مدونة)/.test(snippet)) return "law";
+  if (/(?:ظهير\s*شريف|الظهير\s*الشريف|ظــهــيــر)/.test(snippet)) return "dahir";
+  if (/(?:قانون\s*تنظيمي|القانون\s*التنظيمي)/.test(snippet)) return "organic_law";
+  if (/(?:مرسوم\s*رقم|المرسوم\s*رقم|مرسوم\s*بقانون|مرسوم\s*ملكي|مرسوم\s*ملکی)/.test(snippet)) return "decree";
+  if (/(?:دورية|منشور|مذكرة\s*توجيهية)/.test(snippet)) return "circular";
+  if (/(?:اتفاقية|معاهدة|بروتوكول|مصادقة\s*على)/.test(snippet)) return "convention";
+  if (/(?:قرار\s*(?:وزير|لوزير|للوزير|مشترك)|قرار\s*رقم)/.test(snippet)) return "decision";
+  if (/(?:قرار\s*محكمة|قرار\s*عدد|حكم\s*قضائي|اجتهاد)/.test(snippet)) return "ruling";
+  if (/(?:قانون\s*رقم|القانون\s*رقم|مدونة)/.test(snippet)) return "law";
   return "law";
 }
 
@@ -87,16 +85,16 @@ function extractMetadata(text: string) {
   let publicationDate = "";
   let subject = "";
 
-  const lawNumMatch = snippet.match(/قانون\s+(?:تنظيمي\s+)?رقم\s+(\d+[\.\-]\d+)/);
+  const lawNumMatch = snippet.match(/قانون\s*(?:تنظيمي\s*)?رقم\s*(\d+[\.\-]\d+)/);
   if (lawNumMatch) referenceNumber = lawNumMatch[1];
 
-  const dahirMatch = snippet.match(/ظهير\s+شريف\s+رقم\s+([\d\.]+)/);
+  const dahirMatch = snippet.match(/ظهير\s*شريف\s*رقم\s*([\d\.]+)/);
   if (dahirMatch) dahirNumber = dahirMatch[1];
 
-  const decreeMatch = snippet.match(/مرسوم\s+(?:ملكي\s+)?رقم\s+([\d\.]+)/);
+  const decreeMatch = snippet.match(/مرسوم\s*(?:ملكي\s*)?رقم\s*([\d\.]+)/);
   if (decreeMatch) decreeNumber = decreeMatch[1];
 
-  const gregMatch = snippet.match(/(\d{1,2})\s+(?:يناير|فبراير|مارس|أبريل|ماي|يونيو|يوليوز|غشت|شتنبر|أكتوبر|نونبر|دجنبر|أغسطس)\s+(\d{4})/);
+  const gregMatch = snippet.match(/(\d{1,2})\s*(?:يناير|فبراير|مارس|أبريل|ماي|يونيو|يوليوز|غشت|شتنبر|أكتوبر|نونبر|دجنبر|أغسطس)\s*(\d{4})/);
   if (gregMatch) publicationDate = gregMatch[0];
 
   const subjectLine = snippet.split('\n').find(l => /(?:يتعلق|بشأن|المتعلق|في شأن|القاضي|بتنفيذ|بتغيير|بتتميم)/.test(l));
@@ -121,7 +119,6 @@ function extractTitleFromUrl(url: string): string {
   }
 }
 
-/** Parse the links file and return array of {url, resourceId} */
 function parseLinksFile(text: string): { url: string; resourceId: string }[] {
   const results: { url: string; resourceId: string }[] = [];
   for (const line of text.split('\n')) {
@@ -137,56 +134,229 @@ function parseLinksFile(text: string): { url: string; resourceId: string }[] {
   return results;
 }
 
+/**
+ * Extract text from PDF binary data.
+ * Uses a simple binary text extraction approach that works without external libraries.
+ * Extracts text objects from PDF streams.
+ */
+function extractTextFromPdfBytes(bytes: Uint8Array): string {
+  // Try to decode the PDF and extract text content
+  const textParts: string[] = [];
+  
+  // Convert to string for pattern matching (using latin1 to preserve bytes)
+  const rawStr = new TextDecoder('latin1').decode(bytes);
+  
+  // Extract text between BT (Begin Text) and ET (End Text) operators
+  const btEtRegex = /BT\s([\s\S]*?)ET/g;
+  let match;
+  
+  while ((match = btEtRegex.exec(rawStr)) !== null) {
+    const textBlock = match[1];
+    
+    // Extract text from Tj and TJ operators
+    // Tj: (text) Tj
+    const tjRegex = /\(([^)]*)\)\s*Tj/g;
+    let tjMatch;
+    while ((tjMatch = tjRegex.exec(textBlock)) !== null) {
+      textParts.push(tjMatch[1]);
+    }
+    
+    // TJ: [(text) num (text) ...] TJ
+    const tjArrayRegex = /\[(.*?)\]\s*TJ/g;
+    let tjArrMatch;
+    while ((tjArrMatch = tjArrayRegex.exec(textBlock)) !== null) {
+      const inner = tjArrMatch[1];
+      const innerTextRegex = /\(([^)]*)\)/g;
+      let innerMatch;
+      while ((innerMatch = innerTextRegex.exec(inner)) !== null) {
+        textParts.push(innerMatch[1]);
+      }
+    }
+  }
+  
+  // Also try to extract Unicode text (common in Arabic PDFs)
+  // Look for hex-encoded strings: <hex> Tj
+  const hexTjRegex = /<([0-9A-Fa-f]+)>\s*Tj/g;
+  while ((match = hexTjRegex.exec(rawStr)) !== null) {
+    const hex = match[1];
+    // Try to decode as UTF-16BE
+    try {
+      const bytes2 = new Uint8Array(hex.length / 2);
+      for (let i = 0; i < hex.length; i += 2) {
+        bytes2[i / 2] = parseInt(hex.substring(i, i + 2), 16);
+      }
+      const decoded = new TextDecoder('utf-16be').decode(bytes2);
+      if (decoded.trim()) textParts.push(decoded);
+    } catch { /* skip */ }
+  }
+  
+  // Try UTF-8 decoding of streams for text content
+  const streamRegex = /stream\r?\n([\s\S]*?)endstream/g;
+  while ((match = streamRegex.exec(rawStr)) !== null) {
+    try {
+      const streamBytes = new TextEncoder().encode(match[1]);
+      const decoded = new TextDecoder('utf-8', { fatal: false }).decode(streamBytes);
+      // Look for Arabic text patterns
+      const arabicMatch = decoded.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]+[^]*?[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]+/g);
+      if (arabicMatch) {
+        textParts.push(...arabicMatch.filter(t => t.length > 5));
+      }
+    } catch { /* skip */ }
+  }
+  
+  return textParts.join(' ').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Try multiple methods to get text from a PDF URL
+ */
+async function fetchPdfText(pdfUrl: string, firecrawlKey: string | null): Promise<string> {
+  const cleanUrl = pdfUrl.split('#')[0];
+  
+  // Method 1: Direct download and extract
+  console.log(`Trying direct PDF download...`);
+  try {
+    // Properly encode the URL
+    let encodedUrl: string;
+    try {
+      encodedUrl = encodeURI(decodeURI(cleanUrl));
+    } catch {
+      encodedUrl = encodeURI(cleanUrl);
+    }
+    
+    const resp = await fetch(encodedUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'application/pdf,*/*',
+      },
+    });
+    
+    if (resp.ok) {
+      const contentType = resp.headers.get('content-type') || '';
+      const arrayBuffer = await resp.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      
+      console.log(`Downloaded ${bytes.length} bytes, content-type: ${contentType}`);
+      
+      // If it's HTML (not PDF), extract text directly
+      if (contentType.includes('text/html')) {
+        const html = new TextDecoder('utf-8').decode(bytes);
+        // Extract text from HTML
+        const text = html
+          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+          .replace(/<[^>]+>/g, '\n')
+          .replace(/&nbsp;/g, ' ')
+          .replace(/&amp;/g, '&')
+          .replace(/\s+/g, ' ')
+          .trim();
+        if (text.length > 100) return text;
+      }
+      
+      // Try extracting text from PDF binary
+      if (bytes.length > 100) {
+        const text = extractTextFromPdfBytes(bytes);
+        if (text.length > 100) {
+          console.log(`Extracted ${text.length} chars from PDF binary`);
+          return text;
+        }
+      }
+    }
+  } catch (e) {
+    console.log(`Direct download failed: ${String(e).slice(0, 100)}`);
+  }
+  
+  // Method 2: Firecrawl (if available)
+  if (firecrawlKey) {
+    console.log(`Trying Firecrawl...`);
+    try {
+      let encodedUrl: string;
+      try {
+        encodedUrl = encodeURI(decodeURI(cleanUrl));
+      } catch {
+        encodedUrl = encodeURI(cleanUrl);
+      }
+      
+      const resp = await fetch('https://api.firecrawl.dev/v1/scrape', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${firecrawlKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          url: encodedUrl,
+          formats: ['markdown'],
+          timeout: 90000,
+        }),
+      });
+      
+      if (resp.ok) {
+        const data = await resp.json();
+        const markdown = data.data?.markdown || data.markdown || '';
+        if (markdown.length > 100) {
+          console.log(`Firecrawl returned ${markdown.length} chars`);
+          return markdown;
+        }
+      }
+    } catch (e) {
+      console.log(`Firecrawl failed: ${String(e).slice(0, 100)}`);
+    }
+  }
+  
+  // Method 3: Use title from URL as minimal content  
+  return "";
+}
+
 async function scrapePdf(
   pdfUrl: string,
   firecrawlKey: string,
   supabase: any,
 ): Promise<{ success: boolean; title: string; ingested: number; docType?: string; category?: string; error?: string }> {
-  const cleanUrl = pdfUrl.split('#')[0];
   const titleFromUrl = extractTitleFromUrl(pdfUrl);
 
-  // Properly encode Arabic characters and spaces in the URL
-  const encodedUrl = encodeURI(decodeURI(cleanUrl)).replace(/%25/g, '%');
-
   try {
-    let resp: Response | null = null;
-    let ok = false;
-
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        resp = await fetch(`${FIRECRAWL_API}/scrape`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${firecrawlKey}`,
-            "Content-Type": "application/json",
+    const text = await fetchPdfText(pdfUrl, firecrawlKey);
+    
+    if (text.length < 50) {
+      // Even if we can't extract text, store the title and URL reference
+      // so the document is indexed and searchable by title
+      const titleText = titleFromUrl;
+      if (titleText.length > 10) {
+        const docType = detectDocType(titleText);
+        const category = detectCategory(titleText);
+        const meta = extractMetadata(titleText);
+        
+        const { error } = await supabase.from("legal_documents").insert({
+          title: titleText.slice(0, 500),
+          content: `${titleText}\n\nمصدر: بوابة عدالة - وزارة العدل\nرابط PDF: ${pdfUrl.split('#')[0]}`,
+          source: pdfUrl,
+          doc_type: docType,
+          category,
+          reference_number: meta.referenceNumber || meta.dahirNumber || meta.decreeNumber || null,
+          embedding: JSON.stringify(generateHashEmbedding(titleText)),
+          metadata: {
+            scraped: true,
+            scraped_at: new Date().toISOString(),
+            source_site: "adala",
+            is_pdf: true,
+            text_extraction_failed: true,
+            pdf_url: pdfUrl.split('#')[0],
           },
-          body: JSON.stringify({
-            url: encodedUrl,
-            formats: ["markdown"],
-            waitFor: 20000,
-            timeout: 90000,
-          }),
         });
-        if (resp.ok) { ok = true; break; }
-        const errText = await resp.text();
-        console.error(`Firecrawl attempt ${attempt + 1}: ${errText.slice(0, 200)}`);
-        if (attempt < 2) await new Promise(r => setTimeout(r, 3000 * (attempt + 1)));
-      } catch (e) {
-        console.error(`Fetch error attempt ${attempt + 1}:`, e);
-        if (attempt < 2) await new Promise(r => setTimeout(r, 3000 * (attempt + 1)));
+        
+        if (!error) {
+          return { success: true, title: titleText.slice(0, 100), ingested: 1, docType, category };
+        }
+        if (error?.code === '23505') {
+          return { success: false, title: titleText.slice(0, 100), ingested: 0, error: "موجود مسبقاً" };
+        }
       }
+      return { success: false, title: titleFromUrl, ingested: 0, error: "لم يتم استخراج نص" };
     }
 
-    if (!ok || !resp) return { success: false, title: titleFromUrl, ingested: 0, error: "فشل بعد محاولتين" };
-
-    const data = await resp.json();
-    const markdown = data.data?.markdown || data.markdown || "";
-
-    if (markdown.length < 100) return { success: false, title: titleFromUrl, ingested: 0, error: "محتوى قصير" };
-
-    const docType = detectDocType(markdown);
-    const meta = extractMetadata(markdown);
-    const category = detectCategory(markdown);
+    const docType = detectDocType(text);
+    const meta = extractMetadata(text);
+    const category = detectCategory(text);
 
     let title = titleFromUrl;
     if (docType === "dahir" && meta.dahirNumber) {
@@ -199,7 +369,7 @@ async function scrapePdf(
       title = `قانون تنظيمي رقم ${meta.referenceNumber}` + (meta.subject ? ` ${meta.subject.slice(0, 150)}` : '');
     }
 
-    const chunks = chunkText(markdown);
+    const chunks = chunkText(text);
     let ingested = 0;
 
     for (const chunk of chunks) {
@@ -238,9 +408,7 @@ serve(async (req) => {
   }
 
   try {
-    const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
-    if (!FIRECRAWL_API_KEY) throw new Error("FIRECRAWL_API_KEY not configured");
-
+    const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY") || "";
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -248,27 +416,26 @@ serve(async (req) => {
     const body = await req.json();
     const { action } = body;
 
-    // ─── AUTO PROCESS: Runs from cron, no user interaction needed ───
+    // ─── AUTO PROCESS: Runs from cron ──────────────────────────────
     if (action === "auto_process") {
-      const BATCH_SIZE = 2;
+      const BATCH_SIZE = 5; // Can do more since direct download is faster
 
-      // 1. Load links file from storage
       const { data: fileData, error: fileError } = await supabase.storage
         .from("scraping-data")
         .download("adala_pdf_links.txt");
 
       if (fileError || !fileData) {
         return new Response(
-          JSON.stringify({ success: false, error: "لم يتم العثور على ملف الروابط: " + (fileError?.message || "") }),
+          JSON.stringify({ success: false, error: "ملف الروابط غير موجود: " + (fileError?.message || "") }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
 
       const fileText = await fileData.text();
       const allLinks = parseLinksFile(fileText);
-      console.log(`Total links in file: ${allLinks.length}`);
+      console.log(`Total links: ${allLinks.length}`);
 
-      // 2. Get all existing sources from DB
+      // Get existing sources
       const existingSources = new Set<string>();
       let offset = 0;
       while (true) {
@@ -285,9 +452,9 @@ serve(async (req) => {
         offset += 1000;
       }
 
-      console.log(`Existing sources: ${existingSources.size}`);
+      console.log(`Already processed: ${existingSources.size}`);
 
-      // 3. Find next batch of unprocessed URLs
+      // Find pending
       const pending: string[] = [];
       for (const link of allLinks) {
         if (!existingSources.has(link.url) && pending.length < BATCH_SIZE) {
@@ -297,26 +464,20 @@ serve(async (req) => {
       }
 
       if (pending.length === 0) {
-        console.log("All PDFs have been processed!");
+        console.log("All done!");
         return new Response(
-          JSON.stringify({
-            success: true,
-            message: "تم الانتهاء من جميع الملفات",
-            totalLinks: allLinks.length,
-            totalProcessed: existingSources.size,
-            remaining: 0,
-          }),
+          JSON.stringify({ success: true, message: "تم الانتهاء", totalLinks: allLinks.length, totalProcessed: existingSources.size, remaining: 0 }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
 
-      // 4. Process batch
+      console.log(`Processing ${pending.length} PDFs...`);
       const results = [];
       for (const url of pending) {
         const result = await scrapePdf(url, FIRECRAWL_API_KEY, supabase);
-        results.push({ url, ...result });
-        console.log(`${result.success ? '✅' : '❌'} ${result.title.slice(0, 60)} (${result.ingested} chunks)`);
-        await new Promise(r => setTimeout(r, 500));
+        results.push({ url: url.slice(-60), ...result });
+        console.log(`${result.success ? '✅' : '❌'} ${result.title.slice(0, 50)} (${result.ingested} chunks)`);
+        await new Promise(r => setTimeout(r, 300));
       }
 
       const totalIngested = results.reduce((sum, r) => sum + (r.ingested || 0), 0);
@@ -339,7 +500,6 @@ serve(async (req) => {
     // ─── CHECK EXISTING ────────────────────────────────────────────
     if (action === "check_existing") {
       const pdfUrls: string[] = body.pdf_urls || [];
-
       if (pdfUrls.length === 0) {
         return new Response(
           JSON.stringify({ success: true, total: 0, existing: 0, newCount: 0, newUrls: [] }),
@@ -350,21 +510,12 @@ serve(async (req) => {
       const existingSet = new Set<string>();
       for (let i = 0; i < pdfUrls.length; i += 100) {
         const batch = pdfUrls.slice(i, i + 100);
-        const { data } = await supabase
-          .from("legal_documents")
-          .select("source")
-          .in("source", batch);
-        if (data) {
-          for (const d of data) {
-            if (d.source) existingSet.add(d.source);
-          }
-        }
+        const { data } = await supabase.from("legal_documents").select("source").in("source", batch);
+        if (data) for (const d of data) if (d.source) existingSet.add(d.source);
       }
 
-      const newUrls = pdfUrls.filter(u => !existingSet.has(u));
-
       return new Response(
-        JSON.stringify({ success: true, total: pdfUrls.length, existing: existingSet.size, newCount: newUrls.length, newUrls }),
+        JSON.stringify({ success: true, total: pdfUrls.length, existing: existingSet.size, newCount: pdfUrls.length - existingSet.size, newUrls: pdfUrls.filter(u => !existingSet.has(u)) }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -372,50 +523,29 @@ serve(async (req) => {
     // ─── SCRAPE BATCH (manual) ─────────────────────────────────────
     if (action === "scrape_batch") {
       const urls: string[] = body.pdf_urls || [];
-      if (!urls.length) throw new Error("No pdf_urls provided");
-
+      if (!urls.length) throw new Error("No pdf_urls");
       const size = Math.min(urls.length, body.batch_size || 3);
       const batchUrls = urls.slice(0, size);
       const results = [];
-
       for (const url of batchUrls) {
         const result = await scrapePdf(url, FIRECRAWL_API_KEY, supabase);
         results.push({ url, ...result });
-        await new Promise(r => setTimeout(r, 400));
+        await new Promise(r => setTimeout(r, 300));
       }
-
       return new Response(
-        JSON.stringify({
-          success: true,
-          results,
-          processed: batchUrls.length,
-          successCount: results.filter(r => r.success).length,
-          totalIngested: results.reduce((sum, r) => sum + (r.ingested || 0), 0),
-          remaining: urls.length - batchUrls.length,
-        }),
+        JSON.stringify({ success: true, results, processed: batchUrls.length, successCount: results.filter(r => r.success).length, totalIngested: results.reduce((s, r) => s + (r.ingested || 0), 0), remaining: urls.length - batchUrls.length }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     // ─── STATUS ────────────────────────────────────────────────────
     if (action === "status") {
-      // Load file to get total count
       let totalLinks = 0;
       try {
-        const { data: fileData } = await supabase.storage
-          .from("scraping-data")
-          .download("adala_pdf_links.txt");
-        if (fileData) {
-          const text = await fileData.text();
-          totalLinks = parseLinksFile(text).length;
-        }
-      } catch { /* ignore */ }
-
-      const { count } = await supabase
-        .from("legal_documents")
-        .select("*", { count: "exact", head: true })
-        .like("source", "%adala.justice.gov.ma%");
-
+        const { data: fd } = await supabase.storage.from("scraping-data").download("adala_pdf_links.txt");
+        if (fd) totalLinks = parseLinksFile(await fd.text()).length;
+      } catch { /* */ }
+      const { count } = await supabase.from("legal_documents").select("*", { count: "exact", head: true }).like("source", "%adala.justice.gov.ma%");
       return new Response(
         JSON.stringify({ success: true, adalaDocuments: count || 0, totalLinks }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
