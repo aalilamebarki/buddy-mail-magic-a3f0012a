@@ -101,6 +101,16 @@ const KnowledgeBase = () => {
   const [sggStats, setSggStats] = useState({ found: 0, new: 0, alreadyScraped: 0 });
   const [sggTotalIngested, setSggTotalIngested] = useState(0);
 
+  // Adala scraper state
+  const [adalaDialogOpen, setAdalaDialogOpen] = useState(false);
+  const [adalaScraping, setAdalaScraping] = useState(false);
+  const [adalaStep, setAdalaStep] = useState<'idle' | 'checking' | 'scraping' | 'done'>('idle');
+  const [adalaNewIds, setAdalaNewIds] = useState<number[]>([]);
+  const [adalaProgress, setAdalaProgress] = useState(0);
+  const [adalaLog, setAdalaLog] = useState<string[]>([]);
+  const [adalaStats, setAdalaStats] = useState({ total: 0, existing: 0, newCount: 0 });
+  const [adalaTotalIngested, setAdalaTotalIngested] = useState(0);
+
   const fetchStats = async () => {
     const types = ['law', 'dahir', 'decree', 'organic_law', 'circular', 'convention', 'decision', 'ruling', 'doctrine'];
     const results: Record<string, number> = {};
@@ -358,6 +368,83 @@ const KnowledgeBase = () => {
     setSggScraping(false);
     setSggLog(prev => [...prev, `🎉 انتهى الجلب! تم إضافة ${totalIngested} جزء قانوني جديد`]);
     toast.success(`تم إضافة ${totalIngested} جزء قانوني`);
+    fetchDocuments();
+    fetchStats();
+  };
+
+  // Adala Scraper
+  const handleAdalaCheck = async () => {
+    setAdalaScraping(true);
+    setAdalaStep('checking');
+    setAdalaLog(['🔍 جاري فحص الموارد من 1 إلى 1070 على بوابة عدالة...']);
+    setAdalaNewIds([]);
+    setAdalaTotalIngested(0);
+    try {
+      const { data, error } = await supabase.functions.invoke('scrape-adala', {
+        body: { action: 'check_existing', start_id: 1, end_id: 1070 },
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'فشل الفحص');
+      setAdalaNewIds(data.newIds || []);
+      setAdalaStats({ total: data.totalRange || 0, existing: data.alreadyScraped || 0, newCount: data.newCount || 0 });
+      setAdalaLog(prev => [
+        ...prev,
+        `📊 إجمالي الموارد: ${data.totalRange}`,
+        `✅ تم جلبها مسبقاً: ${data.alreadyScraped}`,
+        `🆕 موارد جديدة: ${data.newCount}`,
+      ]);
+      setAdalaStep('idle');
+      if (data.newCount === 0) toast.info('جميع الموارد المتوفرة تم جلبها مسبقاً');
+      else toast.success(`تم اكتشاف ${data.newCount} مورد جديد`);
+    } catch (e: any) {
+      toast.error(e.message || 'خطأ في الفحص');
+      setAdalaLog(prev => [...prev, `❌ خطأ: ${e.message}`]);
+      setAdalaStep('idle');
+    }
+    setAdalaScraping(false);
+  };
+
+  const handleAdalaScrapeAll = async () => {
+    if (adalaNewIds.length === 0) { toast.error('لا توجد موارد جديدة'); return; }
+    setAdalaScraping(true);
+    setAdalaStep('scraping');
+    setAdalaProgress(0);
+    setAdalaLog(prev => [...prev, `🚀 بدء جلب ${adalaNewIds.length} مورد من بوابة عدالة...`]);
+    let totalIngested = 0;
+    const batchSize = 5;
+    const total = adalaNewIds.length;
+    let processedCount = 0;
+    for (let i = 0; i < total; i += batchSize) {
+      const batchIds = adalaNewIds.slice(i, i + batchSize);
+      try {
+        const { data, error } = await supabase.functions.invoke('scrape-adala', {
+          body: { action: 'scrape_batch', resource_ids: batchIds, batch_size: batchSize },
+        });
+        if (error) { setAdalaLog(prev => [...prev, `❌ خطأ في الدفعة: ${error.message}`]); continue; }
+        if (data?.results) {
+          for (const r of data.results) {
+            if (r.success) {
+              const typeLabel = DOC_TYPES.find(t => t.value === r.doc_type)?.label || r.doc_type || 'نص';
+              setAdalaLog(prev => [...prev, `✅ [${typeLabel}] #${r.resourceId}: ${r.title} [${r.category}] (${r.ingested} أجزاء)`]);
+            } else if (r.skipped) {
+              setAdalaLog(prev => [...prev, `⏭️ #${r.resourceId}: موجود مسبقاً`]);
+            } else {
+              setAdalaLog(prev => [...prev, `⚠️ #${r.resourceId}: ${r.error}`]);
+            }
+          }
+          totalIngested += data.totalIngested || 0;
+          setAdalaTotalIngested(totalIngested);
+        }
+        processedCount += batchIds.length;
+        setAdalaProgress(Math.round((processedCount / total) * 100));
+      } catch (err: any) {
+        setAdalaLog(prev => [...prev, `❌ خطأ: ${err.message}`]);
+      }
+    }
+    setAdalaStep('done');
+    setAdalaScraping(false);
+    setAdalaLog(prev => [...prev, `🎉 انتهى الجلب! تم إضافة ${totalIngested} جزء قانوني جديد`]);
+    toast.success(`تم إضافة ${totalIngested} جزء قانوني من بوابة عدالة`);
     fetchDocuments();
     fetchStats();
   };
@@ -744,6 +831,66 @@ const KnowledgeBase = () => {
                         )}
                         {sggStep === 'done' && (
                           <Button onClick={() => { setSggDialogOpen(false); setSggStep('idle'); setSggLog([]); setSggNewUrls([]); setSggStats({ found: 0, new: 0, alreadyScraped: 0 }); }} variant="outline" className="w-full">إغلاق</Button>
+                        )}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+
+                  {/* Adala Portal */}
+                  <Dialog open={adalaDialogOpen} onOpenChange={setAdalaDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm" className="gap-1 bg-blue-600 hover:bg-blue-700 text-white text-xs">
+                        <Scale className="h-3.5 w-3.5" /> بوابة عدالة (1-1070)
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2"><Scale className="h-5 w-5 text-blue-600" /> جلب من بوابة عدالة - وزارة العدل</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4 mt-4">
+                        <p className="text-sm text-muted-foreground">
+                          يجلب جميع النصوص القانونية من بوابة عدالة (الموارد من 1 إلى 1070) مع تصنيف تلقائي وتنظيم دقيق لكل نوع: قوانين، ظهائر، مراسيم، دوريات، قرارات، اتفاقيات.
+                        </p>
+                        <div className="border rounded-lg p-4 space-y-3">
+                          <h3 className="font-semibold text-sm flex items-center gap-2">
+                            <span className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full w-6 h-6 flex items-center justify-center text-xs">1</span>
+                            فحص الموارد المتاحة
+                          </h3>
+                          <Button onClick={handleAdalaCheck} disabled={adalaScraping} variant="outline" className="w-full gap-2">
+                            {adalaStep === 'checking' ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري الفحص...</> : <><Search className="h-4 w-4" /> فحص الموارد (1 - 1070)</>}
+                          </Button>
+                          {adalaStats.total > 0 && (
+                            <div className="grid grid-cols-3 gap-2 text-center">
+                              <div className="bg-muted/50 rounded p-2"><p className="text-lg font-bold text-foreground">{adalaStats.total}</p><p className="text-[10px] text-muted-foreground">إجمالي</p></div>
+                              <div className="bg-muted/50 rounded p-2"><p className="text-lg font-bold text-primary">{adalaStats.newCount}</p><p className="text-[10px] text-muted-foreground">جديد</p></div>
+                              <div className="bg-muted/50 rounded p-2"><p className="text-lg font-bold text-muted-foreground">{adalaStats.existing}</p><p className="text-[10px] text-muted-foreground">موجود مسبقاً</p></div>
+                            </div>
+                          )}
+                        </div>
+                        {adalaNewIds.length > 0 && (
+                          <div className="border rounded-lg p-4 space-y-3">
+                            <h3 className="font-semibold text-sm flex items-center gap-2">
+                              <span className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full w-6 h-6 flex items-center justify-center text-xs">2</span>
+                              جلب ({adalaNewIds.length} مورد جديد)
+                            </h3>
+                            <Button onClick={handleAdalaScrapeAll} disabled={adalaScraping} className="w-full gap-2 bg-blue-600 hover:bg-blue-700">
+                              {adalaStep === 'scraping' ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري الجلب...</> : <><Database className="h-4 w-4" /> جلب كل الموارد الجديدة</>}
+                            </Button>
+                          </div>
+                        )}
+                        {adalaStep === 'scraping' && (
+                          <div className="space-y-1">
+                            <Progress value={adalaProgress} className="h-2" />
+                            <div className="flex justify-between text-xs text-muted-foreground"><span>{adalaProgress}%</span><span>{adalaTotalIngested} جزء جديد</span></div>
+                          </div>
+                        )}
+                        {adalaLog.length > 0 && (
+                          <div className="bg-muted/50 rounded-lg p-3 space-y-1 max-h-60 overflow-y-auto">
+                            {adalaLog.map((log, i) => <p key={i} className="text-xs">{log}</p>)}
+                          </div>
+                        )}
+                        {adalaStep === 'done' && (
+                          <Button onClick={() => { setAdalaDialogOpen(false); setAdalaStep('idle'); setAdalaLog([]); setAdalaNewIds([]); setAdalaStats({ total: 0, existing: 0, newCount: 0 }); }} variant="outline" className="w-full">إغلاق</Button>
                         )}
                       </div>
                     </DialogContent>
