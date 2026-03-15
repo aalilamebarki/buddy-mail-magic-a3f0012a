@@ -18,6 +18,7 @@ import CaseTracker from "./pages/CaseTracker";
 import AIConsultation from "./pages/AIConsultation";
 import About from "./pages/About";
 import DocumentCenter from "./pages/DocumentCenter";
+import DocumentDetail from "./pages/DocumentDetail";
 import Dashboard from "./pages/Dashboard";
 import DashboardHome from "./pages/dashboard/DashboardHome";
 import Cases from "./pages/dashboard/Cases";
@@ -60,6 +61,7 @@ const App = () => (
                 <Route path="/ai-consultation" element={<AIConsultation />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/documents" element={<DocumentCenter />} />
+                <Route path="/documents/:id" element={<DocumentDetail />} />
 
                 {/* Dashboard routes */}
                 <Route
