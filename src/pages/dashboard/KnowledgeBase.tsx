@@ -316,6 +316,100 @@ const KnowledgeBase = () => {
     toast.success(`تم إضافة ${totalDocsAdded} مستند جديد لقاعدة المعرفة`);
   };
 
+  // SGG Archive Scraper
+  const handleSggDiscover = async () => {
+    setSggScraping(true);
+    setSggStep('discovering');
+    setSggLog(['🔍 جاري اكتشاف صفحات القوانين من الأمانة العامة للحكومة...']);
+    setSggNewUrls([]);
+    setSggTotalIngested(0);
+    try {
+      const { data, error } = await supabase.functions.invoke('scrape-sgg-laws', {
+        body: { action: 'discover', base_url: 'https://www.sgg.gov.ma' },
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'فشل الاكتشاف');
+      
+      setSggNewUrls(data.urls || []);
+      setSggStats({
+        found: data.lawLinks || 0,
+        new: data.newLinks || 0,
+        alreadyScraped: data.alreadyScraped || 0,
+      });
+      setSggLog(prev => [
+        ...prev,
+        `📊 إجمالي الروابط: ${data.totalFound}`,
+        `📄 روابط القوانين: ${data.lawLinks}`,
+        `✅ تم جلبها مسبقاً: ${data.alreadyScraped}`,
+        `🆕 روابط جديدة: ${data.newLinks}`,
+      ]);
+      setSggStep('idle');
+      
+      if (data.newLinks === 0) {
+        toast.info('جميع القوانين المتوفرة تم جلبها مسبقاً');
+      } else {
+        toast.success(`تم اكتشاف ${data.newLinks} قانون جديد`);
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'خطأ في الاكتشاف');
+      setSggLog(prev => [...prev, `❌ خطأ: ${e.message}`]);
+      setSggStep('idle');
+    }
+    setSggScraping(false);
+  };
+
+  const handleSggScrapeAll = async () => {
+    if (sggNewUrls.length === 0) { toast.error('لا توجد روابط جديدة'); return; }
+    setSggScraping(true);
+    setSggStep('scraping');
+    setSggProgress(0);
+    setSggLog(prev => [...prev, `🚀 بدء جلب ${sggNewUrls.length} قانون...`]);
+    
+    let totalIngested = 0;
+    const batchSize = 10;
+    const total = sggNewUrls.length;
+    let processedCount = 0;
+    
+    for (let i = 0; i < total; i += batchSize) {
+      const batch = sggNewUrls.slice(i, i + batchSize);
+      try {
+        const { data, error } = await supabase.functions.invoke('scrape-sgg-laws', {
+          body: { action: 'scrape_batch', urls_to_scrape: batch },
+        });
+        if (error) {
+          setSggLog(prev => [...prev, `❌ خطأ في الدفعة: ${error.message}`]);
+          continue;
+        }
+        
+        if (data?.results) {
+          for (const r of data.results) {
+            if (r.success) {
+              setSggLog(prev => [...prev, `✅ ${r.title} [${r.category}] (${r.ingested} أجزاء)`]);
+            } else if (r.skipped) {
+              setSggLog(prev => [...prev, `⏭️ ${r.url.split('/').pop()} - موجود مسبقاً`]);
+            } else {
+              setSggLog(prev => [...prev, `⚠️ ${r.url.split('/').pop()} - ${r.error}`]);
+            }
+          }
+          totalIngested += data.totalIngested || 0;
+          setSggTotalIngested(totalIngested);
+        }
+        
+        processedCount += batch.length;
+        setSggProgress(Math.round((processedCount / total) * 100));
+      } catch (err: any) {
+        setSggLog(prev => [...prev, `❌ خطأ: ${err.message}`]);
+      }
+    }
+    
+    setSggStep('done');
+    setSggScraping(false);
+    setSggLog(prev => [...prev, `🎉 انتهى الجلب! تم إضافة ${totalIngested} جزء قانوني جديد`]);
+    toast.success(`تم إضافة ${totalIngested} جزء قانوني من الأمانة العامة للحكومة`);
+    fetchDocuments();
+    fetchStats();
+  };
+
   const getTypeLabel = (type: string) => DOC_TYPES.find(t => t.value === type)?.label || type;
 
   const getTypeBadgeClass = (type: string) => {
