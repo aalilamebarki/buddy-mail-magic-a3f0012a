@@ -145,11 +145,14 @@ async function scrapePdf(
   const cleanUrl = pdfUrl.split('#')[0];
   const titleFromUrl = extractTitleFromUrl(pdfUrl);
 
+  // Properly encode Arabic characters and spaces in the URL
+  const encodedUrl = encodeURI(decodeURI(cleanUrl)).replace(/%25/g, '%');
+
   try {
     let resp: Response | null = null;
     let ok = false;
 
-    for (let attempt = 0; attempt < 2; attempt++) {
+    for (let attempt = 0; attempt < 3; attempt++) {
       try {
         resp = await fetch(`${FIRECRAWL_API}/scrape`, {
           method: "POST",
@@ -158,16 +161,19 @@ async function scrapePdf(
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            url: cleanUrl,
+            url: encodedUrl,
             formats: ["markdown"],
-            waitFor: 10000,
-            timeout: 45000,
+            waitFor: 20000,
+            timeout: 90000,
           }),
         });
         if (resp.ok) { ok = true; break; }
-        if (attempt < 1) await new Promise(r => setTimeout(r, 1500));
-      } catch {
-        if (attempt < 1) await new Promise(r => setTimeout(r, 1500));
+        const errText = await resp.text();
+        console.error(`Firecrawl attempt ${attempt + 1}: ${errText.slice(0, 200)}`);
+        if (attempt < 2) await new Promise(r => setTimeout(r, 3000 * (attempt + 1)));
+      } catch (e) {
+        console.error(`Fetch error attempt ${attempt + 1}:`, e);
+        if (attempt < 2) await new Promise(r => setTimeout(r, 3000 * (attempt + 1)));
       }
     }
 
