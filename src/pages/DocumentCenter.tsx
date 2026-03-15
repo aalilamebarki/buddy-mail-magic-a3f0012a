@@ -242,7 +242,7 @@ const DocumentCenter = () => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <h3 className="font-bold text-foreground text-sm truncate">{doc.title}</h3>
+                          <Link to={`/documents/${doc.id}`} className="font-bold text-foreground text-sm truncate hover:text-primary transition-colors">{doc.title}</Link>
                           <Badge className={`${sc.color} border text-[9px] rounded-full px-2 py-0.5 gap-1`}>
                             <StatusIcon className="h-2.5 w-2.5" /> {sc.label}
                           </Badge>

@@ -61,6 +61,7 @@ const App = () => (
                 <Route path="/ai-consultation" element={<AIConsultation />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/documents" element={<DocumentCenter />} />
+                <Route path="/documents/:id" element={<DocumentDetail />} />
 
                 {/* Dashboard routes */}
                 <Route
