@@ -125,7 +125,8 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { action, url, limit, doc_type: requestedDocType } = await req.json();
+    const body = await req.json();
+    const { action, url, limit, doc_type: requestedDocType, urls } = body;
     
     // Detect doc type from URL if not specified
     const detectDocType = (pageUrl: string) => {
