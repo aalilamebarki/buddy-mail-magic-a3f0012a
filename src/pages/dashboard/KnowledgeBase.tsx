@@ -101,11 +101,12 @@ const KnowledgeBase = () => {
   const [sggStats, setSggStats] = useState({ found: 0, new: 0, alreadyScraped: 0 });
   const [sggTotalIngested, setSggTotalIngested] = useState(0);
 
-  // Adala scraper state
+  // Adala PDF scraper state
   const [adalaDialogOpen, setAdalaDialogOpen] = useState(false);
   const [adalaScraping, setAdalaScraping] = useState(false);
-  const [adalaStep, setAdalaStep] = useState<'idle' | 'checking' | 'scraping' | 'done'>('idle');
-  const [adalaNewIds, setAdalaNewIds] = useState<number[]>([]);
+  const [adalaStep, setAdalaStep] = useState<'idle' | 'loading' | 'checking' | 'scraping' | 'done'>('idle');
+  const [adalaAllUrls, setAdalaAllUrls] = useState<string[]>([]);
+  const [adalaNewUrls, setAdalaNewUrls] = useState<string[]>([]);
   const [adalaProgress, setAdalaProgress] = useState(0);
   const [adalaLog, setAdalaLog] = useState<string[]>([]);
   const [adalaStats, setAdalaStats] = useState({ total: 0, existing: 0, newCount: 0 });
@@ -372,32 +373,71 @@ const KnowledgeBase = () => {
     fetchStats();
   };
 
-  // Adala Scraper
-  const handleAdalaCheck = async () => {
+  // Adala PDF Scraper - Load links file, check existing, scrape new
+  const handleAdalaLoadAndCheck = async () => {
     setAdalaScraping(true);
-    setAdalaStep('checking');
-    setAdalaLog(['🔍 جاري فحص الموارد من 1 إلى 1070 على بوابة عدالة...']);
-    setAdalaNewIds([]);
+    setAdalaStep('loading');
+    setAdalaLog(['📂 جاري تحميل قائمة روابط PDF من بوابة عدالة...']);
+    setAdalaAllUrls([]);
+    setAdalaNewUrls([]);
     setAdalaTotalIngested(0);
+
     try {
-      const { data, error } = await supabase.functions.invoke('scrape-adala', {
-        body: { action: 'check_existing', start_id: 1, end_id: 1070 },
-      });
-      if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || 'فشل الفحص');
-      setAdalaNewIds(data.newIds || []);
-      setAdalaStats({ total: data.totalRange || 0, existing: data.alreadyScraped || 0, newCount: data.newCount || 0 });
+      // Step 1: Fetch the links file
+      const resp = await fetch('/data/adala_pdf_links.txt');
+      if (!resp.ok) throw new Error('فشل تحميل ملف الروابط');
+      const text = await resp.text();
+      
+      // Parse PDF URLs from lines like: المصدر (Resource 3) | الرابط: https://...pdf#toolbar=0
+      const urls: string[] = [];
+      for (const line of text.split('\n')) {
+        const match = line.match(/الرابط:\s*(https?:\/\/[^\s]+)/);
+        if (match) urls.push(match[1].trim());
+      }
+
+      setAdalaAllUrls(urls);
+      setAdalaLog(prev => [...prev, `📊 تم العثور على ${urls.length} رابط PDF`]);
+      setAdalaStep('checking');
+      setAdalaLog(prev => [...prev, '🔍 جاري فحص الروابط الموجودة مسبقاً...']);
+
+      // Step 2: Check existing in batches (send cleaned URLs for DB check)
+      const cleanedUrls = urls.map(u => u.split('#')[0]);
+      const CHUNK = 200;
+      const allNew: string[] = [];
+      let existingCount = 0;
+
+      for (let i = 0; i < urls.length; i += CHUNK) {
+        const batchClean = cleanedUrls.slice(i, i + CHUNK);
+        const batchOriginal = urls.slice(i, i + CHUNK);
+        
+        const { data, error } = await supabase.functions.invoke('scrape-adala-pdfs', {
+          body: { action: 'check_existing', pdf_urls: batchClean },
+        });
+        if (error) throw error;
+        
+        const existingSet = new Set(batchClean.filter((_, idx) => !data.newUrls.includes(batchClean[idx])));
+        for (let j = 0; j < batchClean.length; j++) {
+          if (!existingSet.has(batchClean[j])) {
+            allNew.push(batchOriginal[j]);
+          } else {
+            existingCount++;
+          }
+        }
+      }
+
+      setAdalaNewUrls(allNew);
+      setAdalaStats({ total: urls.length, existing: existingCount, newCount: allNew.length });
       setAdalaLog(prev => [
         ...prev,
-        `📊 إجمالي الموارد: ${data.totalRange}`,
-        `✅ تم جلبها مسبقاً: ${data.alreadyScraped}`,
-        `🆕 موارد جديدة: ${data.newCount}`,
+        `📊 إجمالي الروابط: ${urls.length}`,
+        `✅ موجود مسبقاً: ${existingCount}`,
+        `🆕 روابط جديدة: ${allNew.length}`,
       ]);
       setAdalaStep('idle');
-      if (data.newCount === 0) toast.info('جميع الموارد المتوفرة تم جلبها مسبقاً');
-      else toast.success(`تم اكتشاف ${data.newCount} مورد جديد`);
+      if (allNew.length === 0) toast.info('جميع روابط PDF تم جلبها مسبقاً');
+      else toast.success(`تم اكتشاف ${allNew.length} رابط PDF جديد`);
     } catch (e: any) {
-      toast.error(e.message || 'خطأ في الفحص');
+      toast.error(e.message || 'خطأ في التحميل');
       setAdalaLog(prev => [...prev, `❌ خطأ: ${e.message}`]);
       setAdalaStep('idle');
     }
@@ -405,42 +445,35 @@ const KnowledgeBase = () => {
   };
 
   const handleAdalaScrapeAll = async () => {
-    if (adalaNewIds.length === 0) { toast.error('لا توجد موارد جديدة'); return; }
+    if (adalaNewUrls.length === 0) { toast.error('لا توجد روابط جديدة'); return; }
     setAdalaScraping(true);
     setAdalaStep('scraping');
     setAdalaProgress(0);
-    setAdalaLog(prev => [...prev, `🚀 بدء جلب ${adalaNewIds.length} مورد من بوابة عدالة...`]);
+    setAdalaLog(prev => [...prev, `🚀 بدء جلب ${adalaNewUrls.length} ملف PDF...`]);
     let totalIngested = 0;
-    const batchSize = 1;
-    const total = adalaNewIds.length;
+    const batchSize = 3;
+    const total = adalaNewUrls.length;
     let processedCount = 0;
+
     for (let i = 0; i < total; i += batchSize) {
-      const batchIds = adalaNewIds.slice(i, i + batchSize);
+      const batch = adalaNewUrls.slice(i, i + batchSize);
       try {
-        const { data, error } = await supabase.functions.invoke('scrape-adala', {
-          body: { action: 'scrape_batch', resource_ids: batchIds, batch_size: batchSize },
+        const { data, error } = await supabase.functions.invoke('scrape-adala-pdfs', {
+          body: { action: 'scrape_batch', pdf_urls: batch, batch_size: batchSize },
         });
         if (error) { setAdalaLog(prev => [...prev, `❌ خطأ في الدفعة: ${error.message}`]); continue; }
         if (data?.results) {
           for (const r of data.results) {
             if (r.success) {
-              setAdalaLog(prev => [...prev, `✅ #${r.resourceId}: ${r.title} (${r.pdfCount || 0} PDF، ${r.ingested} أجزاء)`]);
-              // Show individual PDF results if available
-              if (r.pdfResults) {
-                for (const pr of r.pdfResults) {
-                  setAdalaLog(prev => [...prev, `   📄 ${pr}`]);
-                }
-              }
-            } else if (r.skipped) {
-              setAdalaLog(prev => [...prev, `⏭️ #${r.resourceId}: موجود مسبقاً`]);
+              setAdalaLog(prev => [...prev, `✅ [${r.docType}] ${r.title} (${r.ingested} أجزاء) [${r.category}]`]);
             } else {
-              setAdalaLog(prev => [...prev, `⚠️ #${r.resourceId}: ${r.error}`]);
+              setAdalaLog(prev => [...prev, `⚠️ ${r.title}: ${r.error}`]);
             }
           }
           totalIngested += data.totalIngested || 0;
           setAdalaTotalIngested(totalIngested);
         }
-        processedCount += batchIds.length;
+        processedCount += batch.length;
         setAdalaProgress(Math.round((processedCount / total) * 100));
       } catch (err: any) {
         setAdalaLog(prev => [...prev, `❌ خطأ: ${err.message}`]);
@@ -841,45 +874,45 @@ const KnowledgeBase = () => {
                     </DialogContent>
                   </Dialog>
 
-                  {/* Adala Portal */}
+                  {/* Adala Portal - Direct PDF Links */}
                   <Dialog open={adalaDialogOpen} onOpenChange={setAdalaDialogOpen}>
                     <DialogTrigger asChild>
                       <Button size="sm" className="gap-1 bg-blue-600 hover:bg-blue-700 text-white text-xs">
-                        <Scale className="h-3.5 w-3.5" /> بوابة عدالة (1-1070)
+                        <Scale className="h-3.5 w-3.5" /> بوابة عدالة ({'>'}7500 PDF)
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                       <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2"><Scale className="h-5 w-5 text-blue-600" /> جلب من بوابة عدالة - وزارة العدل</DialogTitle>
+                        <DialogTitle className="flex items-center gap-2"><Scale className="h-5 w-5 text-blue-600" /> جلب ملفات PDF من بوابة عدالة</DialogTitle>
                       </DialogHeader>
                       <div className="space-y-4 mt-4">
                         <p className="text-sm text-muted-foreground">
-                          يجلب جميع النصوص القانونية من بوابة عدالة (الموارد من 1 إلى 1070) مع تصنيف تلقائي وتنظيم دقيق لكل نوع: قوانين، ظهائر، مراسيم، دوريات، قرارات، اتفاقيات.
+                          يجلب أكثر من 7500 ملف PDF قانوني مباشرة من بوابة عدالة مع تصنيف تلقائي وتنظيم دقيق.
                         </p>
                         <div className="border rounded-lg p-4 space-y-3">
                           <h3 className="font-semibold text-sm flex items-center gap-2">
                             <span className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full w-6 h-6 flex items-center justify-center text-xs">1</span>
-                            فحص الموارد المتاحة
+                            تحميل الروابط وفحص الموجود
                           </h3>
-                          <Button onClick={handleAdalaCheck} disabled={adalaScraping} variant="outline" className="w-full gap-2">
-                            {adalaStep === 'checking' ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري الفحص...</> : <><Search className="h-4 w-4" /> فحص الموارد (1 - 1070)</>}
+                          <Button onClick={handleAdalaLoadAndCheck} disabled={adalaScraping} variant="outline" className="w-full gap-2">
+                            {(adalaStep === 'loading' || adalaStep === 'checking') ? <><Loader2 className="h-4 w-4 animate-spin" /> {adalaStep === 'loading' ? 'جاري تحميل الروابط...' : 'جاري الفحص...'}</> : <><Search className="h-4 w-4" /> تحميل وفحص روابط PDF</>}
                           </Button>
                           {adalaStats.total > 0 && (
                             <div className="grid grid-cols-3 gap-2 text-center">
-                              <div className="bg-muted/50 rounded p-2"><p className="text-lg font-bold text-foreground">{adalaStats.total}</p><p className="text-[10px] text-muted-foreground">إجمالي</p></div>
+                              <div className="bg-muted/50 rounded p-2"><p className="text-lg font-bold text-foreground">{adalaStats.total}</p><p className="text-[10px] text-muted-foreground">إجمالي PDF</p></div>
                               <div className="bg-muted/50 rounded p-2"><p className="text-lg font-bold text-primary">{adalaStats.newCount}</p><p className="text-[10px] text-muted-foreground">جديد</p></div>
                               <div className="bg-muted/50 rounded p-2"><p className="text-lg font-bold text-muted-foreground">{adalaStats.existing}</p><p className="text-[10px] text-muted-foreground">موجود مسبقاً</p></div>
                             </div>
                           )}
                         </div>
-                        {adalaNewIds.length > 0 && (
+                        {adalaNewUrls.length > 0 && (
                           <div className="border rounded-lg p-4 space-y-3">
                             <h3 className="font-semibold text-sm flex items-center gap-2">
                               <span className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full w-6 h-6 flex items-center justify-center text-xs">2</span>
-                              جلب ({adalaNewIds.length} مورد جديد)
+                              جلب ({adalaNewUrls.length} ملف PDF جديد)
                             </h3>
                             <Button onClick={handleAdalaScrapeAll} disabled={adalaScraping} className="w-full gap-2 bg-blue-600 hover:bg-blue-700">
-                              {adalaStep === 'scraping' ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري الجلب...</> : <><Database className="h-4 w-4" /> جلب كل الموارد الجديدة</>}
+                              {adalaStep === 'scraping' ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري الجلب...</> : <><Database className="h-4 w-4" /> جلب كل ملفات PDF الجديدة</>}
                             </Button>
                           </div>
                         )}
@@ -895,7 +928,7 @@ const KnowledgeBase = () => {
                           </div>
                         )}
                         {adalaStep === 'done' && (
-                          <Button onClick={() => { setAdalaDialogOpen(false); setAdalaStep('idle'); setAdalaLog([]); setAdalaNewIds([]); setAdalaStats({ total: 0, existing: 0, newCount: 0 }); }} variant="outline" className="w-full">إغلاق</Button>
+                          <Button onClick={() => { setAdalaDialogOpen(false); setAdalaStep('idle'); setAdalaLog([]); setAdalaNewUrls([]); setAdalaStats({ total: 0, existing: 0, newCount: 0 }); }} variant="outline" className="w-full">إغلاق</Button>
                         )}
                       </div>
                     </DialogContent>
