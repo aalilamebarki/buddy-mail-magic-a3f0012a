@@ -60,6 +60,53 @@ function detectCategory(text: string): string {
   return "أخرى";
 }
 
+function detectDocType(text: string): string {
+  const snippet = text.slice(0, 2000);
+  if (/(?:ظهير\s+شريف|الظهير\s+الشريف)/.test(snippet)) return "dahir";
+  if (/(?:قانون\s+تنظيمي|القانون\s+التنظيمي)/.test(snippet)) return "organic_law";
+  if (/(?:مرسوم\s+رقم|المرسوم\s+رقم|مرسوم\s+بقانون)/.test(snippet)) return "decree";
+  if (/(?:دورية|منشور|مذكرة\s+توجيهية)/.test(snippet)) return "circular";
+  if (/(?:اتفاقية|معاهدة|بروتوكول|مصادقة\s+على)/.test(snippet)) return "convention";
+  if (/(?:قرار\s+(?:وزير|لوزير|للوزير|مشترك)|قرار\s+رقم)/.test(snippet)) return "decision";
+  if (/(?:قانون\s+رقم|القانون\s+رقم|مدونة)/.test(snippet)) return "law";
+  return "law";
+}
+
+function extractMetadata(text: string) {
+  const snippet = text.slice(0, 3000);
+  let referenceNumber = "";
+  let dahirNumber = "";
+  let decreeNumber = "";
+  let publicationDate = "";
+  let subject = "";
+
+  const lawNumMatch = snippet.match(/قانون\s+(?:تنظيمي\s+)?رقم\s+(\d+[\.\-]\d+)/);
+  if (lawNumMatch) referenceNumber = lawNumMatch[1];
+  
+  const dahirMatch = snippet.match(/ظهير\s+شريف\s+رقم\s+([\d\.]+)/);
+  if (dahirMatch) dahirNumber = dahirMatch[1];
+  
+  const decreeMatch = snippet.match(/مرسوم\s+رقم\s+([\d\.]+)/);
+  if (decreeMatch) decreeNumber = decreeMatch[1];
+
+  const gregMatch = snippet.match(/(\d{1,2})\s+(?:يناير|فبراير|مارس|أبريل|ماي|يونيو|يوليوز|غشت|شتنبر|أكتوبر|نونبر|دجنبر|أغسطس)\s+(\d{4})/);
+  if (gregMatch) publicationDate = gregMatch[0];
+  
+  const dateMatch = snippet.match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2})/);
+  if (dateMatch && !publicationDate) publicationDate = dateMatch[1];
+
+  const subjectLine = snippet.split('\n').find(l => /(?:يتعلق|بشأن|المتعلق|في شأن|القاضي|بتنفيذ)/.test(l));
+  if (subjectLine) subject = subjectLine.trim().slice(0, 300);
+
+  return { referenceNumber, dahirNumber, decreeNumber, publicationDate, subject };
+}
+
+function isRelevantLegalContent(text: string): boolean {
+  if (text.length < 200) return false;
+  const legalKeywords = /(?:قانون|ظهير|مرسوم|مادة|فصل|باب|قرار|دورية|منشور|اتفاقية|الجريدة الرسمية|بتنفيذ|المملكة المغربية)/;
+  return legalKeywords.test(text);
+}
+
 async function firecrawlRequest(endpoint: string, body: any, apiKey: string) {
   const response = await fetch(`${FIRECRAWL_API}${endpoint}`, {
     method: "POST",
@@ -90,9 +137,8 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const body = await req.json();
-    const { action, page, base_url, urls_to_scrape } = body;
+    const { action, base_url, urls_to_scrape } = body;
 
-    // ===== Action 1: Discover all law URLs from the SGG archive =====
     if (action === "discover") {
       const targetUrl = base_url || "https://www.sgg.gov.ma";
       console.log("Mapping SGG archive:", targetUrl);
@@ -104,8 +150,6 @@ serve(async (req) => {
       }, FIRECRAWL_API_KEY);
 
       const allLinks: string[] = data.links || [];
-      
-      // Filter for relevant law pages (PDFs, legislation pages)
       const lawLinks = allLinks.filter((u: string) => {
         const lower = u.toLowerCase();
         return (
@@ -120,16 +164,12 @@ serve(async (req) => {
         );
       });
 
-      // Check which URLs are already scraped
       const { data: existingSources } = await supabase
         .from("legal_documents")
         .select("source")
         .not("source", "is", null);
-
       const existingUrls = new Set((existingSources || []).map((d: any) => d.source));
       const newLinks = lawLinks.filter((u: string) => !existingUrls.has(u));
-
-      console.log(`Found ${allLinks.length} total, ${lawLinks.length} law-related, ${newLinks.length} new`);
 
       return new Response(
         JSON.stringify({
@@ -144,10 +184,9 @@ serve(async (req) => {
       );
     }
 
-    // ===== Action 2: Scrape a batch of specific URLs =====
     if (action === "scrape_batch") {
       const urls: string[] = urls_to_scrape || [];
-      if (!urls || urls.length === 0) throw new Error("No URLs provided");
+      if (!urls.length) throw new Error("No URLs provided");
 
       const batchSize = Math.min(urls.length, 10);
       const results: any[] = [];
@@ -157,13 +196,11 @@ serve(async (req) => {
         try {
           console.log(`Scraping ${i + 1}/${batchSize}: ${url}`);
 
-          // Check if already exists (double-check)
           const { data: existing } = await supabase
             .from("legal_documents")
             .select("id")
             .eq("source", url)
             .limit(1);
-
           if (existing && existing.length > 0) {
             results.push({ url, success: false, error: "موجود مسبقاً", skipped: true });
             continue;
@@ -184,22 +221,35 @@ serve(async (req) => {
             continue;
           }
 
-          // Build a meaningful title
+          // Filter irrelevant content
+          if (!isRelevantLegalContent(markdown)) {
+            results.push({ url, success: false, error: "محتوى غير قانوني" });
+            continue;
+          }
+
+          const docType = detectDocType(markdown);
+          const meta = extractMetadata(markdown);
+          const category = detectCategory(markdown);
+
+          // Build structured title
           if (!title || title.length < 5 || /^(home|index|page)/i.test(title)) {
             const headingMatch = markdown.match(/^#+\s*(.+)/m);
-            if (headingMatch) {
-              title = headingMatch[1].trim().slice(0, 300);
-            } else {
+            if (headingMatch) title = headingMatch[1].trim().slice(0, 300);
+            else {
               const firstLine = markdown.split('\n').find((l: string) => l.trim().length > 10);
               title = firstLine ? firstLine.trim().slice(0, 300) : "نص قانوني";
             }
           }
 
-          // Extract law-specific metadata
-          const lawNumMatch = markdown.match(/(?:قانون|ظهير|مرسوم)\s+(?:رقم\s+)?(\d+[\.\-]\d+)/);
-          const referenceNumber = lawNumMatch ? lawNumMatch[1] : null;
-          
-          const category = detectCategory(markdown);
+          // Enrich title
+          if (docType === "dahir" && meta.dahirNumber) {
+            title = `ظهير شريف رقم ${meta.dahirNumber}` + (meta.subject ? ` ${meta.subject.slice(0, 150)}` : '');
+          } else if (docType === "decree" && meta.decreeNumber) {
+            title = `مرسوم رقم ${meta.decreeNumber}` + (meta.subject ? ` ${meta.subject.slice(0, 150)}` : '');
+          } else if (docType === "law" && meta.referenceNumber) {
+            title = `قانون رقم ${meta.referenceNumber}` + (meta.subject ? ` ${meta.subject.slice(0, 150)}` : '');
+          }
+
           const chunks = chunkText(markdown);
           let ingested = 0;
 
@@ -209,14 +259,21 @@ serve(async (req) => {
               title: title.slice(0, 500),
               content: chunk,
               source: url,
-              doc_type: "law",
+              doc_type: docType,
               category,
-              reference_number: referenceNumber,
+              reference_number: meta.referenceNumber || meta.dahirNumber || meta.decreeNumber || null,
+              decision_date: meta.publicationDate || null,
               embedding: JSON.stringify(embedding),
-              metadata: { scraped: true, scraped_at: new Date().toISOString(), source_site: "sgg" },
+              metadata: {
+                scraped: true,
+                scraped_at: new Date().toISOString(),
+                source_site: "sgg",
+                dahir_number: meta.dahirNumber || null,
+                decree_number: meta.decreeNumber || null,
+                subject: meta.subject || null,
+              },
             });
             if (!error) ingested++;
-            // If duplicate index error, skip remaining chunks for this URL
             if (error?.code === '23505') {
               results.push({ url, success: false, error: "موجود مسبقاً", skipped: true });
               break;
@@ -224,10 +281,9 @@ serve(async (req) => {
           }
 
           if (ingested > 0) {
-            results.push({ url, success: true, title: title.slice(0, 100), ingested, category });
+            results.push({ url, success: true, title: title.slice(0, 100), ingested, category, doc_type: docType });
           }
 
-          // Delay between requests
           await new Promise(r => setTimeout(r, 1000));
         } catch (err) {
           results.push({ url, success: false, error: String(err) });
@@ -235,45 +291,27 @@ serve(async (req) => {
       }
 
       const successCount = results.filter(r => r.success).length;
-      const skippedCount = results.filter(r => r.skipped).length;
       const totalIngested = results.filter(r => r.success).reduce((sum, r) => sum + (r.ingested || 0), 0);
 
       return new Response(
-        JSON.stringify({
-          success: true,
-          results,
-          processed: batchSize,
-          successCount,
-          skippedCount,
-          totalIngested,
-          remaining: Math.max(0, urls.length - batchSize),
-        }),
+        JSON.stringify({ success: true, results, processed: batchSize, successCount, totalIngested, remaining: Math.max(0, urls.length - batchSize) }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // ===== Action 3: Get scraping status =====
     if (action === "status") {
-      const [totalRes, sggRes] = await Promise.all([
-        supabase.from("legal_documents").select("*", { count: "exact", head: true }),
-        supabase.from("legal_documents").select("*", { count: "exact", head: true }).eq("doc_type", "law"),
-      ]);
+      const docTypes = ['law', 'dahir', 'decree', 'circular', 'convention', 'organic_law', 'decision', 'ruling'];
+      const counts: Record<string, number> = {};
+      
+      for (const dt of docTypes) {
+        const { count } = await supabase.from("legal_documents").select("*", { count: "exact", head: true }).eq("doc_type", dt);
+        counts[dt] = count || 0;
+      }
 
-      // Count unique sources from SGG
-      const { data: sggSources } = await supabase
-        .from("legal_documents")
-        .select("source")
-        .ilike("source", "%sgg.gov.ma%");
-
-      const uniqueSggUrls = new Set((sggSources || []).map(d => d.source).filter(Boolean));
+      const { count: total } = await supabase.from("legal_documents").select("*", { count: "exact", head: true });
 
       return new Response(
-        JSON.stringify({
-          success: true,
-          totalDocuments: totalRes.count || 0,
-          totalLaws: sggRes.count || 0,
-          sggUrlsScraped: uniqueSggUrls.size,
-        }),
+        JSON.stringify({ success: true, totalDocuments: total || 0, byType: counts }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }

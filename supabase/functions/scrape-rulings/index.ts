@@ -25,13 +25,11 @@ async function firecrawlRequest(endpoint: string, body: any, apiKey: string) {
   return data;
 }
 
-// Generate a simple hash-based embedding (same as legal-knowledge function)
 function generateHashEmbedding(text: string): number[] {
   const embedding = new Array(768);
   let hash = 0;
   for (let i = 0; i < text.length; i++) {
-    const char = text.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = ((hash << 5) - hash) + text.charCodeAt(i);
     hash |= 0;
   }
   for (let i = 0; i < 768; i++) {
@@ -58,21 +56,26 @@ function chunkText(text: string, maxChunkSize = 1500): string[] {
   return chunks;
 }
 
-// Extract ruling metadata from text
-function extractRulingMetadata(text: string, url: string) {
+function extractRulingMetadata(text: string) {
+  const snippet = text.slice(0, 3000);
   let referenceNumber = "";
   let chamber = "";
   let decisionDate = "";
+  let fileNumber = "";
+  let subject = "";
 
-  // Try to extract reference number (e.g., "قرار عدد 1234" or "عدد 1234/2024")
-  const refMatch = text.match(/(?:قرار\s+)?عدد\s*[:\s]*(\d+(?:\/\d+)?)/);
+  const refMatch = snippet.match(/(?:قرار\s+)?عدد\s*[:\s]*(\d+(?:\/\d+)?)/);
   if (refMatch) referenceNumber = refMatch[1];
 
-  // Try to extract date
-  const dateMatch = text.match(/(\d{4}[-/]\d{2}[-/]\d{2})/);
-  if (dateMatch) decisionDate = dateMatch[1];
+  const fileMatch = snippet.match(/ملف\s+(?:\w+\s+)?عدد\s*[:\s]*([\d\/]+)/);
+  if (fileMatch) fileNumber = fileMatch[1];
 
-  // Try to extract chamber
+  const dateMatch = snippet.match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2})/);
+  if (dateMatch) decisionDate = dateMatch[1];
+  
+  const gregMatch = snippet.match(/(\d{1,2})\s+(?:يناير|فبراير|مارس|أبريل|ماي|يونيو|يوليوز|غشت|شتنبر|أكتوبر|نونبر|دجنبر|أغسطس)\s+(\d{4})/);
+  if (gregMatch && !decisionDate) decisionDate = gregMatch[0];
+
   const chamberPatterns = [
     { regex: /الغرفة\s+المدنية/, value: "الغرفة المدنية" },
     { regex: /الغرفة\s+الجنائية/, value: "الغرفة الجنائية" },
@@ -82,32 +85,30 @@ function extractRulingMetadata(text: string, url: string) {
     { regex: /غرفة\s+الأحوال\s+الشخصية/, value: "غرفة الأحوال الشخصية والميراث" },
   ];
   for (const p of chamberPatterns) {
-    if (p.regex.test(text)) {
-      chamber = p.value;
-      break;
-    }
+    if (p.regex.test(snippet)) { chamber = p.value; break; }
   }
 
-  // Detect category from content
+  // Detect category
   let category = "أخرى";
   const categoryPatterns = [
-    { regex: /(?:كراء|الكراء|المكتري|المكري|إفراغ)/, value: "قانون الكراء" },
-    { regex: /(?:الطلاق|النفقة|الحضانة|الزواج|مدونة الأسرة|الأسرة)/, value: "مدونة الأسرة" },
-    { regex: /(?:التحفيظ|العقار|الرسم العقاري|الحقوق العينية)/, value: "القانون العقاري" },
+    { regex: /(?:كراء|الكراء|المكتري|إفراغ)/, value: "قانون الكراء" },
+    { regex: /(?:الطلاق|النفقة|الحضانة|الزواج|مدونة الأسرة)/, value: "مدونة الأسرة" },
+    { regex: /(?:التحفيظ|العقار|الرسم العقاري)/, value: "القانون العقاري" },
     { regex: /(?:الشغل|العمل|الأجير|المشغل|الفصل التعسفي)/, value: "قانون الشغل" },
-    { regex: /(?:التجاري|الشركة|الكمبيالة|الإفلاس|التسوية القضائية)/, value: "القانون التجاري" },
-    { regex: /(?:الجنائي|الجناية|الجنحة|المتهم|النيابة العامة)/, value: "القانون الجنائي" },
-    { regex: /(?:الإداري|الدولة|الجماعة|نزع الملكية)/, value: "القانون الإداري" },
-    { regex: /(?:المسؤولية|التعويض|الضرر|العقد|الالتزام)/, value: "القانون المدني" },
+    { regex: /(?:التجاري|الشركة|الكمبيالة|الإفلاس)/, value: "القانون التجاري" },
+    { regex: /(?:الجنائي|الجناية|الجنحة|المتهم)/, value: "القانون الجنائي" },
+    { regex: /(?:الإداري|الدولة|نزع الملكية)/, value: "القانون الإداري" },
+    { regex: /(?:المسؤولية|التعويض|الضرر|العقد)/, value: "القانون المدني" },
   ];
   for (const p of categoryPatterns) {
-    if (p.regex.test(text)) {
-      category = p.value;
-      break;
-    }
+    if (p.regex.test(snippet)) { category = p.value; break; }
   }
 
-  return { referenceNumber, chamber, decisionDate, category };
+  // Extract subject
+  const subjectLine = snippet.split('\n').find(l => /(?:يتعلق|بشأن|المتعلق|في شأن|القاضي|حول|في قضية)/.test(l));
+  if (subjectLine) subject = subjectLine.trim().slice(0, 300);
+
+  return { referenceNumber, chamber, decisionDate, fileNumber, category, subject };
 }
 
 serve(async (req) => {
@@ -117,49 +118,44 @@ serve(async (req) => {
 
   try {
     const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
-    if (!FIRECRAWL_API_KEY) {
-      throw new Error("FIRECRAWL_API_KEY not configured");
-    }
+    if (!FIRECRAWL_API_KEY) throw new Error("FIRECRAWL_API_KEY not configured");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const body = await req.json();
-    const { action, url, limit, doc_type: requestedDocType, urls } = body;
-    
-    // Detect doc type from URL if not specified
-    const detectDocType = (pageUrl: string) => {
-      if (pageUrl.includes('sgg.gov.ma') || pageUrl.includes('BulletinOfficiel') || pageUrl.includes('TextesLegislatifs')) return 'law';
-      if (pageUrl.includes('adala.justice')) return 'law';
-      if (pageUrl.includes('juriscassation') || pageUrl.includes('arret') || pageUrl.includes('decision')) return 'ruling';
-      return requestedDocType || 'law';
-    };
+    const { action, url, limit, urls } = body;
 
-    // Action 1: Map the website to discover ruling URLs
     if (action === "map") {
       const targetUrl = url || "https://juriscassation.cspj.ma";
-      console.log("Mapping:", targetUrl);
-
       const data = await firecrawlRequest("/map", {
         url: targetUrl,
         limit: limit || 500,
         includeSubdomains: false,
       }, FIRECRAWL_API_KEY);
 
-      const links = data.links || [];
-      console.log(`Found ${links.length} URLs`);
-
       return new Response(
-        JSON.stringify({ success: true, links, count: links.length }),
+        JSON.stringify({ success: true, links: data.links || [], count: (data.links || []).length }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Action 2: Scrape a single ruling page and save it
     if (action === "scrape") {
       if (!url) throw new Error("URL is required");
-      console.log("Scraping:", url);
+
+      // Check duplicate
+      const { data: existing } = await supabase
+        .from("legal_documents")
+        .select("id")
+        .eq("source", url)
+        .limit(1);
+      if (existing && existing.length > 0) {
+        return new Response(
+          JSON.stringify({ success: false, error: "موجود مسبقاً", skipped: true }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
 
       const data = await firecrawlRequest("/scrape", {
         url,
@@ -169,9 +165,7 @@ serve(async (req) => {
       }, FIRECRAWL_API_KEY);
 
       const markdown = data.data?.markdown || data.markdown || "";
-      const docType = detectDocType(url);
-      const defaultTitle = docType === 'law' ? 'نص قانوني' : 'قرار محكمة النقض';
-      const title = data.data?.metadata?.title || data.metadata?.title || defaultTitle;
+      const title = data.data?.metadata?.title || data.metadata?.title || "قرار محكمة النقض";
 
       if (!markdown || markdown.length < 100) {
         return new Response(
@@ -180,49 +174,68 @@ serve(async (req) => {
         );
       }
 
-      const meta = extractRulingMetadata(markdown, url);
+      const meta = extractRulingMetadata(markdown);
+      
+      // Build structured title
+      let structuredTitle = title;
+      if (meta.referenceNumber) {
+        const parts = ['قرار محكمة النقض عدد ' + meta.referenceNumber];
+        if (meta.chamber) parts.push('- ' + meta.chamber);
+        if (meta.decisionDate) parts.push('بتاريخ ' + meta.decisionDate);
+        structuredTitle = parts.join(' ');
+      }
+
       const chunks = chunkText(markdown);
       let ingested = 0;
 
       for (const chunk of chunks) {
         const embedding = generateHashEmbedding(chunk);
         const { error } = await supabase.from("legal_documents").insert({
-          title: title.slice(0, 500),
+          title: structuredTitle.slice(0, 500),
           content: chunk,
           source: url,
-          doc_type: docType,
+          doc_type: "ruling",
           category: meta.category,
           reference_number: meta.referenceNumber || null,
-          court_chamber: docType === 'ruling' ? (meta.chamber || null) : null,
+          court_chamber: meta.chamber || null,
           decision_date: meta.decisionDate || null,
           embedding: JSON.stringify(embedding),
-          metadata: { scraped: true, scraped_at: new Date().toISOString() },
+          metadata: {
+            scraped: true,
+            scraped_at: new Date().toISOString(),
+            file_number: meta.fileNumber || null,
+            subject: meta.subject || null,
+          },
         });
-        if (error) {
-          console.error("Insert error:", error);
-        } else {
-          ingested++;
-        }
+        if (!error) ingested++;
       }
 
       return new Response(
-        JSON.stringify({ success: true, title, ingested, chunks: chunks.length, category: meta.category }),
+        JSON.stringify({ success: true, title: structuredTitle, ingested, chunks: chunks.length, category: meta.category }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Action 3: Batch scrape multiple URLs
     if (action === "batch") {
       const batchUrls: string[] = urls || [];
-      if (!batchUrls || batchUrls.length === 0) throw new Error("URLs array is required");
+      if (!batchUrls.length) throw new Error("URLs array is required");
 
-      const batchLimit = Math.min(batchUrls.length, 20); // Process max 20 at a time
+      const batchLimit = Math.min(batchUrls.length, 20);
       const results: any[] = [];
 
       for (let i = 0; i < batchLimit; i++) {
         try {
-          console.log(`Scraping ${i + 1}/${batchLimit}: ${batchUrls[i]}`);
-          
+          // Check duplicate
+          const { data: existing } = await supabase
+            .from("legal_documents")
+            .select("id")
+            .eq("source", batchUrls[i])
+            .limit(1);
+          if (existing && existing.length > 0) {
+            results.push({ url: batchUrls[i], success: false, error: "موجود مسبقاً", skipped: true });
+            continue;
+          }
+
           const data = await firecrawlRequest("/scrape", {
             url: batchUrls[i],
             formats: ["markdown"],
@@ -230,39 +243,50 @@ serve(async (req) => {
             waitFor: 3000,
           }, FIRECRAWL_API_KEY);
 
-          const batchDocType = detectDocType(batchUrls[i]);
-          const defaultTitle = batchDocType === 'law' ? 'نص قانوني' : 'قرار محكمة النقض';
           const markdown = data.data?.markdown || data.markdown || "";
-          const title = data.data?.metadata?.title || data.metadata?.title || defaultTitle;
+          const pageTitle = data.data?.metadata?.title || data.metadata?.title || "قرار محكمة النقض";
 
           if (markdown && markdown.length >= 100) {
-            const meta = extractRulingMetadata(markdown, batchUrls[i]);
+            const meta = extractRulingMetadata(markdown);
+            
+            let structuredTitle = pageTitle;
+            if (meta.referenceNumber) {
+              const parts = ['قرار محكمة النقض عدد ' + meta.referenceNumber];
+              if (meta.chamber) parts.push('- ' + meta.chamber);
+              if (meta.decisionDate) parts.push('بتاريخ ' + meta.decisionDate);
+              structuredTitle = parts.join(' ');
+            }
+
             const chunks = chunkText(markdown);
             let ingested = 0;
 
             for (const chunk of chunks) {
               const embedding = generateHashEmbedding(chunk);
               const { error } = await supabase.from("legal_documents").insert({
-                title: title.slice(0, 500),
+                title: structuredTitle.slice(0, 500),
                 content: chunk,
                 source: batchUrls[i],
-                doc_type: batchDocType,
+                doc_type: "ruling",
                 category: meta.category,
                 reference_number: meta.referenceNumber || null,
-                court_chamber: batchDocType === 'ruling' ? (meta.chamber || null) : null,
+                court_chamber: meta.chamber || null,
                 decision_date: meta.decisionDate || null,
                 embedding: JSON.stringify(embedding),
-                metadata: { scraped: true, scraped_at: new Date().toISOString() },
+                metadata: {
+                  scraped: true,
+                  scraped_at: new Date().toISOString(),
+                  file_number: meta.fileNumber || null,
+                  subject: meta.subject || null,
+                },
               });
               if (!error) ingested++;
             }
 
-            results.push({ url: batchUrls[i], success: true, title, ingested });
+            results.push({ url: batchUrls[i], success: true, title: structuredTitle, ingested, category: meta.category });
           } else {
             results.push({ url: batchUrls[i], success: false, error: "محتوى قصير" });
           }
 
-          // Small delay between requests
           await new Promise(r => setTimeout(r, 1000));
         } catch (err) {
           results.push({ url: batchUrls[i], success: false, error: String(err) });
