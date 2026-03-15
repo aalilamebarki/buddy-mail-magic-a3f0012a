@@ -424,8 +424,13 @@ const KnowledgeBase = () => {
         if (data?.results) {
           for (const r of data.results) {
             if (r.success) {
-              const typeLabel = DOC_TYPES.find(t => t.value === r.doc_type)?.label || r.doc_type || 'نص';
-              setAdalaLog(prev => [...prev, `✅ [${typeLabel}] #${r.resourceId}: ${r.title} [${r.category}] (${r.ingested} أجزاء)`]);
+              setAdalaLog(prev => [...prev, `✅ #${r.resourceId}: ${r.title} (${r.pdfCount || 0} PDF، ${r.ingested} أجزاء)`]);
+              // Show individual PDF results if available
+              if (r.pdfResults) {
+                for (const pr of r.pdfResults) {
+                  setAdalaLog(prev => [...prev, `   📄 ${pr}`]);
+                }
+              }
             } else if (r.skipped) {
               setAdalaLog(prev => [...prev, `⏭️ #${r.resourceId}: موجود مسبقاً`]);
             } else {
