@@ -231,16 +231,16 @@ const DocumentDetail = () => {
 
               {/* Actions */}
               <div className="flex items-center gap-2 flex-wrap">
-                {doc.source && (
-                  <Button size="sm" className="rounded-full gap-2 text-xs" onClick={() => setShowPdf(!showPdf)}>
+                {(doc.local_pdf_path || doc.source) && (
+                  <Button size="sm" className="rounded-full gap-2 text-xs" onClick={() => { setShowPdf(!showPdf); setPdfError(false); }}>
                     {showPdf ? <FileText className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
                     {showPdf ? 'عرض النص' : 'عرض PDF'}
                   </Button>
                 )}
-                {doc.source && (
-                  <a href={doc.source} target="_blank" rel="noopener noreferrer">
+                {getPdfUrl() && (
+                  <a href={getPdfUrl()!} target="_blank" rel="noopener noreferrer" download>
                     <Button variant="outline" size="sm" className="rounded-full gap-2 text-xs">
-                      <ExternalLink className="h-3.5 w-3.5" /> فتح المصدر
+                      <Download className="h-3.5 w-3.5" /> تحميل PDF
                     </Button>
                   </a>
                 )}
