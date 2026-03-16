@@ -328,14 +328,14 @@ const DocumentGenerator = () => {
   const createCase = async () => {
     if (!user || !selectedClient || !newCase.opposing_party.trim()) return;
     try {
-      const caseNumber = newCase.case_number.trim() || `${Date.now()}`;
+      const caseNumber = `${Date.now()}`;
       const { data, error } = await supabase.from('cases').insert({
         case_number: caseNumber,
         title: newCase.title.trim() || `${selectedClient.full_name} ضد ${newCase.opposing_party.trim()}`,
         client_id: selectedClient.id,
         case_type: newCase.case_type || null,
-        court: newCase.court || null,
-        court_level: newCase.court_level,
+        court: null,
+        court_level: 'ابتدائية',
         opposing_party: newCase.opposing_party.trim(),
         opposing_party_address: newCase.opposing_party_address.trim() || null,
         description: newCase.description.trim() || null,
@@ -345,8 +345,9 @@ const DocumentGenerator = () => {
       const created = data as CaseFile;
       setCases(prev => [created, ...prev]);
       setSelectedCase(created);
-      setActiveDocType(newCase.doc_type);
-      setNewCase({ title: '', case_type: '', court: '', court_level: 'ابتدائية', opposing_party: '', opposing_party_address: '', case_number: '', description: '', doc_type: '' });
+      setActiveDocType('');
+      setChatDocConfig({ doc_type: '', court: '', court_level: 'ابتدائية', case_number: '' });
+      setNewCase({ title: '', case_type: '', opposing_party: '', opposing_party_address: '', description: '' });
       setChatMessages([]);
       setView('chat');
       toast({ title: 'تم إنشاء الملف ✅' });
