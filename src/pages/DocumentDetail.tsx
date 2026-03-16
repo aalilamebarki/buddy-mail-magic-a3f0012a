@@ -260,7 +260,7 @@ const DocumentDetail = () => {
               transition={{ delay: 0.2 }}
               className="rounded-2xl border border-border/20 bg-card overflow-hidden"
             >
-              {showPdf && doc.source ? (
+              {showPdf && getPdfUrl() ? (
                 pdfError ? (
                   <div className="text-center py-12 space-y-3 p-6">
                     <FileText className="h-12 w-12 text-muted-foreground/30 mx-auto" />
