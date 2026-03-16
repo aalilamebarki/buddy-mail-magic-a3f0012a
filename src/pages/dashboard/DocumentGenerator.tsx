@@ -691,28 +691,53 @@ const DocumentGenerator = () => {
               {expandedThread ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </button>
             {expandedThread && (
-              <div className="px-3 pb-3 space-y-1.5 max-h-[200px] overflow-y-auto">
-                {currentThread.docs.map((doc, i) => (
-                  <div key={doc.id} className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2 text-xs">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold shrink-0 text-[10px]">
-                        {doc.step_number || i + 1}
-                      </span>
-                      <span className="font-medium text-foreground truncate">{doc.doc_type}</span>
-                      {doc.opponent_memo && <span>📨</span>}
+              <div className="px-3 pb-3 space-y-1.5 max-h-[250px] overflow-y-auto">
+                {currentThread.docs.map((doc, i) => {
+                  const isOpponentMemo = doc.doc_type === 'مذكرة الخصم';
+                  return (
+                    <div key={doc.id} className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs ${isOpponentMemo ? 'bg-destructive/10 border border-destructive/20' : 'bg-muted/50'}`}>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={`w-5 h-5 rounded-full flex items-center justify-center font-bold shrink-0 text-[10px] ${isOpponentMemo ? 'bg-destructive/20 text-destructive' : 'bg-primary/10 text-primary'}`}>
+                          {doc.step_number || i + 1}
+                        </span>
+                        <span className="font-medium text-foreground truncate">{doc.doc_type}</span>
+                        {isOpponentMemo && <span>📨</span>}
+                        <span className="text-muted-foreground text-[10px]">{new Date(doc.created_at).toLocaleDateString('ar-MA')}</span>
+                      </div>
+                      <div className="flex gap-0.5 shrink-0">
+                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => setPreviewDoc(doc)}>
+                          <Eye className="h-3 w-3" />
+                        </Button>
+                        {doc.content && (
+                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => exportWord(doc.content || '', doc.doc_type)}>
+                            <Download className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex gap-0.5 shrink-0">
-                      <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => setPreviewDoc(doc)}>
-                        <Eye className="h-3 w-3" />
-                      </Button>
-                      <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => exportWord(doc.content || '', doc.doc_type)}>
-                        <Download className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
+                {/* Add opponent memo button */}
+                <label className="flex items-center justify-center gap-2 border border-dashed border-destructive/40 rounded-lg px-3 py-2.5 text-xs text-destructive hover:bg-destructive/5 cursor-pointer transition-colors">
+                  <FileUp className="h-3.5 w-3.5" />
+                  <span className="font-medium">إضافة رد الخصم (PDF/Word)</span>
+                  <input type="file" multiple accept=".pdf,.doc,.docx,.txt" className="hidden"
+                    onChange={e => { if (e.target.files) addOpponentMemo(Array.from(e.target.files)); e.target.value = ''; }} />
+                </label>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Add opponent memo when no docs yet */}
+        {currentThread.docs.length === 0 && (
+          <div className="border-b border-border px-3 py-2">
+            <label className="flex items-center justify-center gap-2 border border-dashed border-destructive/40 rounded-lg px-3 py-2.5 text-xs text-destructive hover:bg-destructive/5 cursor-pointer transition-colors">
+              <FileUp className="h-3.5 w-3.5" />
+              <span className="font-medium">إضافة رد الخصم (PDF/Word)</span>
+              <input type="file" multiple accept=".pdf,.doc,.docx,.txt" className="hidden"
+                onChange={e => { if (e.target.files) addOpponentMemo(Array.from(e.target.files)); e.target.value = ''; }} />
+            </label>
           </div>
         )}
 
