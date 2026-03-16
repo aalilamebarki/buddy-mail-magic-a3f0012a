@@ -151,9 +151,13 @@ const DocumentGenerator = () => {
 
   // New case form
   const [newCase, setNewCase] = useState({
-    title: '', case_type: '', court: '', court_level: 'ابتدائية',
-    opposing_party: '', opposing_party_address: '', case_number: '', description: '',
-    doc_type: '',
+    title: '', case_type: '',
+    opposing_party: '', opposing_party_address: '', description: '',
+  });
+
+  // Chat-phase doc config (selected in chat view before writing)
+  const [chatDocConfig, setChatDocConfig] = useState({
+    doc_type: '', court: '', court_level: 'ابتدائية', case_number: '',
   });
 
   // Chat
@@ -305,6 +309,7 @@ const DocumentGenerator = () => {
   const openCase = (caseFile: CaseFile) => {
     setSelectedCase(caseFile);
     setActiveDocType('');
+    setChatDocConfig({ doc_type: '', court: caseFile.court || '', court_level: caseFile.court_level || 'ابتدائية', case_number: caseFile.case_number || '' });
     setChatMessages([]);
     setView('chat');
   };
@@ -324,14 +329,14 @@ const DocumentGenerator = () => {
   const createCase = async () => {
     if (!user || !selectedClient || !newCase.opposing_party.trim()) return;
     try {
-      const caseNumber = newCase.case_number.trim() || `${Date.now()}`;
+      const caseNumber = `${Date.now()}`;
       const { data, error } = await supabase.from('cases').insert({
         case_number: caseNumber,
         title: newCase.title.trim() || `${selectedClient.full_name} ضد ${newCase.opposing_party.trim()}`,
         client_id: selectedClient.id,
         case_type: newCase.case_type || null,
-        court: newCase.court || null,
-        court_level: newCase.court_level,
+        court: null,
+        court_level: 'ابتدائية',
         opposing_party: newCase.opposing_party.trim(),
         opposing_party_address: newCase.opposing_party_address.trim() || null,
         description: newCase.description.trim() || null,
@@ -341,8 +346,9 @@ const DocumentGenerator = () => {
       const created = data as CaseFile;
       setCases(prev => [created, ...prev]);
       setSelectedCase(created);
-      setActiveDocType(newCase.doc_type);
-      setNewCase({ title: '', case_type: '', court: '', court_level: 'ابتدائية', opposing_party: '', opposing_party_address: '', case_number: '', description: '', doc_type: '' });
+      setActiveDocType('');
+      setChatDocConfig({ doc_type: '', court: '', court_level: 'ابتدائية', case_number: '' });
+      setNewCase({ title: '', case_type: '', opposing_party: '', opposing_party_address: '', description: '' });
       setChatMessages([]);
       setView('chat');
       toast({ title: 'تم إنشاء الملف ✅' });
@@ -491,11 +497,11 @@ const DocumentGenerator = () => {
       clientPhone: selectedClient?.phone || '',
       opposingParty: selectedCase.opposing_party || '',
       opposingPartyAddress: (selectedCase as any).opposing_party_address || '',
-      court: selectedCase.court || '',
-      courtLevel: selectedCase.court_level || '',
-      caseNumber: selectedCase.case_number || '',
+      court: chatDocConfig.court || selectedCase.court || '',
+      courtLevel: chatDocConfig.court_level || selectedCase.court_level || '',
+      caseNumber: chatDocConfig.case_number || selectedCase.case_number || '',
       caseType: selectedCase.case_type || '',
-      requestedDocType: activeDocType || '',
+      requestedDocType: activeDocType || chatDocConfig.doc_type || '',
       previousDocs: caseDocs.map(d => ({
         step: d.step_number,
         docType: d.doc_type,
@@ -862,8 +868,113 @@ const DocumentGenerator = () => {
           </div>
         )}
 
-        {/* Required: upload case documents before AI can generate (only for types that need docs) */}
-        {caseDocs.length === 0 && !DOCS_NOT_REQUIRED_TYPES.includes(activeDocType) && (
+        {/* Doc type config panel - shown when no doc type selected yet */}
+        {!activeDocType && (
+          <div className="border-b border-border px-3 py-4 space-y-3">
+            <div className="text-center space-y-1">
+              <p className="text-sm font-semibold text-foreground">اختر نوع المستند</p>
+              <p className="text-xs text-muted-foreground">حدد نوع المستند ثم أكمل البيانات المطلوبة</p>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5 justify-center">
+              {DOC_TYPE_OPTIONS.map(dt => (
+                <button
+                  key={dt.label}
+                  onClick={() => setChatDocConfig(prev => ({ ...prev, doc_type: dt.label }))}
+                  className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors border ${
+                    chatDocConfig.doc_type === dt.label
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-background text-foreground border-border hover:bg-accent'
+                  }`}
+                >
+                  {dt.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Court level */}
+            {chatDocConfig.doc_type && getDocRequirement(chatDocConfig.doc_type) !== 'none' && (
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-foreground">درجة المحكمة *</label>
+                <div className="flex gap-2">
+                  {COURT_LEVELS.map(level => (
+                    <button
+                      key={level}
+                      onClick={() => setChatDocConfig(prev => ({ ...prev, court_level: level }))}
+                      className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors border ${
+                        chatDocConfig.court_level === level
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-background text-foreground border-border hover:bg-accent'
+                      }`}
+                    >
+                      {level}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Court name */}
+            {chatDocConfig.doc_type && getDocRequirement(chatDocConfig.doc_type) !== 'none' && (
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-foreground">المحكمة المختصة *</label>
+                <Select value={chatDocConfig.court} onValueChange={v => setChatDocConfig(prev => ({ ...prev, court: v }))}>
+                  <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="اختر المحكمة" /></SelectTrigger>
+                  <SelectContent>
+                    {COURT_TYPES.map(ct => (
+                      <SelectItem key={ct} value={ct}>{ct}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Case number */}
+            {chatDocConfig.doc_type && getDocRequirement(chatDocConfig.doc_type) === 'court_and_case' && (
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-foreground">رقم الملف</label>
+                <Input
+                  placeholder="رقم الملف بالمحكمة"
+                  value={chatDocConfig.case_number}
+                  onChange={e => setChatDocConfig(prev => ({ ...prev, case_number: e.target.value }))}
+                  className="h-9 text-xs"
+                />
+              </div>
+            )}
+
+            {chatDocConfig.doc_type && (
+              <Button
+                onClick={() => {
+                  setActiveDocType(chatDocConfig.doc_type);
+                  // Update case with court info if provided
+                  if (selectedCase && (chatDocConfig.court || chatDocConfig.case_number)) {
+                    supabase.from('cases').update({
+                      court: chatDocConfig.court || selectedCase.court,
+                      court_level: chatDocConfig.court_level || selectedCase.court_level,
+                      case_number: chatDocConfig.case_number || selectedCase.case_number,
+                    }).eq('id', selectedCase.id).then(() => {
+                      setSelectedCase(prev => prev ? {
+                        ...prev,
+                        court: chatDocConfig.court || prev.court,
+                        court_level: chatDocConfig.court_level || prev.court_level,
+                        case_number: chatDocConfig.case_number || prev.case_number,
+                      } : prev);
+                    });
+                  }
+                }}
+                disabled={
+                  (getDocRequirement(chatDocConfig.doc_type) !== 'none' && !chatDocConfig.court)
+                }
+                className="w-full gap-2" size="sm"
+              >
+                <Sparkles className="h-3.5 w-3.5" /> متابعة
+              </Button>
+            )}
+          </div>
+        )}
+
+        {/* Required: upload case documents before AI can generate */}
+        {activeDocType && caseDocs.length === 0 && !DOCS_NOT_REQUIRED_TYPES.includes(activeDocType) && (
           <div className="border-b border-border px-3 py-4 space-y-3">
             <div className="text-center space-y-2">
               <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto">
@@ -884,7 +995,7 @@ const DocumentGenerator = () => {
         {/* Messages */}
         <ScrollArea className="flex-1 py-3">
           <div className="space-y-3 px-1">
-            {chatMessages.length === 0 && (caseDocs.length > 0 || DOCS_NOT_REQUIRED_TYPES.includes(activeDocType)) && (
+            {chatMessages.length === 0 && activeDocType && (caseDocs.length > 0 || DOCS_NOT_REQUIRED_TYPES.includes(activeDocType)) && (
               <div className="text-center py-8 space-y-3">
                 <Sparkles className="h-10 w-10 text-primary/20 mx-auto" />
                 <p className="text-sm font-medium text-foreground">اكتب ما تريد وسأصوغه لك</p>
@@ -968,7 +1079,11 @@ const DocumentGenerator = () => {
 
         {/* Input */}
         <div className="border-t border-border pt-2">
-          {caseDocs.length === 0 && !DOCS_NOT_REQUIRED_TYPES.includes(activeDocType) ? (
+          {!activeDocType ? (
+            <div className="text-center py-3">
+              <p className="text-xs text-muted-foreground">⬆️ اختر نوع المستند أولاً</p>
+            </div>
+          ) : caseDocs.length === 0 && !DOCS_NOT_REQUIRED_TYPES.includes(activeDocType) ? (
             <div className="text-center py-3">
               <p className="text-xs text-muted-foreground">⬆️ أضف وثائق الملف أعلاه لتتمكن من بدء الصياغة</p>
             </div>
@@ -1046,26 +1161,6 @@ const DocumentGenerator = () => {
 
         <Card>
           <CardContent className="pt-5 space-y-4">
-            {/* Document type selector - FIRST */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">نوع المستند المطلوب *</label>
-              <div className="flex flex-wrap gap-1.5">
-                {DOC_TYPE_OPTIONS.map(dt => (
-                  <button
-                    key={dt.label}
-                    onClick={() => setNewCase(prev => ({ ...prev, doc_type: dt.label }))}
-                    className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors border ${
-                      newCase.doc_type === dt.label
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-background text-foreground border-border hover:bg-accent'
-                    }`}
-                  >
-                    {dt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* Opposing party - Required */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">المدعى عليه / الخصم *</label>
@@ -1086,58 +1181,6 @@ const DocumentGenerator = () => {
                 className="h-10"
               />
             </div>
-
-            {/* Court level - show only if not إنذار */}
-            {getDocRequirement(newCase.doc_type) !== 'none' && (
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">درجة المحكمة *</label>
-                <div className="flex gap-2">
-                  {COURT_LEVELS.map(level => (
-                    <button
-                      key={level}
-                      onClick={() => setNewCase(prev => ({ ...prev, court_level: level }))}
-                      className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors border ${
-                        newCase.court_level === level
-                          ? 'bg-primary text-primary-foreground border-primary'
-                          : 'bg-background text-foreground border-border hover:bg-accent'
-                      }`}
-                    >
-                      {level}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Court name - required for court_only and court_and_case */}
-            {getDocRequirement(newCase.doc_type) !== 'none' && (
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">
-                  المحكمة المختصة *
-                </label>
-                <Select value={newCase.court} onValueChange={v => setNewCase(prev => ({ ...prev, court: v }))}>
-                  <SelectTrigger className="h-10"><SelectValue placeholder="اختر المحكمة" /></SelectTrigger>
-                  <SelectContent>
-                    {COURT_TYPES.map(ct => (
-                      <SelectItem key={ct} value={ct}>{ct}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {/* Case number - required only for court_and_case */}
-            {getDocRequirement(newCase.doc_type) === 'court_and_case' && (
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">رقم الملف *</label>
-                <Input
-                  placeholder="رقم الملف بالمحكمة"
-                  value={newCase.case_number}
-                  onChange={e => setNewCase(prev => ({ ...prev, case_number: e.target.value }))}
-                  className="h-10"
-                />
-              </div>
-            )}
 
             {/* Case type */}
             <div className="space-y-2">
@@ -1183,12 +1226,7 @@ const DocumentGenerator = () => {
 
             <Button
               onClick={createCase}
-              disabled={
-                !newCase.doc_type ||
-                !newCase.opposing_party.trim() ||
-                (getDocRequirement(newCase.doc_type) !== 'none' && !newCase.court) ||
-                (getDocRequirement(newCase.doc_type) === 'court_and_case' && !newCase.case_number.trim())
-              }
+              disabled={!newCase.opposing_party.trim()}
               className="w-full gap-2" size="lg"
             >
               <Plus className="h-4 w-4" /> إنشاء الملف والبدء
