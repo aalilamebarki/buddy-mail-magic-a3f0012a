@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import {
   FileText, Search, Download, Loader2, Save, Eye,
   FileUp, Trash2, Sparkles, Send, FolderOpen,
-  ArrowRight, MessageSquare, ChevronDown, ChevronUp, User, Plus, X, UserPlus, Stamp
+  ArrowRight, MessageSquare, ChevronDown, ChevronUp, User, Plus, X, UserPlus, Stamp, BookOpen
 } from 'lucide-react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
