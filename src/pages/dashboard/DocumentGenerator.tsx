@@ -94,6 +94,32 @@ const COURT_TYPES = [
 const CASE_TYPES = ['مدني', 'جنائي', 'تجاري', 'إداري', 'أسرة', 'عقاري', 'شغل', 'جنحي'] as const;
 const REF_DOC_TYPES = ['مذكرة', 'مقال', 'شكاية', 'حكم قضائي', 'إنذار', 'عقد', 'عام'] as const;
 
+// Document type categories for conditional field requirements
+const DOC_TYPE_OPTIONS = [
+  // Court + case_number required
+  { label: 'مذكرة جوابية', requires: 'court_and_case' },
+  { label: 'مذكرة تعقيبية', requires: 'court_and_case' },
+  { label: 'مقال استئنافي', requires: 'court_and_case' },
+  { label: 'التدخل في الدعوى', requires: 'court_and_case' },
+  { label: 'عريضة نقض', requires: 'court_and_case' },
+  // Court only required
+  { label: 'مقال افتتاحي', requires: 'court_only' },
+  // Nothing required
+  { label: 'إنذار بالإفراغ', requires: 'none' },
+  { label: 'إنذار بالأداء', requires: 'none' },
+  { label: 'إنذار عام', requires: 'none' },
+] as const;
+
+type DocRequirement = 'court_and_case' | 'court_only' | 'none';
+
+const getDocRequirement = (docType: string): DocRequirement => {
+  const found = DOC_TYPE_OPTIONS.find(d => d.label === docType);
+  return found?.requires || 'court_and_case';
+};
+
+// Types that don't need documents-first gate
+const DOCS_NOT_REQUIRED_TYPES = ['مقال افتتاحي', 'إنذار بالإفراغ', 'إنذار بالأداء', 'إنذار عام'];
+
 // ─── Component ──────────────────────────────────────────────────────────────
 
 const DocumentGenerator = () => {
