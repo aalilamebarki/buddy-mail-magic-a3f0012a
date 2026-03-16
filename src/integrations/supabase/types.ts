@@ -447,6 +447,7 @@ export type Database = {
           doc_type: string
           embedding: string | null
           id: string
+          local_pdf_path: string | null
           metadata: Json | null
           reference_number: string | null
           source: string | null
@@ -461,6 +462,7 @@ export type Database = {
           doc_type?: string
           embedding?: string | null
           id?: string
+          local_pdf_path?: string | null
           metadata?: Json | null
           reference_number?: string | null
           source?: string | null
@@ -475,6 +477,7 @@ export type Database = {
           doc_type?: string
           embedding?: string | null
           id?: string
+          local_pdf_path?: string | null
           metadata?: Json | null
           reference_number?: string | null
           source?: string | null

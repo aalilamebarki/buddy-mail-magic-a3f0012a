@@ -59,6 +59,15 @@ const DocumentDetail = () => {
     fetchDoc();
   }, [id]);
 
+  // Build PDF URL from local storage or source
+  const getPdfUrl = () => {
+    if (doc?.local_pdf_path && doc.local_pdf_path !== 'fetch_failed') {
+      const { data } = supabase.storage.from('legal-pdfs').getPublicUrl(doc.local_pdf_path);
+      return data?.publicUrl || null;
+    }
+    return doc?.source || null;
+  };
+
   const getStatus = (d: any): DocStatus => {
     if (d?.metadata?.status === 'repealed') return 'repealed';
     if (d?.metadata?.status === 'modified') return 'modified';
@@ -222,16 +231,16 @@ const DocumentDetail = () => {
 
               {/* Actions */}
               <div className="flex items-center gap-2 flex-wrap">
-                {doc.source && (
-                  <Button size="sm" className="rounded-full gap-2 text-xs" onClick={() => setShowPdf(!showPdf)}>
+                {(doc.local_pdf_path || doc.source) && (
+                  <Button size="sm" className="rounded-full gap-2 text-xs" onClick={() => { setShowPdf(!showPdf); setPdfError(false); }}>
                     {showPdf ? <FileText className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
                     {showPdf ? 'عرض النص' : 'عرض PDF'}
                   </Button>
                 )}
-                {doc.source && (
-                  <a href={doc.source} target="_blank" rel="noopener noreferrer">
+                {getPdfUrl() && (
+                  <a href={getPdfUrl()!} target="_blank" rel="noopener noreferrer" download>
                     <Button variant="outline" size="sm" className="rounded-full gap-2 text-xs">
-                      <ExternalLink className="h-3.5 w-3.5" /> فتح المصدر
+                      <Download className="h-3.5 w-3.5" /> تحميل PDF
                     </Button>
                   </a>
                 )}
@@ -251,7 +260,7 @@ const DocumentDetail = () => {
               transition={{ delay: 0.2 }}
               className="rounded-2xl border border-border/20 bg-card overflow-hidden"
             >
-              {showPdf && doc.source ? (
+              {showPdf && getPdfUrl() ? (
                 pdfError ? (
                   <div className="text-center py-12 space-y-3 p-6">
                     <FileText className="h-12 w-12 text-muted-foreground/30 mx-auto" />
@@ -262,7 +271,7 @@ const DocumentDetail = () => {
                   </div>
                 ) : (
                   <iframe
-                    src={doc.source}
+                    src={getPdfUrl()!}
                     className="w-full border-0"
                     style={{ height: '80vh' }}
                     title={doc.title}

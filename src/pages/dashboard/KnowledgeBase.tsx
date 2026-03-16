@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { BookOpen, Plus, Upload, Search, FileText, Scale, Database, Globe, Loader2, Gavel, ScrollText, FileCheck, Building2, Eye } from 'lucide-react';
+import { BookOpen, Plus, Upload, Search, FileText, Scale, Database, Globe, Loader2, Gavel, ScrollText, FileCheck, Building2, Eye, Download } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
 interface LegalDocument {
@@ -112,6 +112,44 @@ const KnowledgeBase = () => {
   const [adalaLog, setAdalaLog] = useState<string[]>([]);
   const [adalaStats, setAdalaStats] = useState({ total: 0, existing: 0, newCount: 0 });
   const [adalaTotalIngested, setAdalaTotalIngested] = useState(0);
+
+  // PDF Download state
+  const [pdfDownloading, setPdfDownloading] = useState(false);
+  const [pdfDownloadLog, setPdfDownloadLog] = useState<string[]>([]);
+  const [pdfDownloadDialogOpen, setPdfDownloadDialogOpen] = useState(false);
+
+  const handleDownloadPdfs = async () => {
+    setPdfDownloading(true);
+    setPdfDownloadLog([]);
+    let totalDownloaded = 0;
+    let totalFailed = 0;
+    const maxRounds = 20; // 20 rounds × 5 = 100 docs max per session
+    
+    for (let round = 0; round < maxRounds; round++) {
+      try {
+        const { data, error } = await supabase.functions.invoke('download-legal-pdfs', {
+          body: { batch_size: 5 },
+        });
+        if (error) throw error;
+        if (!data || data.downloaded === 0) {
+          setPdfDownloadLog(prev => [...prev, '✅ تم تحميل جميع الوثائق المتاحة']);
+          break;
+        }
+        totalDownloaded += data.downloaded;
+        totalFailed += data.failed;
+        setPdfDownloadLog(prev => [
+          ...prev,
+          `📥 الدفعة ${round + 1}: تحميل ${data.downloaded}، فشل ${data.failed}`,
+        ]);
+      } catch (e: any) {
+        setPdfDownloadLog(prev => [...prev, `❌ خطأ: ${e.message}`]);
+        break;
+      }
+    }
+    setPdfDownloadLog(prev => [...prev, `📊 الإجمالي: ${totalDownloaded} محمّل، ${totalFailed} فشل`]);
+    setPdfDownloading(false);
+    if (totalDownloaded > 0) toast.success(`تم تحميل ${totalDownloaded} ملف PDF`);
+  };
 
   const fetchStats = async () => {
     const types = ['law', 'dahir', 'decree', 'organic_law', 'circular', 'convention', 'decision', 'ruling', 'doctrine'];
@@ -947,6 +985,33 @@ const KnowledgeBase = () => {
                         )}
                         {adalaStep === 'done' && (
                           <Button onClick={() => { setAdalaDialogOpen(false); setAdalaStep('idle'); setAdalaLog([]); setAdalaNewUrls([]); setAdalaStats({ total: 0, existing: 0, newCount: 0 }); }} variant="outline" className="w-full">إغلاق</Button>
+                        )}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+
+                  {/* Download PDFs locally */}
+                  <Dialog open={pdfDownloadDialogOpen} onOpenChange={setPdfDownloadDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm" className="gap-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs">
+                        <Download className="h-3.5 w-3.5" /> تحميل PDF محلياً
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2"><Download className="h-5 w-5 text-emerald-600" /> تحميل ملفات PDF وحفظها</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4 mt-4">
+                        <p className="text-sm text-muted-foreground">يقوم بتحميل ملفات PDF من المصادر الخارجية وحفظها في قاعدة بياناتك لضمان توفرها دائماً.</p>
+                        <Button onClick={handleDownloadPdfs} disabled={pdfDownloading} className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700">
+                          {pdfDownloading ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري التحميل...</> : <><Download className="h-4 w-4" /> بدء تحميل PDF</>}
+                        </Button>
+                        {pdfDownloadLog.length > 0 && (
+                          <div className="bg-muted/50 rounded-lg p-3 max-h-60 overflow-y-auto space-y-1">
+                            {pdfDownloadLog.map((log, i) => (
+                              <p key={i} className="text-xs font-mono text-muted-foreground">{log}</p>
+                            ))}
+                          </div>
                         )}
                       </div>
                     </DialogContent>
