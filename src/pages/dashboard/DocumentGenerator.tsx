@@ -67,6 +67,15 @@ interface Letterhead {
   template_path: string | null;
 }
 
+interface ReferenceDocument {
+  id: string;
+  title: string;
+  doc_type: string;
+  content: string;
+  file_name: string | null;
+  created_at: string;
+}
+
 interface CaseThread {
   threadId: string;
   clientName: string;
