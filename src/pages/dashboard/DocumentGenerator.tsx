@@ -308,6 +308,18 @@ const DocumentGenerator = () => {
     setView('chat');
   };
 
+  const deleteCase = async (caseId: string) => {
+    try {
+      const { error } = await supabase.from('cases').delete().eq('id', caseId);
+      if (error) throw error;
+      setCases(prev => prev.filter(c => c.id !== caseId));
+      setAllDocs(prev => prev.filter(d => d.case_id !== caseId));
+      toast({ title: 'تم حذف الملف وجميع مستنداته ✅' });
+    } catch (e: any) {
+      toast({ title: 'خطأ', description: e.message, variant: 'destructive' });
+    }
+  };
+
   const createCase = async () => {
     if (!user || !selectedClient || !newCase.opposing_party.trim()) return;
     try {
