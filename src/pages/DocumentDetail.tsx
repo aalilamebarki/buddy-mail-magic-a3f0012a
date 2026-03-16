@@ -271,7 +271,7 @@ const DocumentDetail = () => {
                   </div>
                 ) : (
                   <iframe
-                    src={doc.source}
+                    src={getPdfUrl()!}
                     className="w-full border-0"
                     style={{ height: '80vh' }}
                     title={doc.title}
