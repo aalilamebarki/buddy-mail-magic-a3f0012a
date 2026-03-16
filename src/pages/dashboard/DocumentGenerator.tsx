@@ -504,6 +504,9 @@ const DocumentGenerator = () => {
   const fetchTemplateAsArrayBuffer = async (path: string): Promise<ArrayBuffer> => {
     const { data } = supabase.storage.from('letterheads').getPublicUrl(path);
     const resp = await fetch(data.publicUrl);
+    if (!resp.ok) throw new Error(`Failed to fetch template: ${resp.status}`);
+    const ct = resp.headers.get('content-type') || '';
+    if (ct.includes('html') || ct.includes('json')) throw new Error('Template URL returned non-docx content');
     return resp.arrayBuffer();
   };
 
