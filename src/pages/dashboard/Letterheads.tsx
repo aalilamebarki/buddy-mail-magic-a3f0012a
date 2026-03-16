@@ -28,7 +28,7 @@ const Letterheads = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
+  
 
   useEffect(() => {
     if (!user) return;
