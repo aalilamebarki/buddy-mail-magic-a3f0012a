@@ -376,7 +376,7 @@ const Letterheads = () => {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".doc,.docx"
+        accept=".docx"
         onChange={handleTemplateChange}
         className="hidden"
         tabIndex={-1}
