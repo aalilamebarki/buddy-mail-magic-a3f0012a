@@ -151,10 +151,20 @@ const DocumentGenerator = () => {
       if (clientSearchRef.current && !clientSearchRef.current.contains(e.target as Node)) {
         setShowClientSuggestions(false);
       }
+      if (letterheadSearchRef.current && !letterheadSearchRef.current.contains(e.target as Node)) {
+        setShowLetterheadSuggestions(false);
+      }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  // Filtered letterheads
+  const filteredLetterheads = letterheadSearch.trim()
+    ? letterheads.filter(lh => lh.lawyer_name.includes(letterheadSearch))
+    : letterheads;
+
+  const selectedLetterhead = selectedLetterheadId ? letterheads.find(lh => lh.id === selectedLetterheadId) || null : null;
 
   // Filtered clients for autocomplete
   const filteredClients = clientSearch.trim()
