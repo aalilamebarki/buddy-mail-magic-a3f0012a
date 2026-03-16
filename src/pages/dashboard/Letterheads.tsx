@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,9 +16,19 @@ interface Letterhead {
   created_at: string;
 }
 
+const fallbackPreview = (fileName: string, message: string) => `
+  <div style="text-align:center;color:gray;padding:20px;">
+    <p style="font-size:14px;">📄 ${fileName}</p>
+    <p style="font-size:12px;">${message}</p>
+  </div>
+`;
+
+const getFileExtension = (fileName: string) => fileName.split('.').pop()?.toLowerCase();
+
 const Letterheads = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+
   const [letterheads, setLetterheads] = useState<Letterhead[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -28,52 +38,70 @@ const Letterheads = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
-  
 
   useEffect(() => {
     if (!user) return;
     loadLetterheads();
   }, [user]);
 
+  const loadLetterheads = async () => {
+    const { data } = await supabase
+      .from('letterheads')
+      .select('id, lawyer_name, template_path, created_at')
+      .order('created_at', { ascending: false }) as any;
+
+    if (data) setLetterheads(data);
+    setLoading(false);
+  };
+
+  const buildPreviewHtml = async (fileName: string, arrayBuffer: ArrayBuffer) => {
+    const ext = getFileExtension(fileName);
+
+    if (ext === 'docx') {
+      const result = await mammoth.convertToHtml({ arrayBuffer });
+      return result.value || '<p style="color:gray;text-align:center;">الملف فارغ</p>';
+    }
+
+    if (ext === 'doc') {
+      try {
+        const result = await mammoth.convertToHtml({ arrayBuffer });
+        return result.value?.trim()
+          ? result.value
+          : fallbackPreview(fileName, 'ملف .doc تم اختياره بنجاح، لكن المعاينة قد لا تكون متاحة');
+      } catch {
+        return fallbackPreview(fileName, 'ملف .doc تم اختياره بنجاح، لكن المعاينة غير متاحة');
+      }
+    }
+
+    return '<p style="color:gray;text-align:center;">صيغة غير مدعومة</p>';
+  };
 
   const generatePreview = async (file: File) => {
     setPreviewLoading(true);
     try {
-      const ext = file.name.split('.').pop()?.toLowerCase();
       const arrayBuffer = await file.arrayBuffer();
-      
-      if (ext === 'docx') {
-        const result = await mammoth.convertToHtml({ arrayBuffer });
-        setPreviewHtml(result.value || '<p style="color:gray;text-align:center;">الملف فارغ</p>');
-      } else if (ext === 'doc') {
-        // mammoth has limited .doc support - try but handle gracefully
-        try {
-          const result = await mammoth.convertToHtml({ arrayBuffer });
-          if (result.value && result.value.trim()) {
-            setPreviewHtml(result.value);
-          } else {
-            setPreviewHtml(`<div style="text-align:center;color:gray;padding:20px;">
-              <p style="font-size:14px;">📄 ${file.name}</p>
-              <p style="font-size:12px;">ملف .doc تم رفعه بنجاح</p>
-              <p style="font-size:11px;color:#999;">المعاينة قد لا تكون متاحة لملفات .doc القديمة</p>
-            </div>`);
-          }
-        } catch {
-          setPreviewHtml(`<div style="text-align:center;color:gray;padding:20px;">
-            <p style="font-size:14px;">📄 ${file.name}</p>
-            <p style="font-size:12px;">ملف .doc تم رفعه بنجاح</p>
-            <p style="font-size:11px;color:#999;">المعاينة غير متاحة لهذا النوع من الملفات</p>
-          </div>`);
-        }
-      } else {
-        setPreviewHtml('<p style="color:gray;text-align:center;">صيغة غير مدعومة</p>');
-      }
-    } catch (e) {
-      console.error('Preview error:', e);
-      setPreviewHtml(`<div style="text-align:center;color:gray;padding:20px;">
-        <p style="font-size:14px;">📄 ${file.name}</p>
-        <p style="font-size:12px;">تم رفع الملف بنجاح</p>
-      </div>`);
+      const html = await buildPreviewHtml(file.name, arrayBuffer);
+      setPreviewHtml(html);
+    } catch (error) {
+      console.error('Preview error:', error);
+      setPreviewHtml(fallbackPreview(file.name, 'تم اختيار الملف بنجاح'));
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const previewExisting = async (lh: Letterhead) => {
+    if (!lh.template_path) return;
+
+    setPreviewLoading(true);
+    try {
+      const { data, error } = await supabase.storage.from('letterhead-templates').download(lh.template_path);
+      if (error || !data) throw error;
+
+      const html = await buildPreviewHtml(lh.template_path.split('/').pop() || lh.lawyer_name, await data.arrayBuffer());
+      setPreviewHtml(html);
+    } catch {
+      setPreviewHtml('<p style="color:gray;text-align:center;">تعذر عرض معاينة هذا الملف</p>');
     } finally {
       setPreviewLoading(false);
     }
@@ -85,9 +113,13 @@ const Letterheads = () => {
 
     if (!nextFile) return;
 
-    const ext = nextFile.name.split('.').pop()?.toLowerCase();
+    const ext = getFileExtension(nextFile.name);
     if (ext !== 'doc' && ext !== 'docx') {
-      toast({ title: 'صيغة غير مدعومة', description: 'يرجى اختيار ملف .doc أو .docx', variant: 'destructive' });
+      toast({
+        title: 'صيغة غير مدعومة',
+        description: 'يرجى اختيار ملف .doc أو .docx',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -96,52 +128,32 @@ const Letterheads = () => {
     setPreviewLoading(false);
   };
 
-  const loadLetterheads = async () => {
-    const { data } = await supabase
-      .from('letterheads')
-      .select('id, lawyer_name, template_path, created_at')
-      .order('created_at', { ascending: false }) as any;
-    if (data) setLetterheads(data);
-    setLoading(false);
-  };
-
-  const previewExisting = async (lh: Letterhead) => {
-    if (!lh.template_path) return;
-    setPreviewLoading(true);
-    try {
-      const { data, error } = await supabase.storage.from('letterhead-templates').download(lh.template_path);
-      if (error || !data) throw error;
-      const arrayBuffer = await data.arrayBuffer();
-      const result = await mammoth.convertToHtml({ arrayBuffer });
-      setPreviewHtml(result.value);
-    } catch {
-      setPreviewHtml('<p style="color:gray;text-align:center;">تعذر عرض معاينة هذا الملف</p>');
-    } finally {
-      setPreviewLoading(false);
-    }
-  };
-
   const save = async () => {
     if (!user || !lawyerName.trim()) return;
+
     if (!editingId && !templateFile) {
       toast({ title: 'يرجى رفع ملف الترويسة', variant: 'destructive' });
       return;
     }
+
     setSaving(true);
     try {
       let templatePath: string | null = null;
+
       if (templateFile) {
-        const ext = templateFile.name.split('.').pop()?.toLowerCase() || 'docx';
+        const ext = getFileExtension(templateFile.name) || 'docx';
         const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
         const { error: uploadErr } = await supabase.storage.from('letterhead-templates').upload(path, templateFile);
         if (uploadErr) throw uploadErr;
         templatePath = path;
       }
+
       const payload: any = {
         user_id: user.id,
         lawyer_name: lawyerName.trim(),
         ...(templatePath && { template_path: templatePath }),
       };
+
       if (editingId) {
         const { error } = await supabase.from('letterheads').update(payload).eq('id', editingId) as any;
         if (error) throw error;
@@ -151,6 +163,7 @@ const Letterheads = () => {
         if (error) throw error;
         toast({ title: 'تم إضافة الترويسة ✅' });
       }
+
       resetForm();
       loadLetterheads();
     } catch (e: any) {
@@ -173,9 +186,11 @@ const Letterheads = () => {
       if (lh.template_path) {
         await supabase.storage.from('letterhead-templates').remove([lh.template_path]);
       }
+
       const { error } = await supabase.from('letterheads').delete().eq('id', lh.id) as any;
       if (error) throw error;
-      setLetterheads(prev => prev.filter(x => x.id !== lh.id));
+
+      setLetterheads((prev) => prev.filter((x) => x.id !== lh.id));
       toast({ title: 'تم حذف الترويسة' });
     } catch (e: any) {
       toast({ title: 'خطأ', description: e.message, variant: 'destructive' });
@@ -188,6 +203,7 @@ const Letterheads = () => {
     setLawyerName('');
     setTemplateFile(null);
     setPreviewHtml(null);
+    setPreviewLoading(false);
   };
 
   if (loading) {
@@ -213,24 +229,26 @@ const Letterheads = () => {
         <Card className="border-primary/20">
           <CardContent className="pt-5 space-y-3">
             <h3 className="text-sm font-bold text-foreground">{editingId ? 'تعديل الترويسة' : 'ترويسة جديدة'}</h3>
+
             <Input
               placeholder="اسم المحامي / اسم الترويسة *"
               value={lawyerName}
-              onChange={e => setLawyerName(e.target.value)}
+              onChange={(e) => setLawyerName(e.target.value)}
               className="text-sm"
               dir="rtl"
             />
+
             <div className="space-y-3 rounded-lg border border-border p-4">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Upload className="h-4 w-4" />
                 <span>اختر ملف الترويسة من جهازك</span>
               </div>
 
-              <Input
+              <input
                 type="file"
                 accept=".doc,.docx"
                 onChange={handleTemplateChange}
-                className="cursor-pointer"
+                className="block w-full cursor-pointer rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-secondary-foreground"
               />
 
               {templateFile ? (
@@ -239,7 +257,17 @@ const Letterheads = () => {
                     <FileText className="h-4 w-4 text-primary shrink-0" />
                     <span className="truncate">{templateFile.name}</span>
                   </div>
-                  <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0" onClick={() => { setTemplateFile(null); setPreviewHtml(null); setPreviewLoading(false); }}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0 shrink-0"
+                    onClick={() => {
+                      setTemplateFile(null);
+                      setPreviewHtml(null);
+                      setPreviewLoading(false);
+                    }}
+                  >
                     <X className="h-3 w-3" />
                   </Button>
                 </div>
@@ -248,13 +276,29 @@ const Letterheads = () => {
               )}
             </div>
 
-            {/* Preview section */}
+            {templateFile && (
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => generatePreview(templateFile)}
+                  disabled={previewLoading}
+                  className="gap-1.5"
+                >
+                  {previewLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
+                  {previewHtml ? 'تحديث المعاينة' : 'معاينة الملف'}
+                </Button>
+                <span className="text-xs text-muted-foreground">المعاينة اختيارية قبل الحفظ</span>
+              </div>
+            )}
+
             {previewLoading && (
               <div className="flex items-center justify-center py-6">
                 <Loader2 className="h-5 w-5 animate-spin text-primary" />
                 <span className="text-sm text-muted-foreground mr-2">جاري تحميل المعاينة...</span>
               </div>
             )}
+
             {previewHtml && !previewLoading && (
               <div className="border border-border rounded-lg overflow-hidden">
                 <div className="bg-muted/50 px-3 py-1.5 flex items-center gap-1.5 border-b border-border">
@@ -282,7 +326,6 @@ const Letterheads = () => {
         </Card>
       )}
 
-      {/* Preview for existing letterheads (outside form) */}
       {!showForm && previewHtml && (
         <Card>
           <CardContent className="pt-4 space-y-2">
@@ -291,7 +334,7 @@ const Letterheads = () => {
                 <Eye className="h-4 w-4 text-primary" />
                 <span className="text-sm font-bold text-foreground">معاينة القالب</span>
               </div>
-              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setPreviewHtml(null)}>
+              <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setPreviewHtml(null)}>
                 <X className="h-3.5 w-3.5" />
               </Button>
             </div>
@@ -315,7 +358,7 @@ const Letterheads = () => {
         </Card>
       ) : (
         <div className="space-y-2">
-          {letterheads.map(lh => (
+          {letterheads.map((lh) => (
             <Card key={lh.id} className="hover:border-primary/30 transition-colors">
               <CardContent className="py-3 px-4">
                 <div className="flex items-center justify-between">
@@ -333,14 +376,14 @@ const Letterheads = () => {
                   </div>
                   <div className="flex gap-1 shrink-0">
                     {lh.template_path && (
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => previewExisting(lh)} title="معاينة">
+                      <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => previewExisting(lh)} title="معاينة">
                         <Eye className="h-3.5 w-3.5" />
                       </Button>
                     )}
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => startEdit(lh)}>
+                    <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => startEdit(lh)}>
                       <Edit2 className="h-3.5 w-3.5" />
                     </Button>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive" onClick={() => deleteLetterhead(lh)}>
+                    <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive" onClick={() => deleteLetterhead(lh)}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
