@@ -579,52 +579,193 @@ const DocumentGenerator = () => {
           <Sparkles className="h-5 w-5 text-primary" />
           مولّد المستندات القانونية
         </h1>
-        <p className="text-muted-foreground text-xs mt-1">اكتب ما تريد والذكاء الاصطناعي يصوغه لك</p>
+        <p className="text-muted-foreground text-xs mt-1">ابحث عن موكل أو أنشئ موكلاً جديداً لبدء الصياغة</p>
       </div>
 
-      {/* Quick start */}
+      {/* Client search with autocomplete */}
       <Card>
         <CardContent className="pt-5 space-y-4">
-          {/* Optional client */}
-          <div className="space-y-2">
+          <div className="space-y-2" ref={clientSearchRef}>
             <label className="text-sm font-medium text-foreground flex items-center gap-1">
-              <User className="h-3.5 w-3.5 text-primary" /> الموكل (اختياري)
+              <User className="h-3.5 w-3.5 text-primary" /> الموكل
             </label>
-            <Select value={selectedClientId} onValueChange={setSelectedClientId}>
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="اختر موكلاً أو اكتب اسمه في الرسالة..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">بدون تحديد</SelectItem>
-                {clients.map(c => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.full_name} {c.cin ? `(${c.cin})` : ''}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {selectedClient && (
-              <div className="bg-muted/50 rounded-lg p-2.5 text-xs text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
-                {selectedClient.cin && <span>🪪 {selectedClient.cin}</span>}
-                {selectedClient.address && <span>📍 {selectedClient.address}</span>}
-                {selectedClient.phone && <span>📞 {selectedClient.phone}</span>}
+            <div className="relative">
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={clientSearch}
+                onChange={e => {
+                  setClientSearch(e.target.value);
+                  setShowClientSuggestions(true);
+                  if (selectedClient && e.target.value !== selectedClient.full_name) {
+                    clearClient();
+                  }
+                }}
+                onFocus={() => clientSearch.trim() && setShowClientSuggestions(true)}
+                placeholder="اكتب اسم الموكل أو رقم CIN..."
+                className="pr-9 pl-9 h-10"
+                disabled={!!selectedClient}
+              />
+              {selectedClient && (
+                <button
+                  onClick={clearClient}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Autocomplete dropdown */}
+            {showClientSuggestions && clientSearch.trim() && !selectedClient && (
+              <div className="border border-border rounded-lg bg-popover shadow-lg overflow-hidden">
+                {filteredClients.length > 0 && (
+                  <div className="max-h-[200px] overflow-y-auto">
+                    {filteredClients.map(c => (
+                      <button
+                        key={c.id}
+                        onClick={() => selectClient(c)}
+                        className="w-full text-right px-4 py-2.5 hover:bg-accent transition-colors border-b border-border last:border-0"
+                      >
+                        <div className="font-medium text-foreground text-sm">{c.full_name}</div>
+                        <div className="text-xs text-muted-foreground flex gap-3 mt-0.5">
+                          {c.cin && <span>🪪 {c.cin}</span>}
+                          {c.phone && <span>📞 {c.phone}</span>}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {clientHasNoMatch && (
+                  <button
+                    onClick={() => {
+                      setShowNewClientForm(true);
+                      setShowClientSuggestions(false);
+                      setNewClient(prev => ({ ...prev, full_name: clientSearch.trim() }));
+                    }}
+                    className="w-full text-right px-4 py-3 hover:bg-accent transition-colors flex items-center gap-2 text-primary"
+                  >
+                    <UserPlus className="h-4 w-4 shrink-0" />
+                    <span className="text-sm font-medium">إنشاء موكل جديد: "{clientSearch.trim()}"</span>
+                  </button>
+                )}
               </div>
             )}
           </div>
 
-          <Button onClick={startNew} className="gap-2 w-full" size="lg">
-            <MessageSquare className="h-4 w-4" /> ابدأ الصياغة
-          </Button>
+          {/* New client form */}
+          {showNewClientForm && (
+            <div className="border border-primary/20 rounded-lg bg-primary/5 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                  <UserPlus className="h-4 w-4 text-primary" /> موكل جديد
+                </h3>
+                <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setShowNewClientForm(false)}>
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Input
+                  placeholder="الاسم الكامل *"
+                  value={newClient.full_name}
+                  onChange={e => setNewClient(prev => ({ ...prev, full_name: e.target.value }))}
+                  className="h-9 text-sm"
+                />
+                <Input
+                  placeholder="CIN"
+                  value={newClient.cin}
+                  onChange={e => setNewClient(prev => ({ ...prev, cin: e.target.value }))}
+                  className="h-9 text-sm"
+                />
+                <Input
+                  placeholder="العنوان"
+                  value={newClient.address}
+                  onChange={e => setNewClient(prev => ({ ...prev, address: e.target.value }))}
+                  className="h-9 text-sm"
+                />
+                <Input
+                  placeholder="الهاتف"
+                  value={newClient.phone}
+                  onChange={e => setNewClient(prev => ({ ...prev, phone: e.target.value }))}
+                  className="h-9 text-sm"
+                />
+              </div>
+              <Button onClick={createNewClient} disabled={!newClient.full_name.trim()} size="sm" className="gap-1.5">
+                <Plus className="h-3.5 w-3.5" /> إنشاء وبدء الصياغة
+              </Button>
+            </div>
+          )}
+
+          {/* Selected client info + threads */}
+          {selectedClient && (
+            <div className="space-y-3">
+              <div className="bg-muted/50 rounded-lg p-3 text-xs text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
+                {selectedClient.cin && <span>🪪 {selectedClient.cin}</span>}
+                {selectedClient.address && <span>📍 {selectedClient.address}</span>}
+                {selectedClient.phone && <span>📞 {selectedClient.phone}</span>}
+                {selectedClient.email && <span>✉️ {selectedClient.email}</span>}
+              </div>
+
+              {/* Client's existing threads */}
+              {clientThreads.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                    <FolderOpen className="h-3.5 w-3.5 text-primary" />
+                    مساطر {selectedClient.full_name} ({clientThreads.length})
+                  </h3>
+                  <div className="space-y-1.5 max-h-[250px] overflow-y-auto">
+                    {clientThreads.map(thread => (
+                      <div
+                        key={thread.threadId}
+                        onClick={() => openThread(thread)}
+                        className="border border-border rounded-lg px-3 py-2.5 hover:border-primary/40 hover:bg-accent/50 transition-colors cursor-pointer"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span className="font-medium text-foreground text-sm truncate">
+                                {thread.opposingParty ? `ضد ${thread.opposingParty}` : thread.caseNumber || 'مسطرة'}
+                              </span>
+                              <Badge variant="outline" className="text-[10px] shrink-0">{thread.docs.length} مستند</Badge>
+                            </div>
+                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap">
+                              {thread.caseNumber && <span>ملف: {thread.caseNumber}</span>}
+                              {thread.court && <span>• {thread.court}</span>}
+                              <span>• {new Date(thread.lastDate).toLocaleDateString('ar-MA')}</span>
+                            </div>
+                            <div className="flex gap-1 mt-1 flex-wrap">
+                              {thread.docs.map((d, i) => (
+                                <Badge key={d.id} variant="secondary" className="text-[10px] px-1.5 py-0">
+                                  {(d.step_number || i + 1)}. {d.doc_type}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                          <Button size="sm" variant="outline" className="gap-1 shrink-0 text-xs h-7" onClick={(e) => { e.stopPropagation(); openThread(thread); }}>
+                            <MessageSquare className="h-3 w-3" /> متابعة
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* New thread for this client */}
+              <Button onClick={startNew} className="gap-2 w-full" variant={clientThreads.length > 0 ? 'outline' : 'default'} size="lg">
+                <Plus className="h-4 w-4" /> مسطرة جديدة لـ {selectedClient.full_name}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
       <Separator />
 
-      {/* Archive */}
+      {/* Global archive */}
       <div>
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <h2 className="text-base font-bold text-foreground flex items-center gap-2">
-            <FolderOpen className="h-4 w-4 text-primary" /> الأرشيف
+            <FolderOpen className="h-4 w-4 text-primary" /> جميع المساطر
           </h2>
           <div className="relative w-full sm:max-w-xs">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
