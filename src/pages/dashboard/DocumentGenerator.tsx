@@ -870,11 +870,11 @@ const DocumentGenerator = () => {
         {/* Messages */}
         <ScrollArea className="flex-1 py-3">
           <div className="space-y-3 px-1">
-            {chatMessages.length === 0 && caseDocs.length > 0 && (
+            {chatMessages.length === 0 && (caseDocs.length > 0 || DOCS_NOT_REQUIRED_TYPES.includes(activeDocType)) && (
               <div className="text-center py-8 space-y-3">
                 <Sparkles className="h-10 w-10 text-primary/20 mx-auto" />
                 <p className="text-sm font-medium text-foreground">اكتب ما تريد وسأصوغه لك</p>
-                <p className="text-xs text-muted-foreground">الملف يحتوي على {caseDocs.length} وثيقة سيستند إليها الذكاء الاصطناعي</p>
+                <p className="text-xs text-muted-foreground">{activeDocType ? `نوع المستند: ${activeDocType}` : `الملف يحتوي على ${caseDocs.length} وثيقة`}</p>
                 <div className="flex flex-wrap gap-1.5 justify-center max-w-sm mx-auto">
                   {[
                     'مقال افتتاحي بسبب عدم أداء الكراء',
