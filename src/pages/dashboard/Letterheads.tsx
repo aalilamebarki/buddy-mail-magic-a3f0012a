@@ -133,17 +133,6 @@ const Letterheads = () => {
       return result.value || '<p style="color:gray;text-align:center;">الملف فارغ</p>';
     }
 
-    if (ext === 'doc') {
-      try {
-        const result = await mammoth.convertToHtml({ arrayBuffer });
-        return result.value?.trim()
-          ? result.value
-          : fallbackPreview(fileName, 'ملف .doc تم اختياره بنجاح، لكن المعاينة قد لا تكون متاحة');
-      } catch {
-        return fallbackPreview(fileName, 'ملف .doc تم اختياره بنجاح، لكن المعاينة غير متاحة');
-      }
-    }
-
     return '<p style="color:gray;text-align:center;">صيغة غير مدعومة</p>';
   };
 
