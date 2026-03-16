@@ -1,13 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -16,183 +13,198 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import {
   FileText, Plus, Search, Download, Loader2, Save, Eye,
-  FileUp, Trash2, RefreshCw, History, Sparkles, BookOpen,
-  MessageSquareReply, ChevronDown, ChevronUp, Link2, ArrowLeft
+  FileUp, Trash2, Sparkles, BookOpen, Send, FolderOpen,
+  ArrowRight, MessageSquare, ChevronDown, ChevronUp, User, Scale
 } from 'lucide-react';
 import { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel } from 'docx';
 import { saveAs } from 'file-saver';
+import ReactMarkdown from 'react-markdown';
 
-const DOC_TYPES = [
-  { value: 'مقال افتتاحي', label: 'مقال افتتاحي', icon: '📋', isInitial: true },
-  { value: 'مذكرة جوابية', label: 'مذكرة جوابية', icon: '📝', isInitial: false },
-  { value: 'مذكرة تعقيبية', label: 'مذكرة تعقيبية', icon: '🔄', isInitial: false },
-  { value: 'مقال بالاستئناف', label: 'مقال بالاستئناف', icon: '⚖️', isInitial: true },
-  { value: 'مقال بالنقض', label: 'مقال بالنقض', icon: '🏛️', isInitial: true },
-  { value: 'مذكرة المطالبة المدنية', label: 'مذكرة المطالبة المدنية', icon: '💰', isInitial: true },
-  { value: 'مقال الدخل الارادي', label: 'مقال التدخل الإرادي', icon: '🤝', isInitial: true },
-  { value: 'إنذار بالإفراغ', label: 'إنذار بالإفراغ', icon: '🏠', isInitial: true },
-  { value: 'إنذار بالأداء', label: 'إنذار بالأداء', icon: '💳', isInitial: true },
-  { value: 'رسالة صلح تأمين', label: 'رسالة صلح لشركة التأمين', icon: '🛡️', isInitial: true },
-];
+// ─── Types ─────────────────────────────────────────────────────────────────
 
-const COURTS = [
-  'المحكمة الابتدائية', 'المحكمة التجارية', 'المحكمة الإدارية',
-  'محكمة الاستئناف', 'محكمة الاستئناف التجارية', 'محكمة الاستئناف الإدارية',
-  'محكمة النقض',
-];
-
-// Auto-suggest next doc type based on current
-const getNextDocType = (current: string): string => {
-  if (current === 'مقال افتتاحي') return 'مذكرة تعقيبية';
-  if (current === 'مذكرة جوابية') return 'مذكرة تعقيبية';
-  if (current === 'مذكرة تعقيبية') return 'مذكرة تعقيبية';
-  if (current === 'مقال بالاستئناف') return 'مذكرة تعقيبية';
-  return 'مذكرة تعقيبية';
-};
-
-interface FormData {
-  clientName: string;
-  opposingParty: string;
-  court: string;
-  nextCourt: string;
-  caseNumber: string;
-  subject: string;
-  facts: string;
-  requests: string;
-  additionalNotes: string;
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
 }
-
-const emptyForm: FormData = {
-  clientName: '', opposingParty: '', court: '', nextCourt: '',
-  caseNumber: '', subject: '', facts: '', requests: '', additionalNotes: '',
-};
 
 interface ThreadDoc {
   id: string;
   doc_type: string;
-  content: string;
+  content: string | null;
   opponent_memo: string | null;
-  step_number: number;
+  step_number: number | null;
   status: string;
   created_at: string;
   thread_id: string | null;
+  title: string;
+  client_name: string | null;
+  opposing_party: string | null;
+  court: string | null;
+  case_number: string | null;
 }
+
+interface CaseThread {
+  threadId: string;
+  clientName: string;
+  opposingParty: string;
+  court: string;
+  caseNumber: string;
+  docs: ThreadDoc[];
+  lastDate: string;
+}
+
+// ─── Component ──────────────────────────────────────────────────────────────
 
 const DocumentGenerator = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState('create');
-  const [docType, setDocType] = useState('');
-  const [formData, setFormData] = useState<FormData>(emptyForm);
-  const [generatedContent, setGeneratedContent] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [attachments, setAttachments] = useState<File[]>([]);
-  const [opponentMemo, setOpponentMemo] = useState('');
-  const [savedDocs, setSavedDocs] = useState<any[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [loadingDocs, setLoadingDocs] = useState(true);
+
+  // Data
   const [clients, setClients] = useState<any[]>([]);
+  const [cases, setCases] = useState<any[]>([]);
+  const [allDocs, setAllDocs] = useState<ThreadDoc[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Current view: 'selector' | 'chat'
+  const [view, setView] = useState<'selector' | 'chat'>('selector');
+
+  // Selected context
   const [selectedClientId, setSelectedClientId] = useState('');
   const [selectedCaseId, setSelectedCaseId] = useState('');
-  const [cases, setCases] = useState<any[]>([]);
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [previewDoc, setPreviewDoc] = useState<any>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
+  const [currentThread, setCurrentThread] = useState<CaseThread | null>(null);
 
-  // Thread state
-  const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
-  const [threadDocs, setThreadDocs] = useState<ThreadDoc[]>([]);
-  const [threadStep, setThreadStep] = useState(1);
-  const [expandedSteps, setExpandedSteps] = useState<Set<number>>(new Set());
+  // Chat state
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [inputText, setInputText] = useState('');
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [attachments, setAttachments] = useState<File[]>([]);
 
-  // Load saved docs, clients, cases
+  // Archive
+  const [searchQuery, setSearchQuery] = useState('');
+  const [expandedThread, setExpandedThread] = useState<string | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<ThreadDoc | null>(null);
+
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // ─── Load data ─────────────────────────────────────────────────────────
+
   useEffect(() => {
     if (!user) return;
     const load = async () => {
-      const [docsRes, clientsRes, casesRes] = await Promise.all([
-        supabase.from('generated_documents').select('*').order('created_at', { ascending: false }),
+      const [clientsRes, casesRes, docsRes] = await Promise.all([
         supabase.from('clients').select('id, full_name'),
-        supabase.from('cases').select('id, title, case_number, court'),
+        supabase.from('cases').select('id, title, case_number, court, client_id'),
+        supabase.from('generated_documents')
+          .select('id, doc_type, content, opponent_memo, step_number, status, created_at, thread_id, title, client_name, opposing_party, court, case_number')
+          .order('created_at', { ascending: true }),
       ]);
-      if (docsRes.data) setSavedDocs(docsRes.data);
       if (clientsRes.data) setClients(clientsRes.data);
       if (casesRes.data) setCases(casesRes.data);
-      setLoadingDocs(false);
+      if (docsRes.data) setAllDocs(docsRes.data as ThreadDoc[]);
+      setLoading(false);
     };
     load();
   }, [user]);
 
-  // Auto-fill from client/case selection
+  // Auto scroll chat
   useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
+
+  // ─── Thread grouping ──────────────────────────────────────────────────
+
+  const threadGroups: CaseThread[] = (() => {
+    const map = new Map<string, ThreadDoc[]>();
+    for (const doc of allDocs) {
+      const tid = doc.thread_id || doc.id;
+      if (!map.has(tid)) map.set(tid, []);
+      map.get(tid)!.push(doc);
+    }
+    return Array.from(map.entries()).map(([threadId, docs]) => {
+      const sorted = docs.sort((a, b) => (a.step_number || 1) - (b.step_number || 1));
+      const first = sorted[0];
+      return {
+        threadId,
+        clientName: first.client_name || '',
+        opposingParty: first.opposing_party || '',
+        court: first.court || '',
+        caseNumber: first.case_number || '',
+        docs: sorted,
+        lastDate: sorted[sorted.length - 1].created_at,
+      };
+    }).sort((a, b) => new Date(b.lastDate).getTime() - new Date(a.lastDate).getTime());
+  })();
+
+  // Filter threads by search
+  const filteredThreads = threadGroups.filter(t =>
+    !searchQuery ||
+    t.clientName.includes(searchQuery) ||
+    t.opposingParty.includes(searchQuery) ||
+    t.caseNumber.includes(searchQuery) ||
+    t.docs.some(d => d.title.includes(searchQuery))
+  );
+
+  // Filter threads by selected client/case
+  const clientFilteredThreads = (() => {
+    let threads = filteredThreads;
     if (selectedClientId) {
-      const client = clients.find(c => c.id === selectedClientId);
-      if (client) setFormData(prev => ({ ...prev, clientName: client.full_name }));
+      const clientName = clients.find(c => c.id === selectedClientId)?.full_name || '';
+      threads = threads.filter(t => t.clientName === clientName);
     }
-  }, [selectedClientId, clients]);
+    return threads;
+  })();
 
-  useEffect(() => {
-    if (selectedCaseId) {
-      const c = cases.find(x => x.id === selectedCaseId);
-      if (c) setFormData(prev => ({ ...prev, caseNumber: c.case_number || '', court: c.court || '' }));
-    }
-  }, [selectedCaseId, cases]);
+  // ─── Open thread for chat ─────────────────────────────────────────────
 
-  const updateField = (field: keyof FormData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const openThread = (thread: CaseThread) => {
+    setCurrentThread(thread);
+    setChatMessages([]);
+    setView('chat');
   };
 
-  // Load thread documents
-  const loadThread = async (threadId: string) => {
-    const { data } = await supabase
-      .from('generated_documents')
-      .select('*')
-      .eq('thread_id', threadId)
-      .order('step_number', { ascending: true });
-    if (data) {
-      setThreadDocs(data as any);
-      setThreadStep(data.length + 1);
-    }
-  };
-
-  // Start new thread
   const startNewThread = () => {
-    const newThreadId = crypto.randomUUID();
-    setCurrentThreadId(newThreadId);
-    setThreadDocs([]);
-    setThreadStep(1);
-    setGeneratedContent('');
-    setOpponentMemo('');
+    const clientName = clients.find(c => c.id === selectedClientId)?.full_name || '';
+    const caseData = cases.find(c => c.id === selectedCaseId);
+
+    setCurrentThread({
+      threadId: crypto.randomUUID(),
+      clientName,
+      opposingParty: '',
+      court: caseData?.court || '',
+      caseNumber: caseData?.case_number || '',
+      docs: [],
+      lastDate: new Date().toISOString(),
+    });
+    setChatMessages([]);
+    setView('chat');
   };
 
-  // Continue thread: opponent replied, prepare counter-response
-  const continueThread = () => {
-    if (!currentThreadId || !threadDocs.length) return;
-    const lastDoc = threadDocs[threadDocs.length - 1];
-    setDocType(getNextDocType(lastDoc.doc_type));
-    setGeneratedContent('');
-    // Keep form data (same case)
-  };
+  // ─── Stream chat ──────────────────────────────────────────────────────
 
-  const handleGenerate = useCallback(async () => {
-    if (!docType) {
-      toast({ title: 'اختر نوع المستند', variant: 'destructive' });
-      return;
-    }
-    if (!formData.clientName || !formData.subject) {
-      toast({ title: 'يرجى ملء الحقول الإلزامية (الموكل والموضوع)', variant: 'destructive' });
-      return;
-    }
+  const sendMessage = useCallback(async () => {
+    const text = inputText.trim();
+    if (!text || isStreaming) return;
 
-    setIsGenerating(true);
-    setGeneratedContent('');
+    const userMsg: ChatMessage = { role: 'user', content: text };
+    const newMessages = [...chatMessages, userMsg];
+    setChatMessages(newMessages);
+    setInputText('');
+    setIsStreaming(true);
 
-    // Build thread history for context
-    const threadHistory = threadDocs.map(doc => ({
-      step: doc.step_number,
-      docType: doc.doc_type,
-      content: doc.content,
-      opponentMemo: doc.opponent_memo,
-    }));
+    // Build thread context
+    const threadContext = currentThread ? {
+      clientName: currentThread.clientName,
+      opposingParty: currentThread.opposingParty,
+      court: currentThread.court,
+      caseNumber: currentThread.caseNumber,
+      previousDocs: currentThread.docs.map(d => ({
+        step: d.step_number,
+        docType: d.doc_type,
+        content: d.content?.slice(0, 2000),
+        opponentMemo: d.opponent_memo,
+      })),
+    } : undefined;
 
     try {
       const resp = await fetch(
@@ -204,16 +216,14 @@ const DocumentGenerator = () => {
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
           body: JSON.stringify({
-            docType,
-            formData,
-            opponentMemo: opponentMemo || undefined,
-            threadHistory: threadHistory.length > 0 ? threadHistory : undefined,
+            messages: newMessages.map(m => ({ role: m.role, content: m.content })),
+            threadContext,
           }),
         }
       );
 
       if (!resp.ok) {
-        const err = await resp.json();
+        const err = await resp.json().catch(() => ({ error: 'خطأ' }));
         throw new Error(err.error || 'خطأ في التوليد');
       }
 
@@ -221,7 +231,10 @@ const DocumentGenerator = () => {
       if (!reader) throw new Error('No stream');
       const decoder = new TextDecoder();
       let buffer = '';
-      let fullText = '';
+      let assistantText = '';
+
+      // Add empty assistant message
+      setChatMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
       while (true) {
         const { done, value } = await reader.read();
@@ -240,50 +253,52 @@ const DocumentGenerator = () => {
             const parsed = JSON.parse(json);
             const content = parsed.choices?.[0]?.delta?.content;
             if (content) {
-              fullText += content;
-              setGeneratedContent(fullText);
+              assistantText += content;
+              setChatMessages(prev => {
+                const updated = [...prev];
+                updated[updated.length - 1] = { role: 'assistant', content: assistantText };
+                return updated;
+              });
             }
           } catch { /* partial */ }
         }
       }
     } catch (e: any) {
       toast({ title: 'خطأ', description: e.message, variant: 'destructive' });
+      // Remove empty assistant message on error
+      setChatMessages(prev => prev.filter(m => m.content !== ''));
     } finally {
-      setIsGenerating(false);
+      setIsStreaming(false);
     }
-  }, [docType, formData, opponentMemo, threadDocs, toast]);
+  }, [inputText, chatMessages, currentThread, isStreaming, toast]);
 
-  const handleSave = async (status: 'draft' | 'final') => {
-    if (!generatedContent || !user) return;
+  // ─── Save document from assistant message ─────────────────────────────
 
-    // Ensure thread exists
-    let threadId = currentThreadId;
-    if (!threadId) {
-      threadId = crypto.randomUUID();
-      setCurrentThreadId(threadId);
-    }
+  const saveDocument = async (content: string, docType: string) => {
+    if (!user || !currentThread) return;
+
+    const step = currentThread.docs.length + 1;
+    const parentId = currentThread.docs.length > 0
+      ? currentThread.docs[currentThread.docs.length - 1].id
+      : null;
 
     try {
-      const parentId = threadDocs.length > 0 ? threadDocs[threadDocs.length - 1].id : null;
-
       const { data, error } = await supabase.from('generated_documents').insert({
         user_id: user.id,
         client_id: selectedClientId || null,
         case_id: selectedCaseId || null,
         doc_type: docType,
-        title: `${docType} - ${formData.clientName} - ${formData.subject}`.slice(0, 200),
-        content: generatedContent,
-        court: formData.court || null,
-        next_court: formData.nextCourt || null,
-        case_number: formData.caseNumber || null,
-        opposing_party: formData.opposingParty || null,
-        client_name: formData.clientName || null,
-        status,
-        thread_id: threadId,
+        title: `${docType} - ${currentThread.clientName || 'مستند'}`,
+        content,
+        court: currentThread.court || null,
+        case_number: currentThread.caseNumber || null,
+        opposing_party: currentThread.opposingParty || null,
+        client_name: currentThread.clientName || null,
+        status: 'final',
+        thread_id: currentThread.threadId,
         parent_id: parentId,
-        step_number: threadStep,
-        opponent_memo: opponentMemo || null,
-        metadata: { subject: formData.subject, facts: formData.facts, requests: formData.requests },
+        step_number: step,
+        metadata: {},
       } as any).select().single();
 
       if (error) throw error;
@@ -302,33 +317,30 @@ const DocumentGenerator = () => {
             } as any);
           }
         }
+        setAttachments([]);
       }
 
-      toast({ title: status === 'draft' ? 'تم حفظ المسودة' : 'تم حفظ المستند في سلسلة القضية' });
-      
-      // Update thread docs
-      setThreadDocs(prev => [...prev, data as any]);
-      setThreadStep(prev => prev + 1);
-      setSavedDocs(prev => [data, ...prev]);
-      setAttachments([]);
+      // Update local state
+      const newDoc = data as ThreadDoc;
+      setAllDocs(prev => [...prev, newDoc]);
+      setCurrentThread(prev => prev ? { ...prev, docs: [...prev.docs, newDoc] } : prev);
+
+      toast({ title: 'تم حفظ المستند بنجاح ✅' });
     } catch (e: any) {
       toast({ title: 'خطأ في الحفظ', description: e.message, variant: 'destructive' });
     }
   };
 
-  const handleExportWord = async (content?: string) => {
-    const text = content || generatedContent;
-    if (!text) return;
-    const lines = text.split('\n').filter(l => l.trim());
+  // ─── Export Word ──────────────────────────────────────────────────────
+
+  const exportWord = async (content: string, title: string) => {
+    const lines = content.split('\n').filter(l => l.trim());
     const paragraphs = lines.map(line => {
-      const isHeader = line.startsWith('بسم') || line.includes('إلى السيد') || line.includes('بناءً عليه') || line.includes('الوقائع') || line.includes('في الموضوع') || line.includes('لهذه الأسباب') || line.includes('من حيث الشكل') || line.includes('من حيث الموضوع');
+      const isHeader = line.startsWith('بسم') || line.includes('إلى السيد') || line.includes('بناءً عليه') || line.includes('الوقائع') || line.includes('في الموضوع') || line.includes('لهذه الأسباب');
       return new Paragraph({
         children: [new TextRun({
-          text: line,
-          font: 'Traditional Arabic',
-          size: isHeader ? 28 : 24,
-          bold: isHeader,
-          rightToLeft: true,
+          text: line, font: 'Traditional Arabic', size: isHeader ? 28 : 24,
+          bold: isHeader, rightToLeft: true,
         })],
         alignment: AlignmentType.RIGHT,
         spacing: { after: 200, line: 360 },
@@ -336,574 +348,394 @@ const DocumentGenerator = () => {
         bidirectional: true,
       });
     });
-
     const doc = new Document({
-      sections: [{
-        properties: { page: { margin: { top: 1440, bottom: 1440, left: 1440, right: 1440 } } },
-        children: paragraphs,
-      }],
+      sections: [{ properties: { page: { margin: { top: 1440, bottom: 1440, left: 1440, right: 1440 } } }, children: paragraphs }],
     });
-
     const blob = await Packer.toBlob(doc);
-    saveAs(blob, `${docType}_${formData.clientName || 'document'}_${new Date().toISOString().slice(0, 10)}.docx`);
-    toast({ title: 'تم تصدير الملف بنجاح' });
+    saveAs(blob, `${title}_${new Date().toISOString().slice(0, 10)}.docx`);
+    toast({ title: 'تم تصدير الملف' });
   };
 
-  // Group saved docs by thread
-  const threadGroups = savedDocs.reduce<Record<string, any[]>>((acc, doc) => {
-    const tid = doc.thread_id || doc.id;
-    if (!acc[tid]) acc[tid] = [];
-    acc[tid].push(doc);
-    return acc;
-  }, {});
-
-  const filteredThreads = Object.entries(threadGroups).filter(([, docs]) =>
-    docs.some(d =>
-      (d.client_name || '').includes(searchQuery) ||
-      (d.opposing_party || '').includes(searchQuery) ||
-      (d.case_number || '').includes(searchQuery) ||
-      (d.title || '').includes(searchQuery)
-    )
-  );
-
-  const handleLoadThread = async (threadId: string, docs: any[]) => {
-    const sorted = docs.sort((a: any, b: any) => (a.step_number || 1) - (b.step_number || 1));
-    const first = sorted[0];
-    
-    setCurrentThreadId(threadId);
-    setThreadDocs(sorted);
-    setThreadStep(sorted.length + 1);
-    setDocType(getNextDocType(sorted[sorted.length - 1].doc_type));
-    setGeneratedContent('');
-    setOpponentMemo('');
-    setFormData({
-      clientName: first.client_name || '',
-      opposingParty: first.opposing_party || '',
-      court: first.court || '',
-      nextCourt: first.next_court || '',
-      caseNumber: first.case_number || '',
-      subject: first.metadata?.subject || '',
-      facts: first.metadata?.facts || '',
-      requests: first.metadata?.requests || '',
-      additionalNotes: '',
-    });
-    setActiveTab('create');
+  // ─── Detect doc type from content ─────────────────────────────────────
+  const detectDocType = (content: string): string => {
+    if (content.includes('مقال افتتاحي') || content.includes('المدعي')) return 'مقال افتتاحي';
+    if (content.includes('مذكرة جوابية')) return 'مذكرة جوابية';
+    if (content.includes('مذكرة تعقيبية') || content.includes('تعقيباً')) return 'مذكرة تعقيبية';
+    if (content.includes('استئناف')) return 'مقال بالاستئناف';
+    if (content.includes('نقض')) return 'مقال بالنقض';
+    if (content.includes('إنذار') && content.includes('إفراغ')) return 'إنذار بالإفراغ';
+    if (content.includes('إنذار') && content.includes('أداء')) return 'إنذار بالأداء';
+    return 'مستند قانوني';
   };
 
-  const toggleStep = (step: number) => {
-    setExpandedSteps(prev => {
-      const next = new Set(prev);
-      if (next.has(step)) next.delete(step);
-      else next.add(step);
-      return next;
-    });
-  };
+  // ─── Render ───────────────────────────────────────────────────────────
 
-  const resetAll = () => {
-    setCurrentThreadId(null);
-    setThreadDocs([]);
-    setThreadStep(1);
-    setDocType('');
-    setFormData(emptyForm);
-    setGeneratedContent('');
-    setOpponentMemo('');
-    setAttachments([]);
-    setSelectedClientId('');
-    setSelectedCaseId('');
-  };
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Sparkles className="h-6 w-6 text-primary" />
-            مولّد المستندات القانونية
-          </h1>
-          <p className="text-muted-foreground">إنشاء المقالات والمذكرات مع تتبع سلسلة التقاضي</p>
-        </div>
-        <Button onClick={resetAll} variant="outline" className="gap-2">
-          <Plus className="h-4 w-4" /> قضية جديدة
-        </Button>
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
+    );
+  }
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="create" className="gap-2"><Plus className="h-4 w-4" /> إنشاء</TabsTrigger>
-          <TabsTrigger value="thread" className="gap-2"><Link2 className="h-4 w-4" /> سلسلة القضية</TabsTrigger>
-          <TabsTrigger value="history" className="gap-2"><History className="h-4 w-4" /> السجل</TabsTrigger>
-        </TabsList>
+  // ═══════════════════════ CHAT VIEW ═══════════════════════════════════
 
-        {/* ==================== CREATE TAB ==================== */}
-        <TabsContent value="create" className="space-y-4 mt-4">
-          {/* Thread indicator */}
-          {currentThreadId && threadDocs.length > 0 && (
-            <Card className="border-primary/30 bg-primary/5">
-              <CardContent className="py-3 px-4">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Link2 className="h-4 w-4 text-primary" />
-                    <span className="font-medium text-foreground">
-                      سلسلة قضية: {formData.clientName} ضد {formData.opposingParty}
-                    </span>
-                    <Badge variant="outline">{threadDocs.length} مستند(ات)</Badge>
-                    <Badge variant="secondary">الخطوة {threadStep}</Badge>
+  if (view === 'chat' && currentThread) {
+    return (
+      <div className="flex flex-col h-[calc(100vh-6rem)] max-h-[calc(100vh-6rem)]">
+        {/* Header */}
+        <div className="flex items-center justify-between gap-3 pb-3 border-b border-border flex-wrap">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" onClick={() => setView('selector')}>
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+            <div>
+              <h2 className="font-bold text-foreground flex items-center gap-2">
+                <Scale className="h-4 w-4 text-primary" />
+                {currentThread.clientName || 'قضية جديدة'}
+                {currentThread.opposingParty && <span className="text-muted-foreground font-normal text-sm">ضد {currentThread.opposingParty}</span>}
+              </h2>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                {currentThread.caseNumber && <span>ملف: {currentThread.caseNumber}</span>}
+                {currentThread.court && <span>• {currentThread.court}</span>}
+                <Badge variant="outline" className="text-xs">{currentThread.docs.length} مستند</Badge>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Thread archive (collapsible) */}
+        {currentThread.docs.length > 0 && (
+          <div className="border-b border-border">
+            <button
+              onClick={() => setExpandedThread(expandedThread ? null : 'current')}
+              className="w-full flex items-center justify-between py-2 px-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <span className="flex items-center gap-2">
+                <FolderOpen className="h-4 w-4" />
+                أرشيف المسطرة ({currentThread.docs.length} مستند)
+              </span>
+              {expandedThread ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </button>
+            {expandedThread && (
+              <div className="px-3 pb-3 space-y-2 max-h-[250px] overflow-y-auto">
+                {currentThread.docs.map((doc, i) => (
+                  <div key={doc.id} className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-full bg-primary/10 text-primary text-xs flex items-center justify-center font-bold">
+                        {doc.step_number || i + 1}
+                      </span>
+                      <span className="font-medium text-foreground">{doc.doc_type}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(doc.created_at).toLocaleDateString('ar-MA')}
+                      </span>
+                      {doc.opponent_memo && <Badge variant="secondary" className="text-xs">📨 رد الخصم</Badge>}
+                    </div>
+                    <div className="flex gap-1">
+                      <Button size="sm" variant="ghost" onClick={() => setPreviewDoc(doc)}>
+                        <Eye className="h-3 w-3" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => exportWord(doc.content || '', doc.doc_type)}>
+                        <Download className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
-                  <Button size="sm" variant="ghost" onClick={() => setActiveTab('thread')}>
-                    عرض السلسلة
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Step 1: Document Type */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">1. نوع المستند</CardTitle>
-              {currentThreadId && threadDocs.length > 0 && (
-                <CardDescription>
-                  الخطوة التالية المقترحة: {getNextDocType(threadDocs[threadDocs.length - 1]?.doc_type || '')}
-                </CardDescription>
-              )}
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-                {DOC_TYPES.map(dt => (
-                  <button
-                    key={dt.value}
-                    onClick={() => setDocType(dt.value)}
-                    className={`p-3 rounded-lg border text-center text-sm transition-all ${
-                      docType === dt.value
-                        ? 'border-primary bg-primary/10 text-primary font-medium'
-                        : 'border-border hover:border-primary/50 text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    <div className="text-xl mb-1">{dt.icon}</div>
-                    {dt.label}
-                  </button>
                 ))}
               </div>
-            </CardContent>
-          </Card>
+            )}
+          </div>
+        )}
 
-          {/* Step 2: Form - only show full form for first doc in thread */}
-          {docType && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">2. بيانات المستند</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>الموكل *</Label>
-                    {clients.length > 0 && (
-                      <Select value={selectedClientId} onValueChange={setSelectedClientId}>
-                        <SelectTrigger><SelectValue placeholder="اختر موكلاً" /></SelectTrigger>
-                        <SelectContent>
-                          {clients.map(c => (
-                            <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                    <Input placeholder="اسم الموكل" value={formData.clientName} onChange={e => updateField('clientName', e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>الخصم</Label>
-                    <Input placeholder="اسم الخصم" value={formData.opposingParty} onChange={e => updateField('opposingParty', e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>ملف القضية</Label>
-                    {cases.length > 0 && (
-                      <Select value={selectedCaseId} onValueChange={setSelectedCaseId}>
-                        <SelectTrigger><SelectValue placeholder="ربط بقضية موجودة" /></SelectTrigger>
-                        <SelectContent>
-                          {cases.map(c => (
-                            <SelectItem key={c.id} value={c.id}>{c.case_number} - {c.title}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label>رقم الملف</Label>
-                    <Input placeholder="رقم الملف" value={formData.caseNumber} onChange={e => updateField('caseNumber', e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>المحكمة</Label>
-                    <Select value={formData.court} onValueChange={v => updateField('court', v)}>
-                      <SelectTrigger><SelectValue placeholder="اختر المحكمة" /></SelectTrigger>
-                      <SelectContent>
-                        {COURTS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {(docType.includes('استئناف') || docType.includes('نقض')) && (
+        {/* Chat messages */}
+        <ScrollArea className="flex-1 py-4">
+          <div className="space-y-4 px-2">
+            {chatMessages.length === 0 && (
+              <div className="text-center py-12 space-y-4">
+                <Sparkles className="h-12 w-12 text-primary/30 mx-auto" />
+                <div>
+                  <p className="text-lg font-medium text-foreground">مستعد لصياغة المستند</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    اكتب ما تريد بأسلوبك. مثال:
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2 justify-center max-w-lg mx-auto">
+                  {[
+                    'أريد مقال افتتاحي بسبب عدم أداء الكراء',
+                    'صغ لي إنذاراً بالإفراغ',
+                    'الخصم رد بمذكرة، عقّب عليها',
+                    'أريد مقال استئنافي ضد الحكم الابتدائي',
+                  ].map((suggestion, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setInputText(suggestion)}
+                      className="text-xs bg-muted hover:bg-muted/80 text-foreground px-3 py-2 rounded-lg transition-colors text-right"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {chatMessages.map((msg, i) => (
+              <div key={i} className={`flex ${msg.role === 'user' ? 'justify-start' : 'justify-end'}`}>
+                <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${
+                  msg.role === 'user'
+                    ? 'bg-primary text-primary-foreground rounded-tl-sm'
+                    : 'bg-muted text-foreground rounded-tr-sm'
+                }`}>
+                  {msg.role === 'assistant' ? (
                     <div className="space-y-2">
-                      <Label>المحكمة المحال إليها</Label>
-                      <Select value={formData.nextCourt} onValueChange={v => updateField('nextCourt', v)}>
-                        <SelectTrigger><SelectValue placeholder="المحكمة التالية" /></SelectTrigger>
-                        <SelectContent>
-                          {COURTS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                      <div
+                        dir="rtl"
+                        className="whitespace-pre-wrap leading-8 text-sm"
+                        style={{ fontFamily: "'Traditional Arabic', 'Amiri', serif" }}
+                      >
+                        {msg.content || (
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin" /> جاري الصياغة...
+                          </div>
+                        )}
+                      </div>
+                      {msg.content && !isStreaming && (
+                        <div className="flex gap-2 pt-2 border-t border-border/50">
+                          <Button
+                            size="sm" variant="ghost"
+                            className="text-xs h-7 gap-1"
+                            onClick={() => saveDocument(msg.content, detectDocType(msg.content))}
+                          >
+                            <Save className="h-3 w-3" /> حفظ
+                          </Button>
+                          <Button
+                            size="sm" variant="ghost"
+                            className="text-xs h-7 gap-1"
+                            onClick={() => exportWord(msg.content, detectDocType(msg.content))}
+                          >
+                            <Download className="h-3 w-3" /> Word
+                          </Button>
+                        </div>
+                      )}
                     </div>
+                  ) : (
+                    <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                   )}
                 </div>
-                <div className="space-y-2">
-                  <Label>الموضوع *</Label>
-                  <Input placeholder="موضوع المستند" value={formData.subject} onChange={e => updateField('subject', e.target.value)} />
-                </div>
+              </div>
+            ))}
+            <div ref={chatEndRef} />
+          </div>
+        </ScrollArea>
 
-                {/* Only show facts/requests for first doc or if not in thread */}
-                {(threadDocs.length === 0) && (
-                  <>
-                    <div className="space-y-2">
-                      <Label>الوقائع</Label>
-                      <Textarea rows={4} placeholder="اذكر الوقائع بشكل مفصل..." value={formData.facts} onChange={e => updateField('facts', e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>الطلبات</Label>
-                      <Textarea rows={3} placeholder="ما هي الطلبات المقدمة..." value={formData.requests} onChange={e => updateField('requests', e.target.value)} />
-                    </div>
-                  </>
-                )}
+        {/* Attachments bar */}
+        {attachments.length > 0 && (
+          <div className="flex flex-wrap gap-1 px-3 py-2 border-t border-border">
+            {attachments.map((f, i) => (
+              <Badge key={i} variant="secondary" className="gap-1 text-xs">
+                {f.name}
+                <button onClick={() => setAttachments(prev => prev.filter((_, j) => j !== i))}>
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </Badge>
+            ))}
+          </div>
+        )}
 
-                <div className="space-y-2">
-                  <Label>ملاحظات إضافية</Label>
-                  <Textarea rows={2} placeholder="أي معلومات إضافية..." value={formData.additionalNotes} onChange={e => updateField('additionalNotes', e.target.value)} />
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Step 3: Opponent's memo + attachments */}
-          {docType && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <MessageSquareReply className="h-5 w-5" />
-                  3. {threadDocs.length > 0 ? 'مذكرة الخصم الجديدة والمرفقات' : 'الوثائق المرفقة ومذكرة الخصم'}
-                </CardTitle>
-                {threadDocs.length > 0 && (
-                  <CardDescription>
-                    الصق مذكرة الخصم الأخيرة وسيقوم الذكاء الاصطناعي بالتعقيب عليها مع مراعاة كل المستندات السابقة في القضية
-                  </CardDescription>
-                )}
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Opponent memo - always visible for thread continuation */}
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2 text-base font-medium">
-                    <BookOpen className="h-4 w-4 text-primary" />
-                    {threadDocs.length > 0 ? 'مذكرة الخصم (الرد الأخير)' : 'مذكرة الخصم (إن وجدت)'}
-                  </Label>
-                  <Textarea
-                    rows={6}
-                    placeholder={threadDocs.length > 0
-                      ? 'الصق نص مذكرة الخصم الجوابية أو التعقيبية هنا... سيتم الرد عليها تلقائياً بناءً على كامل سياق القضية'
-                      : 'الصق نص مذكرة الخصم هنا للرد عليها...'
-                    }
-                    value={opponentMemo}
-                    onChange={e => setOpponentMemo(e.target.value)}
-                    className="border-primary/30 focus:border-primary"
-                  />
-                </div>
-
-                <Separator />
-
-                {/* File upload */}
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2"><FileUp className="h-4 w-4" /> إرفاق وثائق (PDF / Word)</Label>
-                  <Input
+        {/* Input */}
+        <div className="border-t border-border pt-3 space-y-2">
+          <div className="flex gap-2 items-end">
+            <div className="flex-1 relative">
+              <Textarea
+                ref={inputRef}
+                value={inputText}
+                onChange={e => setInputText(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                  }
+                }}
+                placeholder="اكتب ما تريد... مثال: أريد مذكرة تعقيبية للرد على مذكرة الخصم"
+                className="min-h-[44px] max-h-[120px] resize-none pr-3 pl-12"
+                rows={1}
+                disabled={isStreaming}
+              />
+              <div className="absolute left-2 bottom-2 flex gap-1">
+                <label className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors">
+                  <FileUp className="h-5 w-5" />
+                  <input
                     type="file"
                     multiple
                     accept=".pdf,.doc,.docx"
+                    className="hidden"
                     onChange={e => {
                       if (e.target.files) setAttachments(prev => [...prev, ...Array.from(e.target.files!)]);
                     }}
                   />
-                  {attachments.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {attachments.map((f, i) => (
-                        <Badge key={i} variant="secondary" className="gap-1">
-                          {f.name}
-                          <button onClick={() => setAttachments(prev => prev.filter((_, j) => j !== i))}>
-                            <Trash2 className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Generate Button */}
-          {docType && (
-            <div className="flex gap-2 flex-wrap">
-              <Button onClick={handleGenerate} disabled={isGenerating} className="gap-2" size="lg">
-                {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                {isGenerating ? 'جاري التوليد...' :
-                  threadDocs.length > 0 ? `توليد ${docType}` :
-                  generatedContent ? 'إعادة التوليد' : 'توليد المستند'}
-              </Button>
-              {generatedContent && (
-                <>
-                  <Button variant="outline" onClick={() => handleSave('draft')} className="gap-2">
-                    <Save className="h-4 w-4" /> حفظ كمسودة
-                  </Button>
-                  <Button onClick={() => handleSave('final')} className="gap-2">
-                    <Save className="h-4 w-4" /> حفظ في سلسلة القضية
-                  </Button>
-                  <Button variant="outline" onClick={() => handleExportWord()} className="gap-2">
-                    <Download className="h-4 w-4" /> تصدير Word
-                  </Button>
-                </>
-              )}
+                </label>
+              </div>
             </div>
-          )}
+            <Button
+              onClick={sendMessage}
+              disabled={!inputText.trim() || isStreaming}
+              size="icon"
+              className="h-[44px] w-[44px] shrink-0"
+            >
+              {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            </Button>
+          </div>
+        </div>
 
-          {/* Generated Content */}
-          {(generatedContent || isGenerating) && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    {docType} - الخطوة {threadStep}
-                  </span>
-                  <Badge variant={isGenerating ? 'secondary' : 'default'}>
-                    {isGenerating ? 'جاري الكتابة...' : 'مكتمل'}
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div
-                  ref={contentRef}
-                  dir="rtl"
-                  className="bg-muted/30 rounded-lg p-6 min-h-[300px] whitespace-pre-wrap leading-8 text-foreground font-serif border border-border"
-                  style={{ fontFamily: "'Traditional Arabic', 'Amiri', serif", fontSize: '16px' }}
-                >
-                  {generatedContent || (
-                    <div className="flex items-center justify-center h-[200px] text-muted-foreground">
-                      <Loader2 className="h-6 w-6 animate-spin ml-2" />
-                      جاري صياغة المستند...
-                    </div>
-                  )}
+        {/* Preview Dialog */}
+        <Dialog open={!!previewDoc} onOpenChange={() => setPreviewDoc(null)}>
+          <DialogContent className="max-w-3xl max-h-[80vh]">
+            <DialogHeader>
+              <DialogTitle>{previewDoc?.doc_type} - {previewDoc?.client_name}</DialogTitle>
+            </DialogHeader>
+            <ScrollArea className="h-[60vh]">
+              {previewDoc?.opponent_memo && (
+                <div className="bg-destructive/5 border border-destructive/20 rounded-lg p-3 mb-4 mx-4">
+                  <p className="text-xs font-medium text-destructive mb-1">📨 مذكرة الخصم:</p>
+                  <p className="text-sm whitespace-pre-wrap">{previewDoc.opponent_memo}</p>
                 </div>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
+              )}
+              <div dir="rtl" className="whitespace-pre-wrap leading-8 p-4" style={{ fontFamily: "'Traditional Arabic', 'Amiri', serif" }}>
+                {previewDoc?.content}
+              </div>
+            </ScrollArea>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => previewDoc && exportWord(previewDoc.content || '', previewDoc.doc_type)}>
+                <Download className="h-4 w-4 ml-2" /> تصدير Word
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
 
-        {/* ==================== THREAD TAB ==================== */}
-        <TabsContent value="thread" className="space-y-4 mt-4">
-          {!currentThreadId || threadDocs.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <Link2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground text-lg mb-2">لا توجد سلسلة قضية نشطة</p>
-                <p className="text-sm text-muted-foreground mb-4">أنشئ مقالاً افتتاحياً أولاً أو اختر قضية من السجل</p>
-                <Button onClick={() => { startNewThread(); setActiveTab('create'); }} className="gap-2">
-                  <Plus className="h-4 w-4" /> بدء قضية جديدة
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <>
-              <Card className="border-primary/30">
-                <CardContent className="py-3 px-4">
+  // ═══════════════════════ SELECTOR VIEW ═══════════════════════════════
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+          <Sparkles className="h-6 w-6 text-primary" />
+          مولّد المستندات القانونية
+        </h1>
+        <p className="text-muted-foreground text-sm">اختر موكلاً أو قضية لفتح الأرشيف، أو ابدأ مسطرة جديدة</p>
+      </div>
+
+      {/* New thread section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Plus className="h-5 w-5" /> مسطرة جديدة
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">الموكل</label>
+              <Select value={selectedClientId} onValueChange={setSelectedClientId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="اختر موكلاً..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">القضية (اختياري)</label>
+              <Select value={selectedCaseId} onValueChange={setSelectedCaseId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="ربط بقضية..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {cases.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.case_number} - {c.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <Button onClick={startNewThread} className="gap-2">
+            <MessageSquare className="h-4 w-4" /> ابدأ الصياغة
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Separator />
+
+      {/* Archive */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+            <FolderOpen className="h-5 w-5 text-primary" /> أرشيف المساطر
+          </h2>
+          <div className="relative max-w-xs">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="بحث بالاسم أو رقم الملف..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="pr-10 h-9"
+            />
+          </div>
+        </div>
+
+        {clientFilteredThreads.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center text-muted-foreground">
+              <FolderOpen className="h-10 w-10 mx-auto mb-3 opacity-30" />
+              <p>لا توجد مساطر محفوظة</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-3">
+            {clientFilteredThreads.map(thread => (
+              <Card
+                key={thread.threadId}
+                className="hover:border-primary/30 transition-colors cursor-pointer"
+                onClick={() => openThread(thread)}
+              >
+                <CardContent className="py-4">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div>
-                      <h3 className="font-bold text-foreground">
-                        {formData.clientName} ضد {formData.opposingParty}
-                      </h3>
-                      <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
-                        {formData.caseNumber && <span>ملف رقم: {formData.caseNumber}</span>}
-                        {formData.court && <span>• {formData.court}</span>}
+                      <div className="flex items-center gap-2 mb-1">
+                        <User className="h-4 w-4 text-primary" />
+                        <span className="font-medium text-foreground">
+                          {thread.clientName || 'بدون موكل'}
+                          {thread.opposingParty && ` ضد ${thread.opposingParty}`}
+                        </span>
+                        <Badge variant="outline" className="text-xs">{thread.docs.length} مستند</Badge>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        {thread.caseNumber && <span>ملف: {thread.caseNumber}</span>}
+                        {thread.court && <span>• {thread.court}</span>}
+                        <span>• {new Date(thread.lastDate).toLocaleDateString('ar-MA')}</span>
+                      </div>
+                      <div className="flex items-center gap-1 mt-2 flex-wrap">
+                        {thread.docs.map((d, i) => (
+                          <Badge key={d.id} variant="secondary" className="text-xs">
+                            {(d.step_number || i + 1)}. {d.doc_type}
+                          </Badge>
+                        ))}
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" onClick={() => { continueThread(); setActiveTab('create'); }} className="gap-1">
-                        <MessageSquareReply className="h-4 w-4" /> إضافة رد / تعقيب
-                      </Button>
-                    </div>
+                    <Button size="sm" variant="outline" className="gap-1">
+                      <MessageSquare className="h-3 w-3" /> متابعة
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
-
-              {/* Timeline */}
-              <div className="space-y-3">
-                {threadDocs.map((doc, idx) => (
-                  <Card key={doc.id} className="relative">
-                    {/* Timeline connector */}
-                    {idx < threadDocs.length - 1 && (
-                      <div className="absolute right-6 -bottom-3 w-0.5 h-6 bg-border z-10" />
-                    )}
-                    <CardContent className="py-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
-                            {doc.step_number}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-medium text-foreground">{doc.doc_type}</span>
-                              <Badge variant={doc.status === 'final' ? 'default' : 'secondary'} className="text-xs">
-                                {doc.status === 'final' ? 'نهائي' : 'مسودة'}
-                              </Badge>
-                              <span className="text-xs text-muted-foreground">
-                                {new Date(doc.created_at).toLocaleDateString('ar-MA')}
-                              </span>
-                            </div>
-                            {doc.opponent_memo && (
-                              <p className="text-xs text-muted-foreground mt-1">
-                                📨 يتضمن رد الخصم
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex gap-1">
-                          <Button size="sm" variant="ghost" onClick={() => toggleStep(doc.step_number)}>
-                            {expandedSteps.has(doc.step_number) ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={() => handleExportWord(doc.content)}>
-                            <Download className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={() => { setPreviewDoc(doc); setPreviewOpen(true); }}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      {expandedSteps.has(doc.step_number) && (
-                        <div className="mt-3 space-y-3">
-                          {doc.opponent_memo && (
-                            <div className="bg-destructive/5 border border-destructive/20 rounded-lg p-3">
-                              <p className="text-xs font-medium text-destructive mb-1">📨 مذكرة الخصم:</p>
-                              <p className="text-sm text-foreground whitespace-pre-wrap line-clamp-6">{doc.opponent_memo}</p>
-                            </div>
-                          )}
-                          <div
-                            dir="rtl"
-                            className="bg-muted/30 rounded-lg p-4 whitespace-pre-wrap leading-7 text-sm border border-border max-h-[300px] overflow-y-auto"
-                            style={{ fontFamily: "'Traditional Arabic', 'Amiri', serif" }}
-                          >
-                            {doc.content}
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-
-                {/* Next step prompt */}
-                <Card className="border-dashed border-2 border-primary/30">
-                  <CardContent className="py-6 text-center">
-                    <MessageSquareReply className="h-8 w-8 text-primary/50 mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground mb-3">
-                      هل رد الخصم؟ أضف مذكرته وسيتم التعقيب عليها تلقائياً
-                    </p>
-                    <Button onClick={() => { continueThread(); setActiveTab('create'); }} variant="outline" className="gap-2">
-                      <Plus className="h-4 w-4" /> إضافة رد الخصم والتعقيب
-                    </Button>
-                  </CardContent>
-                </Card>
-              </div>
-            </>
-          )}
-        </TabsContent>
-
-        {/* ==================== HISTORY TAB ==================== */}
-        <TabsContent value="history" className="space-y-4 mt-4">
-          <div className="relative max-w-md">
-            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="بحث بالاسم، رقم الملف، أو الخصم..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="pr-10"
-            />
+            ))}
           </div>
-
-          {loadingDocs ? (
-            <div className="text-center py-12"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></div>
-          ) : filteredThreads.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center text-muted-foreground">
-                لا توجد مستندات محفوظة
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-3">
-              {filteredThreads.map(([threadId, docs]) => {
-                const sorted = docs.sort((a: any, b: any) => (a.step_number || 1) - (b.step_number || 1));
-                const first = sorted[0];
-                return (
-                  <Card key={threadId} className="hover:border-primary/30 transition-colors cursor-pointer" onClick={() => handleLoadThread(first.thread_id || threadId, sorted)}>
-                    <CardContent className="py-4">
-                      <div className="flex items-center justify-between flex-wrap gap-2">
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <Link2 className="h-4 w-4 text-primary" />
-                            <span className="font-medium text-foreground">
-                              {first.client_name || 'بدون موكل'} {first.opposing_party ? `ضد ${first.opposing_party}` : ''}
-                            </span>
-                            <Badge variant="outline" className="text-xs">{sorted.length} مستند</Badge>
-                          </div>
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                            {first.case_number && <span>ملف: {first.case_number}</span>}
-                            {first.court && <span>• {first.court}</span>}
-                            <span>• {new Date(first.created_at).toLocaleDateString('ar-MA')}</span>
-                          </div>
-                          <div className="flex items-center gap-1 mt-2 flex-wrap">
-                            {sorted.map((d: any) => (
-                              <Badge key={d.id} variant="secondary" className="text-xs">
-                                {d.step_number}. {d.doc_type}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                        <Button size="sm" variant="outline" className="gap-1" onClick={(e) => { e.stopPropagation(); handleLoadThread(first.thread_id || threadId, sorted); }}>
-                          <RefreshCw className="h-3 w-3" /> متابعة
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
-
-      {/* Preview Dialog */}
-      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-3xl max-h-[80vh]">
-          <DialogHeader>
-            <DialogTitle>{previewDoc?.doc_type} - {previewDoc?.client_name}</DialogTitle>
-          </DialogHeader>
-          <ScrollArea className="h-[60vh]">
-            {previewDoc?.opponent_memo && (
-              <div className="bg-destructive/5 border border-destructive/20 rounded-lg p-3 mb-4 mx-4">
-                <p className="text-xs font-medium text-destructive mb-1">📨 مذكرة الخصم:</p>
-                <p className="text-sm whitespace-pre-wrap">{previewDoc.opponent_memo}</p>
-              </div>
-            )}
-            <div dir="rtl" className="whitespace-pre-wrap leading-8 p-4 font-serif" style={{ fontFamily: "'Traditional Arabic', 'Amiri', serif" }}>
-              {previewDoc?.content}
-            </div>
-          </ScrollArea>
-          <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={() => { if (previewDoc) handleExportWord(previewDoc.content); }}>
-              <Download className="h-4 w-4 ml-2" /> تصدير Word
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+        )}
+      </div>
     </div>
   );
 };
