@@ -233,11 +233,65 @@ const DocumentGenerator = () => {
     setCurrentThread({
       threadId: crypto.randomUUID(),
       clientName: selectedClient?.full_name || '',
+      clientId: selectedClient?.id || null,
       opposingParty: '', court: '', caseNumber: '',
       docs: [], lastDate: new Date().toISOString(),
     });
     setChatMessages([]);
     setView('chat');
+  };
+
+  // ─── Add opponent memo to thread ──────────────────────────────────────
+  const addOpponentMemo = async (files: File[]) => {
+    if (!user || !currentThread || files.length === 0) return;
+    setIsParsing(true);
+    try {
+      const parsed = await extractAllFiles(files);
+      const memoContent = parsed.map(p => p.text).join('\n\n');
+      const step = currentThread.docs.length + 1;
+      const parentId = currentThread.docs.length > 0 ? currentThread.docs[currentThread.docs.length - 1].id : null;
+
+      const { data, error } = await supabase.from('generated_documents').insert({
+        user_id: user.id,
+        client_id: selectedClientId || null,
+        doc_type: 'مذكرة الخصم',
+        title: `مذكرة الخصم - الخطوة ${step}`,
+        content: null,
+        opponent_memo: memoContent,
+        court: currentThread.court || null,
+        case_number: currentThread.caseNumber || null,
+        opposing_party: currentThread.opposingParty || null,
+        client_name: currentThread.clientName || null,
+        status: 'final',
+        thread_id: currentThread.threadId,
+        parent_id: parentId,
+        step_number: step,
+        metadata: {},
+      } as any).select().single();
+      if (error) throw error;
+
+      // Upload original files as attachments
+      if (data) {
+        for (const file of files) {
+          const path = `${user.id}/${data.id}/${file.name}`;
+          const { error: upErr } = await supabase.storage.from('document-attachments').upload(path, file);
+          if (!upErr) {
+            await supabase.from('document_attachments').insert({
+              document_id: data.id, file_name: file.name, file_path: path, file_type: file.type,
+            } as any);
+          }
+        }
+      }
+
+      const newDoc = data as ThreadDoc;
+      setAllDocs(prev => [...prev, newDoc]);
+      setCurrentThread(prev => prev ? { ...prev, docs: [...prev.docs, newDoc] } : prev);
+      toast({ title: 'تم حفظ مذكرة الخصم بالأرشيف ✅', description: 'سيعتمد عليها الذكاء الاصطناعي في الصياغة التالية' });
+    } catch (e: any) {
+      toast({ title: 'خطأ', description: e.message, variant: 'destructive' });
+    } finally {
+      setIsParsing(false);
+    }
   };
 
   // Create new client
