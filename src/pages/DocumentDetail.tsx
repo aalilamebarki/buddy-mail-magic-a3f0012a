@@ -41,6 +41,7 @@ const DocumentDetail = () => {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [showPdf, setShowPdf] = useState(false);
+  const [pdfError, setPdfError] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
