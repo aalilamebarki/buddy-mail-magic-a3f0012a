@@ -423,7 +423,7 @@ const Letterheads = () => {
                 className="w-full gap-2"
               >
                 <Upload className="h-4 w-4" />
-                {uploadingTemplate ? 'جاري الرفع...' : 'اختر ملف (.doc / .docx)'}
+                {uploadingTemplate ? 'جاري الرفع...' : 'اختر ملف (.docx)'}
               </Button>
 
               {uploadingTemplate && (
