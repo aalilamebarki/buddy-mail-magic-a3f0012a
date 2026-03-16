@@ -346,6 +346,42 @@ const DocumentGenerator = () => {
     setClientSearch('');
   };
 
+  // ─── Reference Documents ──────────────────────────────────────────────
+  const uploadReferenceDoc = async (files: File[]) => {
+    if (!user || files.length === 0) return;
+    setIsUploadingRef(true);
+    try {
+      const parsed = await extractAllFiles(files);
+      for (const p of parsed) {
+        if (!p.text.trim()) continue;
+        const docType = p.name.includes('مذكرة') ? 'مذكرة' :
+          p.name.includes('مقال') ? 'مقال' :
+          p.name.includes('شكاية') ? 'شكاية' :
+          p.name.includes('حكم') || p.name.includes('قرار') ? 'حكم قضائي' : 'عام';
+        
+        const { data, error } = await supabase.from('reference_documents').insert({
+          user_id: user.id,
+          title: p.name.replace(/\.[^.]+$/, ''),
+          doc_type: docType,
+          content: p.text.slice(0, 10000),
+          file_name: p.name,
+        } as any).select().single();
+        if (error) throw error;
+        if (data) setReferenceDocs(prev => [data as ReferenceDocument, ...prev]);
+      }
+      toast({ title: `تم رفع ${parsed.length} نموذج مرجعي ✅`, description: 'سيتعلم الذكاء الاصطناعي من أسلوبك' });
+    } catch (e: any) {
+      toast({ title: 'خطأ', description: e.message, variant: 'destructive' });
+    } finally {
+      setIsUploadingRef(false);
+    }
+  };
+
+  const deleteReferenceDoc = async (id: string) => {
+    const { error } = await supabase.from('reference_documents').delete().eq('id', id) as any;
+    if (!error) setReferenceDocs(prev => prev.filter(d => d.id !== id));
+  };
+
 
 
   const sendMessage = useCallback(async () => {
