@@ -136,7 +136,7 @@ const DocumentGenerator = () => {
         supabase.from('generated_documents')
           .select('id, doc_type, content, opponent_memo, step_number, status, created_at, thread_id, title, client_name, client_id, opposing_party, court, case_number')
           .order('created_at', { ascending: true }),
-        supabase.from('letterheads').select('id, lawyer_name, header_image_path, footer_image_path') as any,
+        supabase.from('letterheads').select('id, lawyer_name, template_path') as any,
       ]);
       if (clientsRes.data) setClients(clientsRes.data as ClientInfo[]);
       if (docsRes.data) setAllDocs(docsRes.data as ThreadDoc[]);
