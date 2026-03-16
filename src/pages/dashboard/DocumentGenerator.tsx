@@ -131,6 +131,7 @@ const DocumentGenerator = () => {
   const [referenceDocs, setReferenceDocs] = useState<ReferenceDocument[]>([]);
   const [showRefDocs, setShowRefDocs] = useState(false);
   const [isUploadingRef, setIsUploadingRef] = useState(false);
+  const [refDocFilter, setRefDocFilter] = useState<string>('الكل');
 
   // Archive
   const [searchQuery, setSearchQuery] = useState('');
@@ -381,6 +382,15 @@ const DocumentGenerator = () => {
     const { error } = await supabase.from('reference_documents').delete().eq('id', id) as any;
     if (!error) setReferenceDocs(prev => prev.filter(d => d.id !== id));
   };
+
+  const updateRefDocType = async (id: string, newType: string) => {
+    const { error } = await supabase.from('reference_documents').update({ doc_type: newType }).eq('id', id) as any;
+    if (!error) setReferenceDocs(prev => prev.map(d => d.id === id ? { ...d, doc_type: newType } : d));
+  };
+
+  const REF_DOC_TYPES = ['مذكرة', 'مقال', 'شكاية', 'حكم قضائي', 'إنذار', 'عقد', 'عام'] as const;
+  
+  const filteredRefDocs = refDocFilter === 'الكل' ? referenceDocs : referenceDocs.filter(d => d.doc_type === refDocFilter);
 
 
 
@@ -1227,23 +1237,60 @@ const DocumentGenerator = () => {
                   disabled={isUploadingRef}
                   onChange={e => { if (e.target.files) uploadReferenceDoc(Array.from(e.target.files)); e.target.value = ''; }} />
               </label>
-              
+
+              {/* Filter tabs */}
               {referenceDocs.length > 0 && (
-                <div className="space-y-1 max-h-[200px] overflow-y-auto">
-                  {referenceDocs.map(rd => (
-                    <div key={rd.id} className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2 text-xs">
-                      <div className="min-w-0">
+                <div className="flex gap-1 flex-wrap">
+                  {['الكل', ...REF_DOC_TYPES].map(type => {
+                    const count = type === 'الكل' ? referenceDocs.length : referenceDocs.filter(d => d.doc_type === type).length;
+                    if (type !== 'الكل' && count === 0) return null;
+                    return (
+                      <button
+                        key={type}
+                        onClick={() => setRefDocFilter(type)}
+                        className={`text-[10px] px-2 py-1 rounded-md transition-colors ${
+                          refDocFilter === type
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted text-muted-foreground hover:bg-accent'
+                        }`}
+                      >
+                        {type} ({count})
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              
+              {filteredRefDocs.length > 0 && (
+                <div className="space-y-1 max-h-[250px] overflow-y-auto">
+                  {filteredRefDocs.map(rd => (
+                    <div key={rd.id} className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2 text-xs">
+                      <div className="min-w-0 flex-1">
                         <span className="font-medium text-foreground truncate block">{rd.title}</span>
                         <span className="text-muted-foreground text-[10px]">
-                          {rd.doc_type} • {rd.content.length > 100 ? `${Math.round(rd.content.length / 1000)}k حرف` : `${rd.content.length} حرف`}
+                          {rd.content.length > 100 ? `${Math.round(rd.content.length / 1000)}k حرف` : `${rd.content.length} حرف`}
                         </span>
                       </div>
-                      <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-destructive hover:text-destructive" onClick={() => deleteReferenceDoc(rd.id)}>
+                      <Select value={rd.doc_type} onValueChange={(v) => updateRefDocType(rd.id, v)}>
+                        <SelectTrigger className="h-6 w-[90px] text-[10px] px-1.5 border-border/50">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {REF_DOC_TYPES.map(t => (
+                            <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button size="sm" variant="ghost" className="h-6 w-6 p-0 shrink-0 text-destructive hover:text-destructive" onClick={() => deleteReferenceDoc(rd.id)}>
                         <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
                   ))}
                 </div>
+              )}
+
+              {referenceDocs.length > 0 && filteredRefDocs.length === 0 && (
+                <p className="text-center text-[11px] text-muted-foreground py-3">لا توجد نماذج من هذا النوع</p>
               )}
             </div>
           )}
