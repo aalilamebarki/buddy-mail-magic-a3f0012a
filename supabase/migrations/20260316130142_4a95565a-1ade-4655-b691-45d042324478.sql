@@ -1,0 +1,1 @@
+ALTER TABLE public.cases ALTER COLUMN case_number DROP NOT NULL, ALTER COLUMN case_number SET DEFAULT '';
