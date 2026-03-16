@@ -38,9 +38,18 @@ interface ThreadDoc {
   thread_id: string | null;
   title: string;
   client_name: string | null;
+  client_id: string | null;
   opposing_party: string | null;
   court: string | null;
   case_number: string | null;
+}
+
+interface DocAttachment {
+  id: string;
+  document_id: string;
+  file_name: string;
+  file_path: string;
+  file_type: string | null;
 }
 
 interface ClientInfo {
@@ -62,6 +71,7 @@ interface Letterhead {
 interface CaseThread {
   threadId: string;
   clientName: string;
+  clientId: string | null;
   opposingParty: string;
   court: string;
   caseNumber: string;
@@ -124,7 +134,7 @@ const DocumentGenerator = () => {
       const [clientsRes, docsRes, lhRes] = await Promise.all([
         supabase.from('clients').select('id, full_name, email, phone, address, cin'),
         supabase.from('generated_documents')
-          .select('id, doc_type, content, opponent_memo, step_number, status, created_at, thread_id, title, client_name, opposing_party, court, case_number')
+          .select('id, doc_type, content, opponent_memo, step_number, status, created_at, thread_id, title, client_name, client_id, opposing_party, court, case_number')
           .order('created_at', { ascending: true }),
         supabase.from('letterheads').select('id, lawyer_name, header_image_path, footer_image_path') as any,
       ]);
@@ -191,6 +201,7 @@ const DocumentGenerator = () => {
       return {
         threadId, docs: sorted,
         clientName: first.client_name || '',
+        clientId: first.client_id || null,
         opposingParty: first.opposing_party || '',
         court: first.court || '',
         caseNumber: first.case_number || '',
@@ -203,9 +214,9 @@ const DocumentGenerator = () => {
     !searchQuery || t.clientName.includes(searchQuery) || t.opposingParty.includes(searchQuery) || t.caseNumber.includes(searchQuery)
   );
 
-  // Get threads for selected client
+  // Get threads for selected client - match by client_id first, fallback to name
   const clientThreads: CaseThread[] = selectedClient
-    ? threadGroups.filter(t => t.clientName === selectedClient.full_name)
+    ? threadGroups.filter(t => t.clientId === selectedClient.id || (!t.clientId && t.clientName === selectedClient.full_name))
     : [];
 
   // ─── Actions ──────────────────────────────────────────────────────────
@@ -222,11 +233,65 @@ const DocumentGenerator = () => {
     setCurrentThread({
       threadId: crypto.randomUUID(),
       clientName: selectedClient?.full_name || '',
+      clientId: selectedClient?.id || null,
       opposingParty: '', court: '', caseNumber: '',
       docs: [], lastDate: new Date().toISOString(),
     });
     setChatMessages([]);
     setView('chat');
+  };
+
+  // ─── Add opponent memo to thread ──────────────────────────────────────
+  const addOpponentMemo = async (files: File[]) => {
+    if (!user || !currentThread || files.length === 0) return;
+    setIsParsing(true);
+    try {
+      const parsed = await extractAllFiles(files);
+      const memoContent = parsed.map(p => p.text).join('\n\n');
+      const step = currentThread.docs.length + 1;
+      const parentId = currentThread.docs.length > 0 ? currentThread.docs[currentThread.docs.length - 1].id : null;
+
+      const { data, error } = await supabase.from('generated_documents').insert({
+        user_id: user.id,
+        client_id: selectedClientId || null,
+        doc_type: 'مذكرة الخصم',
+        title: `مذكرة الخصم - الخطوة ${step}`,
+        content: null,
+        opponent_memo: memoContent,
+        court: currentThread.court || null,
+        case_number: currentThread.caseNumber || null,
+        opposing_party: currentThread.opposingParty || null,
+        client_name: currentThread.clientName || null,
+        status: 'final',
+        thread_id: currentThread.threadId,
+        parent_id: parentId,
+        step_number: step,
+        metadata: {},
+      } as any).select().single();
+      if (error) throw error;
+
+      // Upload original files as attachments
+      if (data) {
+        for (const file of files) {
+          const path = `${user.id}/${data.id}/${file.name}`;
+          const { error: upErr } = await supabase.storage.from('document-attachments').upload(path, file);
+          if (!upErr) {
+            await supabase.from('document_attachments').insert({
+              document_id: data.id, file_name: file.name, file_path: path, file_type: file.type,
+            } as any);
+          }
+        }
+      }
+
+      const newDoc = data as ThreadDoc;
+      setAllDocs(prev => [...prev, newDoc]);
+      setCurrentThread(prev => prev ? { ...prev, docs: [...prev.docs, newDoc] } : prev);
+      toast({ title: 'تم حفظ مذكرة الخصم بالأرشيف ✅', description: 'سيعتمد عليها الذكاء الاصطناعي في الصياغة التالية' });
+    } catch (e: any) {
+      toast({ title: 'خطأ', description: e.message, variant: 'destructive' });
+    } finally {
+      setIsParsing(false);
+    }
   };
 
   // Create new client
@@ -626,28 +691,53 @@ const DocumentGenerator = () => {
               {expandedThread ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </button>
             {expandedThread && (
-              <div className="px-3 pb-3 space-y-1.5 max-h-[200px] overflow-y-auto">
-                {currentThread.docs.map((doc, i) => (
-                  <div key={doc.id} className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2 text-xs">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold shrink-0 text-[10px]">
-                        {doc.step_number || i + 1}
-                      </span>
-                      <span className="font-medium text-foreground truncate">{doc.doc_type}</span>
-                      {doc.opponent_memo && <span>📨</span>}
+              <div className="px-3 pb-3 space-y-1.5 max-h-[250px] overflow-y-auto">
+                {currentThread.docs.map((doc, i) => {
+                  const isOpponentMemo = doc.doc_type === 'مذكرة الخصم';
+                  return (
+                    <div key={doc.id} className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs ${isOpponentMemo ? 'bg-destructive/10 border border-destructive/20' : 'bg-muted/50'}`}>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={`w-5 h-5 rounded-full flex items-center justify-center font-bold shrink-0 text-[10px] ${isOpponentMemo ? 'bg-destructive/20 text-destructive' : 'bg-primary/10 text-primary'}`}>
+                          {doc.step_number || i + 1}
+                        </span>
+                        <span className="font-medium text-foreground truncate">{doc.doc_type}</span>
+                        {isOpponentMemo && <span>📨</span>}
+                        <span className="text-muted-foreground text-[10px]">{new Date(doc.created_at).toLocaleDateString('ar-MA')}</span>
+                      </div>
+                      <div className="flex gap-0.5 shrink-0">
+                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => setPreviewDoc(doc)}>
+                          <Eye className="h-3 w-3" />
+                        </Button>
+                        {doc.content && (
+                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => exportWord(doc.content || '', doc.doc_type)}>
+                            <Download className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex gap-0.5 shrink-0">
-                      <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => setPreviewDoc(doc)}>
-                        <Eye className="h-3 w-3" />
-                      </Button>
-                      <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => exportWord(doc.content || '', doc.doc_type)}>
-                        <Download className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
+                {/* Add opponent memo button */}
+                <label className="flex items-center justify-center gap-2 border border-dashed border-destructive/40 rounded-lg px-3 py-2.5 text-xs text-destructive hover:bg-destructive/5 cursor-pointer transition-colors">
+                  <FileUp className="h-3.5 w-3.5" />
+                  <span className="font-medium">إضافة رد الخصم (PDF/Word)</span>
+                  <input type="file" multiple accept=".pdf,.doc,.docx,.txt" className="hidden"
+                    onChange={e => { if (e.target.files) addOpponentMemo(Array.from(e.target.files)); e.target.value = ''; }} />
+                </label>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Add opponent memo when no docs yet */}
+        {currentThread.docs.length === 0 && (
+          <div className="border-b border-border px-3 py-2">
+            <label className="flex items-center justify-center gap-2 border border-dashed border-destructive/40 rounded-lg px-3 py-2.5 text-xs text-destructive hover:bg-destructive/5 cursor-pointer transition-colors">
+              <FileUp className="h-3.5 w-3.5" />
+              <span className="font-medium">إضافة رد الخصم (PDF/Word)</span>
+              <input type="file" multiple accept=".pdf,.doc,.docx,.txt" className="hidden"
+                onChange={e => { if (e.target.files) addOpponentMemo(Array.from(e.target.files)); e.target.value = ''; }} />
+            </label>
           </div>
         )}
 
@@ -763,17 +853,29 @@ const DocumentGenerator = () => {
         {/* Preview */}
         <Dialog open={!!previewDoc} onOpenChange={() => setPreviewDoc(null)}>
           <DialogContent className="max-w-3xl max-h-[80vh]">
-            <DialogHeader><DialogTitle>{previewDoc?.doc_type}</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{previewDoc?.doc_type} {previewDoc?.created_at && `- ${new Date(previewDoc.created_at).toLocaleDateString('ar-MA')}`}</DialogTitle></DialogHeader>
             <ScrollArea className="h-[60vh]">
-              <div dir="rtl" className="whitespace-pre-wrap leading-8 p-4" style={{ fontFamily: "'Traditional Arabic', 'Amiri', serif" }}>
-                {previewDoc?.content}
-              </div>
+              {previewDoc?.content && (
+                <div dir="rtl" className="whitespace-pre-wrap leading-8 p-4" style={{ fontFamily: "'Traditional Arabic', 'Amiri', serif" }}>
+                  {previewDoc.content}
+                </div>
+              )}
+              {previewDoc?.opponent_memo && (
+                <div className="p-4 space-y-2">
+                  <Badge variant="destructive" className="text-xs">📨 مذكرة الخصم</Badge>
+                  <div dir="rtl" className="whitespace-pre-wrap leading-7 text-sm bg-destructive/5 p-4 rounded-lg border border-destructive/20">
+                    {previewDoc.opponent_memo}
+                  </div>
+                </div>
+              )}
             </ScrollArea>
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => previewDoc && exportWord(previewDoc.content || '', previewDoc.doc_type)}>
-                <Download className="h-4 w-4 ml-2" /> Word
-              </Button>
-            </div>
+            {previewDoc?.content && (
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => previewDoc && exportWord(previewDoc.content || '', previewDoc.doc_type)}>
+                  <Download className="h-4 w-4 ml-2" /> Word
+                </Button>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
       </div>
