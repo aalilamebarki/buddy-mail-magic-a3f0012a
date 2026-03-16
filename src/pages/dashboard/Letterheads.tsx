@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -75,6 +75,7 @@ const Letterheads = () => {
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -365,8 +366,23 @@ const Letterheads = () => {
     return <div className="flex items-center justify-center h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
+  const triggerFilePicker = () => {
+    fileInputRef.current?.click();
+  };
+
   return (
     <div className="space-y-6">
+      {/* Hidden file input - always mounted to survive mobile browser re-renders */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".doc,.docx"
+        onChange={handleTemplateChange}
+        className="hidden"
+        tabIndex={-1}
+        aria-hidden="true"
+      />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
@@ -399,12 +415,16 @@ const Letterheads = () => {
                 <span>اختر ملف الترويسة من جهازك</span>
               </div>
 
-              <input
-                type="file"
-                accept=".doc,.docx"
-                onChange={handleTemplateChange}
-                className="block w-full cursor-pointer rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-secondary-foreground"
-              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={triggerFilePicker}
+                disabled={uploadingTemplate}
+                className="w-full gap-2"
+              >
+                <Upload className="h-4 w-4" />
+                {uploadingTemplate ? 'جاري الرفع...' : 'اختر ملف (.doc / .docx)'}
+              </Button>
 
               {uploadingTemplate && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
