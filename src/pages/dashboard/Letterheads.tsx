@@ -2,10 +2,12 @@ import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Trash2, FileText, Loader2, Stamp, Edit2, Save, X, Upload } from 'lucide-react';
+import { Plus, Trash2, FileText, Loader2, Stamp, Edit2, Save, X, Upload, Eye } from 'lucide-react';
+import mammoth from 'mammoth';
 
 interface Letterhead {
   id: string;
@@ -24,12 +26,36 @@ const Letterheads = () => {
   const [lawyerName, setLawyerName] = useState('');
   const [templateFile, setTemplateFile] = useState<File | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!user) return;
     loadLetterheads();
   }, [user]);
+
+  // Auto-preview when file is selected
+  useEffect(() => {
+    if (templateFile) {
+      generatePreview(templateFile);
+    } else {
+      setPreviewHtml(null);
+    }
+  }, [templateFile]);
+
+  const generatePreview = async (file: File) => {
+    setPreviewLoading(true);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const result = await mammoth.convertToHtml({ arrayBuffer });
+      setPreviewHtml(result.value);
+    } catch {
+      setPreviewHtml('<p style="color:gray;text-align:center;">تعذر عرض معاينة هذا الملف</p>');
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
 
   const loadLetterheads = async () => {
     const { data } = await supabase
@@ -38,6 +64,22 @@ const Letterheads = () => {
       .order('created_at', { ascending: false }) as any;
     if (data) setLetterheads(data);
     setLoading(false);
+  };
+
+  const previewExisting = async (lh: Letterhead) => {
+    if (!lh.template_path) return;
+    setPreviewLoading(true);
+    try {
+      const { data, error } = await supabase.storage.from('letterhead-templates').download(lh.template_path);
+      if (error || !data) throw error;
+      const arrayBuffer = await data.arrayBuffer();
+      const result = await mammoth.convertToHtml({ arrayBuffer });
+      setPreviewHtml(result.value);
+    } catch {
+      setPreviewHtml('<p style="color:gray;text-align:center;">تعذر عرض معاينة هذا الملف</p>');
+    } finally {
+      setPreviewLoading(false);
+    }
   };
 
   const save = async () => {
@@ -49,24 +91,18 @@ const Letterheads = () => {
     setSaving(true);
     try {
       let templatePath: string | null = null;
-
-      // Upload file if provided
       if (templateFile) {
         const ext = templateFile.name.split('.').pop()?.toLowerCase() || 'docx';
         const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
-        const { error: uploadErr } = await supabase.storage
-          .from('letterhead-templates')
-          .upload(path, templateFile);
+        const { error: uploadErr } = await supabase.storage.from('letterhead-templates').upload(path, templateFile);
         if (uploadErr) throw uploadErr;
         templatePath = path;
       }
-
       const payload: any = {
         user_id: user.id,
         lawyer_name: lawyerName.trim(),
         ...(templatePath && { template_path: templatePath }),
       };
-
       if (editingId) {
         const { error } = await supabase.from('letterheads').update(payload).eq('id', editingId) as any;
         if (error) throw error;
@@ -89,12 +125,12 @@ const Letterheads = () => {
     setEditingId(lh.id);
     setLawyerName(lh.lawyer_name);
     setTemplateFile(null);
+    setPreviewHtml(null);
     setShowForm(true);
   };
 
   const deleteLetterhead = async (lh: Letterhead) => {
     try {
-      // Delete template file from storage if exists
       if (lh.template_path) {
         await supabase.storage.from('letterhead-templates').remove([lh.template_path]);
       }
@@ -112,6 +148,7 @@ const Letterheads = () => {
     setEditingId(null);
     setLawyerName('');
     setTemplateFile(null);
+    setPreviewHtml(null);
   };
 
   if (loading) {
@@ -174,6 +211,30 @@ const Letterheads = () => {
                 </div>
               )}
             </div>
+
+            {/* Preview section */}
+            {previewLoading && (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                <span className="text-sm text-muted-foreground mr-2">جاري تحميل المعاينة...</span>
+              </div>
+            )}
+            {previewHtml && !previewLoading && (
+              <div className="border border-border rounded-lg overflow-hidden">
+                <div className="bg-muted/50 px-3 py-1.5 flex items-center gap-1.5 border-b border-border">
+                  <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium text-muted-foreground">معاينة القالب</span>
+                </div>
+                <ScrollArea className="h-[300px]">
+                  <div
+                    className="p-4 prose prose-sm max-w-none dark:prose-invert text-foreground"
+                    dir="auto"
+                    dangerouslySetInnerHTML={{ __html: previewHtml }}
+                  />
+                </ScrollArea>
+              </div>
+            )}
+
             <div className="flex gap-2 pt-2">
               <Button onClick={save} disabled={!lawyerName.trim() || saving} className="gap-1.5">
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -181,6 +242,30 @@ const Letterheads = () => {
               </Button>
               <Button variant="ghost" onClick={resetForm}><X className="h-4 w-4 ml-1" /> إلغاء</Button>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Preview for existing letterheads (outside form) */}
+      {!showForm && previewHtml && (
+        <Card>
+          <CardContent className="pt-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Eye className="h-4 w-4 text-primary" />
+                <span className="text-sm font-bold text-foreground">معاينة القالب</span>
+              </div>
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setPreviewHtml(null)}>
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            <ScrollArea className="h-[300px] border border-border rounded-lg">
+              <div
+                className="p-4 prose prose-sm max-w-none dark:prose-invert text-foreground"
+                dir="auto"
+                dangerouslySetInnerHTML={{ __html: previewHtml }}
+              />
+            </ScrollArea>
           </CardContent>
         </Card>
       )}
@@ -211,6 +296,11 @@ const Letterheads = () => {
                     </div>
                   </div>
                   <div className="flex gap-1 shrink-0">
+                    {lh.template_path && (
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => previewExisting(lh)} title="معاينة">
+                        <Eye className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                     <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => startEdit(lh)}>
                       <Edit2 className="h-3.5 w-3.5" />
                     </Button>
