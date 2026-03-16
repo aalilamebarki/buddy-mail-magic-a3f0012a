@@ -102,6 +102,13 @@ const DocumentGenerator = () => {
   const [attachments, setAttachments] = useState<File[]>([]);
   const [isParsing, setIsParsing] = useState(false);
 
+  // Letterheads
+  const [letterheads, setLetterheads] = useState<Letterhead[]>([]);
+  const [selectedLetterheadId, setSelectedLetterheadId] = useState('');
+  const [letterheadSearch, setLetterheadSearch] = useState('');
+  const [showLetterheadSuggestions, setShowLetterheadSuggestions] = useState(false);
+  const letterheadSearchRef = useRef<HTMLDivElement>(null);
+
   // Archive
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedThread, setExpandedThread] = useState<string | null>(null);
@@ -114,14 +121,16 @@ const DocumentGenerator = () => {
   useEffect(() => {
     if (!user) return;
     const load = async () => {
-      const [clientsRes, docsRes] = await Promise.all([
+      const [clientsRes, docsRes, lhRes] = await Promise.all([
         supabase.from('clients').select('id, full_name, email, phone, address, cin'),
         supabase.from('generated_documents')
           .select('id, doc_type, content, opponent_memo, step_number, status, created_at, thread_id, title, client_name, opposing_party, court, case_number')
           .order('created_at', { ascending: true }),
+        supabase.from('letterheads').select('id, lawyer_name, header_image_path, footer_image_path') as any,
       ]);
       if (clientsRes.data) setClients(clientsRes.data as ClientInfo[]);
       if (docsRes.data) setAllDocs(docsRes.data as ThreadDoc[]);
+      if (lhRes.data) setLetterheads(lhRes.data as Letterhead[]);
       setLoading(false);
     };
     load();
