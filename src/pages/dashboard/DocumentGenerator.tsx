@@ -117,8 +117,8 @@ const getDocRequirement = (docType: string): DocRequirement => {
   return found?.requires || 'court_and_case';
 };
 
-// Types that don't need documents-first gate
-const DOCS_NOT_REQUIRED_TYPES = ['مقال افتتاحي', 'إنذار بالإفراغ', 'إنذار بالأداء', 'إنذار عام'];
+// All types require documents-first
+const DOCS_NOT_REQUIRED_TYPES: string[] = [];
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
