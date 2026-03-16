@@ -436,6 +436,12 @@ const DocumentGenerator = () => {
 
   // ─── Export ───────────────────────────────────────────────────────────
 
+  const fetchImageAsBuffer = async (path: string): Promise<ArrayBuffer> => {
+    const { data } = supabase.storage.from('letterheads').getPublicUrl(path);
+    const resp = await fetch(data.publicUrl);
+    return resp.arrayBuffer();
+  };
+
   const exportWord = async (content: string, title: string) => {
     const lines = content.split('\n').filter(l => l.trim());
     const paragraphs = lines.map(line => {
@@ -446,8 +452,68 @@ const DocumentGenerator = () => {
         heading: isHeader ? HeadingLevel.HEADING_2 : undefined, bidirectional: true,
       });
     });
+
+    // Build header/footer from selected letterhead
+    let headerObj: any = undefined;
+    let footerObj: any = undefined;
+
+    const lh = selectedLetterhead;
+    if (lh) {
+      if (lh.header_image_path) {
+        try {
+          const buf = await fetchImageAsBuffer(lh.header_image_path);
+          headerObj = {
+            default: new Header({
+              children: [
+                new Paragraph({
+                  alignment: AlignmentType.CENTER,
+                  children: [
+                    new ImageRun({
+                      data: buf,
+                      transformation: { width: 600, height: 100 },
+                      type: 'png',
+                    }),
+                  ],
+                }),
+              ],
+            }),
+          };
+        } catch (e) { console.error('Header image error:', e); }
+      }
+      if (lh.footer_image_path) {
+        try {
+          const buf = await fetchImageAsBuffer(lh.footer_image_path);
+          footerObj = {
+            default: new Footer({
+              children: [
+                new Paragraph({
+                  alignment: AlignmentType.CENTER,
+                  children: [
+                    new ImageRun({
+                      data: buf,
+                      transformation: { width: 600, height: 80 },
+                      type: 'png',
+                    }),
+                  ],
+                }),
+              ],
+            }),
+          };
+        } catch (e) { console.error('Footer image error:', e); }
+      }
+    }
+
     const doc = new Document({
-      sections: [{ properties: { page: { margin: { top: 1440, bottom: 1440, left: 1440, right: 1440 } } }, children: paragraphs }],
+      sections: [{
+        properties: {
+          page: {
+            margin: { top: lh?.header_image_path ? 2200 : 1440, bottom: lh?.footer_image_path ? 1800 : 1440, left: 1440, right: 1440 },
+          },
+        },
+        headers: headerObj,
+        footers: footerObj,
+        children: paragraphs,
+      }],
     });
     const blob = await Packer.toBlob(doc);
     saveAs(blob, `${title}_${new Date().toISOString().slice(0, 10)}.docx`);
