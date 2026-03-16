@@ -79,6 +79,22 @@ const Letterheads = () => {
     }
   };
 
+  const handleTemplateChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const nextFile = event.target.files?.[0] ?? null;
+    event.target.value = '';
+
+    if (!nextFile) return;
+
+    const ext = nextFile.name.split('.').pop()?.toLowerCase();
+    if (ext !== 'doc' && ext !== 'docx') {
+      toast({ title: 'صيغة غير مدعومة', description: 'يرجى اختيار ملف .doc أو .docx', variant: 'destructive' });
+      return;
+    }
+
+    setTemplateFile(nextFile);
+    await generatePreview(nextFile);
+  };
+
   const loadLetterheads = async () => {
     const { data } = await supabase
       .from('letterheads')
