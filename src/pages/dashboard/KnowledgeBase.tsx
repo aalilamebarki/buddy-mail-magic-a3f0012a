@@ -113,7 +113,44 @@ const KnowledgeBase = () => {
   const [adalaStats, setAdalaStats] = useState({ total: 0, existing: 0, newCount: 0 });
   const [adalaTotalIngested, setAdalaTotalIngested] = useState(0);
 
-  const fetchStats = async () => {
+  // PDF Download state
+  const [pdfDownloading, setPdfDownloading] = useState(false);
+  const [pdfDownloadLog, setPdfDownloadLog] = useState<string[]>([]);
+  const [pdfDownloadDialogOpen, setPdfDownloadDialogOpen] = useState(false);
+
+  const handleDownloadPdfs = async () => {
+    setPdfDownloading(true);
+    setPdfDownloadLog([]);
+    let totalDownloaded = 0;
+    let totalFailed = 0;
+    const maxRounds = 20; // 20 rounds × 5 = 100 docs max per session
+    
+    for (let round = 0; round < maxRounds; round++) {
+      try {
+        const { data, error } = await supabase.functions.invoke('download-legal-pdfs', {
+          body: { batch_size: 5 },
+        });
+        if (error) throw error;
+        if (!data || data.downloaded === 0) {
+          setPdfDownloadLog(prev => [...prev, '✅ تم تحميل جميع الوثائق المتاحة']);
+          break;
+        }
+        totalDownloaded += data.downloaded;
+        totalFailed += data.failed;
+        setPdfDownloadLog(prev => [
+          ...prev,
+          `📥 الدفعة ${round + 1}: تحميل ${data.downloaded}، فشل ${data.failed}`,
+        ]);
+      } catch (e: any) {
+        setPdfDownloadLog(prev => [...prev, `❌ خطأ: ${e.message}`]);
+        break;
+      }
+    }
+    setPdfDownloadLog(prev => [...prev, `📊 الإجمالي: ${totalDownloaded} محمّل، ${totalFailed} فشل`]);
+    setPdfDownloading(false);
+    if (totalDownloaded > 0) toast.success(`تم تحميل ${totalDownloaded} ملف PDF`);
+  };
+
     const types = ['law', 'dahir', 'decree', 'organic_law', 'circular', 'convention', 'decision', 'ruling', 'doctrine'];
     const results: Record<string, number> = {};
     
