@@ -294,9 +294,7 @@ const Letterheads = () => {
         toast({ title: 'تم إضافة الترويسة ✅' });
       }
 
-      if (typeof window !== 'undefined') {
-        window.sessionStorage.removeItem(DRAFT_STORAGE_KEY);
-      }
+      writeStoredDraft(null);
       resetForm(false);
       loadLetterheads();
     } catch (e: any) {
@@ -314,6 +312,12 @@ const Letterheads = () => {
     setPendingTemplateName(lh.template_path?.split('/').pop() || null);
     setPreviewHtml(null);
     setShowForm(true);
+    writeStoredDraft({
+      lawyerName: lh.lawyer_name,
+      pendingTemplatePath: lh.template_path,
+      pendingTemplateName: lh.template_path?.split('/').pop() || null,
+      showForm: true,
+    });
   };
 
   const deleteLetterhead = async (lh: Letterhead) => {
@@ -344,10 +348,7 @@ const Letterheads = () => {
     setPreviewHtml(null);
     setPreviewLoading(false);
     setUploadingTemplate(false);
-
-    if (typeof window !== 'undefined') {
-      window.sessionStorage.removeItem(DRAFT_STORAGE_KEY);
-    }
+    writeStoredDraft(null);
 
     if (pathToCleanup) {
       cleanupPendingUpload(pathToCleanup);
