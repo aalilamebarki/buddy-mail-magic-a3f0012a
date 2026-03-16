@@ -47,11 +47,41 @@ const Letterheads = () => {
   const generatePreview = async (file: File) => {
     setPreviewLoading(true);
     try {
+      const ext = file.name.split('.').pop()?.toLowerCase();
       const arrayBuffer = await file.arrayBuffer();
-      const result = await mammoth.convertToHtml({ arrayBuffer });
-      setPreviewHtml(result.value);
-    } catch {
-      setPreviewHtml('<p style="color:gray;text-align:center;">تعذر عرض معاينة هذا الملف</p>');
+      
+      if (ext === 'docx') {
+        const result = await mammoth.convertToHtml({ arrayBuffer });
+        setPreviewHtml(result.value || '<p style="color:gray;text-align:center;">الملف فارغ</p>');
+      } else if (ext === 'doc') {
+        // mammoth has limited .doc support - try but handle gracefully
+        try {
+          const result = await mammoth.convertToHtml({ arrayBuffer });
+          if (result.value && result.value.trim()) {
+            setPreviewHtml(result.value);
+          } else {
+            setPreviewHtml(`<div style="text-align:center;color:gray;padding:20px;">
+              <p style="font-size:14px;">📄 ${file.name}</p>
+              <p style="font-size:12px;">ملف .doc تم رفعه بنجاح</p>
+              <p style="font-size:11px;color:#999;">المعاينة قد لا تكون متاحة لملفات .doc القديمة</p>
+            </div>`);
+          }
+        } catch {
+          setPreviewHtml(`<div style="text-align:center;color:gray;padding:20px;">
+            <p style="font-size:14px;">📄 ${file.name}</p>
+            <p style="font-size:12px;">ملف .doc تم رفعه بنجاح</p>
+            <p style="font-size:11px;color:#999;">المعاينة غير متاحة لهذا النوع من الملفات</p>
+          </div>`);
+        }
+      } else {
+        setPreviewHtml('<p style="color:gray;text-align:center;">صيغة غير مدعومة</p>');
+      }
+    } catch (e) {
+      console.error('Preview error:', e);
+      setPreviewHtml(`<div style="text-align:center;color:gray;padding:20px;">
+        <p style="font-size:14px;">📄 ${file.name}</p>
+        <p style="font-size:12px;">تم رفع الملف بنجاح</p>
+      </div>`);
     } finally {
       setPreviewLoading(false);
     }
