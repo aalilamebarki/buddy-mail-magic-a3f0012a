@@ -564,26 +564,10 @@ const DocumentGenerator = () => {
         return;
       } catch (e) {
         console.error('Template merge error:', e);
-        toast({ title: 'تعذر دمج القالب، سيتم التصدير بدون ترويسة', variant: 'destructive' });
+        toast({ title: 'تعذر دمج القالب. تأكد من صحة ملف الترويسة وأعد المحاولة', variant: 'destructive' });
+        return;
       }
     }
-
-    // Fallback: export without template
-    const lines = content.split('\n').filter(l => l.trim());
-    const paragraphs = lines.map(line => {
-      const isHeader = line.startsWith('بسم') || line.includes('إلى السيد') || line.includes('بناءً عليه') || line.includes('الوقائع') || line.includes('في الموضوع') || line.includes('لهذه الأسباب');
-      return new Paragraph({
-        children: [new TextRun({ text: line, font: 'Traditional Arabic', size: isHeader ? 28 : 24, bold: isHeader, rightToLeft: true })],
-        alignment: AlignmentType.RIGHT, spacing: { after: 200, line: 360 },
-        heading: isHeader ? HeadingLevel.HEADING_2 : undefined, bidirectional: true,
-      });
-    });
-
-    const doc = new Document({
-      sections: [{ properties: { page: { margin: { top: 1440, bottom: 1440, left: 1440, right: 1440 } } }, children: paragraphs }],
-    });
-    const blob = await Packer.toBlob(doc);
-    saveAs(blob, `${title}_${new Date().toISOString().slice(0, 10)}.docx`);
   };
 
   const detectDocType = (content: string): string => {
