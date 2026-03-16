@@ -867,8 +867,113 @@ const DocumentGenerator = () => {
           </div>
         )}
 
-        {/* Required: upload case documents before AI can generate (only for types that need docs) */}
-        {caseDocs.length === 0 && !DOCS_NOT_REQUIRED_TYPES.includes(activeDocType) && (
+        {/* Doc type config panel - shown when no doc type selected yet */}
+        {!activeDocType && (
+          <div className="border-b border-border px-3 py-4 space-y-3">
+            <div className="text-center space-y-1">
+              <p className="text-sm font-semibold text-foreground">اختر نوع المستند</p>
+              <p className="text-xs text-muted-foreground">حدد نوع المستند ثم أكمل البيانات المطلوبة</p>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5 justify-center">
+              {DOC_TYPE_OPTIONS.map(dt => (
+                <button
+                  key={dt.label}
+                  onClick={() => setChatDocConfig(prev => ({ ...prev, doc_type: dt.label }))}
+                  className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors border ${
+                    chatDocConfig.doc_type === dt.label
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-background text-foreground border-border hover:bg-accent'
+                  }`}
+                >
+                  {dt.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Court level */}
+            {chatDocConfig.doc_type && getDocRequirement(chatDocConfig.doc_type) !== 'none' && (
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-foreground">درجة المحكمة *</label>
+                <div className="flex gap-2">
+                  {COURT_LEVELS.map(level => (
+                    <button
+                      key={level}
+                      onClick={() => setChatDocConfig(prev => ({ ...prev, court_level: level }))}
+                      className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors border ${
+                        chatDocConfig.court_level === level
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-background text-foreground border-border hover:bg-accent'
+                      }`}
+                    >
+                      {level}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Court name */}
+            {chatDocConfig.doc_type && getDocRequirement(chatDocConfig.doc_type) !== 'none' && (
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-foreground">المحكمة المختصة *</label>
+                <Select value={chatDocConfig.court} onValueChange={v => setChatDocConfig(prev => ({ ...prev, court: v }))}>
+                  <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="اختر المحكمة" /></SelectTrigger>
+                  <SelectContent>
+                    {COURT_TYPES.map(ct => (
+                      <SelectItem key={ct} value={ct}>{ct}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Case number */}
+            {chatDocConfig.doc_type && getDocRequirement(chatDocConfig.doc_type) === 'court_and_case' && (
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-foreground">رقم الملف</label>
+                <Input
+                  placeholder="رقم الملف بالمحكمة"
+                  value={chatDocConfig.case_number}
+                  onChange={e => setChatDocConfig(prev => ({ ...prev, case_number: e.target.value }))}
+                  className="h-9 text-xs"
+                />
+              </div>
+            )}
+
+            {chatDocConfig.doc_type && (
+              <Button
+                onClick={() => {
+                  setActiveDocType(chatDocConfig.doc_type);
+                  // Update case with court info if provided
+                  if (selectedCase && (chatDocConfig.court || chatDocConfig.case_number)) {
+                    supabase.from('cases').update({
+                      court: chatDocConfig.court || selectedCase.court,
+                      court_level: chatDocConfig.court_level || selectedCase.court_level,
+                      case_number: chatDocConfig.case_number || selectedCase.case_number,
+                    }).eq('id', selectedCase.id).then(() => {
+                      setSelectedCase(prev => prev ? {
+                        ...prev,
+                        court: chatDocConfig.court || prev.court,
+                        court_level: chatDocConfig.court_level || prev.court_level,
+                        case_number: chatDocConfig.case_number || prev.case_number,
+                      } : prev);
+                    });
+                  }
+                }}
+                disabled={
+                  (getDocRequirement(chatDocConfig.doc_type) !== 'none' && !chatDocConfig.court)
+                }
+                className="w-full gap-2" size="sm"
+              >
+                <Sparkles className="h-3.5 w-3.5" /> متابعة
+              </Button>
+            )}
+          </div>
+        )}
+
+        {/* Required: upload case documents before AI can generate */}
+        {activeDocType && caseDocs.length === 0 && !DOCS_NOT_REQUIRED_TYPES.includes(activeDocType) && (
           <div className="border-b border-border px-3 py-4 space-y-3">
             <div className="text-center space-y-2">
               <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto">
