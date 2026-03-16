@@ -1203,6 +1203,53 @@ const DocumentGenerator = () => {
         </CardContent>
       </Card>
 
+      {/* Reference Documents Section */}
+      <Card>
+        <CardContent className="pt-4">
+          <button
+            onClick={() => setShowRefDocs(!showRefDocs)}
+            className="w-full flex items-center justify-between text-sm font-bold text-foreground"
+          >
+            <span className="flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-primary" />
+              النماذج المرجعية ({referenceDocs.length})
+            </span>
+            {showRefDocs ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+          <p className="text-[11px] text-muted-foreground mt-1">ارفع مذكرات ومقالات وأحكام قضائية ليتعلم منها الذكاء الاصطناعي أسلوبك</p>
+          
+          {showRefDocs && (
+            <div className="mt-3 space-y-2">
+              <label className="flex items-center justify-center gap-2 border border-dashed border-primary/40 rounded-lg px-3 py-3 text-xs text-primary hover:bg-primary/5 cursor-pointer transition-colors">
+                {isUploadingRef ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileUp className="h-3.5 w-3.5" />}
+                <span className="font-medium">رفع نماذج (PDF / Word / نص)</span>
+                <input type="file" multiple accept=".pdf,.docx,.txt" className="hidden"
+                  disabled={isUploadingRef}
+                  onChange={e => { if (e.target.files) uploadReferenceDoc(Array.from(e.target.files)); e.target.value = ''; }} />
+              </label>
+              
+              {referenceDocs.length > 0 && (
+                <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                  {referenceDocs.map(rd => (
+                    <div key={rd.id} className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2 text-xs">
+                      <div className="min-w-0">
+                        <span className="font-medium text-foreground truncate block">{rd.title}</span>
+                        <span className="text-muted-foreground text-[10px]">
+                          {rd.doc_type} • {rd.content.length > 100 ? `${Math.round(rd.content.length / 1000)}k حرف` : `${rd.content.length} حرف`}
+                        </span>
+                      </div>
+                      <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-destructive hover:text-destructive" onClick={() => deleteReferenceDoc(rd.id)}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <Separator />
 
       {/* Global archive */}
