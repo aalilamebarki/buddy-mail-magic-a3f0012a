@@ -17,7 +17,8 @@ import {
   FileUp, Trash2, Sparkles, Send, FolderOpen,
   ArrowRight, MessageSquare, ChevronDown, ChevronUp, User, Plus, X, UserPlus, Stamp
 } from 'lucide-react';
-import { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel, ImageRun, Header, Footer } from 'docx';
+import { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel } from 'docx';
+import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -64,8 +65,7 @@ interface ClientInfo {
 interface Letterhead {
   id: string;
   lawyer_name: string;
-  header_image_path: string | null;
-  footer_image_path: string | null;
+  template_path: string | null;
 }
 
 interface CaseThread {
@@ -136,7 +136,7 @@ const DocumentGenerator = () => {
         supabase.from('generated_documents')
           .select('id, doc_type, content, opponent_memo, step_number, status, created_at, thread_id, title, client_name, client_id, opposing_party, court, case_number')
           .order('created_at', { ascending: true }),
-        supabase.from('letterheads').select('id, lawyer_name, header_image_path, footer_image_path') as any,
+        supabase.from('letterheads').select('id, lawyer_name, template_path') as any,
       ]);
       if (clientsRes.data) setClients(clientsRes.data as ClientInfo[]);
       if (docsRes.data) setAllDocs(docsRes.data as ThreadDoc[]);
@@ -501,13 +501,66 @@ const DocumentGenerator = () => {
 
   // ─── Export ───────────────────────────────────────────────────────────
 
-  const fetchImageAsBuffer = async (path: string): Promise<ArrayBuffer> => {
+  const fetchTemplateAsArrayBuffer = async (path: string): Promise<ArrayBuffer> => {
     const { data } = supabase.storage.from('letterheads').getPublicUrl(path);
     const resp = await fetch(data.publicUrl);
     return resp.arrayBuffer();
   };
 
+  // Build XML paragraphs for the content to inject into template
+  const buildContentXml = (content: string): string => {
+    const lines = content.split('\n').filter(l => l.trim());
+    return lines.map(line => {
+      const isHeader = line.startsWith('بسم') || line.includes('إلى السيد') || line.includes('بناءً عليه') || line.includes('الوقائع') || line.includes('في الموضوع') || line.includes('لهذه الأسباب');
+      const fontSize = isHeader ? 28 : 24;
+      const bold = isHeader ? '<w:b/><w:bCs/>' : '';
+      return `<w:p>
+        <w:pPr><w:bidi/><w:jc w:val="right"/><w:spacing w:after="200" w:line="360" w:lineRule="auto"/></w:pPr>
+        <w:r><w:rPr><w:rFonts w:ascii="Traditional Arabic" w:hAnsi="Traditional Arabic" w:cs="Traditional Arabic"/><w:sz w:val="${fontSize}"/><w:szCs w:val="${fontSize}"/>${bold}<w:rtl/></w:rPr><w:t xml:space="preserve">${escapeXml(line)}</w:t></w:r>
+      </w:p>`;
+    }).join('\n');
+  };
+
+  const escapeXml = (text: string): string => {
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+  };
+
   const exportWord = async (content: string, title: string) => {
+    const lh = selectedLetterhead;
+
+    if (lh?.template_path) {
+      // Merge content into Word template
+      try {
+        const templateBuffer = await fetchTemplateAsArrayBuffer(lh.template_path);
+        const zip = await JSZip.loadAsync(templateBuffer);
+        const docXml = await zip.file('word/document.xml')?.async('string');
+        if (!docXml) throw new Error('Invalid template');
+
+        const contentXml = buildContentXml(content);
+
+        // Insert content paragraphs before </w:body>
+        // Find the sectPr (section properties) to insert before it
+        let newDocXml: string;
+        const sectPrMatch = docXml.match(/<w:sectPr[\s\S]*?<\/w:sectPr>/);
+        if (sectPrMatch) {
+          const sectPrIndex = docXml.indexOf(sectPrMatch[0]);
+          newDocXml = docXml.slice(0, sectPrIndex) + contentXml + '\n' + docXml.slice(sectPrIndex);
+        } else {
+          // Fallback: insert before </w:body>
+          newDocXml = docXml.replace('</w:body>', contentXml + '\n</w:body>');
+        }
+
+        zip.file('word/document.xml', newDocXml);
+        const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+        saveAs(blob, `${title}_${new Date().toISOString().slice(0, 10)}.docx`);
+        return;
+      } catch (e) {
+        console.error('Template merge error:', e);
+        toast({ title: 'تعذر دمج القالب، سيتم التصدير بدون ترويسة', variant: 'destructive' });
+      }
+    }
+
+    // Fallback: export without template
     const lines = content.split('\n').filter(l => l.trim());
     const paragraphs = lines.map(line => {
       const isHeader = line.startsWith('بسم') || line.includes('إلى السيد') || line.includes('بناءً عليه') || line.includes('الوقائع') || line.includes('في الموضوع') || line.includes('لهذه الأسباب');
@@ -518,67 +571,8 @@ const DocumentGenerator = () => {
       });
     });
 
-    // Build header/footer from selected letterhead
-    let headerObj: any = undefined;
-    let footerObj: any = undefined;
-
-    const lh = selectedLetterhead;
-    if (lh) {
-      if (lh.header_image_path) {
-        try {
-          const buf = await fetchImageAsBuffer(lh.header_image_path);
-          headerObj = {
-            default: new Header({
-              children: [
-                new Paragraph({
-                  alignment: AlignmentType.CENTER,
-                  children: [
-                    new ImageRun({
-                      data: buf,
-                      transformation: { width: 600, height: 100 },
-                      type: 'png',
-                    }),
-                  ],
-                }),
-              ],
-            }),
-          };
-        } catch (e) { console.error('Header image error:', e); }
-      }
-      if (lh.footer_image_path) {
-        try {
-          const buf = await fetchImageAsBuffer(lh.footer_image_path);
-          footerObj = {
-            default: new Footer({
-              children: [
-                new Paragraph({
-                  alignment: AlignmentType.CENTER,
-                  children: [
-                    new ImageRun({
-                      data: buf,
-                      transformation: { width: 600, height: 80 },
-                      type: 'png',
-                    }),
-                  ],
-                }),
-              ],
-            }),
-          };
-        } catch (e) { console.error('Footer image error:', e); }
-      }
-    }
-
     const doc = new Document({
-      sections: [{
-        properties: {
-          page: {
-            margin: { top: lh?.header_image_path ? 2200 : 1440, bottom: lh?.footer_image_path ? 1800 : 1440, left: 1440, right: 1440 },
-          },
-        },
-        headers: headerObj,
-        footers: footerObj,
-        children: paragraphs,
-      }],
+      sections: [{ properties: { page: { margin: { top: 1440, bottom: 1440, left: 1440, right: 1440 } } }, children: paragraphs }],
     });
     const blob = await Packer.toBlob(doc);
     saveAs(blob, `${title}_${new Date().toISOString().slice(0, 10)}.docx`);
