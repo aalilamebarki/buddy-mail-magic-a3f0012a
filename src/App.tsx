@@ -88,6 +88,7 @@ const App = () => (
                   <Route path="audit-log" element={<AuditLog />} />
                   <Route path="client-dashboard" element={<ClientDashboard />} />
                   <Route path="knowledge-base" element={<KnowledgeBase />} />
+                  <Route path="document-generator" element={<DocumentGenerator />} />
                 </Route>
 
                 <Route path="*" element={<NotFound />} />

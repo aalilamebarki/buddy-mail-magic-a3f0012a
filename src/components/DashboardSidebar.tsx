@@ -40,6 +40,7 @@ const menuItems = [
   { icon: Mail, label: 'النشرة البريدية', path: '/dashboard/newsletter', roles: ['director', 'content_writer'] as const },
   { icon: Globe, label: 'إعدادات SEO', path: '/dashboard/seo', roles: ['director', 'content_writer'] as const },
   { icon: BookOpen, label: 'قاعدة المعرفة', path: '/dashboard/knowledge-base', roles: ['director', 'partner'] as const },
+  { icon: FileText, label: 'مولّد المستندات', path: '/dashboard/document-generator', roles: ['director', 'partner', 'clerk'] as const },
   { icon: ScrollText, label: 'سجل النشاط', path: '/dashboard/audit-log', roles: ['director'] as const },
   { icon: Settings, label: 'الإعدادات', path: '/dashboard/settings', roles: ['director', 'partner'] as const },
   { icon: User, label: 'الملف الشخصي', path: '/dashboard/profile', roles: ['director', 'partner', 'clerk', 'content_writer', 'client'] as const },
