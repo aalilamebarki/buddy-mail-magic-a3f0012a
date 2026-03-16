@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import {
   FileText, Search, Download, Loader2, Save, Eye,
   FileUp, Trash2, Sparkles, Send, FolderOpen,
-  ArrowRight, MessageSquare, ChevronDown, ChevronUp, User, Plus, X, UserPlus, Stamp
+  ArrowRight, MessageSquare, ChevronDown, ChevronUp, User, Plus, X, UserPlus, Stamp, BookOpen
 } from 'lucide-react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
@@ -65,6 +65,15 @@ interface Letterhead {
   id: string;
   lawyer_name: string;
   template_path: string | null;
+}
+
+interface ReferenceDocument {
+  id: string;
+  title: string;
+  doc_type: string;
+  content: string;
+  file_name: string | null;
+  created_at: string;
 }
 
 interface CaseThread {
@@ -118,6 +127,11 @@ const DocumentGenerator = () => {
   const [showLetterheadSuggestions, setShowLetterheadSuggestions] = useState(false);
   const letterheadSearchRef = useRef<HTMLDivElement>(null);
 
+  // Reference documents
+  const [referenceDocs, setReferenceDocs] = useState<ReferenceDocument[]>([]);
+  const [showRefDocs, setShowRefDocs] = useState(false);
+  const [isUploadingRef, setIsUploadingRef] = useState(false);
+
   // Archive
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedThread, setExpandedThread] = useState<string | null>(null);
@@ -130,16 +144,18 @@ const DocumentGenerator = () => {
   useEffect(() => {
     if (!user) return;
     const load = async () => {
-      const [clientsRes, docsRes, lhRes] = await Promise.all([
+      const [clientsRes, docsRes, lhRes, refDocsRes] = await Promise.all([
         supabase.from('clients').select('id, full_name, email, phone, address, cin'),
         supabase.from('generated_documents')
           .select('id, doc_type, content, opponent_memo, step_number, status, created_at, thread_id, title, client_name, client_id, opposing_party, court, case_number')
           .order('created_at', { ascending: true }),
         supabase.from('letterheads').select('id, lawyer_name, template_path') as any,
+        supabase.from('reference_documents').select('*').order('created_at', { ascending: false }) as any,
       ]);
       if (clientsRes.data) setClients(clientsRes.data as ClientInfo[]);
       if (docsRes.data) setAllDocs(docsRes.data as ThreadDoc[]);
       if (lhRes.data) setLetterheads(lhRes.data as Letterhead[]);
+      if (refDocsRes.data) setReferenceDocs(refDocsRes.data as ReferenceDocument[]);
       setLoading(false);
     };
     load();
@@ -330,6 +346,42 @@ const DocumentGenerator = () => {
     setClientSearch('');
   };
 
+  // ─── Reference Documents ──────────────────────────────────────────────
+  const uploadReferenceDoc = async (files: File[]) => {
+    if (!user || files.length === 0) return;
+    setIsUploadingRef(true);
+    try {
+      const parsed = await extractAllFiles(files);
+      for (const p of parsed) {
+        if (!p.text.trim()) continue;
+        const docType = p.name.includes('مذكرة') ? 'مذكرة' :
+          p.name.includes('مقال') ? 'مقال' :
+          p.name.includes('شكاية') ? 'شكاية' :
+          p.name.includes('حكم') || p.name.includes('قرار') ? 'حكم قضائي' : 'عام';
+        
+        const { data, error } = await supabase.from('reference_documents').insert({
+          user_id: user.id,
+          title: p.name.replace(/\.[^.]+$/, ''),
+          doc_type: docType,
+          content: p.text.slice(0, 10000),
+          file_name: p.name,
+        } as any).select().single();
+        if (error) throw error;
+        if (data) setReferenceDocs(prev => [data as ReferenceDocument, ...prev]);
+      }
+      toast({ title: `تم رفع ${parsed.length} نموذج مرجعي ✅`, description: 'سيتعلم الذكاء الاصطناعي من أسلوبك' });
+    } catch (e: any) {
+      toast({ title: 'خطأ', description: e.message, variant: 'destructive' });
+    } finally {
+      setIsUploadingRef(false);
+    }
+  };
+
+  const deleteReferenceDoc = async (id: string) => {
+    const { error } = await supabase.from('reference_documents').delete().eq('id', id) as any;
+    if (!error) setReferenceDocs(prev => prev.filter(d => d.id !== id));
+  };
+
 
 
   const sendMessage = useCallback(async () => {
@@ -387,6 +439,11 @@ const DocumentGenerator = () => {
         .filter(d => d.status === 'final' && d.content)
         .slice(-3)
         .map(d => d.content?.slice(0, 800)),
+      referenceDocuments: referenceDocs.slice(0, 5).map(rd => ({
+        title: rd.title,
+        docType: rd.doc_type,
+        content: rd.content.slice(0, 3000),
+      })),
     };
 
     try {
@@ -528,22 +585,84 @@ const DocumentGenerator = () => {
         const docXml = await zip.file('word/document.xml')?.async('string');
         if (!docXml) throw new Error('ملف القالب غير صالح');
 
-        // Build paragraphs XML for the content
+        // Extract template's default font from styles.xml or document.xml
+        let templateFont = 'Traditional Arabic';
+        let templateFontSize = '24'; // 12pt default
+        try {
+          const stylesXml = await zip.file('word/styles.xml')?.async('string');
+          if (stylesXml) {
+            // Extract default CS font (Arabic/RTL font)
+            const csFontMatch = stylesXml.match(/<w:rFonts[^>]*w:cs="([^"]+)"/);
+            if (csFontMatch) templateFont = csFontMatch[1];
+            // Extract default CS font size
+            const csSizeMatch = stylesXml.match(/<w:szCs\s+w:val="(\d+)"/);
+            if (csSizeMatch) templateFontSize = csSizeMatch[1];
+          }
+        } catch { /* use defaults */ }
+
+        // Classify line type for proper formatting
+        const classifyLine = (line: string): 'basmala' | 'heading' | 'party_label' | 'party_value' | 'section_title' | 'signature' | 'normal' => {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('بسم الله')) return 'basmala';
+          if (/^(إلى السيد|حضرة|سيدي|السيد الرئيس|الموجه إلى|يوجه إلى)/.test(trimmed)) return 'heading';
+          if (/^(المدعي|المدعى عليه|الطرف الأول|الطرف الثاني|الطالب|المطلوب|المشتكي|المشتكى به|الموكل|الخصم|نيابة عن|من طرف):?/.test(trimmed)) return 'party_label';
+          if (/^(الاسم|العنوان|رقم البطاقة|CIN|الهاتف|المهنة|الحالة):?/.test(trimmed)) return 'party_value';
+          if (/^(الوقائع|في الشكل|في الموضوع|بناءً عليه|لهذه الأسباب|المناقشة|الأساس القانوني|الطلبات|أسباب الاستئناف|وسائل النقض|ملتمسات|حيث إن)/.test(trimmed)) return 'section_title';
+          if (/^(وتفضلوا|والسلام|عن الموكل|الإمضاء|المحامي|الأستاذ)/.test(trimmed)) return 'signature';
+          return 'normal';
+        };
+
+        const boldSize = String(parseInt(templateFontSize) + 4); // slightly bigger for headings
+
+        // Build paragraphs XML for the content with proper formatting
         const lines = content.split('\n').filter(l => l.trim());
         const paragraphsXml = lines.map(line => {
-          const isBold = line.startsWith('بسم') || line.includes('إلى السيد') || line.includes('بناءً عليه') || line.includes('الوقائع') || line.includes('في الموضوع') || line.includes('لهذه الأسباب');
+          const type = classifyLine(line);
+          
+          let alignment = 'right';
+          let isBold = false;
+          let fontSize = templateFontSize;
+          let spacingAfter = '200';
+          let spacingLine = '360';
+          let isUnderline = false;
+          let isCenter = false;
+
+          switch (type) {
+            case 'basmala':
+              isCenter = true; alignment = 'center'; isBold = true; fontSize = boldSize; spacingAfter = '400';
+              break;
+            case 'heading':
+              isBold = true; fontSize = boldSize; spacingAfter = '120'; isUnderline = true;
+              break;
+            case 'party_label':
+              isBold = true; spacingAfter = '60';
+              break;
+            case 'party_value':
+              spacingAfter = '60'; spacingLine = '280';
+              break;
+            case 'section_title':
+              isBold = true; fontSize = boldSize; isUnderline = true; spacingAfter = '240';
+              break;
+            case 'signature':
+              isCenter = true; alignment = 'center'; spacingAfter = '60';
+              break;
+            default:
+              spacingAfter = '200'; spacingLine = '360';
+          }
+
           return `<w:p>
             <w:pPr>
               <w:bidi/>
-              <w:jc w:val="right"/>
-              <w:spacing w:after="200" w:line="360" w:lineRule="auto"/>
+              <w:jc w:val="${alignment}"/>
+              <w:spacing w:after="${spacingAfter}" w:line="${spacingLine}" w:lineRule="auto"/>
             </w:pPr>
             <w:r>
               <w:rPr>
-                <w:rFonts w:ascii="Traditional Arabic" w:hAnsi="Traditional Arabic" w:cs="Traditional Arabic"/>
-                <w:sz w:val="${isBold ? '28' : '24'}"/>
-                <w:szCs w:val="${isBold ? '28' : '24'}"/>
+                <w:rFonts w:ascii="${templateFont}" w:hAnsi="${templateFont}" w:cs="${templateFont}"/>
+                <w:sz w:val="${fontSize}"/>
+                <w:szCs w:val="${fontSize}"/>
                 ${isBold ? '<w:b/><w:bCs/>' : ''}
+                ${isUnderline ? '<w:u w:val="single"/>' : ''}
                 <w:rtl/>
               </w:rPr>
               <w:t xml:space="preserve">${escapeXml(line)}</w:t>
@@ -1079,6 +1198,53 @@ const DocumentGenerator = () => {
               <Button onClick={startNew} className="gap-2 w-full" variant={clientThreads.length > 0 ? 'outline' : 'default'} size="lg">
                 <Plus className="h-4 w-4" /> مسطرة جديدة لـ {selectedClient.full_name}
               </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Reference Documents Section */}
+      <Card>
+        <CardContent className="pt-4">
+          <button
+            onClick={() => setShowRefDocs(!showRefDocs)}
+            className="w-full flex items-center justify-between text-sm font-bold text-foreground"
+          >
+            <span className="flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-primary" />
+              النماذج المرجعية ({referenceDocs.length})
+            </span>
+            {showRefDocs ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+          <p className="text-[11px] text-muted-foreground mt-1">ارفع مذكرات ومقالات وأحكام قضائية ليتعلم منها الذكاء الاصطناعي أسلوبك</p>
+          
+          {showRefDocs && (
+            <div className="mt-3 space-y-2">
+              <label className="flex items-center justify-center gap-2 border border-dashed border-primary/40 rounded-lg px-3 py-3 text-xs text-primary hover:bg-primary/5 cursor-pointer transition-colors">
+                {isUploadingRef ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileUp className="h-3.5 w-3.5" />}
+                <span className="font-medium">رفع نماذج (PDF / Word / نص)</span>
+                <input type="file" multiple accept=".pdf,.docx,.txt" className="hidden"
+                  disabled={isUploadingRef}
+                  onChange={e => { if (e.target.files) uploadReferenceDoc(Array.from(e.target.files)); e.target.value = ''; }} />
+              </label>
+              
+              {referenceDocs.length > 0 && (
+                <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                  {referenceDocs.map(rd => (
+                    <div key={rd.id} className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2 text-xs">
+                      <div className="min-w-0">
+                        <span className="font-medium text-foreground truncate block">{rd.title}</span>
+                        <span className="text-muted-foreground text-[10px]">
+                          {rd.doc_type} • {rd.content.length > 100 ? `${Math.round(rd.content.length / 1000)}k حرف` : `${rd.content.length} حرف`}
+                        </span>
+                      </div>
+                      <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-destructive hover:text-destructive" onClick={() => deleteReferenceDoc(rd.id)}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </CardContent>

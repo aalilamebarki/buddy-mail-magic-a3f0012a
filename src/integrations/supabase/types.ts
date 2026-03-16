@@ -573,6 +573,36 @@ export type Database = {
         }
         Relationships: []
       }
+      reference_documents: {
+        Row: {
+          content: string
+          created_at: string | null
+          doc_type: string
+          file_name: string | null
+          id: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          doc_type?: string
+          file_name?: string | null
+          id?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          doc_type?: string
+          file_name?: string | null
+          id?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       site_settings: {
         Row: {
           created_at: string
