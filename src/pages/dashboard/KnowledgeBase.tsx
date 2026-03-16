@@ -989,6 +989,33 @@ const KnowledgeBase = () => {
                       </div>
                     </DialogContent>
                   </Dialog>
+
+                  {/* Download PDFs locally */}
+                  <Dialog open={pdfDownloadDialogOpen} onOpenChange={setPdfDownloadDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm" className="gap-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs">
+                        <Download className="h-3.5 w-3.5" /> تحميل PDF محلياً
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2"><Download className="h-5 w-5 text-emerald-600" /> تحميل ملفات PDF وحفظها</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4 mt-4">
+                        <p className="text-sm text-muted-foreground">يقوم بتحميل ملفات PDF من المصادر الخارجية وحفظها في قاعدة بياناتك لضمان توفرها دائماً.</p>
+                        <Button onClick={handleDownloadPdfs} disabled={pdfDownloading} className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700">
+                          {pdfDownloading ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري التحميل...</> : <><Download className="h-4 w-4" /> بدء تحميل PDF</>}
+                        </Button>
+                        {pdfDownloadLog.length > 0 && (
+                          <div className="bg-muted/50 rounded-lg p-3 max-h-60 overflow-y-auto space-y-1">
+                            {pdfDownloadLog.map((log, i) => (
+                              <p key={i} className="text-xs font-mono text-muted-foreground">{log}</p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </div>
             </CardContent>
