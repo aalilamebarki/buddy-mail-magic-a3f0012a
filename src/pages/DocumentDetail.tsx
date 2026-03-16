@@ -221,11 +221,10 @@ const DocumentDetail = () => {
               {/* Actions */}
               <div className="flex items-center gap-2 flex-wrap">
                 {doc.source && (
-                  <a href={doc.source} target="_blank" rel="noopener noreferrer">
-                    <Button size="sm" className="rounded-full gap-2 text-xs">
-                      <Download className="h-3.5 w-3.5" /> تحميل PDF الأصلي
-                    </Button>
-                  </a>
+                  <Button size="sm" className="rounded-full gap-2 text-xs" onClick={() => setShowPdf(!showPdf)}>
+                    {showPdf ? <FileText className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
+                    {showPdf ? 'عرض النص' : 'عرض PDF'}
+                  </Button>
                 )}
                 {doc.source && (
                   <a href={doc.source} target="_blank" rel="noopener noreferrer">
