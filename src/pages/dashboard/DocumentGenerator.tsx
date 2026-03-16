@@ -818,13 +818,20 @@ const DocumentGenerator = () => {
           </div>
         )}
 
-        {/* Add opponent memo when no docs yet */}
+        {/* Required: upload case documents before AI can generate */}
         {caseDocs.length === 0 && (
-          <div className="border-b border-border px-3 py-2">
-            <label className="flex items-center justify-center gap-2 border border-dashed border-destructive/40 rounded-lg px-3 py-2.5 text-xs text-destructive hover:bg-destructive/5 cursor-pointer transition-colors">
-              <FileUp className="h-3.5 w-3.5" />
-              <span className="font-medium">إضافة رد الخصم (PDF/Word)</span>
-              <input type="file" multiple accept=".pdf,.docx,.txt" className="hidden"
+          <div className="border-b border-border px-3 py-4 space-y-3">
+            <div className="text-center space-y-2">
+              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto">
+                <FileUp className="h-6 w-6 text-primary" />
+              </div>
+              <p className="text-sm font-semibold text-foreground">أضف وثائق الملف أولاً</p>
+              <p className="text-xs text-muted-foreground">يجب رفع الوثائق والمستندات التي سيبني عليها الذكاء الاصطناعي (مذكرة الخصم، أحكام، عقود، محاضر...)</p>
+            </div>
+            <label className="flex items-center justify-center gap-2 border-2 border-dashed border-primary/40 rounded-xl px-4 py-4 text-sm text-primary hover:bg-primary/5 cursor-pointer transition-colors font-medium">
+              <FileUp className="h-4 w-4" />
+              <span>رفع وثائق الملف (PDF / Word / صور)</span>
+              <input type="file" multiple accept=".pdf,.docx,.txt,.jpg,.jpeg,.png" className="hidden"
                 onChange={e => { if (e.target.files) addOpponentMemo(Array.from(e.target.files)); e.target.value = ''; }} />
             </label>
           </div>
