@@ -366,8 +366,6 @@ const Letterheads = () => {
     return <div className="flex items-center justify-center h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-
   const triggerFilePicker = () => {
     fileInputRef.current?.click();
   };
