@@ -94,6 +94,32 @@ const COURT_TYPES = [
 const CASE_TYPES = ['مدني', 'جنائي', 'تجاري', 'إداري', 'أسرة', 'عقاري', 'شغل', 'جنحي'] as const;
 const REF_DOC_TYPES = ['مذكرة', 'مقال', 'شكاية', 'حكم قضائي', 'إنذار', 'عقد', 'عام'] as const;
 
+// Document type categories for conditional field requirements
+const DOC_TYPE_OPTIONS = [
+  // Court + case_number required
+  { label: 'مذكرة جوابية', requires: 'court_and_case' },
+  { label: 'مذكرة تعقيبية', requires: 'court_and_case' },
+  { label: 'مقال استئنافي', requires: 'court_and_case' },
+  { label: 'التدخل في الدعوى', requires: 'court_and_case' },
+  { label: 'عريضة نقض', requires: 'court_and_case' },
+  // Court only required
+  { label: 'مقال افتتاحي', requires: 'court_only' },
+  // Nothing required
+  { label: 'إنذار بالإفراغ', requires: 'none' },
+  { label: 'إنذار بالأداء', requires: 'none' },
+  { label: 'إنذار عام', requires: 'none' },
+] as const;
+
+type DocRequirement = 'court_and_case' | 'court_only' | 'none';
+
+const getDocRequirement = (docType: string): DocRequirement => {
+  const found = DOC_TYPE_OPTIONS.find(d => d.label === docType);
+  return found?.requires || 'court_and_case';
+};
+
+// Types that don't need documents-first gate
+const DOCS_NOT_REQUIRED_TYPES = ['مقال افتتاحي', 'إنذار بالإفراغ', 'إنذار بالأداء', 'إنذار عام'];
+
 // ─── Component ──────────────────────────────────────────────────────────────
 
 const DocumentGenerator = () => {
@@ -113,6 +139,7 @@ const DocumentGenerator = () => {
   const [selectedClientId, setSelectedClientId] = useState('');
   const [selectedClient, setSelectedClient] = useState<ClientInfo | null>(null);
   const [selectedCase, setSelectedCase] = useState<CaseFile | null>(null);
+  const [activeDocType, setActiveDocType] = useState('');
 
   // Client search
   const [clientSearch, setClientSearch] = useState('');
@@ -125,6 +152,7 @@ const DocumentGenerator = () => {
   const [newCase, setNewCase] = useState({
     title: '', case_type: '', court: '', court_level: 'ابتدائية',
     opposing_party: '', opposing_party_address: '', case_number: '', description: '',
+    doc_type: '',
   });
 
   // Chat
@@ -275,6 +303,7 @@ const DocumentGenerator = () => {
 
   const openCase = (caseFile: CaseFile) => {
     setSelectedCase(caseFile);
+    setActiveDocType('');
     setChatMessages([]);
     setView('chat');
   };
@@ -299,7 +328,8 @@ const DocumentGenerator = () => {
       const created = data as CaseFile;
       setCases(prev => [created, ...prev]);
       setSelectedCase(created);
-      setNewCase({ title: '', case_type: '', court: '', court_level: 'ابتدائية', opposing_party: '', opposing_party_address: '', case_number: '', description: '' });
+      setActiveDocType(newCase.doc_type);
+      setNewCase({ title: '', case_type: '', court: '', court_level: 'ابتدائية', opposing_party: '', opposing_party_address: '', case_number: '', description: '', doc_type: '' });
       setChatMessages([]);
       setView('chat');
       toast({ title: 'تم إنشاء الملف ✅' });
@@ -452,6 +482,7 @@ const DocumentGenerator = () => {
       courtLevel: selectedCase.court_level || '',
       caseNumber: selectedCase.case_number || '',
       caseType: selectedCase.case_type || '',
+      requestedDocType: activeDocType || '',
       previousDocs: caseDocs.map(d => ({
         step: d.step_number,
         docType: d.doc_type,
@@ -527,7 +558,7 @@ const DocumentGenerator = () => {
     } finally {
       setIsStreaming(false);
     }
-  }, [inputText, chatMessages, selectedCase, selectedClient, isStreaming, toast, allDocs, caseDocs, referenceDocs, attachments]);
+  }, [inputText, chatMessages, selectedCase, selectedClient, isStreaming, toast, allDocs, caseDocs, referenceDocs, attachments, activeDocType]);
 
   // ─── Save Document ────────────────────────────────────────────────────
 
@@ -818,8 +849,8 @@ const DocumentGenerator = () => {
           </div>
         )}
 
-        {/* Required: upload case documents before AI can generate */}
-        {caseDocs.length === 0 && (
+        {/* Required: upload case documents before AI can generate (only for types that need docs) */}
+        {caseDocs.length === 0 && !DOCS_NOT_REQUIRED_TYPES.includes(activeDocType) && (
           <div className="border-b border-border px-3 py-4 space-y-3">
             <div className="text-center space-y-2">
               <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto">
@@ -840,11 +871,11 @@ const DocumentGenerator = () => {
         {/* Messages */}
         <ScrollArea className="flex-1 py-3">
           <div className="space-y-3 px-1">
-            {chatMessages.length === 0 && caseDocs.length > 0 && (
+            {chatMessages.length === 0 && (caseDocs.length > 0 || DOCS_NOT_REQUIRED_TYPES.includes(activeDocType)) && (
               <div className="text-center py-8 space-y-3">
                 <Sparkles className="h-10 w-10 text-primary/20 mx-auto" />
                 <p className="text-sm font-medium text-foreground">اكتب ما تريد وسأصوغه لك</p>
-                <p className="text-xs text-muted-foreground">الملف يحتوي على {caseDocs.length} وثيقة سيستند إليها الذكاء الاصطناعي</p>
+                <p className="text-xs text-muted-foreground">{activeDocType ? `نوع المستند: ${activeDocType}` : `الملف يحتوي على ${caseDocs.length} وثيقة`}</p>
                 <div className="flex flex-wrap gap-1.5 justify-center max-w-sm mx-auto">
                   {[
                     'مقال افتتاحي بسبب عدم أداء الكراء',
@@ -922,9 +953,9 @@ const DocumentGenerator = () => {
           </div>
         )}
 
-        {/* Input - disabled until case has documents */}
+        {/* Input */}
         <div className="border-t border-border pt-2">
-          {caseDocs.length === 0 ? (
+          {caseDocs.length === 0 && !DOCS_NOT_REQUIRED_TYPES.includes(activeDocType) ? (
             <div className="text-center py-3">
               <p className="text-xs text-muted-foreground">⬆️ أضف وثائق الملف أعلاه لتتمكن من بدء الصياغة</p>
             </div>
@@ -1002,6 +1033,26 @@ const DocumentGenerator = () => {
 
         <Card>
           <CardContent className="pt-5 space-y-4">
+            {/* Document type selector - FIRST */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">نوع المستند المطلوب *</label>
+              <div className="flex flex-wrap gap-1.5">
+                {DOC_TYPE_OPTIONS.map(dt => (
+                  <button
+                    key={dt.label}
+                    onClick={() => setNewCase(prev => ({ ...prev, doc_type: dt.label }))}
+                    className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors border ${
+                      newCase.doc_type === dt.label
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-background text-foreground border-border hover:bg-accent'
+                    }`}
+                  >
+                    {dt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Opposing party - Required */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">المدعى عليه / الخصم *</label>
@@ -1023,38 +1074,57 @@ const DocumentGenerator = () => {
               />
             </div>
 
-            {/* Court level */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">درجة المحكمة *</label>
-              <div className="flex gap-2">
-                {COURT_LEVELS.map(level => (
-                  <button
-                    key={level}
-                    onClick={() => setNewCase(prev => ({ ...prev, court_level: level }))}
-                    className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors border ${
-                      newCase.court_level === level
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-background text-foreground border-border hover:bg-accent'
-                    }`}
-                  >
-                    {level}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Court name */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">المحكمة</label>
-              <Select value={newCase.court} onValueChange={v => setNewCase(prev => ({ ...prev, court: v }))}>
-                <SelectTrigger className="h-10"><SelectValue placeholder="اختر المحكمة" /></SelectTrigger>
-                <SelectContent>
-                  {COURT_TYPES.map(ct => (
-                    <SelectItem key={ct} value={ct}>{ct}</SelectItem>
+            {/* Court level - show only if not إنذار */}
+            {getDocRequirement(newCase.doc_type) !== 'none' && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">درجة المحكمة *</label>
+                <div className="flex gap-2">
+                  {COURT_LEVELS.map(level => (
+                    <button
+                      key={level}
+                      onClick={() => setNewCase(prev => ({ ...prev, court_level: level }))}
+                      className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors border ${
+                        newCase.court_level === level
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-background text-foreground border-border hover:bg-accent'
+                      }`}
+                    >
+                      {level}
+                    </button>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
+                </div>
+              </div>
+            )}
+
+            {/* Court name - required for court_only and court_and_case */}
+            {getDocRequirement(newCase.doc_type) !== 'none' && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  المحكمة المختصة *
+                </label>
+                <Select value={newCase.court} onValueChange={v => setNewCase(prev => ({ ...prev, court: v }))}>
+                  <SelectTrigger className="h-10"><SelectValue placeholder="اختر المحكمة" /></SelectTrigger>
+                  <SelectContent>
+                    {COURT_TYPES.map(ct => (
+                      <SelectItem key={ct} value={ct}>{ct}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Case number - required only for court_and_case */}
+            {getDocRequirement(newCase.doc_type) === 'court_and_case' && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">رقم الملف *</label>
+                <Input
+                  placeholder="رقم الملف بالمحكمة"
+                  value={newCase.case_number}
+                  onChange={e => setNewCase(prev => ({ ...prev, case_number: e.target.value }))}
+                  className="h-10"
+                />
+              </div>
+            )}
 
             {/* Case type */}
             <div className="space-y-2">
@@ -1076,26 +1146,15 @@ const DocumentGenerator = () => {
               </div>
             </div>
 
-            {/* Case number */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">رقم الملف</label>
-                <Input
-                  placeholder="رقم الملف (اختياري)"
-                  value={newCase.case_number}
-                  onChange={e => setNewCase(prev => ({ ...prev, case_number: e.target.value }))}
-                  className="h-10"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">عنوان الملف</label>
-                <Input
-                  placeholder="يُملأ تلقائياً"
-                  value={newCase.title}
-                  onChange={e => setNewCase(prev => ({ ...prev, title: e.target.value }))}
-                  className="h-10"
-                />
-              </div>
+            {/* Title */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">عنوان الملف</label>
+              <Input
+                placeholder="يُملأ تلقائياً"
+                value={newCase.title}
+                onChange={e => setNewCase(prev => ({ ...prev, title: e.target.value }))}
+                className="h-10"
+              />
             </div>
 
             {/* Description */}
@@ -1109,7 +1168,16 @@ const DocumentGenerator = () => {
               />
             </div>
 
-            <Button onClick={createCase} disabled={!newCase.opposing_party.trim()} className="w-full gap-2" size="lg">
+            <Button
+              onClick={createCase}
+              disabled={
+                !newCase.doc_type ||
+                !newCase.opposing_party.trim() ||
+                (getDocRequirement(newCase.doc_type) !== 'none' && !newCase.court) ||
+                (getDocRequirement(newCase.doc_type) === 'court_and_case' && !newCase.case_number.trim())
+              }
+              className="w-full gap-2" size="lg"
+            >
               <Plus className="h-4 w-4" /> إنشاء الملف والبدء
             </Button>
           </CardContent>

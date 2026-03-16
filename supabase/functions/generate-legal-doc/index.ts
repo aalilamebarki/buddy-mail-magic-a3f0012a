@@ -196,6 +196,11 @@ serve(async (req) => {
         finalSystemPrompt += `\n- رقم الملف: ${threadContext.caseNumber}`;
       }
 
+      if (threadContext.requestedDocType) {
+        finalSystemPrompt += `\n\n## 📌 نوع المستند المطلوب: ${threadContext.requestedDocType}`;
+        finalSystemPrompt += `\nيجب أن تصوغ المستند حسب هذا النوع تحديداً. اتبع القالب المناسب من القوالب أعلاه.`;
+      }
+
       // Previous documents in thread
       if (threadContext.previousDocs && threadContext.previousDocs.length > 0) {
         finalSystemPrompt += `\n\n## 📜 المستندات السابقة في هذه المسطرة (ابنِ عليها):`;
