@@ -201,6 +201,7 @@ const DocumentGenerator = () => {
       return {
         threadId, docs: sorted,
         clientName: first.client_name || '',
+        clientId: first.client_id || null,
         opposingParty: first.opposing_party || '',
         court: first.court || '',
         caseNumber: first.case_number || '',
