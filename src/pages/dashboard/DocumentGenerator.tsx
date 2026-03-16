@@ -853,17 +853,29 @@ const DocumentGenerator = () => {
         {/* Preview */}
         <Dialog open={!!previewDoc} onOpenChange={() => setPreviewDoc(null)}>
           <DialogContent className="max-w-3xl max-h-[80vh]">
-            <DialogHeader><DialogTitle>{previewDoc?.doc_type}</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{previewDoc?.doc_type} {previewDoc?.created_at && `- ${new Date(previewDoc.created_at).toLocaleDateString('ar-MA')}`}</DialogTitle></DialogHeader>
             <ScrollArea className="h-[60vh]">
-              <div dir="rtl" className="whitespace-pre-wrap leading-8 p-4" style={{ fontFamily: "'Traditional Arabic', 'Amiri', serif" }}>
-                {previewDoc?.content}
-              </div>
+              {previewDoc?.content && (
+                <div dir="rtl" className="whitespace-pre-wrap leading-8 p-4" style={{ fontFamily: "'Traditional Arabic', 'Amiri', serif" }}>
+                  {previewDoc.content}
+                </div>
+              )}
+              {previewDoc?.opponent_memo && (
+                <div className="p-4 space-y-2">
+                  <Badge variant="destructive" className="text-xs">📨 مذكرة الخصم</Badge>
+                  <div dir="rtl" className="whitespace-pre-wrap leading-7 text-sm bg-destructive/5 p-4 rounded-lg border border-destructive/20">
+                    {previewDoc.opponent_memo}
+                  </div>
+                </div>
+              )}
             </ScrollArea>
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => previewDoc && exportWord(previewDoc.content || '', previewDoc.doc_type)}>
-                <Download className="h-4 w-4 ml-2" /> Word
-              </Button>
-            </div>
+            {previewDoc?.content && (
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => previewDoc && exportWord(previewDoc.content || '', previewDoc.doc_type)}>
+                  <Download className="h-4 w-4 ml-2" /> Word
+                </Button>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
       </div>
