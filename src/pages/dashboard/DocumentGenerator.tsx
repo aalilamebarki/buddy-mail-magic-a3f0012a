@@ -818,13 +818,20 @@ const DocumentGenerator = () => {
           </div>
         )}
 
-        {/* Add opponent memo when no docs yet */}
+        {/* Required: upload case documents before AI can generate */}
         {caseDocs.length === 0 && (
-          <div className="border-b border-border px-3 py-2">
-            <label className="flex items-center justify-center gap-2 border border-dashed border-destructive/40 rounded-lg px-3 py-2.5 text-xs text-destructive hover:bg-destructive/5 cursor-pointer transition-colors">
-              <FileUp className="h-3.5 w-3.5" />
-              <span className="font-medium">إضافة رد الخصم (PDF/Word)</span>
-              <input type="file" multiple accept=".pdf,.docx,.txt" className="hidden"
+          <div className="border-b border-border px-3 py-4 space-y-3">
+            <div className="text-center space-y-2">
+              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto">
+                <FileUp className="h-6 w-6 text-primary" />
+              </div>
+              <p className="text-sm font-semibold text-foreground">أضف وثائق الملف أولاً</p>
+              <p className="text-xs text-muted-foreground">يجب رفع الوثائق والمستندات التي سيبني عليها الذكاء الاصطناعي (مذكرة الخصم، أحكام، عقود، محاضر...)</p>
+            </div>
+            <label className="flex items-center justify-center gap-2 border-2 border-dashed border-primary/40 rounded-xl px-4 py-4 text-sm text-primary hover:bg-primary/5 cursor-pointer transition-colors font-medium">
+              <FileUp className="h-4 w-4" />
+              <span>رفع وثائق الملف (PDF / Word / صور)</span>
+              <input type="file" multiple accept=".pdf,.docx,.txt,.jpg,.jpeg,.png" className="hidden"
                 onChange={e => { if (e.target.files) addOpponentMemo(Array.from(e.target.files)); e.target.value = ''; }} />
             </label>
           </div>
@@ -833,10 +840,11 @@ const DocumentGenerator = () => {
         {/* Messages */}
         <ScrollArea className="flex-1 py-3">
           <div className="space-y-3 px-1">
-            {chatMessages.length === 0 && (
+            {chatMessages.length === 0 && caseDocs.length > 0 && (
               <div className="text-center py-8 space-y-3">
                 <Sparkles className="h-10 w-10 text-primary/20 mx-auto" />
                 <p className="text-sm font-medium text-foreground">اكتب ما تريد وسأصوغه لك</p>
+                <p className="text-xs text-muted-foreground">الملف يحتوي على {caseDocs.length} وثيقة سيستند إليها الذكاء الاصطناعي</p>
                 <div className="flex flex-wrap gap-1.5 justify-center max-w-sm mx-auto">
                   {[
                     'مقال افتتاحي بسبب عدم أداء الكراء',
@@ -914,29 +922,35 @@ const DocumentGenerator = () => {
           </div>
         )}
 
-        {/* Input */}
+        {/* Input - disabled until case has documents */}
         <div className="border-t border-border pt-2">
-          <div className="flex gap-2 items-end">
-            <div className="flex-1 relative">
-              <Textarea
-                value={inputText}
-                onChange={e => setInputText(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                placeholder="اكتب ما تريد... أرفق ملفات PDF/Word..."
-                className="min-h-[44px] max-h-[120px] resize-none pr-3 pl-12 text-sm"
-                rows={1}
-                disabled={isStreaming || isParsing}
-              />
-              <label className="absolute left-3 bottom-3 cursor-pointer text-muted-foreground hover:text-foreground">
-                <FileUp className="h-4 w-4" />
-                <input type="file" multiple accept=".pdf,.docx,.txt,.jpg,.jpeg,.png" className="hidden"
-                  onChange={e => { if (e.target.files) setAttachments(prev => [...prev, ...Array.from(e.target.files!)]); }} />
-              </label>
+          {caseDocs.length === 0 ? (
+            <div className="text-center py-3">
+              <p className="text-xs text-muted-foreground">⬆️ أضف وثائق الملف أعلاه لتتمكن من بدء الصياغة</p>
             </div>
-            <Button onClick={sendMessage} disabled={!inputText.trim() || isStreaming || isParsing} size="icon" className="h-[44px] w-[44px] shrink-0">
-              {isStreaming || isParsing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            </Button>
-          </div>
+          ) : (
+            <div className="flex gap-2 items-end">
+              <div className="flex-1 relative">
+                <Textarea
+                  value={inputText}
+                  onChange={e => setInputText(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                  placeholder="اكتب ما تريد... أرفق ملفات PDF/Word..."
+                  className="min-h-[44px] max-h-[120px] resize-none pr-3 pl-12 text-sm"
+                  rows={1}
+                  disabled={isStreaming || isParsing}
+                />
+                <label className="absolute left-3 bottom-3 cursor-pointer text-muted-foreground hover:text-foreground">
+                  <FileUp className="h-4 w-4" />
+                  <input type="file" multiple accept=".pdf,.docx,.txt,.jpg,.jpeg,.png" className="hidden"
+                    onChange={e => { if (e.target.files) setAttachments(prev => [...prev, ...Array.from(e.target.files!)]); }} />
+                </label>
+              </div>
+              <Button onClick={sendMessage} disabled={!inputText.trim() || isStreaming || isParsing} size="icon" className="h-[44px] w-[44px] shrink-0">
+                {isStreaming || isParsing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Preview Dialog */}
