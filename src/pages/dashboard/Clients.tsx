@@ -245,7 +245,7 @@ const Clients = () => {
               <Input value={form.email} onChange={e => updateField('email', e.target.value)} placeholder="email@example.com" dir="ltr" />
             </div>
             <div>
-              <Label>الهاتف</Label>
+              <Label>الهاتف *</Label>
               <Input value={form.phone} onChange={e => updateField('phone', e.target.value)} placeholder="06..." dir="ltr" />
             </div>
             <div>
@@ -253,7 +253,7 @@ const Clients = () => {
               <Input value={form.cin} onChange={e => updateField('cin', e.target.value)} placeholder="رقم البطاقة" dir="ltr" />
             </div>
             <div>
-              <Label>العنوان</Label>
+              <Label>العنوان *</Label>
               <Input value={form.address} onChange={e => updateField('address', e.target.value)} placeholder="العنوان" />
             </div>
             <div>
