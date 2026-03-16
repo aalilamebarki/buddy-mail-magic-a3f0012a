@@ -79,7 +79,7 @@ const Letterheads = () => {
     }
   };
 
-  const handleTemplateChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleTemplateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const nextFile = event.target.files?.[0] ?? null;
     event.target.value = '';
 
@@ -92,7 +92,8 @@ const Letterheads = () => {
     }
 
     setTemplateFile(nextFile);
-    await generatePreview(nextFile);
+    setPreviewHtml(null);
+    setPreviewLoading(false);
   };
 
   const loadLetterheads = async () => {
