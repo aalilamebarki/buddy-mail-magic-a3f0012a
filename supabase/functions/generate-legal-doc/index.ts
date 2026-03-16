@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,41 +9,41 @@ const corsHeaders = {
 const SYSTEM_PROMPT = `أنت **محامٍ مغربي متمرس ومساعد ذكي لصياغة المستندات القانونية**. تعمل كمولّد مستندات قانونية احترافي.
 
 ## 🧠 طريقة العمل:
-1. عندما يصف لك المستخدم ما يريد (حتى بجملة واحدة)، تفهم نوع المستند المطلوب تلقائياً
-2. تصوغ المستند القانوني الكامل مباشرة بالشكل الرسمي المعتمد في المحاكم المغربية
-3. إذا كان هناك سياق سابق (مستندات سابقة في نفس القضية)، تبني عليه وتحافظ على التسلسل
-4. إذا رد الخصم بمذكرة، تعقّب عليها نقطة بنقطة
+1. عندما يصف لك المستخدم ما يريد (حتى بجملة واحدة)، تفهم نوع المستند المطلوب تلقائياً وتصوغه مباشرة
+2. لديك بيانات الموكل والمحكمة جاهزة (ستُعطى لك في السياق). استخدمها تلقائياً في المستند
+3. إذا كان هناك سياق سابق (مستندات سابقة في نفس القضية)، ابنِ عليه
+4. إذا رد الخصم بمذكرة (ستُلصق في الرسالة)، عقّب عليها نقطة بنقطة
 
-## 📋 أنواع المستندات التي تصوغها:
-- **مقال افتتاحي**: يتضمن الديباجة، هوية الأطراف، الوقائع، الأساس القانوني، المناقشة، الطلبات
-- **مذكرة جوابية**: ملخص ادعاءات الخصم، الرد على كل ادعاء، النصوص القانونية، الطلبات
-- **مذكرة تعقيبية**: دحض حجج الخصم نقطة بنقطة، حجج إضافية، تأكيد الطلبات
-- **مقال بالاستئناف**: بيانات الحكم المستأنف، أسباب الاستئناف، المناقشة، الطلبات
-- **مقال بالنقض**: بيانات القرار، وسائل النقض، المناقشة
+## 📋 أنواع المستندات:
+- **مقال افتتاحي**: ديباجة، هوية الأطراف الكاملة، وقائع، أساس قانوني، مناقشة، طلبات
+- **مذكرة جوابية**: ملخص ادعاءات الخصم، رد مفصل، نصوص قانونية
+- **مذكرة تعقيبية**: دحض حجج الخصم نقطة بنقطة، حجج إضافية
+- **مقال بالاستئناف**: بيانات الحكم المستأنف، أسباب الاستئناف المفصلة
+- **مقال بالنقض**: وسائل النقض، مناقشة مفصلة
 - **إنذار بالإفراغ/بالأداء**: بيانات الأطراف، السبب، المهلة، التحذير
 - **رسالة صلح**: بيانات الحادث، الأضرار، طلب التعويض
 - **مذكرة المطالبة المدنية**: الوقائع الجرمية، الأضرار، طلبات التعويض
 
 ## ⛔ قواعد صارمة:
-- اكتب بالعربية الفصحى القانونية المغربية
-- استخدم المصطلحات الرسمية المعتمدة في المحاكم المغربية
-- لا تستخدم markdown (لا # ولا ** ولا *). اكتب نصاً قانونياً عادياً منسقاً وجاهزاً للطباعة
-- ادخل مباشرة في صياغة المستند دون مقدمات أو شروحات
-- إذا كانت المعلومات ناقصة، ضع [...] مكان المعلومة الناقصة (مثل: [عنوان الموكل])
+- اكتب بالعربية الفصحى القانونية المغربية الرسمية
+- استخدم المصطلحات القانونية المعتمدة في المحاكم المغربية
+- لا تستخدم markdown (لا # ولا ** ولا *). اكتب نصاً قانونياً عادياً جاهزاً للطباعة
+- ادخل مباشرة في صياغة المستند. لا مقدمات ولا شروحات
+- استخدم بيانات الموكل والمحكمة المقدمة تلقائياً (الاسم، العنوان، CIN، المحكمة، الموجه إليه)
+- إذا كانت معلومة ناقصة، ضع [...] مكانها
 - حافظ على نفس الأطراف والوقائع عبر كل مستندات نفس القضية
-- استخدم أسلوب المرافعات القوي المقنع
 - استشهد بالفصول والمواد القانونية المنطبقة
 
 ## 📚 المرجعية القانونية:
-- قانون الالتزامات والعقود (ق.ل.ع)
-- مدونة الأسرة (70.03)
-- مدونة الشغل (65.99)
+- ق.ل.ع (ظهير 12 غشت 1913) - المسؤولية والعقود
+- مدونة الأسرة (70.03) - الأحوال الشخصية
+- مدونة الشغل (65.99) - علاقات العمل
 - القانون الجنائي + المسطرة الجنائية
-- المسطرة المدنية
-- القانون العقاري
-- مدونة التجارة
-- القانون 67.12 (الكراء السكني)
-- ظهير 24 ماي 1955 (الكراء التجاري)`;
+- المسطرة المدنية (ظهير 28 شتنبر 1974)
+- القانون العقاري + ظهير التحفيظ
+- مدونة التجارة (15.95)
+- القانون 67.12 (الكراء السكني) + ظهير 24 ماي 1955 (الكراء التجاري)
+- القانون 41.90 (المحاكم الإدارية)`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -57,29 +56,56 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    // Build system prompt with thread context if available
     let finalSystemPrompt = SYSTEM_PROMPT;
 
     if (threadContext) {
-      finalSystemPrompt += `\n\n## 📂 سياق القضية الحالية:`;
-      if (threadContext.clientName) finalSystemPrompt += `\n- الموكل: ${threadContext.clientName}`;
-      if (threadContext.opposingParty) finalSystemPrompt += `\n- الخصم: ${threadContext.opposingParty}`;
-      if (threadContext.court) finalSystemPrompt += `\n- المحكمة: ${threadContext.court}`;
-      if (threadContext.caseNumber) finalSystemPrompt += `\n- رقم الملف: ${threadContext.caseNumber}`;
+      finalSystemPrompt += `\n\n## 📂 بيانات القضية الحالية (استخدمها تلقائياً في المستند):`;
+      
+      // Client info
+      if (threadContext.clientName) {
+        finalSystemPrompt += `\n\n### بيانات الموكل:`;
+        finalSystemPrompt += `\n- الاسم الكامل: ${threadContext.clientName}`;
+        if (threadContext.clientCIN) finalSystemPrompt += `\n- رقم البطاقة الوطنية (CIN): ${threadContext.clientCIN}`;
+        if (threadContext.clientAddress) finalSystemPrompt += `\n- العنوان: ${threadContext.clientAddress}`;
+        if (threadContext.clientPhone) finalSystemPrompt += `\n- الهاتف: ${threadContext.clientPhone}`;
+      }
 
+      // Opposing party
+      if (threadContext.opposingParty) {
+        finalSystemPrompt += `\n\n### بيانات الخصم:`;
+        finalSystemPrompt += `\n- الاسم: ${threadContext.opposingParty}`;
+      }
+
+      // Court info
+      if (threadContext.court) {
+        finalSystemPrompt += `\n\n### بيانات المحكمة:`;
+        finalSystemPrompt += `\n- المحكمة: ${threadContext.court}`;
+        if (threadContext.courtAddress) finalSystemPrompt += `\n- عنوان المحكمة: ${threadContext.courtAddress}`;
+        if (threadContext.courtAddressee) finalSystemPrompt += `\n- يوجه الطلب إلى: ${threadContext.courtAddressee}`;
+      }
+
+      if (threadContext.caseNumber) {
+        finalSystemPrompt += `\n- رقم الملف: ${threadContext.caseNumber}`;
+      }
+
+      // Previous documents in thread
       if (threadContext.previousDocs && threadContext.previousDocs.length > 0) {
-        finalSystemPrompt += `\n\n## 📜 المستندات السابقة في هذه القضية:`;
+        finalSystemPrompt += `\n\n## 📜 المستندات السابقة في هذه المسطرة (ابنِ عليها):`;
         for (const doc of threadContext.previousDocs) {
           finalSystemPrompt += `\n\n--- [الخطوة ${doc.step}] ${doc.docType} ---`;
-          if (doc.content) {
-            const snippet = doc.content.slice(0, 2000);
-            finalSystemPrompt += `\n${snippet}`;
-          }
-          if (doc.opponentMemo) {
-            finalSystemPrompt += `\n\n📨 مذكرة الخصم:\n${doc.opponentMemo}`;
-          }
+          if (doc.content) finalSystemPrompt += `\n${doc.content}`;
+          if (doc.opponentMemo) finalSystemPrompt += `\n\n📨 مذكرة الخصم:\n${doc.opponentMemo}`;
         }
-        finalSystemPrompt += `\n\nبناءً على كل ما سبق، يجب أن تكون المستندات الجديدة متسلسلة ومترابطة مع السياق أعلاه.`;
+        finalSystemPrompt += `\n\nيجب أن تكون المستندات الجديدة متسلسلة ومترابطة مع السياق أعلاه. حافظ على نفس الأطراف والوقائع.`;
+      }
+
+      // Style learning from previous finalized docs
+      if (threadContext.styleReference && threadContext.styleReference.length > 0) {
+        finalSystemPrompt += `\n\n## 🎨 الأسلوب المفضل (تعلّم من المستندات السابقة):`;
+        finalSystemPrompt += `\nهذه مقتطفات من مستندات سابقة للمستخدم. حاكِ أسلوبها في الصياغة والتنسيق:`;
+        for (const snippet of threadContext.styleReference) {
+          if (snippet) finalSystemPrompt += `\n---\n${snippet}\n`;
+        }
       }
     }
 

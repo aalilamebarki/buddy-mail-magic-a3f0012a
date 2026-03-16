@@ -151,6 +151,7 @@ export type Database = {
       clients: {
         Row: {
           address: string | null
+          cin: string | null
           created_at: string
           email: string | null
           full_name: string
@@ -162,6 +163,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          cin?: string | null
           created_at?: string
           email?: string | null
           full_name: string
@@ -173,6 +175,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          cin?: string | null
           created_at?: string
           email?: string | null
           full_name?: string
@@ -260,6 +263,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      courts: {
+        Row: {
+          address: string | null
+          addressee: string
+          city: string
+          court_type: string
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          address?: string | null
+          addressee?: string
+          city: string
+          court_type?: string
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          address?: string | null
+          addressee?: string
+          city?: string
+          court_type?: string
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
       }
       document_attachments: {
         Row: {
