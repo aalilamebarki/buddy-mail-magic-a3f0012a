@@ -17,7 +17,8 @@ import {
   FileUp, Trash2, Sparkles, Send, FolderOpen,
   ArrowRight, MessageSquare, ChevronDown, ChevronUp, User, Plus, X, UserPlus, Stamp
 } from 'lucide-react';
-import { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel, ImageRun, Header, Footer } from 'docx';
+import { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel } from 'docx';
+import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
