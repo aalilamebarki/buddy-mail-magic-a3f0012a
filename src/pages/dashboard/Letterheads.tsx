@@ -41,12 +41,16 @@ const Letterheads = () => {
 
   const save = async () => {
     if (!user || !lawyerName.trim() || !templateFile) return;
+    const fileName = templateFile.name.toLowerCase();
+    if (!fileName.endsWith('.docx')) {
+      toast({ title: 'يجب رفع ملف Word بصيغة .docx فقط', variant: 'destructive' });
+      return;
+    }
     setSaving(true);
 
     try {
       const id = crypto.randomUUID();
-      const ext = templateFile.name.split('.').pop();
-      const path = `${user.id}/${id}/template.${ext}`;
+      const path = `${user.id}/${id}/template.docx`;
       const { error: upErr } = await supabase.storage.from('letterheads').upload(path, templateFile);
       if (upErr) throw upErr;
 
