@@ -848,8 +848,8 @@ const DocumentGenerator = () => {
           </div>
         )}
 
-        {/* Required: upload case documents before AI can generate */}
-        {caseDocs.length === 0 && (
+        {/* Required: upload case documents before AI can generate (only for types that need docs) */}
+        {caseDocs.length === 0 && !DOCS_NOT_REQUIRED_TYPES.includes(activeDocType) && (
           <div className="border-b border-border px-3 py-4 space-y-3">
             <div className="text-center space-y-2">
               <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto">
