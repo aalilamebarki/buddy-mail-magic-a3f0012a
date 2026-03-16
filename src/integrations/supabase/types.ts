@@ -109,7 +109,7 @@ export type Database = {
       cases: {
         Row: {
           assigned_to: string | null
-          case_number: string
+          case_number: string | null
           case_type: string | null
           client_id: string | null
           court: string | null
@@ -125,7 +125,7 @@ export type Database = {
         }
         Insert: {
           assigned_to?: string | null
-          case_number: string
+          case_number?: string | null
           case_type?: string | null
           client_id?: string | null
           court?: string | null
@@ -141,7 +141,7 @@ export type Database = {
         }
         Update: {
           assigned_to?: string | null
-          case_number?: string
+          case_number?: string | null
           case_type?: string | null
           client_id?: string | null
           court?: string | null
