@@ -113,9 +113,12 @@ export type Database = {
           case_type: string | null
           client_id: string | null
           court: string | null
+          court_level: string
           created_at: string
           description: string | null
           id: string
+          opposing_party: string | null
+          opposing_party_address: string | null
           status: string
           title: string
           updated_at: string
@@ -126,9 +129,12 @@ export type Database = {
           case_type?: string | null
           client_id?: string | null
           court?: string | null
+          court_level?: string
           created_at?: string
           description?: string | null
           id?: string
+          opposing_party?: string | null
+          opposing_party_address?: string | null
           status?: string
           title: string
           updated_at?: string
@@ -139,9 +145,12 @@ export type Database = {
           case_type?: string | null
           client_id?: string | null
           court?: string | null
+          court_level?: string
           created_at?: string
           description?: string | null
           id?: string
+          opposing_party?: string | null
+          opposing_party_address?: string | null
           status?: string
           title?: string
           updated_at?: string
