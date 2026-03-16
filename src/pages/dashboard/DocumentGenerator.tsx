@@ -528,22 +528,84 @@ const DocumentGenerator = () => {
         const docXml = await zip.file('word/document.xml')?.async('string');
         if (!docXml) throw new Error('ملف القالب غير صالح');
 
-        // Build paragraphs XML for the content
+        // Extract template's default font from styles.xml or document.xml
+        let templateFont = 'Traditional Arabic';
+        let templateFontSize = '24'; // 12pt default
+        try {
+          const stylesXml = await zip.file('word/styles.xml')?.async('string');
+          if (stylesXml) {
+            // Extract default CS font (Arabic/RTL font)
+            const csFontMatch = stylesXml.match(/<w:rFonts[^>]*w:cs="([^"]+)"/);
+            if (csFontMatch) templateFont = csFontMatch[1];
+            // Extract default CS font size
+            const csSizeMatch = stylesXml.match(/<w:szCs\s+w:val="(\d+)"/);
+            if (csSizeMatch) templateFontSize = csSizeMatch[1];
+          }
+        } catch { /* use defaults */ }
+
+        // Classify line type for proper formatting
+        const classifyLine = (line: string): 'basmala' | 'heading' | 'party_label' | 'party_value' | 'section_title' | 'signature' | 'normal' => {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('بسم الله')) return 'basmala';
+          if (/^(إلى السيد|حضرة|سيدي|السيد الرئيس|الموجه إلى|يوجه إلى)/.test(trimmed)) return 'heading';
+          if (/^(المدعي|المدعى عليه|الطرف الأول|الطرف الثاني|الطالب|المطلوب|المشتكي|المشتكى به|الموكل|الخصم|نيابة عن|من طرف):?/.test(trimmed)) return 'party_label';
+          if (/^(الاسم|العنوان|رقم البطاقة|CIN|الهاتف|المهنة|الحالة):?/.test(trimmed)) return 'party_value';
+          if (/^(الوقائع|في الشكل|في الموضوع|بناءً عليه|لهذه الأسباب|المناقشة|الأساس القانوني|الطلبات|أسباب الاستئناف|وسائل النقض|ملتمسات|حيث إن)/.test(trimmed)) return 'section_title';
+          if (/^(وتفضلوا|والسلام|عن الموكل|الإمضاء|المحامي|الأستاذ)/.test(trimmed)) return 'signature';
+          return 'normal';
+        };
+
+        const boldSize = String(parseInt(templateFontSize) + 4); // slightly bigger for headings
+
+        // Build paragraphs XML for the content with proper formatting
         const lines = content.split('\n').filter(l => l.trim());
         const paragraphsXml = lines.map(line => {
-          const isBold = line.startsWith('بسم') || line.includes('إلى السيد') || line.includes('بناءً عليه') || line.includes('الوقائع') || line.includes('في الموضوع') || line.includes('لهذه الأسباب');
+          const type = classifyLine(line);
+          
+          let alignment = 'right';
+          let isBold = false;
+          let fontSize = templateFontSize;
+          let spacingAfter = '200';
+          let spacingLine = '360';
+          let isUnderline = false;
+          let isCenter = false;
+
+          switch (type) {
+            case 'basmala':
+              isCenter = true; alignment = 'center'; isBold = true; fontSize = boldSize; spacingAfter = '400';
+              break;
+            case 'heading':
+              isBold = true; fontSize = boldSize; spacingAfter = '120'; isUnderline = true;
+              break;
+            case 'party_label':
+              isBold = true; spacingAfter = '60';
+              break;
+            case 'party_value':
+              spacingAfter = '60'; spacingLine = '280';
+              break;
+            case 'section_title':
+              isBold = true; fontSize = boldSize; isUnderline = true; spacingAfter = '240';
+              break;
+            case 'signature':
+              isCenter = true; alignment = 'center'; spacingAfter = '60';
+              break;
+            default:
+              spacingAfter = '200'; spacingLine = '360';
+          }
+
           return `<w:p>
             <w:pPr>
               <w:bidi/>
-              <w:jc w:val="right"/>
-              <w:spacing w:after="200" w:line="360" w:lineRule="auto"/>
+              <w:jc w:val="${alignment}"/>
+              <w:spacing w:after="${spacingAfter}" w:line="${spacingLine}" w:lineRule="auto"/>
             </w:pPr>
             <w:r>
               <w:rPr>
-                <w:rFonts w:ascii="Traditional Arabic" w:hAnsi="Traditional Arabic" w:cs="Traditional Arabic"/>
-                <w:sz w:val="${isBold ? '28' : '24'}"/>
-                <w:szCs w:val="${isBold ? '28' : '24'}"/>
+                <w:rFonts w:ascii="${templateFont}" w:hAnsi="${templateFont}" w:cs="${templateFont}"/>
+                <w:sz w:val="${fontSize}"/>
+                <w:szCs w:val="${fontSize}"/>
                 ${isBold ? '<w:b/><w:bCs/>' : ''}
+                ${isUnderline ? '<w:u w:val="single"/>' : ''}
                 <w:rtl/>
               </w:rPr>
               <w:t xml:space="preserve">${escapeXml(line)}</w:t>
