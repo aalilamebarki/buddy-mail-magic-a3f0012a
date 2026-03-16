@@ -15,9 +15,9 @@ import { useToast } from '@/hooks/use-toast';
 import {
   FileText, Search, Download, Loader2, Save, Eye,
   FileUp, Trash2, Sparkles, Send, FolderOpen,
-  ArrowRight, MessageSquare, ChevronDown, ChevronUp, User, Plus, X, UserPlus
+  ArrowRight, MessageSquare, ChevronDown, ChevronUp, User, Plus, X, UserPlus, Stamp
 } from 'lucide-react';
-import { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel } from 'docx';
+import { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel, ImageRun, Header, Footer } from 'docx';
 import { saveAs } from 'file-saver';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -50,6 +50,13 @@ interface ClientInfo {
   phone: string | null;
   address: string | null;
   cin: string | null;
+}
+
+interface Letterhead {
+  id: string;
+  lawyer_name: string;
+  header_image_path: string | null;
+  footer_image_path: string | null;
 }
 
 interface CaseThread {
@@ -95,6 +102,13 @@ const DocumentGenerator = () => {
   const [attachments, setAttachments] = useState<File[]>([]);
   const [isParsing, setIsParsing] = useState(false);
 
+  // Letterheads
+  const [letterheads, setLetterheads] = useState<Letterhead[]>([]);
+  const [selectedLetterheadId, setSelectedLetterheadId] = useState('');
+  const [letterheadSearch, setLetterheadSearch] = useState('');
+  const [showLetterheadSuggestions, setShowLetterheadSuggestions] = useState(false);
+  const letterheadSearchRef = useRef<HTMLDivElement>(null);
+
   // Archive
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedThread, setExpandedThread] = useState<string | null>(null);
@@ -107,14 +121,16 @@ const DocumentGenerator = () => {
   useEffect(() => {
     if (!user) return;
     const load = async () => {
-      const [clientsRes, docsRes] = await Promise.all([
+      const [clientsRes, docsRes, lhRes] = await Promise.all([
         supabase.from('clients').select('id, full_name, email, phone, address, cin'),
         supabase.from('generated_documents')
           .select('id, doc_type, content, opponent_memo, step_number, status, created_at, thread_id, title, client_name, opposing_party, court, case_number')
           .order('created_at', { ascending: true }),
+        supabase.from('letterheads').select('id, lawyer_name, header_image_path, footer_image_path') as any,
       ]);
       if (clientsRes.data) setClients(clientsRes.data as ClientInfo[]);
       if (docsRes.data) setAllDocs(docsRes.data as ThreadDoc[]);
+      if (lhRes.data) setLetterheads(lhRes.data as Letterhead[]);
       setLoading(false);
     };
     load();
@@ -135,10 +151,20 @@ const DocumentGenerator = () => {
       if (clientSearchRef.current && !clientSearchRef.current.contains(e.target as Node)) {
         setShowClientSuggestions(false);
       }
+      if (letterheadSearchRef.current && !letterheadSearchRef.current.contains(e.target as Node)) {
+        setShowLetterheadSuggestions(false);
+      }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  // Filtered letterheads
+  const filteredLetterheads = letterheadSearch.trim()
+    ? letterheads.filter(lh => lh.lawyer_name.includes(letterheadSearch))
+    : letterheads;
+
+  const selectedLetterhead = selectedLetterheadId ? letterheads.find(lh => lh.id === selectedLetterheadId) || null : null;
 
   // Filtered clients for autocomplete
   const filteredClients = clientSearch.trim()
@@ -410,6 +436,12 @@ const DocumentGenerator = () => {
 
   // ─── Export ───────────────────────────────────────────────────────────
 
+  const fetchImageAsBuffer = async (path: string): Promise<ArrayBuffer> => {
+    const { data } = supabase.storage.from('letterheads').getPublicUrl(path);
+    const resp = await fetch(data.publicUrl);
+    return resp.arrayBuffer();
+  };
+
   const exportWord = async (content: string, title: string) => {
     const lines = content.split('\n').filter(l => l.trim());
     const paragraphs = lines.map(line => {
@@ -420,8 +452,68 @@ const DocumentGenerator = () => {
         heading: isHeader ? HeadingLevel.HEADING_2 : undefined, bidirectional: true,
       });
     });
+
+    // Build header/footer from selected letterhead
+    let headerObj: any = undefined;
+    let footerObj: any = undefined;
+
+    const lh = selectedLetterhead;
+    if (lh) {
+      if (lh.header_image_path) {
+        try {
+          const buf = await fetchImageAsBuffer(lh.header_image_path);
+          headerObj = {
+            default: new Header({
+              children: [
+                new Paragraph({
+                  alignment: AlignmentType.CENTER,
+                  children: [
+                    new ImageRun({
+                      data: buf,
+                      transformation: { width: 600, height: 100 },
+                      type: 'png',
+                    }),
+                  ],
+                }),
+              ],
+            }),
+          };
+        } catch (e) { console.error('Header image error:', e); }
+      }
+      if (lh.footer_image_path) {
+        try {
+          const buf = await fetchImageAsBuffer(lh.footer_image_path);
+          footerObj = {
+            default: new Footer({
+              children: [
+                new Paragraph({
+                  alignment: AlignmentType.CENTER,
+                  children: [
+                    new ImageRun({
+                      data: buf,
+                      transformation: { width: 600, height: 80 },
+                      type: 'png',
+                    }),
+                  ],
+                }),
+              ],
+            }),
+          };
+        } catch (e) { console.error('Footer image error:', e); }
+      }
+    }
+
     const doc = new Document({
-      sections: [{ properties: { page: { margin: { top: 1440, bottom: 1440, left: 1440, right: 1440 } } }, children: paragraphs }],
+      sections: [{
+        properties: {
+          page: {
+            margin: { top: lh?.header_image_path ? 2200 : 1440, bottom: lh?.footer_image_path ? 1800 : 1440, left: 1440, right: 1440 },
+          },
+        },
+        headers: headerObj,
+        footers: footerObj,
+        children: paragraphs,
+      }],
     });
     const blob = await Packer.toBlob(doc);
     saveAs(blob, `${title}_${new Date().toISOString().slice(0, 10)}.docx`);
@@ -469,6 +561,53 @@ const DocumentGenerator = () => {
                 {selectedClient.cin && `CIN: ${selectedClient.cin} • `}
                 {selectedClient.address || ''}
               </p>
+            )}
+          </div>
+          {/* Letterhead selector */}
+          <div className="relative shrink-0" ref={letterheadSearchRef}>
+            <Button
+              variant={selectedLetterhead ? 'default' : 'outline'}
+              size="sm"
+              className="gap-1.5 text-xs h-8"
+              onClick={() => setShowLetterheadSuggestions(!showLetterheadSuggestions)}
+            >
+              <Stamp className="h-3 w-3" />
+              {selectedLetterhead ? selectedLetterhead.lawyer_name : 'ترويسة'}
+            </Button>
+            {showLetterheadSuggestions && (
+              <div className="absolute left-0 top-full mt-1 z-50 w-56 border border-border rounded-lg bg-popover shadow-lg overflow-hidden">
+                <div className="p-2 border-b border-border">
+                  <Input
+                    placeholder="ابحث عن ترويسة..."
+                    value={letterheadSearch}
+                    onChange={e => setLetterheadSearch(e.target.value)}
+                    className="h-7 text-xs"
+                    autoFocus
+                  />
+                </div>
+                <div className="max-h-[200px] overflow-y-auto">
+                  {selectedLetterheadId && (
+                    <button
+                      onClick={() => { setSelectedLetterheadId(''); setLetterheadSearch(''); setShowLetterheadSuggestions(false); }}
+                      className="w-full text-right px-3 py-2 text-xs text-destructive hover:bg-accent transition-colors border-b border-border"
+                    >
+                      ❌ بدون ترويسة
+                    </button>
+                  )}
+                  {filteredLetterheads.map(lh => (
+                    <button
+                      key={lh.id}
+                      onClick={() => { setSelectedLetterheadId(lh.id); setLetterheadSearch(''); setShowLetterheadSuggestions(false); }}
+                      className={`w-full text-right px-3 py-2 text-xs hover:bg-accent transition-colors border-b border-border last:border-0 ${lh.id === selectedLetterheadId ? 'bg-primary/10 text-primary font-medium' : 'text-foreground'}`}
+                    >
+                      {lh.lawyer_name}
+                    </button>
+                  ))}
+                  {filteredLetterheads.length === 0 && (
+                    <div className="px-3 py-4 text-center text-xs text-muted-foreground">لا توجد ترويسات</div>
+                  )}
+                </div>
+              </div>
             )}
           </div>
         </div>
