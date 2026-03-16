@@ -309,6 +309,7 @@ const DocumentGenerator = () => {
   const openCase = (caseFile: CaseFile) => {
     setSelectedCase(caseFile);
     setActiveDocType('');
+    setChatDocConfig({ doc_type: '', court: caseFile.court || '', court_level: caseFile.court_level || 'ابتدائية', case_number: caseFile.case_number || '' });
     setChatMessages([]);
     setView('chat');
   };
