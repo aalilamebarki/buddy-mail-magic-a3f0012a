@@ -148,48 +148,6 @@ const DocumentGenerator = () => {
 
   const clientHasNoMatch = clientSearch.trim().length > 0 && filteredClients.length === 0;
 
-  // Get threads for selected client
-  const clientThreads: CaseThread[] = selectedClient
-    ? threadGroups.filter(t => t.clientName === selectedClient.full_name)
-    : [];
-
-  // Create new client
-  const createNewClient = async () => {
-    if (!user || !newClient.full_name.trim()) return;
-    try {
-      const { data, error } = await supabase.from('clients').insert({
-        full_name: newClient.full_name.trim(),
-        cin: newClient.cin.trim() || null,
-        address: newClient.address.trim() || null,
-        phone: newClient.phone.trim() || null,
-        email: newClient.email.trim() || null,
-        user_id: user.id,
-      } as any).select().single();
-      if (error) throw error;
-      const created = data as ClientInfo;
-      setClients(prev => [...prev, created]);
-      setSelectedClientId(created.id);
-      setClientSearch(created.full_name);
-      setShowNewClientForm(false);
-      setNewClient({ full_name: '', cin: '', address: '', phone: '', email: '' });
-      toast({ title: 'تم إنشاء الموكل ✅' });
-    } catch (e: any) {
-      toast({ title: 'خطأ', description: e.message, variant: 'destructive' });
-    }
-  };
-
-  const selectClient = (client: ClientInfo) => {
-    setSelectedClientId(client.id);
-    setClientSearch(client.full_name);
-    setShowClientSuggestions(false);
-  };
-
-  const clearClient = () => {
-    setSelectedClientId('');
-    setSelectedClient(null);
-    setClientSearch('');
-  };
-
   // ─── Thread grouping ──────────────────────────────────────────────────
 
   const threadGroups: CaseThread[] = (() => {
@@ -216,6 +174,11 @@ const DocumentGenerator = () => {
   const filteredThreads = threadGroups.filter(t =>
     !searchQuery || t.clientName.includes(searchQuery) || t.opposingParty.includes(searchQuery) || t.caseNumber.includes(searchQuery)
   );
+
+  // Get threads for selected client
+  const clientThreads: CaseThread[] = selectedClient
+    ? threadGroups.filter(t => t.clientName === selectedClient.full_name)
+    : [];
 
   // ─── Actions ──────────────────────────────────────────────────────────
 
