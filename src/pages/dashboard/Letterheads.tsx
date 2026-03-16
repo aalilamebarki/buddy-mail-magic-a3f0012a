@@ -219,25 +219,22 @@ const Letterheads = () => {
               className="text-sm"
               dir="rtl"
             />
-            <div
-              className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
-              onClick={() => fileRef.current?.click()}
+            <input
+              id="letterhead-template-file"
+              type="file"
+              accept=".doc,.docx"
+              className="sr-only"
+              onChange={handleTemplateChange}
+            />
+            <label
+              htmlFor="letterhead-template-file"
+              className="block border-2 border-dashed border-muted-foreground/30 rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
             >
-              <input
-                ref={fileRef}
-                type="file"
-                accept=".doc,.docx"
-                className="hidden"
-                onChange={e => {
-                  const f = e.target.files?.[0];
-                  if (f) setTemplateFile(f);
-                }}
-              />
               {templateFile ? (
                 <div className="flex items-center justify-center gap-2 text-sm text-foreground">
                   <FileText className="h-5 w-5 text-primary" />
                   <span>{templateFile.name}</span>
-                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={e => { e.stopPropagation(); setTemplateFile(null); }}>
+                  <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setTemplateFile(null); setPreviewHtml(null); }}>
                     <X className="h-3 w-3" />
                   </Button>
                 </div>
@@ -248,7 +245,7 @@ const Letterheads = () => {
                   {editingId && <p className="text-xs text-muted-foreground/70">اتركه فارغاً للإبقاء على الملف الحالي</p>}
                 </div>
               )}
-            </div>
+            </label>
 
             {/* Preview section */}
             {previewLoading && (
