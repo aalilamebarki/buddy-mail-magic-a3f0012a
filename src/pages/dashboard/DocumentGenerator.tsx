@@ -551,16 +551,33 @@ const DocumentGenerator = () => {
           </w:p>`;
         }).join('\n');
 
-        // Insert content before the closing </w:body>
-        // First, remove any existing body content paragraphs but keep sectPr
-        const sectPrMatch = docXml.match(/<w:sectPr[\s\S]*?<\/w:sectPr>/);
-        const sectPr = sectPrMatch ? sectPrMatch[0] : '';
-        
-        // Replace body content: keep everything before <w:body>, inject new paragraphs + sectPr, close body
-        const newDocXml = docXml.replace(
-          /<w:body>[\s\S]*<\/w:body>/,
-          `<w:body>${paragraphsXml}${sectPr}</w:body>`
-        );
+        let newDocXml: string;
+
+        // Check for bookmark named "CONTENT" — insert content there, preserving template
+        const bookmarkStartRegex = /<w:bookmarkStart[^>]*w:name="CONTENT"[^>]*\/?>[\s\S]*?<w:bookmarkEnd[^>]*\/?>/i;
+        const bookmarkMatch = docXml.match(bookmarkStartRegex);
+
+        if (bookmarkMatch) {
+          // Replace the bookmark (and everything between start/end) with generated content
+          newDocXml = docXml.replace(bookmarkStartRegex, paragraphsXml);
+        } else {
+          // Fallback: Also try a placeholder text pattern {{CONTENT}} inside a run
+          const placeholderRegex = /<w:p[^>]*>[\s\S]*?\{\{CONTENT\}\}[\s\S]*?<\/w:p>/i;
+          const placeholderMatch = docXml.match(placeholderRegex);
+
+          if (placeholderMatch) {
+            // Replace the paragraph containing {{CONTENT}} with generated paragraphs
+            newDocXml = docXml.replace(placeholderRegex, paragraphsXml);
+          } else {
+            // No bookmark or placeholder found — replace all body content (old behavior)
+            const sectPrMatch = docXml.match(/<w:sectPr[\s\S]*?<\/w:sectPr>/);
+            const sectPr = sectPrMatch ? sectPrMatch[0] : '';
+            newDocXml = docXml.replace(
+              /<w:body>[\s\S]*<\/w:body>/,
+              `<w:body>${paragraphsXml}${sectPr}</w:body>`
+            );
+          }
+        }
 
         zip.file('word/document.xml', newDocXml);
         const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
