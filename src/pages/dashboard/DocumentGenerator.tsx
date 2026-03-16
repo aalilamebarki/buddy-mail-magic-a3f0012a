@@ -508,78 +508,140 @@ const DocumentGenerator = () => {
 
   // ─── Export ───────────────────────────────────────────────────────────
 
-  const fetchTemplateAsArrayBuffer = async (path: string): Promise<ArrayBuffer> => {
-    const { data } = supabase.storage.from('letterheads').getPublicUrl(path);
-    const resp = await fetch(data.publicUrl);
-    if (!resp.ok) throw new Error(`Failed to fetch template: ${resp.status}`);
-    const ct = resp.headers.get('content-type') || '';
-    if (ct.includes('html') || ct.includes('json')) throw new Error('Template URL returned non-docx content');
-    return resp.arrayBuffer();
+  const buildLetterheadHeader = (lh: Letterhead): Header => {
+    const arLine = (text: string, bold = true, size = 28) =>
+      new TextRun({ text, font: 'Traditional Arabic', size, bold, rightToLeft: true });
+    const frLine = (text: string, bold = true, size = 24) =>
+      new TextRun({ text, font: 'Times New Roman', size, bold });
+    const tab = () => new TextRun({ text: '\t', font: 'Traditional Arabic' });
+
+    const rows: Paragraph[] = [];
+
+    // Line 1: Name (FR left, AR right)
+    rows.push(new Paragraph({
+      tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
+      children: [
+        frLine(`Maitre ${(lh.name_fr || lh.lawyer_name).toUpperCase()}`),
+        tab(),
+        arLine(lh.lawyer_name),
+      ],
+      spacing: { after: 40 },
+    }));
+
+    // Line 2: Title
+    if (lh.title_ar || lh.title_fr) {
+      rows.push(new Paragraph({
+        tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
+        children: [
+          frLine(lh.title_fr || 'AVOCAT', true, 22),
+          tab(),
+          arLine(lh.title_ar || 'محام', true, 26),
+        ],
+        spacing: { after: 40 },
+      }));
+    }
+
+    // Line 3: Bar
+    if (lh.bar_name_ar || lh.bar_name_fr) {
+      rows.push(new Paragraph({
+        tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
+        children: [
+          frLine(lh.bar_name_fr || '', true, 22),
+          tab(),
+          arLine(lh.bar_name_ar || '', true, 26),
+        ],
+        spacing: { after: 100 },
+      }));
+    }
+
+    // Separator line
+    rows.push(new Paragraph({
+      border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '000000' } },
+      spacing: { after: 200 },
+    }));
+
+    // City + date
+    rows.push(new Paragraph({
+      children: [arLine(`${lh.city || 'الرباط'} في:`, false, 22)],
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 100 },
+      bidirectional: true,
+    }));
+
+    return new Header({ children: rows });
   };
 
-  // Build XML paragraphs for the content to inject into template
-  const buildContentXml = (content: string): string => {
-    const lines = content.split('\n').filter(l => l.trim());
-    return lines.map(line => {
-      const isHeader = line.startsWith('بسم') || line.includes('إلى السيد') || line.includes('بناءً عليه') || line.includes('الوقائع') || line.includes('في الموضوع') || line.includes('لهذه الأسباب');
-      const fontSize = isHeader ? 28 : 24;
-      const bold = isHeader ? '<w:b/><w:bCs/>' : '';
-      return `<w:p>
-        <w:pPr><w:bidi/><w:jc w:val="right"/><w:spacing w:after="200" w:line="360" w:lineRule="auto"/></w:pPr>
-        <w:r><w:rPr><w:rFonts w:ascii="Traditional Arabic" w:hAnsi="Traditional Arabic" w:cs="Traditional Arabic"/><w:sz w:val="${fontSize}"/><w:szCs w:val="${fontSize}"/>${bold}<w:rtl/></w:rPr><w:t xml:space="preserve">${escapeXml(line)}</w:t></w:r>
-      </w:p>`;
-    }).join('\n');
-  };
+  const buildLetterheadFooter = (lh: Letterhead): Footer => {
+    const children: Paragraph[] = [];
 
-  const escapeXml = (text: string): string => {
-    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+    // Separator
+    children.push(new Paragraph({
+      border: { top: { style: BorderStyle.SINGLE, size: 4, color: '000000' } },
+      spacing: { before: 100, after: 60 },
+    }));
+
+    // Address
+    if (lh.address) {
+      children.push(new Paragraph({
+        children: [new TextRun({ text: lh.address, font: 'Traditional Arabic', size: 18, rightToLeft: true, bold: true })],
+        alignment: AlignmentType.CENTER,
+        bidirectional: true,
+      }));
+    }
+
+    // Email + Phone
+    const contactParts: string[] = [];
+    if (lh.email) contactParts.push(`E-mail: ${lh.email}`);
+    if (lh.phone) contactParts.push(lh.phone);
+    if (contactParts.length) {
+      children.push(new Paragraph({
+        children: [new TextRun({ text: contactParts.join('  |  '), font: 'Times New Roman', size: 16 })],
+        alignment: AlignmentType.CENTER,
+      }));
+    }
+
+    return new Footer({ children });
   };
 
   const exportWord = async (content: string, title: string) => {
     const lh = selectedLetterhead;
 
-    if (!lh?.template_path) {
+    if (!lh) {
       toast({ title: 'يرجى اختيار ترويسة أولاً قبل تحميل المستند', variant: 'destructive' });
       return;
     }
 
-    if (lh?.template_path) {
-      if (!lh.template_path.toLowerCase().endsWith('.docx')) {
-        toast({ title: 'ملف الترويسة الحالي غير مدعوم. ارفع الترويسة بصيغة .docx', variant: 'destructive' });
-        return;
-      }
+    try {
+      const lines = content.split('\n').filter(l => l.trim());
+      const paragraphs = lines.map(line => {
+        const isH = line.startsWith('بسم') || line.includes('إلى السيد') || line.includes('بناءً عليه') || line.includes('الوقائع') || line.includes('في الموضوع') || line.includes('لهذه الأسباب');
+        return new Paragraph({
+          children: [new TextRun({ text: line, font: 'Traditional Arabic', size: isH ? 28 : 24, bold: isH, rightToLeft: true })],
+          alignment: AlignmentType.RIGHT,
+          spacing: { after: 200, line: 360 },
+          heading: isH ? HeadingLevel.HEADING_2 : undefined,
+          bidirectional: true,
+        });
+      });
 
-      // Merge content into Word template
-      try {
-        const templateBuffer = await fetchTemplateAsArrayBuffer(lh.template_path);
-        const zip = await JSZip.loadAsync(templateBuffer);
-        const docXml = await zip.file('word/document.xml')?.async('string');
-        if (!docXml) throw new Error('Invalid template');
+      const doc = new Document({
+        sections: [{
+          properties: {
+            page: { margin: { top: 2200, bottom: 1600, left: 1440, right: 1440 } },
+          },
+          headers: { default: buildLetterheadHeader(lh) },
+          footers: { default: buildLetterheadFooter(lh) },
+          children: paragraphs,
+        }],
+      });
 
-        const contentXml = buildContentXml(content);
-
-        // Insert content paragraphs before </w:body>
-        // Find the sectPr (section properties) to insert before it
-        let newDocXml: string;
-        const sectPrMatch = docXml.match(/<w:sectPr[\s\S]*?<\/w:sectPr>/);
-        if (sectPrMatch) {
-          const sectPrIndex = docXml.indexOf(sectPrMatch[0]);
-          newDocXml = docXml.slice(0, sectPrIndex) + contentXml + '\n' + docXml.slice(sectPrIndex);
-        } else {
-          // Fallback: insert before </w:body>
-          newDocXml = docXml.replace('</w:body>', contentXml + '\n</w:body>');
-        }
-
-        zip.file('word/document.xml', newDocXml);
-        const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-        saveAs(blob, `${title}_${new Date().toISOString().slice(0, 10)}.docx`);
-        return;
-      } catch (e) {
-        console.error('Template merge error:', e);
-        toast({ title: 'تعذر دمج القالب. تأكد من صحة ملف الترويسة وأعد المحاولة', variant: 'destructive' });
-        return;
-      }
+      const blob = await Packer.toBlob(doc);
+      saveAs(blob, `${title}_${new Date().toISOString().slice(0, 10)}.docx`);
+    } catch (e: any) {
+      console.error('Export error:', e);
+      toast({ title: 'خطأ في التصدير', description: e.message, variant: 'destructive' });
     }
+  };
   };
 
   const detectDocType = (content: string): string => {
