@@ -309,8 +309,12 @@ export type Database = {
           id: string
           metadata: Json | null
           next_court: string | null
+          opponent_memo: string | null
           opposing_party: string | null
+          parent_id: string | null
           status: string
+          step_number: number | null
+          thread_id: string | null
           title: string
           updated_at: string
           user_id: string
@@ -327,8 +331,12 @@ export type Database = {
           id?: string
           metadata?: Json | null
           next_court?: string | null
+          opponent_memo?: string | null
           opposing_party?: string | null
+          parent_id?: string | null
           status?: string
+          step_number?: number | null
+          thread_id?: string | null
           title: string
           updated_at?: string
           user_id: string
@@ -345,8 +353,12 @@ export type Database = {
           id?: string
           metadata?: Json | null
           next_court?: string | null
+          opponent_memo?: string | null
           opposing_party?: string | null
+          parent_id?: string | null
           status?: string
+          step_number?: number | null
+          thread_id?: string | null
           title?: string
           updated_at?: string
           user_id?: string
@@ -364,6 +376,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_documents_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "generated_documents"
             referencedColumns: ["id"]
           },
         ]
