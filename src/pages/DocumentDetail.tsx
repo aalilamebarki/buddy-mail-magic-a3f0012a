@@ -248,51 +248,69 @@ const DocumentDetail = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.2 }}
-              className="rounded-2xl border border-border/20 bg-card p-6 sm:p-8 md:p-10"
+              className="rounded-2xl border border-border/20 bg-card overflow-hidden"
             >
-              <div className="prose prose-sm max-w-none text-foreground/90 leading-[2] space-y-4">
-                {paragraphs.length > 0 ? (
-                  paragraphs.map((p, i) => {
-                    const isHeading = /^(الباب|الفصل|القسم|المادة|الفرع|البند)\b/.test(p.trim());
-                    const isArticle = /^(المادة|الفصل)\s+\d/.test(p.trim());
-
-                    if (isHeading && !isArticle) {
-                      return (
-                        <h2 key={i} className="text-base font-bold text-primary mt-8 mb-3 pb-2 border-b border-primary/10">
-                          {p}
-                        </h2>
-                      );
-                    }
-                    if (isArticle) {
-                      return (
-                        <div key={i} className="mt-6 mb-2">
-                          <span className="inline-block bg-primary/5 text-primary font-bold text-sm px-3 py-1 rounded-lg mb-2">
-                            {p.split(/[:\-–]/)[0]}
-                          </span>
-                          {p.includes(':') || p.includes('-') || p.includes('–') ? (
-                            <p className="text-sm text-foreground/85 mt-1">
-                              {p.substring(p.indexOf(p.includes(':') ? ':' : p.includes('-') ? '-' : '–') + 1).trim()}
-                            </p>
-                          ) : null}
-                        </div>
-                      );
-                    }
-                    return <p key={i} className="text-sm text-foreground/85">{p}</p>;
-                  })
-                ) : (
-                  <div className="text-center py-12 space-y-3">
+              {showPdf && doc.source ? (
+                pdfError ? (
+                  <div className="text-center py-12 space-y-3 p-6">
                     <FileText className="h-12 w-12 text-muted-foreground/30 mx-auto" />
-                    <p className="text-sm text-muted-foreground">لا يتوفر محتوى نصي لهذه الوثيقة</p>
-                    {doc.source && (
-                      <a href={doc.source} target="_blank" rel="noopener noreferrer">
-                        <Button size="sm" className="rounded-full gap-2 mt-2">
-                          <Download className="h-3.5 w-3.5" /> تحميل الملف الأصلي
-                        </Button>
-                      </a>
-                    )}
+                    <p className="text-sm text-muted-foreground">تعذر تحميل ملف PDF. قد يكون الرابط غير متاح حالياً.</p>
+                    <Button size="sm" variant="outline" className="rounded-full gap-2 mt-2" onClick={() => setShowPdf(false)}>
+                      <FileText className="h-3.5 w-3.5" /> عرض النص بدلاً من ذلك
+                    </Button>
                   </div>
-                )}
-              </div>
+                ) : (
+                  <iframe
+                    src={doc.source}
+                    className="w-full border-0"
+                    style={{ height: '80vh' }}
+                    title={doc.title}
+                    onError={() => setPdfError(true)}
+                  />
+                )
+              ) : (
+                <div className="prose prose-sm max-w-none text-foreground/90 leading-[2] space-y-4 p-6 sm:p-8 md:p-10">
+                  {paragraphs.length > 0 ? (
+                    paragraphs.map((p, i) => {
+                      const isHeading = /^(الباب|الفصل|القسم|المادة|الفرع|البند)\b/.test(p.trim());
+                      const isArticle = /^(المادة|الفصل)\s+\d/.test(p.trim());
+
+                      if (isHeading && !isArticle) {
+                        return (
+                          <h2 key={i} className="text-base font-bold text-primary mt-8 mb-3 pb-2 border-b border-primary/10">
+                            {p}
+                          </h2>
+                        );
+                      }
+                      if (isArticle) {
+                        return (
+                          <div key={i} className="mt-6 mb-2">
+                            <span className="inline-block bg-primary/5 text-primary font-bold text-sm px-3 py-1 rounded-lg mb-2">
+                              {p.split(/[:\-–]/)[0]}
+                            </span>
+                            {p.includes(':') || p.includes('-') || p.includes('–') ? (
+                              <p className="text-sm text-foreground/85 mt-1">
+                                {p.substring(p.indexOf(p.includes(':') ? ':' : p.includes('-') ? '-' : '–') + 1).trim()}
+                              </p>
+                            ) : null}
+                          </div>
+                        );
+                      }
+                      return <p key={i} className="text-sm text-foreground/85">{p}</p>;
+                    })
+                  ) : (
+                    <div className="text-center py-12 space-y-3">
+                      <FileText className="h-12 w-12 text-muted-foreground/30 mx-auto" />
+                      <p className="text-sm text-muted-foreground">لا يتوفر محتوى نصي لهذه الوثيقة</p>
+                      {doc.source && (
+                        <Button size="sm" className="rounded-full gap-2 mt-2" onClick={() => { setShowPdf(true); setPdfError(false); }}>
+                          <Download className="h-3.5 w-3.5" /> محاولة عرض PDF
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </motion.article>
 
             {/* Footer nav */}
