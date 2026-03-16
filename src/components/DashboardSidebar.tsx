@@ -23,6 +23,7 @@ import {
   Menu,
   X,
   Stamp,
+  Download,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -43,6 +44,7 @@ const menuItems = [
   { icon: BookOpen, label: 'قاعدة المعرفة', path: '/dashboard/knowledge-base', roles: ['director', 'partner'] as const },
   { icon: FileText, label: 'مولّد المستندات', path: '/dashboard/document-generator', roles: ['director', 'partner', 'clerk'] as const },
   { icon: Stamp, label: 'الترويسات', path: '/dashboard/letterheads', roles: ['director', 'partner'] as const },
+  { icon: Download, label: 'جلب الوثائق', path: '/dashboard/legal-scraper', roles: ['director'] as const },
   { icon: ScrollText, label: 'سجل النشاط', path: '/dashboard/audit-log', roles: ['director'] as const },
   { icon: Settings, label: 'الإعدادات', path: '/dashboard/settings', roles: ['director', 'partner'] as const },
   { icon: User, label: 'الملف الشخصي', path: '/dashboard/profile', roles: ['director', 'partner', 'clerk', 'content_writer', 'client'] as const },

@@ -7,122 +7,87 @@ const corsHeaders = {
 };
 
 /**
- * Use Firecrawl to scrape a resource page and extract PDF links + text context
+ * Fetch resource page HTML directly and extract PDF links + text
  */
-async function scrapeWithFirecrawl(pageId: number, firecrawlKey: string): Promise<{
+async function scrapeResourcePage(pageId: number): Promise<{
   laws: { title: string; pdfUrl: string; context: string }[];
-  rawMarkdown: string;
+  html: string;
 }> {
   const url = `https://adala.justice.gov.ma/resources/${pageId}`;
-  console.log(`🔥 Firecrawl scraping: ${url}`);
+  console.log(`📄 Fetching: ${url}`);
 
-  const resp = await fetch("https://api.firecrawl.dev/v1/scrape", {
-    method: "POST",
+  const resp = await fetch(url, {
     headers: {
-      Authorization: `Bearer ${firecrawlKey}`,
-      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "ar,fr;q=0.9,en;q=0.8",
     },
-    body: JSON.stringify({
-      url,
-      formats: ["markdown", "links", "html"],
-      waitFor: 15000,
-      timeout: 60000,
-    }),
+    signal: AbortSignal.timeout(30000),
   });
 
   if (!resp.ok) {
-    const errText = await resp.text();
-    console.error(`Firecrawl error: ${resp.status} - ${errText.slice(0, 200)}`);
-    throw new Error(`Firecrawl ${resp.status}`);
+    throw new Error(`HTTP ${resp.status} for page ${pageId}`);
   }
 
-  const data = await resp.json();
-  const markdown = data.data?.markdown || data.markdown || "";
-  const html = data.data?.html || data.html || "";
-  const links: string[] = data.data?.links || data.links || [];
+  const html = await resp.text();
+  console.log(`Page ${pageId}: ${html.length} chars HTML`);
 
-  console.log(`Page ${pageId}: ${markdown.length} chars markdown, ${links.length} links`);
-
-  // Extract PDF links from all sources
+  // Extract PDF links from HTML
   const pdfUrls = new Set<string>();
-
-  // From links array
-  for (const link of links) {
-    if (link.includes(".pdf") || link.includes("/api/uploads/")) {
-      pdfUrls.add(link.split("#")[0].trim());
-    }
-  }
-
-  // From HTML - more patterns
-  const htmlPatterns = [
-    /href=["'](https?:\/\/[^"']*\.pdf[^"']*)/gi,
-    /href=["'](https?:\/\/adala\.justice\.gov\.ma\/api\/uploads\/[^"']+)/gi,
-    /href=["']([^"']*\/uploads\/[^"']+\.pdf[^"']*)/gi,
-  ];
-  for (const pattern of htmlPatterns) {
-    let m;
-    while ((m = pattern.exec(html)) !== null) {
-      let u = m[1].split("#")[0].trim();
-      if (!u.startsWith("http")) u = `https://adala.justice.gov.ma${u}`;
-      pdfUrls.add(u);
-    }
-  }
-
-  // From markdown links
-  const mdLinkRegex = /\[([^\]]*)\]\((https?:\/\/[^)]*\.pdf[^)]*)\)/gi;
-  let mdMatch;
-  while ((mdMatch = mdLinkRegex.exec(markdown)) !== null) {
-    pdfUrls.add(mdMatch[2].split("#")[0].trim());
-  }
-
-  // Build law entries with context from markdown
   const laws: { title: string; pdfUrl: string; context: string }[] = [];
 
-  for (const pdfUrl of pdfUrls) {
-    // Try to find context around this URL in the markdown
-    let title = extractTitleFromUrl(pdfUrl);
-    let context = "";
-
-    // Search for this URL or filename in markdown to get surrounding text
-    const filename = pdfUrl.split("/").pop() || "";
-    const decodedFilename = tryDecode(filename);
-
-    // Look for text near the PDF link in markdown
-    const escapedUrl = pdfUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const contextRegex = new RegExp(`([^\\n]{0,300})(?:${escapedUrl.slice(0, 50)}|${decodedFilename.slice(0, 30)})`, "i");
-    const ctxMatch = contextRegex.exec(markdown);
-    if (ctxMatch && ctxMatch[1]) {
-      context = ctxMatch[1].replace(/[#*[\]()]/g, "").trim();
-      if (context.length > title.length) title = context.slice(0, 500);
+  // Pattern 1: <a href="...pdf...">text</a>
+  const linkRegex = /<a[^>]+href=["']([^"']*(?:\.pdf|\/api\/uploads\/)[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  let match;
+  while ((match = linkRegex.exec(html)) !== null) {
+    let pdfUrl = match[1].split("#")[0].trim();
+    if (!pdfUrl.startsWith("http")) {
+      pdfUrl = `https://adala.justice.gov.ma${pdfUrl.startsWith("/") ? "" : "/"}${pdfUrl}`;
     }
+    if (pdfUrls.has(pdfUrl)) continue;
+    pdfUrls.add(pdfUrl);
 
-    // Also try: extract text just before the link in markdown
-    const beforeLinkRegex = new RegExp(`([^\\n]+)\\n[^\\n]*${decodedFilename.slice(0, 20)}`, "i");
-    const blMatch = beforeLinkRegex.exec(markdown);
-    if (blMatch && blMatch[1] && blMatch[1].length > title.length) {
-      title = blMatch[1].replace(/[#*[\]()]/g, "").trim().slice(0, 500);
-    }
-
-    laws.push({ title: title || "نص قانوني", pdfUrl, context: context.slice(0, 1000) });
+    // Clean the link text as title
+    const linkText = match[2].replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+    
+    // Get surrounding text as context
+    const pos = match.index;
+    const contextBefore = html.substring(Math.max(0, pos - 500), pos)
+      .replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(-200);
+    
+    laws.push({
+      title: linkText || extractTitleFromUrl(pdfUrl),
+      pdfUrl,
+      context: contextBefore,
+    });
   }
 
-  return { laws, rawMarkdown: markdown.slice(0, 5000) };
-}
+  // Pattern 2: href with uploads path (not .pdf extension)
+  const uploadsRegex = /href=["'](https?:\/\/adala\.justice\.gov\.ma\/api\/uploads\/[^"'#]+)/gi;
+  while ((match = uploadsRegex.exec(html)) !== null) {
+    const pdfUrl = match[1].trim();
+    if (pdfUrls.has(pdfUrl)) continue;
+    pdfUrls.add(pdfUrl);
+    laws.push({
+      title: extractTitleFromUrl(pdfUrl),
+      pdfUrl,
+      context: "",
+    });
+  }
 
-function tryDecode(s: string): string {
-  try { return decodeURIComponent(s); } catch { return s; }
+  return { laws, html: html.slice(0, 3000) };
 }
 
 function extractTitleFromUrl(url: string): string {
   try {
     const segments = url.split("/");
     let filename = segments[segments.length - 1];
-    filename = tryDecode(filename);
+    try { filename = decodeURIComponent(filename); } catch {}
     return filename
       .replace(/-\d{10,15}\.pdf$/i, "")
       .replace(/\.pdf$/i, "")
       .replace(/\s*\(\d+\)\s*$/, "")
-      .replace(/_/g, " ")
+      .replace(/[-_]/g, " ")
       .trim() || "نص قانوني";
   } catch { return "نص قانوني"; }
 }
@@ -132,7 +97,7 @@ function extractTitleFromUrl(url: string): string {
  */
 async function classifyWithAI(title: string, context: string, lovableKey: string): Promise<Record<string, any>> {
   try {
-    const textToAnalyze = context.length > title.length ? context : title;
+    const textToAnalyze = (context.length > title.length ? context + "\n" + title : title).slice(0, 2000);
 
     const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -141,17 +106,17 @@ async function classifyWithAI(title: string, context: string, lovableKey: string
         model: "google/gemini-2.5-flash-lite",
         messages: [{
           role: "user",
-          content: `أنت خبير في القانون المغربي. حلل النص التالي واستخرج المعلومات الوصفية.
+          content: `أنت خبير في القانون المغربي. حلل النص التالي واستخرج المعلومات:
 
 النص: ${textToAnalyze}
 
-أجب بـ JSON فقط بدون أي نص إضافي:
+أجب بـ JSON فقط:
 {
-  "doc_type": "dahir أو law أو organic_law أو decree أو circular أو decision أو convention",
-  "category": "التصنيف مثل: مدونة الأسرة، القانون الجنائي، قانون الشغل، القانون التجاري، القانون العقاري، المسطرة المدنية، القانون الإداري، أخرى",
-  "reference_number": "رقم النص إن وجد",
+  "doc_type": "dahir|law|organic_law|decree|circular|decision|convention",
+  "category": "التصنيف (مدونة الأسرة، القانون الجنائي، قانون الشغل، القانون التجاري، القانون العقاري، المسطرة المدنية، القانون الإداري، القانون المالي والضريبي، أخرى)",
+  "reference_number": "رقم النص إن وجد أو null",
   "year_issued": null,
-  "issuing_authority": "الجهة المصدرة إن وجدت",
+  "issuing_authority": "الجهة المصدرة إن وجدت أو null",
   "subject": "ملخص قصير للموضوع"
 }`
         }],
@@ -159,18 +124,14 @@ async function classifyWithAI(title: string, context: string, lovableKey: string
       }),
     });
 
-    if (!resp.ok) {
-      console.log(`AI classification failed: ${resp.status}`);
-      return fallbackClassify(title);
-    }
+    if (!resp.ok) return fallbackClassify(title);
 
     const ai = await resp.json();
     const content = ai.choices?.[0]?.message?.content || "";
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return fallbackClassify(title);
     return JSON.parse(jsonMatch[0]);
-  } catch (e) {
-    console.log(`AI error: ${e}`);
+  } catch {
     return fallbackClassify(title);
   }
 }
@@ -189,7 +150,6 @@ function fallbackClassify(title: string) {
     [/العقار/, "القانون العقاري"], [/الشغل|العمل/, "قانون الشغل"],
     [/التجاري|الشركة/, "القانون التجاري"], [/الجنائي|العقوبات/, "القانون الجنائي"],
     [/الإداري/, "القانون الإداري"], [/المسطرة المدنية/, "المسطرة المدنية"],
-    [/المسطرة الجنائية/, "المسطرة الجنائية"], [/الضريب/, "القانون المالي والضريبي"],
   ];
   for (const [r, v] of cats) if (r.test(title)) { category = v; break; }
 
@@ -198,17 +158,14 @@ function fallbackClassify(title: string) {
 
   return {
     doc_type, category,
-    reference_number: refMatch?.[1] || "",
+    reference_number: refMatch?.[1] || null,
     year_issued: yearMatch ? parseInt(yearMatch[1]) : null,
-    issuing_authority: "", subject: "",
+    issuing_authority: null, subject: null,
   };
 }
 
 async function downloadAndStorePdf(
-  pdfUrl: string,
-  docId: string,
-  docType: string,
-  supabase: any,
+  pdfUrl: string, docId: string, docType: string, supabase: any,
 ): Promise<{ success: boolean; size: number; path: string }> {
   try {
     let fetchUrl: string;
@@ -216,14 +173,20 @@ async function downloadAndStorePdf(
 
     const pdfResp = await fetch(fetchUrl, {
       headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
+      signal: AbortSignal.timeout(30000),
     });
 
     if (!pdfResp.ok) {
-      console.log(`PDF download failed: ${pdfResp.status} for ${pdfUrl.slice(0, 80)}`);
+      console.log(`PDF download failed: ${pdfResp.status}`);
       return { success: false, size: 0, path: "" };
     }
 
     const pdfData = await pdfResp.arrayBuffer();
+    if (pdfData.byteLength < 100) {
+      console.log(`PDF too small: ${pdfData.byteLength} bytes`);
+      return { success: false, size: 0, path: "" };
+    }
+
     const filePath = `${docType}/${docId}.pdf`;
 
     const { error: uploadErr } = await supabase.storage
@@ -234,18 +197,6 @@ async function downloadAndStorePdf(
       console.log(`Upload error: ${uploadErr.message}`);
       return { success: false, size: pdfData.byteLength, path: filePath };
     }
-
-    await supabase.from("legal_documents").update({
-      local_pdf_path: filePath,
-      metadata: {
-        scraped: true,
-        scraped_at: new Date().toISOString(),
-        source_site: "adala",
-        is_pdf: true,
-        has_local_pdf: true,
-        file_size_bytes: pdfData.byteLength,
-      },
-    }).eq("id", docId);
 
     return { success: true, size: pdfData.byteLength, path: filePath };
   } catch (e) {
@@ -263,16 +214,38 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
     const lovableKey = Deno.env.get("LOVABLE_API_KEY")!;
-    const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY")!;
-
-    if (!firecrawlKey) {
-      return new Response(JSON.stringify({ error: "FIRECRAWL_API_KEY not configured" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
     const body = await req.json().catch(() => ({}));
     const { action = "scrape_page", page_id, batch_size = 1, start_page } = body;
+
+    // ===== STATUS =====
+    if (action === "status") {
+      const { count: total } = await supabase
+        .from("legal_documents")
+        .select("*", { count: "exact", head: true })
+        .not("resource_page_id", "is", null);
+
+      const { count: withPdf } = await supabase
+        .from("legal_documents")
+        .select("*", { count: "exact", head: true })
+        .not("local_pdf_path", "is", null)
+        .neq("local_pdf_path", "fetch_failed")
+        .neq("local_pdf_path", "upload_failed");
+
+      const { data: maxP } = await supabase
+        .from("legal_documents")
+        .select("resource_page_id")
+        .not("resource_page_id", "is", null)
+        .order("resource_page_id", { ascending: false })
+        .limit(1);
+
+      return new Response(JSON.stringify({
+        totalDocs: total || 0,
+        withLocalPdf: withPdf || 0,
+        lastPage: maxP?.[0]?.resource_page_id || 0,
+        totalPages: 1070,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     // ===== SCRAPE SINGLE PAGE =====
     if (action === "scrape_page" && page_id) {
@@ -289,14 +262,16 @@ Deno.serve(async (req) => {
         }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      const { laws, rawMarkdown } = await scrapeWithFirecrawl(page_id, firecrawlKey);
+      const { laws, html } = await scrapeResourcePage(page_id);
 
       if (!laws.length) {
         return new Response(JSON.stringify({
           success: true, message: `No PDF links found on page ${page_id}`, count: 0,
-          markdownPreview: rawMarkdown.slice(0, 500),
+          htmlPreview: html.slice(0, 500),
         }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
+
+      console.log(`Found ${laws.length} PDF links on page ${page_id}`);
 
       const results = [];
       for (const law of laws) {
@@ -314,17 +289,14 @@ Deno.serve(async (req) => {
         // Classify with AI
         const cls = await classifyWithAI(law.title, law.context, lovableKey);
 
-        // Build content
         const content = [
           law.title,
-          "",
-          law.context ? `السياق: ${law.context}` : "",
+          cls.subject ? `الموضوع: ${cls.subject}` : "",
           `التصنيف: ${cls.category || "أخرى"}`,
           `النوع: ${cls.doc_type || "law"}`,
           cls.reference_number ? `الرقم المرجعي: ${cls.reference_number}` : "",
-          cls.subject ? `الموضوع: ${cls.subject}` : "",
           cls.issuing_authority ? `الجهة المصدرة: ${cls.issuing_authority}` : "",
-          `المصدر: بوابة عدالة - وزارة العدل`,
+          `المصدر: بوابة عدالة`,
         ].filter(Boolean).join("\n");
 
         // Insert into DB
@@ -350,12 +322,25 @@ Deno.serve(async (req) => {
         }).select("id").single();
 
         if (err) {
+          console.log(`Insert error: ${err.message}`);
           results.push({ title: law.title.slice(0, 80), status: `error: ${err.message.slice(0, 50)}` });
           continue;
         }
 
         // Download and store PDF
         const pdfResult = await downloadAndStorePdf(law.pdfUrl, ins!.id, cls.doc_type || "law", supabase);
+        
+        if (pdfResult.success) {
+          await supabase.from("legal_documents").update({
+            local_pdf_path: pdfResult.path,
+            metadata: {
+              scraped: true, scraped_at: new Date().toISOString(),
+              source_site: "adala", is_pdf: true, has_local_pdf: true,
+              file_size_bytes: pdfResult.size,
+            },
+          }).eq("id", ins!.id);
+        }
+
         results.push({
           title: law.title.slice(0, 80),
           status: pdfResult.success ? "✅ saved" : "📝 metadata_only",
@@ -363,9 +348,6 @@ Deno.serve(async (req) => {
           category: cls.category,
           pdf_size: pdfResult.size,
         });
-
-        // Small delay between items
-        await new Promise(r => setTimeout(r, 300));
       }
 
       return new Response(JSON.stringify({
@@ -373,115 +355,15 @@ Deno.serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // ===== SCRAPE BATCH =====
-    if (action === "scrape_batch") {
-      const start = start_page || 1;
-      const end = Math.min(start + (batch_size || 3) - 1, 1070);
-      const summary = [];
-
-      for (let pid = start; pid <= end; pid++) {
-        try {
-          const { data: ex } = await supabase
-            .from("legal_documents")
-            .select("id")
-            .eq("resource_page_id", pid)
-            .limit(1);
-
-          if (ex?.length) {
-            summary.push({ page: pid, status: "skipped" });
-            continue;
-          }
-
-          const { laws } = await scrapeWithFirecrawl(pid, firecrawlKey);
-          let saved = 0;
-
-          for (const law of laws) {
-            const { data: dup } = await supabase
-              .from("legal_documents")
-              .select("id")
-              .eq("pdf_url", law.pdfUrl)
-              .limit(1);
-            if (dup?.length) continue;
-
-            const cls = await classifyWithAI(law.title, law.context, lovableKey);
-            const { data: ins, error } = await supabase.from("legal_documents").insert({
-              title: law.title.slice(0, 500),
-              content: law.title,
-              source: `https://adala.justice.gov.ma/resources/${pid}`,
-              pdf_url: law.pdfUrl,
-              doc_type: cls.doc_type || "law",
-              category: cls.category || "أخرى",
-              reference_number: cls.reference_number || null,
-              year_issued: cls.year_issued || null,
-              issuing_authority: cls.issuing_authority || null,
-              subject: cls.subject || null,
-              resource_page_id: pid,
-              ai_classification: cls,
-              metadata: { scraped: true, scraped_at: new Date().toISOString(), source_site: "adala", is_pdf: true },
-            }).select("id").single();
-
-            if (error) continue;
-
-            await downloadAndStorePdf(law.pdfUrl, ins!.id, cls.doc_type || "law", supabase);
-            saved++;
-            await new Promise(r => setTimeout(r, 300));
-          }
-
-          summary.push({ page: pid, laws_found: laws.length, saved });
-        } catch (e) {
-          summary.push({ page: pid, error: String(e).slice(0, 80) });
-        }
-
-        // Delay between pages
-        await new Promise(r => setTimeout(r, 500));
-      }
-
-      return new Response(JSON.stringify({ success: true, summary }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // ===== STATUS =====
-    if (action === "status") {
-      const { count: total } = await supabase
-        .from("legal_documents")
-        .select("*", { count: "exact", head: true })
-        .not("resource_page_id", "is", null);
-
-      const { count: withPdf } = await supabase
-        .from("legal_documents")
-        .select("*", { count: "exact", head: true })
-        .not("resource_page_id", "is", null)
-        .not("local_pdf_path", "is", null);
-
-      const { data: maxP } = await supabase
-        .from("legal_documents")
-        .select("resource_page_id")
-        .not("resource_page_id", "is", null)
-        .order("resource_page_id", { ascending: false })
-        .limit(1);
-
-      return new Response(JSON.stringify({
-        totalDocs: total || 0,
-        withLocalPdf: withPdf || 0,
-        lastPage: maxP?.[0]?.resource_page_id || 0,
-        totalPages: 1070,
-      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
     return new Response(JSON.stringify({
-      error: "Invalid action. Use: scrape_page, scrape_batch, or status",
-      usage: {
-        scrape_page: { action: "scrape_page", page_id: 1 },
-        scrape_batch: { action: "scrape_batch", start_page: 1, batch_size: 5 },
-        status: { action: "status" },
-      },
+      error: "Invalid action. Use: scrape_page or status",
+      usage: { scrape_page: { action: "scrape_page", page_id: 1 }, status: { action: "status" } },
     }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (e) {
-    console.error("Fatal error:", e);
+    console.error("Error:", e);
     return new Response(JSON.stringify({
-      error: e instanceof Error ? e.message : "Unknown error",
+      success: false, error: String(e).slice(0, 200),
     }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

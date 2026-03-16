@@ -37,6 +37,7 @@ import ClientDashboard from "./pages/dashboard/ClientDashboard";
 import KnowledgeBase from "./pages/dashboard/KnowledgeBase";
 import DocumentGenerator from "./pages/dashboard/DocumentGenerator";
 import Letterheads from "./pages/dashboard/Letterheads";
+import LegalScraper from "./pages/dashboard/LegalScraper";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -91,6 +92,7 @@ const App = () => (
                   <Route path="knowledge-base" element={<KnowledgeBase />} />
                   <Route path="document-generator" element={<DocumentGenerator />} />
                   <Route path="letterheads" element={<Letterheads />} />
+                  <Route path="legal-scraper" element={<LegalScraper />} />
                 </Route>
 
                 <Route path="*" element={<NotFound />} />
