@@ -271,11 +271,11 @@ const Letterheads = () => {
             )}
 
             <div className="flex gap-2 pt-2">
-              <Button onClick={save} disabled={!lawyerName.trim() || saving} className="gap-1.5">
+              <Button type="button" onClick={save} disabled={!lawyerName.trim() || saving} className="gap-1.5">
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 {editingId ? 'حفظ التعديلات' : 'حفظ الترويسة'}
               </Button>
-              <Button variant="ghost" onClick={resetForm}><X className="h-4 w-4 ml-1" /> إلغاء</Button>
+              <Button type="button" variant="ghost" onClick={resetForm}><X className="h-4 w-4 ml-1" /> إلغاء</Button>
             </div>
           </CardContent>
         </Card>
