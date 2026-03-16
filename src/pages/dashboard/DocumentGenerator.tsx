@@ -38,9 +38,18 @@ interface ThreadDoc {
   thread_id: string | null;
   title: string;
   client_name: string | null;
+  client_id: string | null;
   opposing_party: string | null;
   court: string | null;
   case_number: string | null;
+}
+
+interface DocAttachment {
+  id: string;
+  document_id: string;
+  file_name: string;
+  file_path: string;
+  file_type: string | null;
 }
 
 interface ClientInfo {
@@ -62,6 +71,7 @@ interface Letterhead {
 interface CaseThread {
   threadId: string;
   clientName: string;
+  clientId: string | null;
   opposingParty: string;
   court: string;
   caseNumber: string;
