@@ -211,10 +211,10 @@ const Letterheads = () => {
     if (!nextFile || !user) return;
 
     const ext = getFileExtension(nextFile.name);
-    if (ext !== 'doc' && ext !== 'docx') {
+    if (ext !== 'docx') {
       toast({
         title: 'صيغة غير مدعومة',
-        description: 'يرجى اختيار ملف .doc أو .docx',
+        description: 'يرجى اختيار ملف بصيغة .docx فقط (احفظ ملف .doc كـ .docx من Word)',
         variant: 'destructive',
       });
       return;
