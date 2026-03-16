@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import {
   FileText, Search, Download, Loader2, Save, Eye,
   FileUp, Trash2, Sparkles, Send, FolderOpen,
-  ArrowRight, MessageSquare, ChevronDown, ChevronUp, User, Plus, X, UserPlus, Stamp, BookOpen
+  ArrowRight, MessageSquare, ChevronDown, ChevronUp, User, Plus, X, UserPlus, Stamp, BookOpen, Scale, Briefcase
 } from 'lucide-react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
@@ -42,14 +42,7 @@ interface ThreadDoc {
   opposing_party: string | null;
   court: string | null;
   case_number: string | null;
-}
-
-interface DocAttachment {
-  id: string;
-  document_id: string;
-  file_name: string;
-  file_path: string;
-  file_type: string | null;
+  case_id: string | null;
 }
 
 interface ClientInfo {
@@ -59,6 +52,21 @@ interface ClientInfo {
   phone: string | null;
   address: string | null;
   cin: string | null;
+}
+
+interface CaseFile {
+  id: string;
+  case_number: string;
+  title: string;
+  client_id: string | null;
+  case_type: string | null;
+  court: string | null;
+  court_level: string;
+  opposing_party: string | null;
+  opposing_party_address: string | null;
+  status: string;
+  description: string | null;
+  created_at: string;
 }
 
 interface Letterhead {
@@ -76,16 +84,15 @@ interface ReferenceDocument {
   created_at: string;
 }
 
-interface CaseThread {
-  threadId: string;
-  clientName: string;
-  clientId: string | null;
-  opposingParty: string;
-  court: string;
-  caseNumber: string;
-  docs: ThreadDoc[];
-  lastDate: string;
-}
+// Constants
+const COURT_LEVELS = ['ابتدائية', 'استئناف', 'نقض'] as const;
+const COURT_TYPES = [
+  'المحكمة الابتدائية', 'المحكمة الابتدائية التجارية', 'المحكمة الابتدائية الإدارية',
+  'محكمة الاستئناف', 'محكمة الاستئناف التجارية', 'محكمة الاستئناف الإدارية',
+  'محكمة النقض'
+] as const;
+const CASE_TYPES = ['مدني', 'جنائي', 'تجاري', 'إداري', 'أسرة', 'عقاري', 'شغل', 'جنحي'] as const;
+const REF_DOC_TYPES = ['مذكرة', 'مقال', 'شكاية', 'حكم قضائي', 'إنذار', 'عقد', 'عام'] as const;
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
@@ -95,16 +102,17 @@ const DocumentGenerator = () => {
 
   // Data
   const [clients, setClients] = useState<ClientInfo[]>([]);
+  const [cases, setCases] = useState<CaseFile[]>([]);
   const [allDocs, setAllDocs] = useState<ThreadDoc[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // View
-  const [view, setView] = useState<'main' | 'chat'>('main');
+  // View: main → case_select → new_case → chat
+  const [view, setView] = useState<'main' | 'case_select' | 'new_case' | 'chat'>('main');
 
   // Selection
   const [selectedClientId, setSelectedClientId] = useState('');
   const [selectedClient, setSelectedClient] = useState<ClientInfo | null>(null);
-  const [currentThread, setCurrentThread] = useState<CaseThread | null>(null);
+  const [selectedCase, setSelectedCase] = useState<CaseFile | null>(null);
 
   // Client search
   const [clientSearch, setClientSearch] = useState('');
@@ -112,6 +120,12 @@ const DocumentGenerator = () => {
   const [showNewClientForm, setShowNewClientForm] = useState(false);
   const [newClient, setNewClient] = useState({ full_name: '', cin: '', address: '', phone: '', email: '' });
   const clientSearchRef = useRef<HTMLDivElement>(null);
+
+  // New case form
+  const [newCase, setNewCase] = useState({
+    title: '', case_type: '', court: '', court_level: 'ابتدائية',
+    opposing_party: '', opposing_party_address: '', case_number: '', description: '',
+  });
 
   // Chat
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -145,15 +159,17 @@ const DocumentGenerator = () => {
   useEffect(() => {
     if (!user) return;
     const load = async () => {
-      const [clientsRes, docsRes, lhRes, refDocsRes] = await Promise.all([
+      const [clientsRes, casesRes, docsRes, lhRes, refDocsRes] = await Promise.all([
         supabase.from('clients').select('id, full_name, email, phone, address, cin'),
+        supabase.from('cases').select('*').order('created_at', { ascending: false }),
         supabase.from('generated_documents')
-          .select('id, doc_type, content, opponent_memo, step_number, status, created_at, thread_id, title, client_name, client_id, opposing_party, court, case_number')
+          .select('id, doc_type, content, opponent_memo, step_number, status, created_at, thread_id, title, client_name, client_id, opposing_party, court, case_number, case_id')
           .order('created_at', { ascending: true }),
         supabase.from('letterheads').select('id, lawyer_name, template_path') as any,
         supabase.from('reference_documents').select('*').order('created_at', { ascending: false }) as any,
       ]);
       if (clientsRes.data) setClients(clientsRes.data as ClientInfo[]);
+      if (casesRes.data) setCases(casesRes.data as CaseFile[]);
       if (docsRes.data) setAllDocs(docsRes.data as ThreadDoc[]);
       if (lhRes.data) setLetterheads(lhRes.data as Letterhead[]);
       if (refDocsRes.data) setReferenceDocs(refDocsRes.data as ReferenceDocument[]);
@@ -185,14 +201,13 @@ const DocumentGenerator = () => {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // Filtered letterheads
+  // Filtered data
   const filteredLetterheads = letterheadSearch.trim()
     ? letterheads.filter(lh => lh.lawyer_name.includes(letterheadSearch))
     : letterheads;
 
   const selectedLetterhead = selectedLetterheadId ? letterheads.find(lh => lh.id === selectedLetterheadId) || null : null;
 
-  // Filtered clients for autocomplete
   const filteredClients = clientSearch.trim()
     ? clients.filter(c =>
         c.full_name.includes(clientSearch) ||
@@ -202,115 +217,35 @@ const DocumentGenerator = () => {
 
   const clientHasNoMatch = clientSearch.trim().length > 0 && filteredClients.length === 0;
 
-  // ─── Thread grouping ──────────────────────────────────────────────────
-
-  const threadGroups: CaseThread[] = (() => {
-    const map = new Map<string, ThreadDoc[]>();
-    for (const doc of allDocs) {
-      const tid = doc.thread_id || doc.id;
-      if (!map.has(tid)) map.set(tid, []);
-      map.get(tid)!.push(doc);
-    }
-    return Array.from(map.entries()).map(([threadId, docs]) => {
-      const sorted = docs.sort((a, b) => (a.step_number || 1) - (b.step_number || 1));
-      const first = sorted[0];
-      return {
-        threadId, docs: sorted,
-        clientName: first.client_name || '',
-        clientId: first.client_id || null,
-        opposingParty: first.opposing_party || '',
-        court: first.court || '',
-        caseNumber: first.case_number || '',
-        lastDate: sorted[sorted.length - 1].created_at,
-      };
-    }).sort((a, b) => new Date(b.lastDate).getTime() - new Date(a.lastDate).getTime());
-  })();
-
-  const filteredThreads = threadGroups.filter(t =>
-    !searchQuery || t.clientName.includes(searchQuery) || t.opposingParty.includes(searchQuery) || t.caseNumber.includes(searchQuery)
-  );
-
-  // Get threads for selected client - match by client_id first, fallback to name
-  const clientThreads: CaseThread[] = selectedClient
-    ? threadGroups.filter(t => t.clientId === selectedClient.id || (!t.clientId && t.clientName === selectedClient.full_name))
+  // Cases for selected client
+  const clientCases = selectedClient
+    ? cases.filter(c => c.client_id === selectedClient.id)
     : [];
 
-  // ─── Actions ──────────────────────────────────────────────────────────
+  // Documents for selected case
+  const caseDocs = selectedCase
+    ? allDocs.filter(d => d.case_id === selectedCase.id).sort((a, b) => (a.step_number || 1) - (b.step_number || 1))
+    : [];
 
-  const openThread = (thread: CaseThread) => {
-    setCurrentThread(thread);
-    setChatMessages([]);
-    const matchClient = clients.find(c => c.full_name === thread.clientName);
-    if (matchClient) { setSelectedClientId(matchClient.id); }
-    setView('chat');
+  const filteredRefDocs = refDocFilter === 'الكل' ? referenceDocs : referenceDocs.filter(d => d.doc_type === refDocFilter);
+
+  // ─── Client Actions ───────────────────────────────────────────────────
+
+  const selectClient = (client: ClientInfo) => {
+    setSelectedClientId(client.id);
+    setClientSearch(client.full_name);
+    setShowClientSuggestions(false);
+    setView('case_select');
   };
 
-  const startNew = () => {
-    setCurrentThread({
-      threadId: crypto.randomUUID(),
-      clientName: selectedClient?.full_name || '',
-      clientId: selectedClient?.id || null,
-      opposingParty: '', court: '', caseNumber: '',
-      docs: [], lastDate: new Date().toISOString(),
-    });
-    setChatMessages([]);
-    setView('chat');
+  const clearClient = () => {
+    setSelectedClientId('');
+    setSelectedClient(null);
+    setSelectedCase(null);
+    setClientSearch('');
+    setView('main');
   };
 
-  // ─── Add opponent memo to thread ──────────────────────────────────────
-  const addOpponentMemo = async (files: File[]) => {
-    if (!user || !currentThread || files.length === 0) return;
-    setIsParsing(true);
-    try {
-      const parsed = await extractAllFiles(files);
-      const memoContent = parsed.map(p => p.text).join('\n\n');
-      const step = currentThread.docs.length + 1;
-      const parentId = currentThread.docs.length > 0 ? currentThread.docs[currentThread.docs.length - 1].id : null;
-
-      const { data, error } = await supabase.from('generated_documents').insert({
-        user_id: user.id,
-        client_id: selectedClientId || null,
-        doc_type: 'مذكرة الخصم',
-        title: `مذكرة الخصم - الخطوة ${step}`,
-        content: null,
-        opponent_memo: memoContent,
-        court: currentThread.court || null,
-        case_number: currentThread.caseNumber || null,
-        opposing_party: currentThread.opposingParty || null,
-        client_name: currentThread.clientName || null,
-        status: 'final',
-        thread_id: currentThread.threadId,
-        parent_id: parentId,
-        step_number: step,
-        metadata: {},
-      } as any).select().single();
-      if (error) throw error;
-
-      // Upload original files as attachments
-      if (data) {
-        for (const file of files) {
-          const path = `${user.id}/${data.id}/${file.name}`;
-          const { error: upErr } = await supabase.storage.from('document-attachments').upload(path, file);
-          if (!upErr) {
-            await supabase.from('document_attachments').insert({
-              document_id: data.id, file_name: file.name, file_path: path, file_type: file.type,
-            } as any);
-          }
-        }
-      }
-
-      const newDoc = data as ThreadDoc;
-      setAllDocs(prev => [...prev, newDoc]);
-      setCurrentThread(prev => prev ? { ...prev, docs: [...prev.docs, newDoc] } : prev);
-      toast({ title: 'تم حفظ مذكرة الخصم بالأرشيف ✅', description: 'سيعتمد عليها الذكاء الاصطناعي في الصياغة التالية' });
-    } catch (e: any) {
-      toast({ title: 'خطأ', description: e.message, variant: 'destructive' });
-    } finally {
-      setIsParsing(false);
-    }
-  };
-
-  // Create new client
   const createNewClient = async () => {
     if (!user || !newClient.full_name.trim()) return;
     try {
@@ -329,25 +264,106 @@ const DocumentGenerator = () => {
       setClientSearch(created.full_name);
       setShowNewClientForm(false);
       setNewClient({ full_name: '', cin: '', address: '', phone: '', email: '' });
+      setView('case_select');
       toast({ title: 'تم إنشاء الموكل ✅' });
     } catch (e: any) {
       toast({ title: 'خطأ', description: e.message, variant: 'destructive' });
     }
   };
 
-  const selectClient = (client: ClientInfo) => {
-    setSelectedClientId(client.id);
-    setClientSearch(client.full_name);
-    setShowClientSuggestions(false);
+  // ─── Case Actions ─────────────────────────────────────────────────────
+
+  const openCase = (caseFile: CaseFile) => {
+    setSelectedCase(caseFile);
+    setChatMessages([]);
+    setView('chat');
   };
 
-  const clearClient = () => {
-    setSelectedClientId('');
-    setSelectedClient(null);
-    setClientSearch('');
+  const createCase = async () => {
+    if (!user || !selectedClient || !newCase.opposing_party.trim()) return;
+    try {
+      const caseNumber = newCase.case_number.trim() || `${Date.now()}`;
+      const { data, error } = await supabase.from('cases').insert({
+        case_number: caseNumber,
+        title: newCase.title.trim() || `${selectedClient.full_name} ضد ${newCase.opposing_party.trim()}`,
+        client_id: selectedClient.id,
+        case_type: newCase.case_type || null,
+        court: newCase.court || null,
+        court_level: newCase.court_level,
+        opposing_party: newCase.opposing_party.trim(),
+        opposing_party_address: newCase.opposing_party_address.trim() || null,
+        description: newCase.description.trim() || null,
+        assigned_to: user.id,
+      } as any).select().single();
+      if (error) throw error;
+      const created = data as CaseFile;
+      setCases(prev => [created, ...prev]);
+      setSelectedCase(created);
+      setNewCase({ title: '', case_type: '', court: '', court_level: 'ابتدائية', opposing_party: '', opposing_party_address: '', case_number: '', description: '' });
+      setChatMessages([]);
+      setView('chat');
+      toast({ title: 'تم إنشاء الملف ✅' });
+    } catch (e: any) {
+      toast({ title: 'خطأ', description: e.message, variant: 'destructive' });
+    }
+  };
+
+  // ─── Add opponent memo ────────────────────────────────────────────────
+
+  const addOpponentMemo = async (files: File[]) => {
+    if (!user || !selectedCase || files.length === 0) return;
+    setIsParsing(true);
+    try {
+      const parsed = await extractAllFiles(files);
+      const memoContent = parsed.map(p => p.text).join('\n\n');
+      const step = caseDocs.length + 1;
+      const parentId = caseDocs.length > 0 ? caseDocs[caseDocs.length - 1].id : null;
+
+      const { data, error } = await supabase.from('generated_documents').insert({
+        user_id: user.id,
+        client_id: selectedClient?.id || null,
+        case_id: selectedCase.id,
+        doc_type: 'مذكرة الخصم',
+        title: `مذكرة الخصم - الخطوة ${step}`,
+        content: null,
+        opponent_memo: memoContent,
+        court: selectedCase.court || null,
+        case_number: selectedCase.case_number || null,
+        opposing_party: selectedCase.opposing_party || null,
+        client_name: selectedClient?.full_name || null,
+        status: 'final',
+        thread_id: selectedCase.id,
+        parent_id: parentId,
+        step_number: step,
+        metadata: {},
+      } as any).select().single();
+      if (error) throw error;
+
+      // Upload files as attachments
+      if (data) {
+        for (const file of files) {
+          const path = `${user.id}/${data.id}/${file.name}`;
+          const { error: upErr } = await supabase.storage.from('document-attachments').upload(path, file);
+          if (!upErr) {
+            await supabase.from('document_attachments').insert({
+              document_id: data.id, file_name: file.name, file_path: path, file_type: file.type,
+            } as any);
+          }
+        }
+      }
+
+      const newDoc = data as ThreadDoc;
+      setAllDocs(prev => [...prev, newDoc]);
+      toast({ title: 'تم حفظ مذكرة الخصم بالأرشيف ✅' });
+    } catch (e: any) {
+      toast({ title: 'خطأ', description: e.message, variant: 'destructive' });
+    } finally {
+      setIsParsing(false);
+    }
   };
 
   // ─── Reference Documents ──────────────────────────────────────────────
+
   const uploadReferenceDoc = async (files: File[]) => {
     if (!user || files.length === 0) return;
     setIsUploadingRef(true);
@@ -370,7 +386,7 @@ const DocumentGenerator = () => {
         if (error) throw error;
         if (data) setReferenceDocs(prev => [data as ReferenceDocument, ...prev]);
       }
-      toast({ title: `تم رفع ${parsed.length} نموذج مرجعي ✅`, description: 'سيتعلم الذكاء الاصطناعي من أسلوبك' });
+      toast({ title: `تم رفع ${parsed.length} نموذج مرجعي ✅` });
     } catch (e: any) {
       toast({ title: 'خطأ', description: e.message, variant: 'destructive' });
     } finally {
@@ -388,20 +404,15 @@ const DocumentGenerator = () => {
     if (!error) setReferenceDocs(prev => prev.map(d => d.id === id ? { ...d, doc_type: newType } : d));
   };
 
-  const REF_DOC_TYPES = ['مذكرة', 'مقال', 'شكاية', 'حكم قضائي', 'إنذار', 'عقد', 'عام'] as const;
-  
-  const filteredRefDocs = refDocFilter === 'الكل' ? referenceDocs : referenceDocs.filter(d => d.doc_type === refDocFilter);
-
-
+  // ─── Chat / Send Message ──────────────────────────────────────────────
 
   const sendMessage = useCallback(async () => {
     const text = inputText.trim();
-    if (!text || isStreaming) return;
+    if (!text || isStreaming || !selectedCase) return;
 
     setInputText('');
     setIsStreaming(true);
 
-    // Parse attachments if any
     let attachmentTexts: { name: string; text: string }[] = [];
     if (attachments.length > 0) {
       setIsParsing(true);
@@ -413,7 +424,6 @@ const DocumentGenerator = () => {
       setIsParsing(false);
     }
 
-    // Build user message with attachment content
     let fullUserContent = text;
     if (attachmentTexts.length > 0) {
       fullUserContent += '\n\n📎 الملفات المرفقة:\n';
@@ -432,14 +442,17 @@ const DocumentGenerator = () => {
     setAttachments([]);
 
     const threadContext = {
-      clientName: currentThread?.clientName || selectedClient?.full_name || '',
+      clientName: selectedClient?.full_name || '',
       clientAddress: selectedClient?.address || '',
       clientCIN: selectedClient?.cin || '',
       clientPhone: selectedClient?.phone || '',
-      opposingParty: currentThread?.opposingParty || '',
-      court: currentThread?.court || '',
-      caseNumber: currentThread?.caseNumber || '',
-      previousDocs: (currentThread?.docs || []).map(d => ({
+      opposingParty: selectedCase.opposing_party || '',
+      opposingPartyAddress: (selectedCase as any).opposing_party_address || '',
+      court: selectedCase.court || '',
+      courtLevel: selectedCase.court_level || '',
+      caseNumber: selectedCase.case_number || '',
+      caseType: selectedCase.case_type || '',
+      previousDocs: caseDocs.map(d => ({
         step: d.step_number,
         docType: d.doc_type,
         content: d.content?.slice(0, 2000),
@@ -514,58 +527,44 @@ const DocumentGenerator = () => {
     } finally {
       setIsStreaming(false);
     }
-  }, [inputText, chatMessages, currentThread, selectedClient, isStreaming, toast, allDocs]);
+  }, [inputText, chatMessages, selectedCase, selectedClient, isStreaming, toast, allDocs, caseDocs, referenceDocs, attachments]);
 
-  // ─── Save ─────────────────────────────────────────────────────────────
+  // ─── Save Document ────────────────────────────────────────────────────
 
   const saveDocument = async (content: string, docType: string) => {
-    if (!user || !currentThread) return;
-    const step = currentThread.docs.length + 1;
-    const parentId = currentThread.docs.length > 0 ? currentThread.docs[currentThread.docs.length - 1].id : null;
+    if (!user || !selectedCase) return;
+    const step = caseDocs.length + 1;
+    const parentId = caseDocs.length > 0 ? caseDocs[caseDocs.length - 1].id : null;
 
     try {
       const { data, error } = await supabase.from('generated_documents').insert({
         user_id: user.id,
-        client_id: selectedClientId || null,
+        client_id: selectedClient?.id || null,
+        case_id: selectedCase.id,
         doc_type: docType,
-        title: `${docType} - ${currentThread.clientName || 'مستند'}`,
+        title: `${docType} - ${selectedClient?.full_name || 'مستند'}`,
         content,
-        court: currentThread.court || null,
-        case_number: currentThread.caseNumber || null,
-        opposing_party: currentThread.opposingParty || null,
-        client_name: currentThread.clientName || null,
+        court: selectedCase.court || null,
+        case_number: selectedCase.case_number || null,
+        opposing_party: selectedCase.opposing_party || null,
+        client_name: selectedClient?.full_name || null,
         status: 'final',
-        thread_id: currentThread.threadId,
+        thread_id: selectedCase.id,
         parent_id: parentId,
         step_number: step,
         metadata: {},
       } as any).select().single();
 
       if (error) throw error;
-
-      if (data && attachments.length > 0) {
-        for (const file of attachments) {
-          const path = `${user.id}/${data.id}/${file.name}`;
-          const { error: uploadErr } = await supabase.storage.from('document-attachments').upload(path, file);
-          if (!uploadErr) {
-            await supabase.from('document_attachments').insert({
-              document_id: data.id, file_name: file.name, file_path: path, file_type: file.type,
-            } as any);
-          }
-        }
-        setAttachments([]);
-      }
-
       const newDoc = data as ThreadDoc;
       setAllDocs(prev => [...prev, newDoc]);
-      setCurrentThread(prev => prev ? { ...prev, docs: [...prev.docs, newDoc] } : prev);
       toast({ title: 'تم حفظ المستند ✅' });
     } catch (e: any) {
       toast({ title: 'خطأ', description: e.message, variant: 'destructive' });
     }
   };
 
-  // ─── Export ───────────────────────────────────────────────────────────
+  // ─── Export Word ──────────────────────────────────────────────────────
 
   const exportWord = async (content: string, title: string) => {
     const lh = selectedLetterhead;
@@ -581,7 +580,6 @@ const DocumentGenerator = () => {
     }
 
     try {
-      // Download the template from storage
       const { data: fileData, error: dlErr } = await supabase.storage
         .from('letterhead-templates')
         .download(lh.template_path);
@@ -590,90 +588,58 @@ const DocumentGenerator = () => {
       const ext = lh.template_path.split('.').pop()?.toLowerCase();
 
       if (ext === 'docx') {
-        // Open .docx with JSZip, inject content into document.xml
         const zip = await JSZip.loadAsync(fileData);
         const docXml = await zip.file('word/document.xml')?.async('string');
         if (!docXml) throw new Error('ملف القالب غير صالح');
 
-        // Extract template's default font from styles.xml or document.xml
+        // Extract template font
         let templateFont = 'Traditional Arabic';
-        let templateFontSize = '24'; // 12pt default
+        let templateFontSize = '24';
         try {
           const stylesXml = await zip.file('word/styles.xml')?.async('string');
           if (stylesXml) {
-            // Extract default CS font (Arabic/RTL font)
             const csFontMatch = stylesXml.match(/<w:rFonts[^>]*w:cs="([^"]+)"/);
             if (csFontMatch) templateFont = csFontMatch[1];
-            // Extract default CS font size
             const csSizeMatch = stylesXml.match(/<w:szCs\s+w:val="(\d+)"/);
             if (csSizeMatch) templateFontSize = csSizeMatch[1];
           }
         } catch { /* use defaults */ }
 
-        // Classify line type for proper formatting
-        const classifyLine = (line: string): 'basmala' | 'heading' | 'party_label' | 'party_value' | 'section_title' | 'signature' | 'normal' => {
+        const classifyLine = (line: string): string => {
           const trimmed = line.trim();
           if (trimmed.startsWith('بسم الله')) return 'basmala';
-          if (/^(إلى السيد|حضرة|سيدي|السيد الرئيس|الموجه إلى|يوجه إلى)/.test(trimmed)) return 'heading';
-          if (/^(المدعي|المدعى عليه|الطرف الأول|الطرف الثاني|الطالب|المطلوب|المشتكي|المشتكى به|الموكل|الخصم|نيابة عن|من طرف):?/.test(trimmed)) return 'party_label';
-          if (/^(الاسم|العنوان|رقم البطاقة|CIN|الهاتف|المهنة|الحالة):?/.test(trimmed)) return 'party_value';
+          if (/^(إلى السيد|حضرة|سيدي|السيد الرئيس|الموجه إلى)/.test(trimmed)) return 'heading';
+          if (/^(المدعي|المدعى عليه|الطرف|الطالب|المطلوب|المشتكي|المشتكى به|الموكل|الخصم|نيابة عن|من طرف):?/.test(trimmed)) return 'party_label';
+          if (/^(الاسم|العنوان|رقم البطاقة|CIN|الهاتف|المهنة):?/.test(trimmed)) return 'party_value';
           if (/^(الوقائع|في الشكل|في الموضوع|بناءً عليه|لهذه الأسباب|المناقشة|الأساس القانوني|الطلبات|أسباب الاستئناف|وسائل النقض|ملتمسات|حيث إن)/.test(trimmed)) return 'section_title';
           if (/^(وتفضلوا|والسلام|عن الموكل|الإمضاء|المحامي|الأستاذ)/.test(trimmed)) return 'signature';
           return 'normal';
         };
 
-        const boldSize = String(parseInt(templateFontSize) + 4); // slightly bigger for headings
+        const boldSize = String(parseInt(templateFontSize) + 4);
 
-        // Build paragraphs XML for the content with proper formatting
         const lines = content.split('\n').filter(l => l.trim());
         const paragraphsXml = lines.map(line => {
           const type = classifyLine(line);
-          
-          let alignment = 'right';
-          let isBold = false;
-          let fontSize = templateFontSize;
-          let spacingAfter = '200';
-          let spacingLine = '360';
-          let isUnderline = false;
-          let isCenter = false;
+          let alignment = 'right', isBold = false, fontSize = templateFontSize;
+          let spacingAfter = '200', spacingLine = '360', isUnderline = false;
 
           switch (type) {
-            case 'basmala':
-              isCenter = true; alignment = 'center'; isBold = true; fontSize = boldSize; spacingAfter = '400';
-              break;
-            case 'heading':
-              isBold = true; fontSize = boldSize; spacingAfter = '120'; isUnderline = true;
-              break;
-            case 'party_label':
-              isBold = true; spacingAfter = '60';
-              break;
-            case 'party_value':
-              spacingAfter = '60'; spacingLine = '280';
-              break;
-            case 'section_title':
-              isBold = true; fontSize = boldSize; isUnderline = true; spacingAfter = '240';
-              break;
-            case 'signature':
-              isCenter = true; alignment = 'center'; spacingAfter = '60';
-              break;
-            default:
-              spacingAfter = '200'; spacingLine = '360';
+            case 'basmala': alignment = 'center'; isBold = true; fontSize = boldSize; spacingAfter = '400'; break;
+            case 'heading': isBold = true; fontSize = boldSize; spacingAfter = '120'; isUnderline = true; break;
+            case 'party_label': isBold = true; spacingAfter = '60'; break;
+            case 'party_value': spacingAfter = '60'; spacingLine = '280'; break;
+            case 'section_title': isBold = true; fontSize = boldSize; isUnderline = true; spacingAfter = '240'; break;
+            case 'signature': alignment = 'center'; spacingAfter = '60'; break;
           }
 
           return `<w:p>
-            <w:pPr>
-              <w:bidi/>
-              <w:jc w:val="${alignment}"/>
-              <w:spacing w:after="${spacingAfter}" w:line="${spacingLine}" w:lineRule="auto"/>
-            </w:pPr>
+            <w:pPr><w:bidi/><w:jc w:val="${alignment}"/><w:spacing w:after="${spacingAfter}" w:line="${spacingLine}" w:lineRule="auto"/></w:pPr>
             <w:r>
               <w:rPr>
                 <w:rFonts w:ascii="${templateFont}" w:hAnsi="${templateFont}" w:cs="${templateFont}"/>
-                <w:sz w:val="${fontSize}"/>
-                <w:szCs w:val="${fontSize}"/>
-                ${isBold ? '<w:b/><w:bCs/>' : ''}
-                ${isUnderline ? '<w:u w:val="single"/>' : ''}
-                <w:rtl/>
+                <w:sz w:val="${fontSize}"/><w:szCs w:val="${fontSize}"/>
+                ${isBold ? '<w:b/><w:bCs/>' : ''}${isUnderline ? '<w:u w:val="single"/>' : ''}<w:rtl/>
               </w:rPr>
               <w:t xml:space="preserve">${escapeXml(line)}</w:t>
             </w:r>
@@ -681,40 +647,24 @@ const DocumentGenerator = () => {
         }).join('\n');
 
         let newDocXml: string;
-
-        // Check for bookmark named "CONTENT" — insert content there, preserving template
         const bookmarkStartRegex = /<w:bookmarkStart[^>]*w:name="CONTENT"[^>]*\/?>[\s\S]*?<w:bookmarkEnd[^>]*\/?>/i;
-        const bookmarkMatch = docXml.match(bookmarkStartRegex);
+        const placeholderRegex = /<w:p[^>]*>[\s\S]*?\{\{CONTENT\}\}[\s\S]*?<\/w:p>/i;
 
-        if (bookmarkMatch) {
-          // Replace the bookmark (and everything between start/end) with generated content
+        if (docXml.match(bookmarkStartRegex)) {
           newDocXml = docXml.replace(bookmarkStartRegex, paragraphsXml);
+        } else if (docXml.match(placeholderRegex)) {
+          newDocXml = docXml.replace(placeholderRegex, paragraphsXml);
         } else {
-          // Fallback: Also try a placeholder text pattern {{CONTENT}} inside a run
-          const placeholderRegex = /<w:p[^>]*>[\s\S]*?\{\{CONTENT\}\}[\s\S]*?<\/w:p>/i;
-          const placeholderMatch = docXml.match(placeholderRegex);
-
-          if (placeholderMatch) {
-            // Replace the paragraph containing {{CONTENT}} with generated paragraphs
-            newDocXml = docXml.replace(placeholderRegex, paragraphsXml);
-          } else {
-            // No bookmark or placeholder found — replace all body content (old behavior)
-            const sectPrMatch = docXml.match(/<w:sectPr[\s\S]*?<\/w:sectPr>/);
-            const sectPr = sectPrMatch ? sectPrMatch[0] : '';
-            newDocXml = docXml.replace(
-              /<w:body>[\s\S]*<\/w:body>/,
-              `<w:body>${paragraphsXml}${sectPr}</w:body>`
-            );
-          }
+          const sectPrMatch = docXml.match(/<w:sectPr[\s\S]*?<\/w:sectPr>/);
+          const sectPr = sectPrMatch ? sectPrMatch[0] : '';
+          newDocXml = docXml.replace(/<w:body>[\s\S]*<\/w:body>/, `<w:body>${paragraphsXml}${sectPr}</w:body>`);
         }
 
         zip.file('word/document.xml', newDocXml);
         const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
         saveAs(blob, `${title}_${new Date().toISOString().slice(0, 10)}.docx`);
       } else {
-        // For .doc files, we cannot modify binary format in browser
-        // Save content as a new .docx alongside the template download
-        toast({ title: 'ملفات .doc القديمة غير مدعومة للدمج المباشر. يرجى تحويل القالب إلى .docx', variant: 'destructive' });
+        toast({ title: 'صيغة غير مدعومة. يرجى استخدام ملف .docx', variant: 'destructive' });
       }
     } catch (e: any) {
       console.error('Export error:', e);
@@ -732,8 +682,7 @@ const DocumentGenerator = () => {
     if (content.includes('تعقيب') || content.includes('تعقيبية')) return 'مذكرة تعقيبية';
     if (content.includes('استئناف')) return 'مقال بالاستئناف';
     if (content.includes('نقض')) return 'مقال بالنقض';
-    if (content.includes('إنذار') && content.includes('إفراغ')) return 'إنذار بالإفراغ';
-    if (content.includes('إنذار') && content.includes('أداء')) return 'إنذار بالأداء';
+    if (content.includes('إنذار')) return 'إنذار';
     if (content.includes('شكاية')) return 'شكاية';
     return 'مستند قانوني';
   };
@@ -746,29 +695,27 @@ const DocumentGenerator = () => {
 
   // ═══════════════════════ CHAT VIEW ═══════════════════════════════════
 
-  if (view === 'chat' && currentThread) {
+  if (view === 'chat' && selectedCase) {
     return (
       <div className="flex flex-col h-[calc(100vh-6rem)]">
         {/* Header */}
         <div className="flex items-center gap-3 pb-3 border-b border-border">
-          <Button variant="ghost" size="sm" onClick={() => setView('main')}>
+          <Button variant="ghost" size="sm" onClick={() => { setView('case_select'); setSelectedCase(null); }}>
             <ArrowRight className="h-4 w-4" />
           </Button>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="font-bold text-foreground text-sm">
-                {currentThread.clientName || 'مسطرة جديدة'}
+              <h2 className="font-bold text-foreground text-sm truncate">
+                {selectedClient?.full_name} ضد {selectedCase.opposing_party}
               </h2>
-              {currentThread.docs.length > 0 && (
-                <Badge variant="outline" className="text-xs">{currentThread.docs.length} مستند</Badge>
+              {caseDocs.length > 0 && (
+                <Badge variant="outline" className="text-xs">{caseDocs.length} مستند</Badge>
               )}
             </div>
-            {selectedClient && (
-              <p className="text-xs text-muted-foreground truncate">
-                {selectedClient.cin && `CIN: ${selectedClient.cin} • `}
-                {selectedClient.address || ''}
-              </p>
-            )}
+            <p className="text-xs text-muted-foreground truncate">
+              {selectedCase.court_level} • {selectedCase.court || ''} • ملف: {selectedCase.case_number}
+              {selectedCase.case_type && ` • ${selectedCase.case_type}`}
+            </p>
           </div>
           {/* Letterhead selector */}
           <div className="relative shrink-0" ref={letterheadSearchRef}>
@@ -819,8 +766,8 @@ const DocumentGenerator = () => {
           </div>
         </div>
 
-        {/* Thread archive */}
-        {currentThread.docs.length > 0 && (
+        {/* Case documents archive */}
+        {caseDocs.length > 0 && (
           <div className="border-b border-border">
             <button
               onClick={() => setExpandedThread(expandedThread ? null : 'current')}
@@ -828,13 +775,13 @@ const DocumentGenerator = () => {
             >
               <span className="flex items-center gap-2">
                 <FolderOpen className="h-4 w-4" />
-                أرشيف المسطرة ({currentThread.docs.length})
+                أرشيف الملف ({caseDocs.length})
               </span>
               {expandedThread ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </button>
             {expandedThread && (
               <div className="px-3 pb-3 space-y-1.5 max-h-[250px] overflow-y-auto">
-                {currentThread.docs.map((doc, i) => {
+                {caseDocs.map((doc, i) => {
                   const isOpponentMemo = doc.doc_type === 'مذكرة الخصم';
                   return (
                     <div key={doc.id} className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs ${isOpponentMemo ? 'bg-destructive/10 border border-destructive/20' : 'bg-muted/50'}`}>
@@ -859,11 +806,11 @@ const DocumentGenerator = () => {
                     </div>
                   );
                 })}
-                {/* Add opponent memo button */}
+                {/* Add opponent memo */}
                 <label className="flex items-center justify-center gap-2 border border-dashed border-destructive/40 rounded-lg px-3 py-2.5 text-xs text-destructive hover:bg-destructive/5 cursor-pointer transition-colors">
                   <FileUp className="h-3.5 w-3.5" />
                   <span className="font-medium">إضافة رد الخصم (PDF/Word)</span>
-                  <input type="file" multiple accept=".pdf,.doc,.docx,.txt" className="hidden"
+                  <input type="file" multiple accept=".pdf,.docx,.txt" className="hidden"
                     onChange={e => { if (e.target.files) addOpponentMemo(Array.from(e.target.files)); e.target.value = ''; }} />
                 </label>
               </div>
@@ -872,12 +819,12 @@ const DocumentGenerator = () => {
         )}
 
         {/* Add opponent memo when no docs yet */}
-        {currentThread.docs.length === 0 && (
+        {caseDocs.length === 0 && (
           <div className="border-b border-border px-3 py-2">
             <label className="flex items-center justify-center gap-2 border border-dashed border-destructive/40 rounded-lg px-3 py-2.5 text-xs text-destructive hover:bg-destructive/5 cursor-pointer transition-colors">
               <FileUp className="h-3.5 w-3.5" />
               <span className="font-medium">إضافة رد الخصم (PDF/Word)</span>
-              <input type="file" multiple accept=".pdf,.doc,.docx,.txt" className="hidden"
+              <input type="file" multiple accept=".pdf,.docx,.txt" className="hidden"
                 onChange={e => { if (e.target.files) addOpponentMemo(Array.from(e.target.files)); e.target.value = ''; }} />
             </label>
           </div>
@@ -892,7 +839,7 @@ const DocumentGenerator = () => {
                 <p className="text-sm font-medium text-foreground">اكتب ما تريد وسأصوغه لك</p>
                 <div className="flex flex-wrap gap-1.5 justify-center max-w-sm mx-auto">
                   {[
-                    'مقال افتتاحي أمام ابتدائية الرباط بسبب عدم أداء الكراء',
+                    'مقال افتتاحي بسبب عدم أداء الكراء',
                     'إنذار بالإفراغ',
                     'الخصم رد بمذكرة، عقّب عليها',
                     'شكاية إلى وكيل الملك',
@@ -975,14 +922,14 @@ const DocumentGenerator = () => {
                 value={inputText}
                 onChange={e => setInputText(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                placeholder="اكتب ما تريد... أرفق ملفات PDF/Word ليقرأها الذكاء الاصطناعي..."
+                placeholder="اكتب ما تريد... أرفق ملفات PDF/Word..."
                 className="min-h-[44px] max-h-[120px] resize-none pr-3 pl-12 text-sm"
                 rows={1}
                 disabled={isStreaming || isParsing}
               />
               <label className="absolute left-3 bottom-3 cursor-pointer text-muted-foreground hover:text-foreground">
                 <FileUp className="h-4 w-4" />
-                <input type="file" multiple accept=".pdf,.doc,.docx,.txt" className="hidden"
+                <input type="file" multiple accept=".pdf,.docx,.txt,.jpg,.jpeg,.png" className="hidden"
                   onChange={e => { if (e.target.files) setAttachments(prev => [...prev, ...Array.from(e.target.files!)]); }} />
               </label>
             </div>
@@ -992,10 +939,10 @@ const DocumentGenerator = () => {
           </div>
         </div>
 
-        {/* Preview */}
+        {/* Preview Dialog */}
         <Dialog open={!!previewDoc} onOpenChange={() => setPreviewDoc(null)}>
           <DialogContent className="max-w-3xl max-h-[80vh]">
-            <DialogHeader><DialogTitle>{previewDoc?.doc_type} {previewDoc?.created_at && `- ${new Date(previewDoc.created_at).toLocaleDateString('ar-MA')}`}</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{previewDoc?.doc_type}</DialogTitle></DialogHeader>
             <ScrollArea className="h-[60vh]">
               {previewDoc?.content && (
                 <div dir="rtl" className="whitespace-pre-wrap leading-8 p-4" style={{ fontFamily: "'Traditional Arabic', 'Amiri', serif" }}>
@@ -1024,6 +971,220 @@ const DocumentGenerator = () => {
     );
   }
 
+  // ═══════════════════════ NEW CASE FORM ═══════════════════════════════
+
+  if (view === 'new_case' && selectedClient) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => setView('case_select')}>
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-lg font-bold text-foreground">ملف جديد</h1>
+            <p className="text-xs text-muted-foreground">الموكل: {selectedClient.full_name}</p>
+          </div>
+        </div>
+
+        <Card>
+          <CardContent className="pt-5 space-y-4">
+            {/* Opposing party - Required */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">المدعى عليه / الخصم *</label>
+              <Input
+                placeholder="اسم الخصم الكامل"
+                value={newCase.opposing_party}
+                onChange={e => setNewCase(prev => ({ ...prev, opposing_party: e.target.value }))}
+                className="h-10"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">عنوان الخصم</label>
+              <Input
+                placeholder="عنوان الخصم"
+                value={newCase.opposing_party_address}
+                onChange={e => setNewCase(prev => ({ ...prev, opposing_party_address: e.target.value }))}
+                className="h-10"
+              />
+            </div>
+
+            {/* Court level */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">درجة المحكمة *</label>
+              <div className="flex gap-2">
+                {COURT_LEVELS.map(level => (
+                  <button
+                    key={level}
+                    onClick={() => setNewCase(prev => ({ ...prev, court_level: level }))}
+                    className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors border ${
+                      newCase.court_level === level
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-background text-foreground border-border hover:bg-accent'
+                    }`}
+                  >
+                    {level}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Court name */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">المحكمة</label>
+              <Select value={newCase.court} onValueChange={v => setNewCase(prev => ({ ...prev, court: v }))}>
+                <SelectTrigger className="h-10"><SelectValue placeholder="اختر المحكمة" /></SelectTrigger>
+                <SelectContent>
+                  {COURT_TYPES.map(ct => (
+                    <SelectItem key={ct} value={ct}>{ct}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Case type */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">نوع الدعوى</label>
+              <div className="flex flex-wrap gap-1.5">
+                {CASE_TYPES.map(ct => (
+                  <button
+                    key={ct}
+                    onClick={() => setNewCase(prev => ({ ...prev, case_type: prev.case_type === ct ? '' : ct }))}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
+                      newCase.case_type === ct
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-background text-foreground border-border hover:bg-accent'
+                    }`}
+                  >
+                    {ct}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Case number */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">رقم الملف</label>
+                <Input
+                  placeholder="رقم الملف (اختياري)"
+                  value={newCase.case_number}
+                  onChange={e => setNewCase(prev => ({ ...prev, case_number: e.target.value }))}
+                  className="h-10"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">عنوان الملف</label>
+                <Input
+                  placeholder="يُملأ تلقائياً"
+                  value={newCase.title}
+                  onChange={e => setNewCase(prev => ({ ...prev, title: e.target.value }))}
+                  className="h-10"
+                />
+              </div>
+            </div>
+
+            {/* Description */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">ملاحظات</label>
+              <Textarea
+                placeholder="ملاحظات عن القضية (اختياري)"
+                value={newCase.description}
+                onChange={e => setNewCase(prev => ({ ...prev, description: e.target.value }))}
+                className="min-h-[60px]"
+              />
+            </div>
+
+            <Button onClick={createCase} disabled={!newCase.opposing_party.trim()} className="w-full gap-2" size="lg">
+              <Plus className="h-4 w-4" /> إنشاء الملف والبدء
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // ═══════════════════════ CASE SELECT VIEW ════════════════════════════
+
+  if (view === 'case_select' && selectedClient) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={clearClient}>
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+          <div className="flex-1">
+            <h1 className="text-lg font-bold text-foreground flex items-center gap-2">
+              <User className="h-5 w-5 text-primary" />
+              {selectedClient.full_name}
+            </h1>
+            <p className="text-xs text-muted-foreground">
+              {selectedClient.cin && `CIN: ${selectedClient.cin} • `}
+              {selectedClient.address || ''}
+            </p>
+          </div>
+        </div>
+
+        {/* Client's cases */}
+        {clientCases.length > 0 && (
+          <div className="space-y-2">
+            <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
+              <Briefcase className="h-3.5 w-3.5 text-primary" />
+              ملفات {selectedClient.full_name} ({clientCases.length})
+            </h3>
+            <div className="space-y-2">
+              {clientCases.map(caseFile => {
+                const docsCount = allDocs.filter(d => d.case_id === caseFile.id).length;
+                return (
+                  <Card
+                    key={caseFile.id}
+                    className="hover:border-primary/40 transition-colors cursor-pointer"
+                    onClick={() => openCase(caseFile)}
+                  >
+                    <CardContent className="py-3 px-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <Scale className="h-3.5 w-3.5 text-primary shrink-0" />
+                            <span className="font-medium text-foreground text-sm truncate">
+                              ضد {caseFile.opposing_party || '—'}
+                            </span>
+                            {docsCount > 0 && (
+                              <Badge variant="outline" className="text-[10px] shrink-0">{docsCount} مستند</Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap mt-0.5">
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{caseFile.court_level}</Badge>
+                            {caseFile.court && <span>{caseFile.court}</span>}
+                            {caseFile.case_type && <span>• {caseFile.case_type}</span>}
+                            {caseFile.case_number && <span>• ملف: {caseFile.case_number}</span>}
+                          </div>
+                        </div>
+                        <Button size="sm" variant="outline" className="gap-1 shrink-0 text-xs h-7">
+                          <MessageSquare className="h-3 w-3" /> فتح
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* New case button */}
+        <Button
+          onClick={() => setView('new_case')}
+          className="gap-2 w-full"
+          variant={clientCases.length > 0 ? 'outline' : 'default'}
+          size="lg"
+        >
+          <Plus className="h-4 w-4" /> ملف جديد لـ {selectedClient.full_name}
+        </Button>
+      </div>
+    );
+  }
+
   // ═══════════════════════ MAIN VIEW ═══════════════════════════════════
 
   return (
@@ -1033,10 +1194,10 @@ const DocumentGenerator = () => {
           <Sparkles className="h-5 w-5 text-primary" />
           مولّد المستندات القانونية
         </h1>
-        <p className="text-muted-foreground text-xs mt-1">ابحث عن موكل أو أنشئ موكلاً جديداً لبدء الصياغة</p>
+        <p className="text-muted-foreground text-xs mt-1">اختر موكلاً ثم أنشئ أو افتح ملفاً لبدء الصياغة</p>
       </div>
 
-      {/* Client search with autocomplete */}
+      {/* Client search */}
       <Card>
         <CardContent className="pt-5 space-y-4">
           <div className="space-y-2" ref={clientSearchRef}>
@@ -1050,27 +1211,15 @@ const DocumentGenerator = () => {
                 onChange={e => {
                   setClientSearch(e.target.value);
                   setShowClientSuggestions(true);
-                  if (selectedClient && e.target.value !== selectedClient.full_name) {
-                    clearClient();
-                  }
                 }}
                 onFocus={() => clientSearch.trim() && setShowClientSuggestions(true)}
                 placeholder="اكتب اسم الموكل أو رقم CIN..."
-                className="pr-9 pl-9 h-10"
-                disabled={!!selectedClient}
+                className="pr-9 h-10"
               />
-              {selectedClient && (
-                <button
-                  onClick={clearClient}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
             </div>
 
-            {/* Autocomplete dropdown */}
-            {showClientSuggestions && clientSearch.trim() && !selectedClient && (
+            {/* Autocomplete */}
+            {showClientSuggestions && clientSearch.trim() && (
               <div className="border border-border rounded-lg bg-popover shadow-lg overflow-hidden">
                 {filteredClients.length > 0 && (
                   <div className="max-h-[200px] overflow-y-auto">
@@ -1118,102 +1267,24 @@ const DocumentGenerator = () => {
                 </Button>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <Input
-                  placeholder="الاسم الكامل *"
-                  value={newClient.full_name}
-                  onChange={e => setNewClient(prev => ({ ...prev, full_name: e.target.value }))}
-                  className="h-9 text-sm"
-                />
-                <Input
-                  placeholder="CIN"
-                  value={newClient.cin}
-                  onChange={e => setNewClient(prev => ({ ...prev, cin: e.target.value }))}
-                  className="h-9 text-sm"
-                />
-                <Input
-                  placeholder="العنوان"
-                  value={newClient.address}
-                  onChange={e => setNewClient(prev => ({ ...prev, address: e.target.value }))}
-                  className="h-9 text-sm"
-                />
-                <Input
-                  placeholder="الهاتف"
-                  value={newClient.phone}
-                  onChange={e => setNewClient(prev => ({ ...prev, phone: e.target.value }))}
-                  className="h-9 text-sm"
-                />
+                <Input placeholder="الاسم الكامل *" value={newClient.full_name}
+                  onChange={e => setNewClient(prev => ({ ...prev, full_name: e.target.value }))} className="h-9 text-sm" />
+                <Input placeholder="CIN" value={newClient.cin}
+                  onChange={e => setNewClient(prev => ({ ...prev, cin: e.target.value }))} className="h-9 text-sm" />
+                <Input placeholder="العنوان" value={newClient.address}
+                  onChange={e => setNewClient(prev => ({ ...prev, address: e.target.value }))} className="h-9 text-sm" />
+                <Input placeholder="الهاتف" value={newClient.phone}
+                  onChange={e => setNewClient(prev => ({ ...prev, phone: e.target.value }))} className="h-9 text-sm" />
               </div>
               <Button onClick={createNewClient} disabled={!newClient.full_name.trim()} size="sm" className="gap-1.5">
-                <Plus className="h-3.5 w-3.5" /> إنشاء وبدء الصياغة
-              </Button>
-            </div>
-          )}
-
-          {/* Selected client info + threads */}
-          {selectedClient && (
-            <div className="space-y-3">
-              <div className="bg-muted/50 rounded-lg p-3 text-xs text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
-                {selectedClient.cin && <span>🪪 {selectedClient.cin}</span>}
-                {selectedClient.address && <span>📍 {selectedClient.address}</span>}
-                {selectedClient.phone && <span>📞 {selectedClient.phone}</span>}
-                {selectedClient.email && <span>✉️ {selectedClient.email}</span>}
-              </div>
-
-              {/* Client's existing threads */}
-              {clientThreads.length > 0 && (
-                <div className="space-y-2">
-                  <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
-                    <FolderOpen className="h-3.5 w-3.5 text-primary" />
-                    مساطر {selectedClient.full_name} ({clientThreads.length})
-                  </h3>
-                  <div className="space-y-1.5 max-h-[250px] overflow-y-auto">
-                    {clientThreads.map(thread => (
-                      <div
-                        key={thread.threadId}
-                        onClick={() => openThread(thread)}
-                        className="border border-border rounded-lg px-3 py-2.5 hover:border-primary/40 hover:bg-accent/50 transition-colors cursor-pointer"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2 mb-0.5">
-                              <span className="font-medium text-foreground text-sm truncate">
-                                {thread.opposingParty ? `ضد ${thread.opposingParty}` : thread.caseNumber || 'مسطرة'}
-                              </span>
-                              <Badge variant="outline" className="text-[10px] shrink-0">{thread.docs.length} مستند</Badge>
-                            </div>
-                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap">
-                              {thread.caseNumber && <span>ملف: {thread.caseNumber}</span>}
-                              {thread.court && <span>• {thread.court}</span>}
-                              <span>• {new Date(thread.lastDate).toLocaleDateString('ar-MA')}</span>
-                            </div>
-                            <div className="flex gap-1 mt-1 flex-wrap">
-                              {thread.docs.map((d, i) => (
-                                <Badge key={d.id} variant="secondary" className="text-[10px] px-1.5 py-0">
-                                  {(d.step_number || i + 1)}. {d.doc_type}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                          <Button size="sm" variant="outline" className="gap-1 shrink-0 text-xs h-7" onClick={(e) => { e.stopPropagation(); openThread(thread); }}>
-                            <MessageSquare className="h-3 w-3" /> متابعة
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* New thread for this client */}
-              <Button onClick={startNew} className="gap-2 w-full" variant={clientThreads.length > 0 ? 'outline' : 'default'} size="lg">
-                <Plus className="h-4 w-4" /> مسطرة جديدة لـ {selectedClient.full_name}
+                <Plus className="h-3.5 w-3.5" /> إنشاء الموكل
               </Button>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Reference Documents Section */}
+      {/* Reference Documents */}
       <Card>
         <CardContent className="pt-4">
           <button
@@ -1238,7 +1309,6 @@ const DocumentGenerator = () => {
                   onChange={e => { if (e.target.files) uploadReferenceDoc(Array.from(e.target.files)); e.target.value = ''; }} />
               </label>
 
-              {/* Filter tabs */}
               {referenceDocs.length > 0 && (
                 <div className="flex gap-1 flex-wrap">
                   {['الكل', ...REF_DOC_TYPES].map(type => {
@@ -1299,11 +1369,11 @@ const DocumentGenerator = () => {
 
       <Separator />
 
-      {/* Global archive */}
+      {/* All cases archive */}
       <div>
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <h2 className="text-base font-bold text-foreground flex items-center gap-2">
-            <FolderOpen className="h-4 w-4 text-primary" /> جميع المساطر
+            <FolderOpen className="h-4 w-4 text-primary" /> جميع الملفات
           </h2>
           <div className="relative w-full sm:max-w-xs">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -1316,49 +1386,66 @@ const DocumentGenerator = () => {
           </div>
         </div>
 
-        {filteredThreads.length === 0 ? (
-          <Card>
-            <CardContent className="py-10 text-center text-muted-foreground text-sm">
-              <FolderOpen className="h-8 w-8 mx-auto mb-2 opacity-20" />
-              لا توجد مساطر محفوظة
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-2">
-            {filteredThreads.map(thread => (
-              <Card key={thread.threadId} className="hover:border-primary/30 transition-colors cursor-pointer" onClick={() => openThread(thread)}>
-                <CardContent className="py-3 px-4">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="font-medium text-foreground text-sm truncate">
-                          {thread.clientName || 'بدون موكل'}
-                          {thread.opposingParty && ` ضد ${thread.opposingParty}`}
-                        </span>
-                        <Badge variant="outline" className="text-[10px] shrink-0">{thread.docs.length}</Badge>
-                      </div>
-                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap">
-                        {thread.caseNumber && <span>ملف: {thread.caseNumber}</span>}
-                        {thread.court && <span>• {thread.court}</span>}
-                        <span>• {new Date(thread.lastDate).toLocaleDateString('ar-MA')}</span>
-                      </div>
-                      <div className="flex gap-1 mt-1.5 flex-wrap">
-                        {thread.docs.map((d, i) => (
-                          <Badge key={d.id} variant="secondary" className="text-[10px] px-1.5 py-0">
-                            {(d.step_number || i + 1)}. {d.doc_type}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    <Button size="sm" variant="outline" className="gap-1 shrink-0 text-xs h-7">
-                      <MessageSquare className="h-3 w-3" /> متابعة
-                    </Button>
-                  </div>
+        {(() => {
+          const filteredCases = cases.filter(c =>
+            !searchQuery ||
+            (c.opposing_party && c.opposing_party.includes(searchQuery)) ||
+            c.case_number.includes(searchQuery) ||
+            (c.court && c.court.includes(searchQuery))
+          );
+
+          if (filteredCases.length === 0) {
+            return (
+              <Card>
+                <CardContent className="py-10 text-center text-muted-foreground text-sm">
+                  <FolderOpen className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                  لا توجد ملفات محفوظة
                 </CardContent>
               </Card>
-            ))}
-          </div>
-        )}
+            );
+          }
+
+          return (
+            <div className="space-y-2">
+              {filteredCases.map(caseFile => {
+                const client = clients.find(c => c.id === caseFile.client_id);
+                const docsCount = allDocs.filter(d => d.case_id === caseFile.id).length;
+                return (
+                  <Card key={caseFile.id} className="hover:border-primary/30 transition-colors cursor-pointer"
+                    onClick={() => {
+                      if (client) {
+                        setSelectedClientId(client.id);
+                        setClientSearch(client.full_name);
+                      }
+                      openCase(caseFile);
+                    }}>
+                    <CardContent className="py-3 px-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="font-medium text-foreground text-sm truncate">
+                              {client?.full_name || '—'} ضد {caseFile.opposing_party || '—'}
+                            </span>
+                            {docsCount > 0 && <Badge variant="outline" className="text-[10px] shrink-0">{docsCount}</Badge>}
+                          </div>
+                          <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap">
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{caseFile.court_level}</Badge>
+                            {caseFile.court && <span>{caseFile.court}</span>}
+                            {caseFile.case_type && <span>• {caseFile.case_type}</span>}
+                            {caseFile.case_number && <span>• ملف: {caseFile.case_number}</span>}
+                          </div>
+                        </div>
+                        <Button size="sm" variant="outline" className="gap-1 shrink-0 text-xs h-7">
+                          <MessageSquare className="h-3 w-3" /> فتح
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
