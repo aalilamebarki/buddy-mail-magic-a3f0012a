@@ -563,6 +563,53 @@ const DocumentGenerator = () => {
               </p>
             )}
           </div>
+          {/* Letterhead selector */}
+          <div className="relative shrink-0" ref={letterheadSearchRef}>
+            <Button
+              variant={selectedLetterhead ? 'default' : 'outline'}
+              size="sm"
+              className="gap-1.5 text-xs h-8"
+              onClick={() => setShowLetterheadSuggestions(!showLetterheadSuggestions)}
+            >
+              <Stamp className="h-3 w-3" />
+              {selectedLetterhead ? selectedLetterhead.lawyer_name : 'ترويسة'}
+            </Button>
+            {showLetterheadSuggestions && (
+              <div className="absolute left-0 top-full mt-1 z-50 w-56 border border-border rounded-lg bg-popover shadow-lg overflow-hidden">
+                <div className="p-2 border-b border-border">
+                  <Input
+                    placeholder="ابحث عن ترويسة..."
+                    value={letterheadSearch}
+                    onChange={e => setLetterheadSearch(e.target.value)}
+                    className="h-7 text-xs"
+                    autoFocus
+                  />
+                </div>
+                <div className="max-h-[200px] overflow-y-auto">
+                  {selectedLetterheadId && (
+                    <button
+                      onClick={() => { setSelectedLetterheadId(''); setLetterheadSearch(''); setShowLetterheadSuggestions(false); }}
+                      className="w-full text-right px-3 py-2 text-xs text-destructive hover:bg-accent transition-colors border-b border-border"
+                    >
+                      ❌ بدون ترويسة
+                    </button>
+                  )}
+                  {filteredLetterheads.map(lh => (
+                    <button
+                      key={lh.id}
+                      onClick={() => { setSelectedLetterheadId(lh.id); setLetterheadSearch(''); setShowLetterheadSuggestions(false); }}
+                      className={`w-full text-right px-3 py-2 text-xs hover:bg-accent transition-colors border-b border-border last:border-0 ${lh.id === selectedLetterheadId ? 'bg-primary/10 text-primary font-medium' : 'text-foreground'}`}
+                    >
+                      {lh.lawyer_name}
+                    </button>
+                  ))}
+                  {filteredLetterheads.length === 0 && (
+                    <div className="px-3 py-4 text-center text-xs text-muted-foreground">لا توجد ترويسات</div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Thread archive */}
