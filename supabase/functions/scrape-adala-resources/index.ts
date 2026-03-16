@@ -25,7 +25,8 @@ async function scrapeWithFirecrawl(pageId: number, firecrawlKey: string): Promis
     body: JSON.stringify({
       url,
       formats: ["markdown", "links", "html"],
-      waitFor: 5000,
+      waitFor: 15000,
+      timeout: 60000,
     }),
   });
 
