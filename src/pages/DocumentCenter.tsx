@@ -231,48 +231,36 @@ const DocumentCenter = () => {
                 const sc = statusConfig[status];
                 const StatusIcon = sc.icon;
                 return (
-                  <motion.div key={doc.id}
-                    initial={{ opacity: 0, y: 15 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.03 }}
-                    className="group rounded-2xl border border-border/20 bg-card hover:border-primary/15 hover:shadow-lg transition-all duration-300 overflow-hidden"
-                  >
-                    <div className="flex items-center gap-4 p-4 md:p-5">
-                      <div className="w-12 h-12 rounded-xl bg-legal-navy/5 flex items-center justify-center shrink-0 group-hover:bg-legal-navy/10 transition-colors">
-                        <FileText className="h-5 w-5 text-legal-navy" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <Link to={`/documents/${doc.id}`} className="font-bold text-foreground text-sm truncate hover:text-primary transition-colors">{doc.title}</Link>
-                          <Badge className={`${sc.color} border text-[9px] rounded-full px-2 py-0.5 gap-1`}>
-                            <StatusIcon className="h-2.5 w-2.5" /> {sc.label}
-                          </Badge>
+                  <Link to={`/documents/${doc.id}`} className="block">
+                    <motion.div key={doc.id}
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.03 }}
+                      className="group rounded-2xl border border-border/20 bg-card hover:border-primary/15 hover:shadow-lg transition-all duration-300 overflow-hidden cursor-pointer"
+                    >
+                      <div className="flex items-center gap-4 p-4 md:p-5">
+                        <div className="w-12 h-12 rounded-xl bg-legal-navy/5 flex items-center justify-center shrink-0 group-hover:bg-legal-navy/10 transition-colors">
+                          <FileText className="h-5 w-5 text-legal-navy" />
                         </div>
-                        <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-                          {doc.reference_number && <span className="flex items-center gap-1"><ScrollText className="h-3 w-3" /> {doc.reference_number}</span>}
-                          {doc.decision_date && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {new Date(doc.decision_date).toLocaleDateString('ar-MA')}</span>}
-                          <span className="flex items-center gap-1"><BookOpen className="h-3 w-3" /> {getDocTypeLabel(doc.doc_type)}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <span className="font-bold text-foreground text-sm truncate group-hover:text-primary transition-colors">{doc.title}</span>
+                            <Badge className={`${sc.color} border text-[9px] rounded-full px-2 py-0.5 gap-1`}>
+                              <StatusIcon className="h-2.5 w-2.5" /> {sc.label}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                            {doc.reference_number && <span className="flex items-center gap-1"><ScrollText className="h-3 w-3" /> {doc.reference_number}</span>}
+                            {doc.decision_date && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {new Date(doc.decision_date).toLocaleDateString('ar-MA')}</span>}
+                            <span className="flex items-center gap-1"><BookOpen className="h-3 w-3" /> {getDocTypeLabel(doc.doc_type)}</span>
+                          </div>
+                        </div>
+                        <div className="shrink-0">
+                          <ArrowLeft className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button onClick={() => setPreviewDoc(previewDoc?.id === doc.id ? null : doc)}
-                          className="h-9 w-9 rounded-xl border border-border/30 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-border hover:bg-accent transition-all">
-                          <Eye className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                    {/* Instant Preview */}
-                    {previewDoc?.id === doc.id && (
-                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-                        className="border-t border-border/20 bg-muted/20 p-5">
-                        <p className="text-sm text-foreground/80 leading-relaxed line-clamp-6">{getCleanExcerpt(doc.content, 500)}</p>
-                        <div className="flex items-center gap-3 mt-4">
-                          <Badge variant="outline" className="text-[10px] rounded-full">{doc.category || doc.doc_type}</Badge>
-                          {doc.court_chamber && <Badge variant="secondary" className="text-[10px] rounded-full">{doc.court_chamber}</Badge>}
-                        </div>
-                      </motion.div>
-                    )}
-                  </motion.div>
+                    </motion.div>
+                  </Link>
                 );
               })}
             </div>
