@@ -151,9 +151,13 @@ const DocumentGenerator = () => {
 
   // New case form
   const [newCase, setNewCase] = useState({
-    title: '', case_type: '', court: '', court_level: 'ابتدائية',
-    opposing_party: '', opposing_party_address: '', case_number: '', description: '',
-    doc_type: '',
+    title: '', case_type: '',
+    opposing_party: '', opposing_party_address: '', description: '',
+  });
+
+  // Chat-phase doc config (selected in chat view before writing)
+  const [chatDocConfig, setChatDocConfig] = useState({
+    doc_type: '', court: '', court_level: 'ابتدائية', case_number: '',
   });
 
   // Chat
