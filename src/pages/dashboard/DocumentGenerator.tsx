@@ -383,6 +383,15 @@ const DocumentGenerator = () => {
     if (!error) setReferenceDocs(prev => prev.filter(d => d.id !== id));
   };
 
+  const updateRefDocType = async (id: string, newType: string) => {
+    const { error } = await supabase.from('reference_documents').update({ doc_type: newType }).eq('id', id) as any;
+    if (!error) setReferenceDocs(prev => prev.map(d => d.id === id ? { ...d, doc_type: newType } : d));
+  };
+
+  const REF_DOC_TYPES = ['مذكرة', 'مقال', 'شكاية', 'حكم قضائي', 'إنذار', 'عقد', 'عام'] as const;
+  
+  const filteredRefDocs = refDocFilter === 'الكل' ? referenceDocs : referenceDocs.filter(d => d.doc_type === refDocFilter);
+
 
 
   const sendMessage = useCallback(async () => {
