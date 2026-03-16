@@ -558,7 +558,7 @@ const DocumentGenerator = () => {
     } finally {
       setIsStreaming(false);
     }
-  }, [inputText, chatMessages, selectedCase, selectedClient, isStreaming, toast, allDocs, caseDocs, referenceDocs, attachments]);
+  }, [inputText, chatMessages, selectedCase, selectedClient, isStreaming, toast, allDocs, caseDocs, referenceDocs, attachments, activeDocType]);
 
   // ─── Save Document ────────────────────────────────────────────────────
 
