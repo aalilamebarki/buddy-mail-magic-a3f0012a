@@ -642,7 +642,6 @@ const DocumentGenerator = () => {
       toast({ title: 'خطأ في التصدير', description: e.message, variant: 'destructive' });
     }
   };
-  };
 
   const detectDocType = (content: string): string => {
     if (content.includes('مقال افتتاحي') || (content.includes('المدعي') && content.includes('المدعى عليه'))) return 'مقال افتتاحي';
