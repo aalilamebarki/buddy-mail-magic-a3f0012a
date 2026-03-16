@@ -139,6 +139,7 @@ const DocumentGenerator = () => {
   const [selectedClientId, setSelectedClientId] = useState('');
   const [selectedClient, setSelectedClient] = useState<ClientInfo | null>(null);
   const [selectedCase, setSelectedCase] = useState<CaseFile | null>(null);
+  const [activeDocType, setActiveDocType] = useState('');
 
   // Client search
   const [clientSearch, setClientSearch] = useState('');
