@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
@@ -306,6 +307,18 @@ const DocumentGenerator = () => {
     setActiveDocType('');
     setChatMessages([]);
     setView('chat');
+  };
+
+  const deleteCase = async (caseId: string) => {
+    try {
+      const { error } = await supabase.from('cases').delete().eq('id', caseId);
+      if (error) throw error;
+      setCases(prev => prev.filter(c => c.id !== caseId));
+      setAllDocs(prev => prev.filter(d => d.case_id !== caseId));
+      toast({ title: 'تم حذف الملف وجميع مستنداته ✅' });
+    } catch (e: any) {
+      toast({ title: 'خطأ', description: e.message, variant: 'destructive' });
+    }
   };
 
   const createCase = async () => {
@@ -1220,12 +1233,11 @@ const DocumentGenerator = () => {
                 return (
                   <Card
                     key={caseFile.id}
-                    className="hover:border-primary/40 transition-colors cursor-pointer"
-                    onClick={() => openCase(caseFile)}
+                    className="hover:border-primary/40 transition-colors"
                   >
                     <CardContent className="py-3 px-4">
                       <div className="flex items-center justify-between gap-2">
-                        <div className="min-w-0 flex-1">
+                        <div className="min-w-0 flex-1 cursor-pointer" onClick={() => openCase(caseFile)}>
                           <div className="flex items-center gap-2 mb-0.5">
                             <Scale className="h-3.5 w-3.5 text-primary shrink-0" />
                             <span className="font-medium text-foreground text-sm truncate">
@@ -1242,9 +1254,32 @@ const DocumentGenerator = () => {
                             {caseFile.case_number && <span>• ملف: {caseFile.case_number}</span>}
                           </div>
                         </div>
-                        <Button size="sm" variant="outline" className="gap-1 shrink-0 text-xs h-7">
-                          <MessageSquare className="h-3 w-3" /> فتح
-                        </Button>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button size="sm" variant="outline" className="gap-1 text-xs h-7" onClick={() => openCase(caseFile)}>
+                            <MessageSquare className="h-3 w-3" /> فتح
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10">
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>حذف الملف</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  سيتم حذف هذا الملف وجميع المستندات المرتبطة به ({docsCount} مستند). هل أنت متأكد؟
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => deleteCase(caseFile.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                  حذف
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>

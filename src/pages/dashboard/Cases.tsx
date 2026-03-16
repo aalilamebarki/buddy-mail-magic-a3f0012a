@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Search, Gavel } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Plus, Search, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 const Cases = () => {
   const [cases, setCases] = useState<any[]>([]);
@@ -20,6 +22,16 @@ const Cases = () => {
     };
     fetchCases();
   }, []);
+
+  const deleteCase = async (id: string) => {
+    const { error } = await supabase.from('cases').delete().eq('id', id);
+    if (error) {
+      toast.error('خطأ في حذف الملف');
+    } else {
+      setCases(prev => prev.filter(c => c.id !== id));
+      toast.success('تم حذف الملف وجميع مستنداته ✅');
+    }
+  };
 
   const filtered = cases.filter(c =>
     c.title?.includes(search) || c.case_number?.includes(search)
@@ -55,7 +67,28 @@ const Cases = () => {
                     <p className="font-semibold text-foreground text-sm truncate">{c.title}</p>
                     <p className="text-xs text-muted-foreground font-mono">{c.case_number}</p>
                   </div>
-                  <Badge variant="secondary" className="shrink-0 text-xs">{c.status}</Badge>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Badge variant="secondary" className="text-xs">{c.status}</Badge>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>حذف القضية</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            سيتم حذف هذه القضية وجميع المستندات المرتبطة بها نهائياً. هل أنت متأكد؟
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => deleteCase(c.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">حذف</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span>{c.court}</span>
@@ -79,13 +112,14 @@ const Cases = () => {
                   <TableHead>المحكمة</TableHead>
                   <TableHead>الحالة</TableHead>
                   <TableHead>التاريخ</TableHead>
+                  <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={5} className="text-center py-8">جاري التحميل...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="text-center py-8">جاري التحميل...</TableCell></TableRow>
                 ) : filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">لا توجد قضايا</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">لا توجد قضايا</TableCell></TableRow>
                 ) : (
                   filtered.map((c) => (
                     <TableRow key={c.id}>
@@ -94,6 +128,27 @@ const Cases = () => {
                       <TableCell>{c.court}</TableCell>
                       <TableCell><Badge variant="secondary">{c.status}</Badge></TableCell>
                       <TableCell>{new Date(c.created_at).toLocaleDateString('ar-MA')}</TableCell>
+                      <TableCell>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>حذف القضية</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                سيتم حذف هذه القضية وجميع المستندات المرتبطة بها نهائياً. هل أنت متأكد؟
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => deleteCase(c.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">حذف</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
