@@ -59,6 +59,15 @@ const DocumentDetail = () => {
     fetchDoc();
   }, [id]);
 
+  // Build PDF URL from local storage or source
+  const getPdfUrl = () => {
+    if (doc?.local_pdf_path && doc.local_pdf_path !== 'fetch_failed') {
+      const { data } = supabase.storage.from('legal-pdfs').getPublicUrl(doc.local_pdf_path);
+      return data?.publicUrl || null;
+    }
+    return doc?.source || null;
+  };
+
   const getStatus = (d: any): DocStatus => {
     if (d?.metadata?.status === 'repealed') return 'repealed';
     if (d?.metadata?.status === 'modified') return 'modified';
