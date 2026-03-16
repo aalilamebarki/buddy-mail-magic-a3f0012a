@@ -93,6 +93,7 @@ const DocumentGenerator = () => {
   const [inputText, setInputText] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [isParsing, setIsParsing] = useState(false);
 
   // Archive
   const [searchQuery, setSearchQuery] = useState('');
