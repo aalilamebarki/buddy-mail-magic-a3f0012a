@@ -127,6 +127,11 @@ const DocumentGenerator = () => {
   const [showLetterheadSuggestions, setShowLetterheadSuggestions] = useState(false);
   const letterheadSearchRef = useRef<HTMLDivElement>(null);
 
+  // Reference documents
+  const [referenceDocs, setReferenceDocs] = useState<ReferenceDocument[]>([]);
+  const [showRefDocs, setShowRefDocs] = useState(false);
+  const [isUploadingRef, setIsUploadingRef] = useState(false);
+
   // Archive
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedThread, setExpandedThread] = useState<string | null>(null);
