@@ -303,6 +303,7 @@ const DocumentGenerator = () => {
 
   const openCase = (caseFile: CaseFile) => {
     setSelectedCase(caseFile);
+    setActiveDocType('');
     setChatMessages([]);
     setView('chat');
   };
