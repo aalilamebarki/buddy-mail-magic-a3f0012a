@@ -467,32 +467,59 @@ export type Database = {
       }
       letterheads: {
         Row: {
+          address: string | null
+          bar_name_ar: string | null
+          bar_name_fr: string | null
+          city: string | null
           created_at: string
+          email: string | null
           footer_image_path: string | null
           header_image_path: string | null
           id: string
           lawyer_name: string
+          name_fr: string | null
+          phone: string | null
           template_path: string | null
+          title_ar: string | null
+          title_fr: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          address?: string | null
+          bar_name_ar?: string | null
+          bar_name_fr?: string | null
+          city?: string | null
           created_at?: string
+          email?: string | null
           footer_image_path?: string | null
           header_image_path?: string | null
           id?: string
           lawyer_name: string
+          name_fr?: string | null
+          phone?: string | null
           template_path?: string | null
+          title_ar?: string | null
+          title_fr?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          address?: string | null
+          bar_name_ar?: string | null
+          bar_name_fr?: string | null
+          city?: string | null
           created_at?: string
+          email?: string | null
           footer_image_path?: string | null
           header_image_path?: string | null
           id?: string
           lawyer_name?: string
+          name_fr?: string | null
+          phone?: string | null
           template_path?: string | null
+          title_ar?: string | null
+          title_fr?: string | null
           updated_at?: string
           user_id?: string
         }
