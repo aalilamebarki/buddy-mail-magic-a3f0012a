@@ -35,14 +35,6 @@ const Letterheads = () => {
     loadLetterheads();
   }, [user]);
 
-  // Auto-preview when file is selected
-  useEffect(() => {
-    if (templateFile) {
-      generatePreview(templateFile);
-    } else {
-      setPreviewHtml(null);
-    }
-  }, [templateFile]);
 
   const generatePreview = async (file: File) => {
     setPreviewLoading(true);
