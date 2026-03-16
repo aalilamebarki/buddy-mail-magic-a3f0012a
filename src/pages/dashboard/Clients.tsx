@@ -74,6 +74,14 @@ const Clients = () => {
       toast.error('اسم الموكل مطلوب');
       return;
     }
+    if (!form.phone.trim()) {
+      toast.error('رقم الهاتف مطلوب');
+      return;
+    }
+    if (!form.address.trim()) {
+      toast.error('العنوان مطلوب');
+      return;
+    }
     setSaving(true);
     try {
       if (editingClient) {
