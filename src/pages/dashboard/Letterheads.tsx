@@ -201,8 +201,11 @@ const Letterheads = () => {
   };
 
   const handleTemplateChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const nextFile = event.target.files?.[0] ?? null;
-    event.target.value = '';
+    event.preventDefault();
+    event.stopPropagation();
+
+    const nextFile = event.currentTarget.files?.[0] ?? null;
+    event.currentTarget.value = '';
 
     if (!nextFile || !user) return;
 
@@ -216,9 +219,18 @@ const Letterheads = () => {
       return;
     }
 
+    const draftBeforeUpload: DraftState = {
+      lawyerName,
+      pendingTemplatePath,
+      pendingTemplateName,
+      showForm: true,
+    };
+
+    writeStoredDraft(draftBeforeUpload);
     setUploadingTemplate(true);
     setTemplateFile(nextFile);
     setPreviewHtml(null);
+    setShowForm(true);
 
     try {
       const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
@@ -229,6 +241,14 @@ const Letterheads = () => {
       if (error) throw error;
 
       const oldPendingPath = pendingTemplatePath;
+      const nextDraft: DraftState = {
+        lawyerName,
+        pendingTemplatePath: path,
+        pendingTemplateName: nextFile.name,
+        showForm: true,
+      };
+
+      writeStoredDraft(nextDraft);
       setPendingTemplatePath(path);
       setPendingTemplateName(nextFile.name);
       toast({ title: 'تم تجهيز ملف الترويسة ✅' });
@@ -237,9 +257,10 @@ const Letterheads = () => {
         cleanupPendingUpload(oldPendingPath);
       }
     } catch (error: any) {
+      writeStoredDraft(draftBeforeUpload);
       setTemplateFile(null);
-      setPendingTemplatePath(null);
-      setPendingTemplateName(null);
+      setPendingTemplatePath(draftBeforeUpload.pendingTemplatePath);
+      setPendingTemplateName(draftBeforeUpload.pendingTemplateName);
       toast({ title: 'خطأ في رفع الملف', description: error.message, variant: 'destructive' });
     } finally {
       setUploadingTemplate(false);
