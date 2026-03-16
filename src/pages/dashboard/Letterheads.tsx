@@ -459,7 +459,7 @@ const Letterheads = () => {
                   </Button>
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground">الصيغ المدعومة: .doc و .docx</p>
+                <p className="text-xs text-muted-foreground">الصيغة المدعومة: .docx فقط</p>
               )}
             </div>
 
