@@ -25,6 +25,30 @@ interface DraftState {
 
 const DRAFT_STORAGE_KEY = 'letterhead-draft-v1';
 
+const hasDraftData = (draft: DraftState) => Boolean(
+  draft.showForm || draft.lawyerName || draft.pendingTemplatePath || draft.pendingTemplateName
+);
+
+const readStoredDraft = (): DraftState | null => {
+  if (typeof window === 'undefined') return null;
+
+  const rawDraft = window.sessionStorage.getItem(DRAFT_STORAGE_KEY);
+  if (!rawDraft) return null;
+
+  return JSON.parse(rawDraft) as DraftState;
+};
+
+const writeStoredDraft = (draft: DraftState | null) => {
+  if (typeof window === 'undefined') return;
+
+  if (!draft || !hasDraftData(draft)) {
+    window.sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+    return;
+  }
+
+  window.sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+};
+
 const fallbackPreview = (fileName: string, message: string) => `
   <div style="text-align:center;color:gray;padding:20px;">
     <p style="font-size:14px;">📄 ${fileName}</p>
