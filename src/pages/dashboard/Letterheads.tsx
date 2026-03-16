@@ -82,45 +82,36 @@ const Letterheads = () => {
   }, [user]);
 
   useEffect(() => {
-    if (draftRestored || typeof window === 'undefined') return;
+    if (draftRestored) return;
 
     try {
-      const rawDraft = window.sessionStorage.getItem(DRAFT_STORAGE_KEY);
-      if (!rawDraft) {
+      const draft = readStoredDraft();
+      if (!draft) {
         setDraftRestored(true);
         return;
       }
 
-      const draft = JSON.parse(rawDraft) as DraftState;
       setLawyerName(draft.lawyerName || '');
       setPendingTemplatePath(draft.pendingTemplatePath || null);
       setPendingTemplateName(draft.pendingTemplateName || null);
       setShowForm(Boolean(draft.showForm));
     } catch (error) {
       console.error('Failed to restore draft:', error);
-      window.sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+      writeStoredDraft(null);
     } finally {
       setDraftRestored(true);
     }
   }, [draftRestored]);
 
   useEffect(() => {
-    if (!draftRestored || typeof window === 'undefined') return;
+    if (!draftRestored) return;
 
-    const hasDraft = showForm || lawyerName || pendingTemplatePath || pendingTemplateName;
-    if (!hasDraft) {
-      window.sessionStorage.removeItem(DRAFT_STORAGE_KEY);
-      return;
-    }
-
-    const draft: DraftState = {
+    writeStoredDraft({
       lawyerName,
       pendingTemplatePath,
       pendingTemplateName,
       showForm,
-    };
-
-    window.sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+    });
   }, [draftRestored, lawyerName, pendingTemplatePath, pendingTemplateName, showForm]);
 
   const loadLetterheads = async () => {
