@@ -151,6 +151,7 @@ const DocumentGenerator = () => {
   const [newCase, setNewCase] = useState({
     title: '', case_type: '', court: '', court_level: 'ابتدائية',
     opposing_party: '', opposing_party_address: '', case_number: '', description: '',
+    doc_type: '',
   });
 
   // Chat
