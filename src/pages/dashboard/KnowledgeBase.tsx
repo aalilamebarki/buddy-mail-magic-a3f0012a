@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { BookOpen, Plus, Upload, Search, FileText, Scale, Database, Globe, Loader2, Gavel, ScrollText, FileCheck, Building2 } from 'lucide-react';
+import { BookOpen, Plus, Upload, Search, FileText, Scale, Database, Globe, Loader2, Gavel, ScrollText, FileCheck, Building2, Eye } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
 interface LegalDocument {
@@ -515,6 +516,11 @@ const KnowledgeBase = () => {
     return title;
   };
 
+  const getYear = (doc: LegalDocument) => {
+    if (doc.decision_date) return new Date(doc.decision_date).getFullYear().toString();
+    return new Date(doc.created_at).getFullYear().toString();
+  };
+
   const renderDocumentsList = (docs: LegalDocument[], isRulings: boolean) => {
     if (loading) return <div className="p-8 text-center text-muted-foreground">جاري التحميل...</div>;
     if (docs.length === 0) return (
@@ -531,66 +537,78 @@ const KnowledgeBase = () => {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="text-right">النوع</TableHead>
                 <TableHead className="text-right">العنوان</TableHead>
-                {!isRulings && <TableHead className="text-right w-28">النوع</TableHead>}
-                <TableHead className="text-right w-32">التصنيف</TableHead>
                 <TableHead className="text-right w-28">{isRulings ? 'رقم القرار' : 'المرجع'}</TableHead>
+                <TableHead className="text-right w-20">السنة</TableHead>
                 {isRulings && <TableHead className="text-right w-32">الغرفة</TableHead>}
-                {isRulings && <TableHead className="text-right w-24">رقم الملف</TableHead>}
-                <TableHead className="text-right w-28">التاريخ</TableHead>
+                <TableHead className="text-right w-32">التصنيف</TableHead>
+                <TableHead className="text-center w-16">عرض</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {docs.map(doc => (
-                <TableRow key={doc.id}>
-                  <TableCell className="font-medium">
-                    <span className="line-clamp-2 text-sm">{formatTitle(doc)}</span>
-                    {doc.metadata?.subject && (
-                      <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{doc.metadata.subject}</p>
-                    )}
-                  </TableCell>
-                  {!isRulings && (
+              {docs.map(doc => {
+                const TypeIcon = DOC_TYPES.find(t => t.value === doc.doc_type)?.icon || FileText;
+                return (
+                  <TableRow key={doc.id}>
                     <TableCell>
-                      <Badge variant="secondary" className={`text-xs ${getTypeBadgeVariant(doc.doc_type)}`}>
+                      <Badge variant="secondary" className={`text-xs gap-1 ${getTypeBadgeVariant(doc.doc_type)}`}>
+                        <TypeIcon className="h-3 w-3" />
                         {getTypeLabel(doc.doc_type)}
                       </Badge>
                     </TableCell>
-                  )}
-                  <TableCell className="text-sm text-muted-foreground">{doc.category || '-'}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{doc.reference_number || '-'}</TableCell>
-                  {isRulings && <TableCell className="text-sm text-muted-foreground">{doc.court_chamber || '-'}</TableCell>}
-                  {isRulings && <TableCell className="text-sm text-muted-foreground">{doc.metadata?.file_number || '-'}</TableCell>}
-                  <TableCell className="text-sm text-muted-foreground">
-                    {doc.decision_date || new Date(doc.created_at).toLocaleDateString('ar-MA')}
-                  </TableCell>
-                </TableRow>
-              ))}
+                    <TableCell className="font-medium">
+                      <span className="line-clamp-2 text-sm">{formatTitle(doc)}</span>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{doc.reference_number || '-'}</TableCell>
+                    <TableCell className="text-sm font-medium text-foreground">{getYear(doc)}</TableCell>
+                    {isRulings && <TableCell className="text-sm text-muted-foreground">{doc.court_chamber || '-'}</TableCell>}
+                    <TableCell className="text-sm text-muted-foreground">{doc.category || '-'}</TableCell>
+                    <TableCell className="text-center">
+                      <Link to={`/documents/${doc.id}`}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>
 
         {/* Mobile Cards */}
         <div className="sm:hidden divide-y divide-border">
-          {docs.map(doc => (
-            <div key={doc.id} className="p-3 space-y-2">
-              <div className="flex items-start justify-between gap-2">
-                <p className="text-sm font-medium line-clamp-2 flex-1">{formatTitle(doc)}</p>
-                <Badge variant="secondary" className={`text-[10px] shrink-0 ${getTypeBadgeVariant(doc.doc_type)}`}>
-                  {getTypeLabel(doc.doc_type)}
-                </Badge>
+          {docs.map(doc => {
+            const TypeIcon = DOC_TYPES.find(t => t.value === doc.doc_type)?.icon || FileText;
+            return (
+              <div key={doc.id} className="p-3 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Badge variant="secondary" className={`text-[10px] shrink-0 gap-0.5 ${getTypeBadgeVariant(doc.doc_type)}`}>
+                        <TypeIcon className="h-2.5 w-2.5" />
+                        {getTypeLabel(doc.doc_type)}
+                      </Badge>
+                      <span className="text-xs font-bold text-foreground">{getYear(doc)}</span>
+                    </div>
+                    <p className="text-sm font-medium line-clamp-2">{formatTitle(doc)}</p>
+                  </div>
+                  <Link to={`/documents/${doc.id}`}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-primary hover:bg-primary/10">
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+                  {doc.reference_number && <span>📋 {doc.reference_number}</span>}
+                  {doc.category && <span>📂 {doc.category}</span>}
+                  {isRulings && doc.court_chamber && <span>🏛️ {doc.court_chamber}</span>}
+                </div>
               </div>
-              {doc.metadata?.subject && (
-                <p className="text-xs text-muted-foreground line-clamp-1">{doc.metadata.subject}</p>
-              )}
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-                {doc.category && <span>📂 {doc.category}</span>}
-                {doc.reference_number && <span>📋 {doc.reference_number}</span>}
-                {isRulings && doc.court_chamber && <span>🏛️ {doc.court_chamber}</span>}
-                {isRulings && doc.metadata?.file_number && <span>📁 ملف {doc.metadata.file_number}</span>}
-                <span>📅 {doc.decision_date || new Date(doc.created_at).toLocaleDateString('ar-MA')}</span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </>
     );
