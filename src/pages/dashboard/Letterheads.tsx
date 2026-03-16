@@ -1,41 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Trash2, FileText, Loader2, Stamp, Edit2, Save, X } from 'lucide-react';
+import { Plus, Trash2, FileText, Loader2, Stamp, Edit2, Save, X, Upload } from 'lucide-react';
 
 interface Letterhead {
   id: string;
   lawyer_name: string;
-  name_fr: string | null;
-  title_ar: string | null;
-  title_fr: string | null;
-  bar_name_ar: string | null;
-  bar_name_fr: string | null;
-  city: string | null;
-  address: string | null;
-  email: string | null;
-  phone: string | null;
+  template_path: string | null;
   created_at: string;
 }
-
-const FIELDS = [
-  { key: 'lawyer_name', label: 'اسم المحامي بالعربية *', required: true },
-  { key: 'name_fr', label: 'اسم المحامي بالفرنسية' },
-  { key: 'title_ar', label: 'الصفة بالعربية', placeholder: 'محام' },
-  { key: 'title_fr', label: 'الصفة بالفرنسية', placeholder: 'AVOCAT' },
-  { key: 'bar_name_ar', label: 'الهيئة بالعربية', placeholder: 'بهيئة المحامين بالرباط' },
-  { key: 'bar_name_fr', label: 'الهيئة بالفرنسية', placeholder: 'AU BARREAU DE RABAT' },
-  { key: 'city', label: 'المدينة', placeholder: 'الرباط' },
-  { key: 'address', label: 'العنوان' },
-  { key: 'email', label: 'البريد الإلكتروني' },
-  { key: 'phone', label: 'الهاتف' },
-] as const;
-
-const emptyForm = (): Record<string, string> => Object.fromEntries(FIELDS.map(f => [f.key, '']));
 
 const Letterheads = () => {
   const { user } = useAuth();
@@ -44,8 +21,10 @@ const Letterheads = () => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState<Record<string, string>>(emptyForm());
+  const [lawyerName, setLawyerName] = useState('');
+  const [templateFile, setTemplateFile] = useState<File | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -55,28 +34,37 @@ const Letterheads = () => {
   const loadLetterheads = async () => {
     const { data } = await supabase
       .from('letterheads')
-      .select('id, lawyer_name, name_fr, title_ar, title_fr, bar_name_ar, bar_name_fr, city, address, email, phone, created_at')
+      .select('id, lawyer_name, template_path, created_at')
       .order('created_at', { ascending: false }) as any;
     if (data) setLetterheads(data);
     setLoading(false);
   };
 
   const save = async () => {
-    if (!user || !form.lawyer_name.trim()) return;
+    if (!user || !lawyerName.trim()) return;
+    if (!editingId && !templateFile) {
+      toast({ title: 'يرجى رفع ملف الترويسة', variant: 'destructive' });
+      return;
+    }
     setSaving(true);
     try {
+      let templatePath: string | null = null;
+
+      // Upload file if provided
+      if (templateFile) {
+        const ext = templateFile.name.split('.').pop()?.toLowerCase() || 'docx';
+        const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
+        const { error: uploadErr } = await supabase.storage
+          .from('letterhead-templates')
+          .upload(path, templateFile);
+        if (uploadErr) throw uploadErr;
+        templatePath = path;
+      }
+
       const payload: any = {
         user_id: user.id,
-        lawyer_name: form.lawyer_name.trim(),
-        name_fr: form.name_fr || null,
-        title_ar: form.title_ar || 'محام',
-        title_fr: form.title_fr || 'AVOCAT',
-        bar_name_ar: form.bar_name_ar || null,
-        bar_name_fr: form.bar_name_fr || null,
-        city: form.city || 'الرباط',
-        address: form.address || null,
-        email: form.email || null,
-        phone: form.phone || null,
+        lawyer_name: lawyerName.trim(),
+        ...(templatePath && { template_path: templatePath }),
       };
 
       if (editingId) {
@@ -99,23 +87,17 @@ const Letterheads = () => {
 
   const startEdit = (lh: Letterhead) => {
     setEditingId(lh.id);
-    setForm({
-      lawyer_name: lh.lawyer_name,
-      name_fr: lh.name_fr || '',
-      title_ar: lh.title_ar || '',
-      title_fr: lh.title_fr || '',
-      bar_name_ar: lh.bar_name_ar || '',
-      bar_name_fr: lh.bar_name_fr || '',
-      city: lh.city || '',
-      address: lh.address || '',
-      email: lh.email || '',
-      phone: lh.phone || '',
-    });
+    setLawyerName(lh.lawyer_name);
+    setTemplateFile(null);
     setShowForm(true);
   };
 
   const deleteLetterhead = async (lh: Letterhead) => {
     try {
+      // Delete template file from storage if exists
+      if (lh.template_path) {
+        await supabase.storage.from('letterhead-templates').remove([lh.template_path]);
+      }
       const { error } = await supabase.from('letterheads').delete().eq('id', lh.id) as any;
       if (error) throw error;
       setLetterheads(prev => prev.filter(x => x.id !== lh.id));
@@ -128,10 +110,9 @@ const Letterheads = () => {
   const resetForm = () => {
     setShowForm(false);
     setEditingId(null);
-    setForm(emptyForm());
+    setLawyerName('');
+    setTemplateFile(null);
   };
-
-  const setField = (key: string, val: string) => setForm(prev => ({ ...prev, [key]: val }));
 
   if (loading) {
     return <div className="flex items-center justify-center h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -145,7 +126,7 @@ const Letterheads = () => {
             <Stamp className="h-5 w-5 text-primary" />
             الترويسات
           </h1>
-          <p className="text-muted-foreground text-xs mt-1">أدخل بيانات المحامي وسيتم توليد ترويسة احترافية تلقائياً في كل مستند</p>
+          <p className="text-muted-foreground text-xs mt-1">ارفع ملف Word (.doc أو .docx) كقالب ترويسة وسيتم لصق النص المولّد داخله</p>
         </div>
         <Button onClick={() => { resetForm(); setShowForm(true); }} className="gap-1.5">
           <Plus className="h-4 w-4" /> ترويسة جديدة
@@ -156,20 +137,45 @@ const Letterheads = () => {
         <Card className="border-primary/20">
           <CardContent className="pt-5 space-y-3">
             <h3 className="text-sm font-bold text-foreground">{editingId ? 'تعديل الترويسة' : 'ترويسة جديدة'}</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {FIELDS.map(f => (
-                <Input
-                  key={f.key}
-                  placeholder={f.label + (('placeholder' in f) ? ` (${f.placeholder})` : '')}
-                  value={form[f.key]}
-                  onChange={e => setField(f.key, e.target.value)}
-                  className="text-sm"
-                  dir={f.key.endsWith('_fr') ? 'ltr' : 'rtl'}
-                />
-              ))}
+            <Input
+              placeholder="اسم المحامي / اسم الترويسة *"
+              value={lawyerName}
+              onChange={e => setLawyerName(e.target.value)}
+              className="text-sm"
+              dir="rtl"
+            />
+            <div
+              className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+              onClick={() => fileRef.current?.click()}
+            >
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".doc,.docx"
+                className="hidden"
+                onChange={e => {
+                  const f = e.target.files?.[0];
+                  if (f) setTemplateFile(f);
+                }}
+              />
+              {templateFile ? (
+                <div className="flex items-center justify-center gap-2 text-sm text-foreground">
+                  <FileText className="h-5 w-5 text-primary" />
+                  <span>{templateFile.name}</span>
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={e => { e.stopPropagation(); setTemplateFile(null); }}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <Upload className="h-8 w-8 mx-auto text-muted-foreground/50" />
+                  <p className="text-sm text-muted-foreground">اضغط لرفع ملف الترويسة (.doc أو .docx)</p>
+                  {editingId && <p className="text-xs text-muted-foreground/70">اتركه فارغاً للإبقاء على الملف الحالي</p>}
+                </div>
+              )}
             </div>
             <div className="flex gap-2 pt-2">
-              <Button onClick={save} disabled={!form.lawyer_name.trim() || saving} className="gap-1.5">
+              <Button onClick={save} disabled={!lawyerName.trim() || saving} className="gap-1.5">
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 {editingId ? 'حفظ التعديلات' : 'حفظ الترويسة'}
               </Button>
@@ -183,7 +189,7 @@ const Letterheads = () => {
         <Card>
           <CardContent className="py-10 text-center text-muted-foreground text-sm">
             <Stamp className="h-8 w-8 mx-auto mb-2 opacity-20" />
-            لا توجد ترويسات. أضف بيانات المحامي لتوليد الترويسة تلقائياً.
+            لا توجد ترويسات. ارفع ملف Word كقالب ترويسة.
           </CardContent>
         </Card>
       ) : (
@@ -199,8 +205,7 @@ const Letterheads = () => {
                     <div className="min-w-0">
                       <h3 className="font-bold text-foreground text-sm truncate">{lh.lawyer_name}</h3>
                       <p className="text-[10px] text-muted-foreground truncate">
-                        {lh.name_fr && `${lh.name_fr} • `}
-                        {lh.bar_name_ar || lh.city || ''}
+                        {lh.template_path ? '📎 ملف مرفق' : 'بدون ملف'}
                         {' • '}{new Date(lh.created_at).toLocaleDateString('ar-MA')}
                       </p>
                     </div>
