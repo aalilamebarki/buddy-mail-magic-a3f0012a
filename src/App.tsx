@@ -90,6 +90,7 @@ const App = () => (
                   <Route path="client-dashboard" element={<ClientDashboard />} />
                   <Route path="knowledge-base" element={<KnowledgeBase />} />
                   <Route path="document-generator" element={<DocumentGenerator />} />
+                  <Route path="letterheads" element={<Letterheads />} />
                 </Route>
 
                 <Route path="*" element={<NotFound />} />
