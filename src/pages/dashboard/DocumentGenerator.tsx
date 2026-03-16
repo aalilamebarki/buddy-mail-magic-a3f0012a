@@ -922,29 +922,35 @@ const DocumentGenerator = () => {
           </div>
         )}
 
-        {/* Input */}
+        {/* Input - disabled until case has documents */}
         <div className="border-t border-border pt-2">
-          <div className="flex gap-2 items-end">
-            <div className="flex-1 relative">
-              <Textarea
-                value={inputText}
-                onChange={e => setInputText(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                placeholder="اكتب ما تريد... أرفق ملفات PDF/Word..."
-                className="min-h-[44px] max-h-[120px] resize-none pr-3 pl-12 text-sm"
-                rows={1}
-                disabled={isStreaming || isParsing}
-              />
-              <label className="absolute left-3 bottom-3 cursor-pointer text-muted-foreground hover:text-foreground">
-                <FileUp className="h-4 w-4" />
-                <input type="file" multiple accept=".pdf,.docx,.txt,.jpg,.jpeg,.png" className="hidden"
-                  onChange={e => { if (e.target.files) setAttachments(prev => [...prev, ...Array.from(e.target.files!)]); }} />
-              </label>
+          {caseDocs.length === 0 ? (
+            <div className="text-center py-3">
+              <p className="text-xs text-muted-foreground">⬆️ أضف وثائق الملف أعلاه لتتمكن من بدء الصياغة</p>
             </div>
-            <Button onClick={sendMessage} disabled={!inputText.trim() || isStreaming || isParsing} size="icon" className="h-[44px] w-[44px] shrink-0">
-              {isStreaming || isParsing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            </Button>
-          </div>
+          ) : (
+            <div className="flex gap-2 items-end">
+              <div className="flex-1 relative">
+                <Textarea
+                  value={inputText}
+                  onChange={e => setInputText(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                  placeholder="اكتب ما تريد... أرفق ملفات PDF/Word..."
+                  className="min-h-[44px] max-h-[120px] resize-none pr-3 pl-12 text-sm"
+                  rows={1}
+                  disabled={isStreaming || isParsing}
+                />
+                <label className="absolute left-3 bottom-3 cursor-pointer text-muted-foreground hover:text-foreground">
+                  <FileUp className="h-4 w-4" />
+                  <input type="file" multiple accept=".pdf,.docx,.txt,.jpg,.jpeg,.png" className="hidden"
+                    onChange={e => { if (e.target.files) setAttachments(prev => [...prev, ...Array.from(e.target.files!)]); }} />
+                </label>
+              </div>
+              <Button onClick={sendMessage} disabled={!inputText.trim() || isStreaming || isParsing} size="icon" className="h-[44px] w-[44px] shrink-0">
+                {isStreaming || isParsing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Preview Dialog */}
