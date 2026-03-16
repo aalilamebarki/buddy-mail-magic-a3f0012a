@@ -403,6 +403,11 @@ const DocumentGenerator = () => {
         .filter(d => d.status === 'final' && d.content)
         .slice(-3)
         .map(d => d.content?.slice(0, 800)),
+      referenceDocuments: referenceDocs.slice(0, 5).map(rd => ({
+        title: rd.title,
+        docType: rd.doc_type,
+        content: rd.content.slice(0, 3000),
+      })),
     };
 
     try {
