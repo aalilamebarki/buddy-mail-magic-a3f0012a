@@ -80,6 +80,13 @@ const DocumentGenerator = () => {
   const [selectedClient, setSelectedClient] = useState<ClientInfo | null>(null);
   const [currentThread, setCurrentThread] = useState<CaseThread | null>(null);
 
+  // Client search
+  const [clientSearch, setClientSearch] = useState('');
+  const [showClientSuggestions, setShowClientSuggestions] = useState(false);
+  const [showNewClientForm, setShowNewClientForm] = useState(false);
+  const [newClient, setNewClient] = useState({ full_name: '', cin: '', address: '', phone: '', email: '' });
+  const clientSearchRef = useRef<HTMLDivElement>(null);
+
   // Chat
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
