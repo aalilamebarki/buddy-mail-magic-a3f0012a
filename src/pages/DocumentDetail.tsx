@@ -40,7 +40,8 @@ const DocumentDetail = () => {
   const [doc, setDoc] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
-  const { toast } = useToast();
+  const [showPdf, setShowPdf] = useState(false);
+  const [pdfError, setPdfError] = useState(false);
 
   useEffect(() => {
     const fetchDoc = async () => {
