@@ -17,7 +17,7 @@ import {
   FileUp, Trash2, Sparkles, Send, FolderOpen,
   ArrowRight, MessageSquare, ChevronDown, ChevronUp, User, Plus, X, UserPlus
 } from 'lucide-react';
-import { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel } from 'docx';
+import { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel, ImageRun, Header, Footer } from 'docx';
 import { saveAs } from 'file-saver';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
