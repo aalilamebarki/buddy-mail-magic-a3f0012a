@@ -472,6 +472,7 @@ export type Database = {
           header_image_path: string | null
           id: string
           lawyer_name: string
+          template_path: string | null
           updated_at: string
           user_id: string
         }
@@ -481,6 +482,7 @@ export type Database = {
           header_image_path?: string | null
           id?: string
           lawyer_name: string
+          template_path?: string | null
           updated_at?: string
           user_id: string
         }
@@ -490,6 +492,7 @@ export type Database = {
           header_image_path?: string | null
           id?: string
           lawyer_name?: string
+          template_path?: string | null
           updated_at?: string
           user_id?: string
         }

@@ -1,0 +1,1 @@
+ALTER TABLE public.letterheads ADD COLUMN template_path text;
