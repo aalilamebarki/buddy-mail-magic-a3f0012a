@@ -326,7 +326,7 @@ const DocumentGenerator = () => {
       const created = data as CaseFile;
       setCases(prev => [created, ...prev]);
       setSelectedCase(created);
-      setNewCase({ title: '', case_type: '', court: '', court_level: 'ابتدائية', opposing_party: '', opposing_party_address: '', case_number: '', description: '' });
+      setNewCase({ title: '', case_type: '', court: '', court_level: 'ابتدائية', opposing_party: '', opposing_party_address: '', case_number: '', description: '', doc_type: '' });
       setChatMessages([]);
       setView('chat');
       toast({ title: 'تم إنشاء الملف ✅' });
