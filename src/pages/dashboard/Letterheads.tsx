@@ -220,33 +220,33 @@ const Letterheads = () => {
               className="text-sm"
               dir="rtl"
             />
-            <input
-              id="letterhead-template-file"
-              type="file"
-              accept=".doc,.docx"
-              className="sr-only"
-              onChange={handleTemplateChange}
-            />
-            <label
-              htmlFor="letterhead-template-file"
-              className="block border-2 border-dashed border-muted-foreground/30 rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
-            >
+            <div className="space-y-3 rounded-lg border border-border p-4">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Upload className="h-4 w-4" />
+                <span>اختر ملف الترويسة من جهازك</span>
+              </div>
+
+              <Input
+                type="file"
+                accept=".doc,.docx"
+                onChange={handleTemplateChange}
+                className="cursor-pointer"
+              />
+
               {templateFile ? (
-                <div className="flex items-center justify-center gap-2 text-sm text-foreground">
-                  <FileText className="h-5 w-5 text-primary" />
-                  <span>{templateFile.name}</span>
-                  <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setTemplateFile(null); setPreviewHtml(null); }}>
+                <div className="flex items-center justify-between gap-2 rounded-md bg-muted/50 px-3 py-2 text-sm text-foreground">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <FileText className="h-4 w-4 text-primary shrink-0" />
+                    <span className="truncate">{templateFile.name}</span>
+                  </div>
+                  <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0" onClick={() => { setTemplateFile(null); setPreviewHtml(null); setPreviewLoading(false); }}>
                     <X className="h-3 w-3" />
                   </Button>
                 </div>
               ) : (
-                <div className="space-y-1">
-                  <Upload className="h-8 w-8 mx-auto text-muted-foreground/50" />
-                  <p className="text-sm text-muted-foreground">اضغط لرفع ملف الترويسة (.doc أو .docx)</p>
-                  {editingId && <p className="text-xs text-muted-foreground/70">اتركه فارغاً للإبقاء على الملف الحالي</p>}
-                </div>
+                <p className="text-xs text-muted-foreground">الصيغ المدعومة: .doc و .docx</p>
               )}
-            </label>
+            </div>
 
             {/* Preview section */}
             {previewLoading && (
