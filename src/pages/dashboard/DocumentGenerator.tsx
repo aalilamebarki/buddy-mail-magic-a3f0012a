@@ -1029,6 +1029,26 @@ const DocumentGenerator = () => {
 
         <Card>
           <CardContent className="pt-5 space-y-4">
+            {/* Document type selector - FIRST */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">نوع المستند المطلوب *</label>
+              <div className="flex flex-wrap gap-1.5">
+                {DOC_TYPE_OPTIONS.map(dt => (
+                  <button
+                    key={dt.label}
+                    onClick={() => setNewCase(prev => ({ ...prev, doc_type: dt.label }))}
+                    className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors border ${
+                      newCase.doc_type === dt.label
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-background text-foreground border-border hover:bg-accent'
+                    }`}
+                  >
+                    {dt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Opposing party - Required */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">المدعى عليه / الخصم *</label>
@@ -1050,38 +1070,57 @@ const DocumentGenerator = () => {
               />
             </div>
 
-            {/* Court level */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">درجة المحكمة *</label>
-              <div className="flex gap-2">
-                {COURT_LEVELS.map(level => (
-                  <button
-                    key={level}
-                    onClick={() => setNewCase(prev => ({ ...prev, court_level: level }))}
-                    className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors border ${
-                      newCase.court_level === level
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-background text-foreground border-border hover:bg-accent'
-                    }`}
-                  >
-                    {level}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Court name */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">المحكمة</label>
-              <Select value={newCase.court} onValueChange={v => setNewCase(prev => ({ ...prev, court: v }))}>
-                <SelectTrigger className="h-10"><SelectValue placeholder="اختر المحكمة" /></SelectTrigger>
-                <SelectContent>
-                  {COURT_TYPES.map(ct => (
-                    <SelectItem key={ct} value={ct}>{ct}</SelectItem>
+            {/* Court level - show only if not إنذار */}
+            {getDocRequirement(newCase.doc_type) !== 'none' && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">درجة المحكمة *</label>
+                <div className="flex gap-2">
+                  {COURT_LEVELS.map(level => (
+                    <button
+                      key={level}
+                      onClick={() => setNewCase(prev => ({ ...prev, court_level: level }))}
+                      className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors border ${
+                        newCase.court_level === level
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-background text-foreground border-border hover:bg-accent'
+                      }`}
+                    >
+                      {level}
+                    </button>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
+                </div>
+              </div>
+            )}
+
+            {/* Court name - required for court_only and court_and_case */}
+            {getDocRequirement(newCase.doc_type) !== 'none' && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  المحكمة المختصة *
+                </label>
+                <Select value={newCase.court} onValueChange={v => setNewCase(prev => ({ ...prev, court: v }))}>
+                  <SelectTrigger className="h-10"><SelectValue placeholder="اختر المحكمة" /></SelectTrigger>
+                  <SelectContent>
+                    {COURT_TYPES.map(ct => (
+                      <SelectItem key={ct} value={ct}>{ct}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Case number - required only for court_and_case */}
+            {getDocRequirement(newCase.doc_type) === 'court_and_case' && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">رقم الملف *</label>
+                <Input
+                  placeholder="رقم الملف بالمحكمة"
+                  value={newCase.case_number}
+                  onChange={e => setNewCase(prev => ({ ...prev, case_number: e.target.value }))}
+                  className="h-10"
+                />
+              </div>
+            )}
 
             {/* Case type */}
             <div className="space-y-2">
@@ -1103,26 +1142,15 @@ const DocumentGenerator = () => {
               </div>
             </div>
 
-            {/* Case number */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">رقم الملف</label>
-                <Input
-                  placeholder="رقم الملف (اختياري)"
-                  value={newCase.case_number}
-                  onChange={e => setNewCase(prev => ({ ...prev, case_number: e.target.value }))}
-                  className="h-10"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">عنوان الملف</label>
-                <Input
-                  placeholder="يُملأ تلقائياً"
-                  value={newCase.title}
-                  onChange={e => setNewCase(prev => ({ ...prev, title: e.target.value }))}
-                  className="h-10"
-                />
-              </div>
+            {/* Title */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">عنوان الملف</label>
+              <Input
+                placeholder="يُملأ تلقائياً"
+                value={newCase.title}
+                onChange={e => setNewCase(prev => ({ ...prev, title: e.target.value }))}
+                className="h-10"
+              />
             </div>
 
             {/* Description */}
@@ -1136,7 +1164,16 @@ const DocumentGenerator = () => {
               />
             </div>
 
-            <Button onClick={createCase} disabled={!newCase.opposing_party.trim()} className="w-full gap-2" size="lg">
+            <Button
+              onClick={createCase}
+              disabled={
+                !newCase.doc_type ||
+                !newCase.opposing_party.trim() ||
+                (getDocRequirement(newCase.doc_type) !== 'none' && !newCase.court) ||
+                (getDocRequirement(newCase.doc_type) === 'court_and_case' && !newCase.case_number.trim())
+              }
+              className="w-full gap-2" size="lg"
+            >
               <Plus className="h-4 w-4" /> إنشاء الملف والبدء
             </Button>
           </CardContent>
