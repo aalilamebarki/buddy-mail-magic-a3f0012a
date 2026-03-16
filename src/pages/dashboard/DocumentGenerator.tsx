@@ -537,6 +537,11 @@ const DocumentGenerator = () => {
     }
 
     if (lh?.template_path) {
+      if (!lh.template_path.toLowerCase().endsWith('.docx')) {
+        toast({ title: 'ملف الترويسة الحالي غير مدعوم. ارفع الترويسة بصيغة .docx', variant: 'destructive' });
+        return;
+      }
+
       // Merge content into Word template
       try {
         const templateBuffer = await fetchTemplateAsArrayBuffer(lh.template_path);

@@ -41,12 +41,16 @@ const Letterheads = () => {
 
   const save = async () => {
     if (!user || !lawyerName.trim() || !templateFile) return;
+    const fileName = templateFile.name.toLowerCase();
+    if (!fileName.endsWith('.docx')) {
+      toast({ title: 'يجب رفع ملف Word بصيغة .docx فقط', variant: 'destructive' });
+      return;
+    }
     setSaving(true);
 
     try {
       const id = crypto.randomUUID();
-      const ext = templateFile.name.split('.').pop();
-      const path = `${user.id}/${id}/template.${ext}`;
+      const path = `${user.id}/${id}/template.docx`;
       const { error: upErr } = await supabase.storage.from('letterheads').upload(path, templateFile);
       if (upErr) throw upErr;
 
@@ -122,7 +126,7 @@ const Letterheads = () => {
             />
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">ملف الترويسة (Word .docx)</label>
+              <label className="text-sm font-medium text-foreground">ملف الترويسة (Word .docx فقط)</label>
               <label className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-lg p-6 cursor-pointer hover:border-primary/40 transition-colors">
                 {templateFile ? (
                   <div className="flex items-center gap-2 text-primary">
@@ -132,11 +136,11 @@ const Letterheads = () => {
                 ) : (
                   <>
                     <FileText className="h-8 w-8 text-muted-foreground mb-2" />
-                    <span className="text-xs text-muted-foreground">اختر ملف Word (.docx) يحتوي على ترويسة المكتب</span>
-                    <span className="text-[10px] text-muted-foreground mt-1">سيتم إدراج نص المستند داخل هذا القالب مع الحفاظ على التنسيق</span>
+                    <span className="text-xs text-muted-foreground">اختر ملف Word (.docx فقط) يحتوي على ترويسة المكتب</span>
+                    <span className="text-[10px] text-muted-foreground mt-1">صيغة .doc القديمة غير مدعومة لأن الدمج يعتمد على بنية Word الحديثة</span>
                   </>
                 )}
-                <input type="file" accept=".docx,.doc" className="hidden"
+                <input type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="hidden"
                   onChange={e => e.target.files?.[0] && setTemplateFile(e.target.files[0])} />
               </label>
             </div>
