@@ -214,9 +214,9 @@ const DocumentGenerator = () => {
     !searchQuery || t.clientName.includes(searchQuery) || t.opposingParty.includes(searchQuery) || t.caseNumber.includes(searchQuery)
   );
 
-  // Get threads for selected client
+  // Get threads for selected client - match by client_id first, fallback to name
   const clientThreads: CaseThread[] = selectedClient
-    ? threadGroups.filter(t => t.clientName === selectedClient.full_name)
+    ? threadGroups.filter(t => t.clientId === selectedClient.id || (!t.clientId && t.clientName === selectedClient.full_name))
     : [];
 
   // ─── Actions ──────────────────────────────────────────────────────────
