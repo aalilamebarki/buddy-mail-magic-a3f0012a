@@ -482,6 +482,7 @@ const DocumentGenerator = () => {
       courtLevel: selectedCase.court_level || '',
       caseNumber: selectedCase.case_number || '',
       caseType: selectedCase.case_type || '',
+      requestedDocType: activeDocType || '',
       previousDocs: caseDocs.map(d => ({
         step: d.step_number,
         docType: d.doc_type,
