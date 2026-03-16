@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,15 @@ interface Letterhead {
   template_path: string | null;
   created_at: string;
 }
+
+interface DraftState {
+  lawyerName: string;
+  pendingTemplatePath: string | null;
+  pendingTemplateName: string | null;
+  showForm: boolean;
+}
+
+const DRAFT_STORAGE_KEY = 'letterhead-draft-v1';
 
 const fallbackPreview = (fileName: string, message: string) => `
   <div style="text-align:center;color:gray;padding:20px;">
@@ -33,16 +42,62 @@ const Letterheads = () => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploadingTemplate, setUploadingTemplate] = useState(false);
   const [lawyerName, setLawyerName] = useState('');
   const [templateFile, setTemplateFile] = useState<File | null>(null);
+  const [pendingTemplatePath, setPendingTemplatePath] = useState<string | null>(null);
+  const [pendingTemplateName, setPendingTemplateName] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     loadLetterheads();
   }, [user]);
+
+  useEffect(() => {
+    if (draftRestored || typeof window === 'undefined') return;
+
+    try {
+      const rawDraft = window.sessionStorage.getItem(DRAFT_STORAGE_KEY);
+      if (!rawDraft) {
+        setDraftRestored(true);
+        return;
+      }
+
+      const draft = JSON.parse(rawDraft) as DraftState;
+      setLawyerName(draft.lawyerName || '');
+      setPendingTemplatePath(draft.pendingTemplatePath || null);
+      setPendingTemplateName(draft.pendingTemplateName || null);
+      setShowForm(Boolean(draft.showForm));
+    } catch (error) {
+      console.error('Failed to restore draft:', error);
+      window.sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+    } finally {
+      setDraftRestored(true);
+    }
+  }, [draftRestored]);
+
+  useEffect(() => {
+    if (!draftRestored || typeof window === 'undefined') return;
+
+    const hasDraft = showForm || lawyerName || pendingTemplatePath || pendingTemplateName;
+    if (!hasDraft) {
+      window.sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+      return;
+    }
+
+    const draft: DraftState = {
+      lawyerName,
+      pendingTemplatePath,
+      pendingTemplateName,
+      showForm,
+    };
+
+    window.sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+  }, [draftRestored, lawyerName, pendingTemplatePath, pendingTemplateName, showForm]);
 
   const loadLetterheads = async () => {
     const { data } = await supabase
@@ -90,6 +145,24 @@ const Letterheads = () => {
     }
   };
 
+  const previewPendingTemplate = async () => {
+    if (!pendingTemplatePath) return;
+
+    setPreviewLoading(true);
+    try {
+      const { data, error } = await supabase.storage.from('letterhead-templates').download(pendingTemplatePath);
+      if (error || !data) throw error;
+
+      const fileName = pendingTemplateName || pendingTemplatePath.split('/').pop() || 'template.docx';
+      const html = await buildPreviewHtml(fileName, await data.arrayBuffer());
+      setPreviewHtml(html);
+    } catch {
+      setPreviewHtml('<p style="color:gray;text-align:center;">تعذر عرض معاينة هذا الملف</p>');
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
   const previewExisting = async (lh: Letterhead) => {
     if (!lh.template_path) return;
 
@@ -107,11 +180,16 @@ const Letterheads = () => {
     }
   };
 
-  const handleTemplateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const cleanupPendingUpload = async (path: string | null) => {
+    if (!path) return;
+    await supabase.storage.from('letterhead-templates').remove([path]);
+  };
+
+  const handleTemplateChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const nextFile = event.target.files?.[0] ?? null;
     event.target.value = '';
 
-    if (!nextFile) return;
+    if (!nextFile || !user) return;
 
     const ext = getFileExtension(nextFile.name);
     if (ext !== 'doc' && ext !== 'docx') {
@@ -123,35 +201,51 @@ const Letterheads = () => {
       return;
     }
 
+    setUploadingTemplate(true);
     setTemplateFile(nextFile);
     setPreviewHtml(null);
-    setPreviewLoading(false);
+
+    try {
+      const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage.from('letterhead-templates').upload(path, nextFile, {
+        upsert: false,
+      });
+
+      if (error) throw error;
+
+      const oldPendingPath = pendingTemplatePath;
+      setPendingTemplatePath(path);
+      setPendingTemplateName(nextFile.name);
+      toast({ title: 'تم تجهيز ملف الترويسة ✅' });
+
+      if (oldPendingPath && oldPendingPath !== path) {
+        cleanupPendingUpload(oldPendingPath);
+      }
+    } catch (error: any) {
+      setTemplateFile(null);
+      setPendingTemplatePath(null);
+      setPendingTemplateName(null);
+      toast({ title: 'خطأ في رفع الملف', description: error.message, variant: 'destructive' });
+    } finally {
+      setUploadingTemplate(false);
+    }
   };
 
   const save = async () => {
     if (!user || !lawyerName.trim()) return;
 
-    if (!editingId && !templateFile) {
+    const finalTemplatePath = pendingTemplatePath;
+    if (!editingId && !finalTemplatePath) {
       toast({ title: 'يرجى رفع ملف الترويسة', variant: 'destructive' });
       return;
     }
 
     setSaving(true);
     try {
-      let templatePath: string | null = null;
-
-      if (templateFile) {
-        const ext = getFileExtension(templateFile.name) || 'docx';
-        const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
-        const { error: uploadErr } = await supabase.storage.from('letterhead-templates').upload(path, templateFile);
-        if (uploadErr) throw uploadErr;
-        templatePath = path;
-      }
-
       const payload: any = {
         user_id: user.id,
         lawyer_name: lawyerName.trim(),
-        ...(templatePath && { template_path: templatePath }),
+        ...(finalTemplatePath && { template_path: finalTemplatePath }),
       };
 
       if (editingId) {
@@ -164,7 +258,10 @@ const Letterheads = () => {
         toast({ title: 'تم إضافة الترويسة ✅' });
       }
 
-      resetForm();
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+      }
+      resetForm(false);
       loadLetterheads();
     } catch (e: any) {
       toast({ title: 'خطأ', description: e.message, variant: 'destructive' });
@@ -177,6 +274,8 @@ const Letterheads = () => {
     setEditingId(lh.id);
     setLawyerName(lh.lawyer_name);
     setTemplateFile(null);
+    setPendingTemplatePath(lh.template_path);
+    setPendingTemplateName(lh.template_path?.split('/').pop() || null);
     setPreviewHtml(null);
     setShowForm(true);
   };
@@ -197,14 +296,33 @@ const Letterheads = () => {
     }
   };
 
-  const resetForm = () => {
+  const resetForm = (removePending = true) => {
+    const pathToCleanup = removePending ? pendingTemplatePath : null;
+
     setShowForm(false);
     setEditingId(null);
     setLawyerName('');
     setTemplateFile(null);
+    setPendingTemplatePath(null);
+    setPendingTemplateName(null);
     setPreviewHtml(null);
     setPreviewLoading(false);
+    setUploadingTemplate(false);
+
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+    }
+
+    if (pathToCleanup) {
+      cleanupPendingUpload(pathToCleanup);
+    }
   };
+
+  const selectedTemplateLabel = useMemo(() => {
+    if (pendingTemplateName) return pendingTemplateName;
+    if (templateFile) return templateFile.name;
+    return null;
+  }, [pendingTemplateName, templateFile]);
 
   if (loading) {
     return <div className="flex items-center justify-center h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -218,7 +336,7 @@ const Letterheads = () => {
             <Stamp className="h-5 w-5 text-primary" />
             الترويسات
           </h1>
-          <p className="text-muted-foreground text-xs mt-1">ارفع ملف Word (.doc أو .docx) كقالب ترويسة وسيتم لصق النص المولّد داخله</p>
+          <p className="text-muted-foreground text-xs mt-1">اختر ملف Word كقالب، وسيتم حفظه مؤقتاً فوراً حتى لا يضيع إذا أعادت الصفحة التهيئة</p>
         </div>
         <Button type="button" onClick={() => { resetForm(); setShowForm(true); }} className="gap-1.5">
           <Plus className="h-4 w-4" /> ترويسة جديدة
@@ -251,11 +369,18 @@ const Letterheads = () => {
                 className="block w-full cursor-pointer rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-secondary-foreground"
               />
 
-              {templateFile ? (
+              {uploadingTemplate && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  <span>جاري تجهيز الملف...</span>
+                </div>
+              )}
+
+              {selectedTemplateLabel ? (
                 <div className="flex items-center justify-between gap-2 rounded-md bg-muted/50 px-3 py-2 text-sm text-foreground">
                   <div className="flex items-center gap-2 min-w-0">
                     <FileText className="h-4 w-4 text-primary shrink-0" />
-                    <span className="truncate">{templateFile.name}</span>
+                    <span className="truncate">{selectedTemplateLabel}</span>
                   </div>
                   <Button
                     type="button"
@@ -263,9 +388,14 @@ const Letterheads = () => {
                     size="sm"
                     className="h-7 w-7 p-0 shrink-0"
                     onClick={() => {
-                      setTemplateFile(null);
-                      setPreviewHtml(null);
-                      setPreviewLoading(false);
+                      if (editingId) {
+                        setTemplateFile(null);
+                        setPendingTemplateName(null);
+                        setPreviewHtml(null);
+                        return;
+                      }
+                      resetForm();
+                      setShowForm(true);
                     }}
                   >
                     <X className="h-3 w-3" />
@@ -276,19 +406,19 @@ const Letterheads = () => {
               )}
             </div>
 
-            {templateFile && (
+            {pendingTemplatePath && (
               <div className="flex items-center gap-2">
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => generatePreview(templateFile)}
-                  disabled={previewLoading}
+                  onClick={templateFile ? () => generatePreview(templateFile) : previewPendingTemplate}
+                  disabled={previewLoading || uploadingTemplate}
                   className="gap-1.5"
                 >
                   {previewLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
                   {previewHtml ? 'تحديث المعاينة' : 'معاينة الملف'}
                 </Button>
-                <span className="text-xs text-muted-foreground">المعاينة اختيارية قبل الحفظ</span>
+                <span className="text-xs text-muted-foreground">الملف محفوظ مؤقتاً حتى تضغط حفظ الترويسة</span>
               </div>
             )}
 
@@ -316,11 +446,16 @@ const Letterheads = () => {
             )}
 
             <div className="flex gap-2 pt-2">
-              <Button type="button" onClick={save} disabled={!lawyerName.trim() || saving} className="gap-1.5">
+              <Button
+                type="button"
+                onClick={save}
+                disabled={!lawyerName.trim() || saving || uploadingTemplate || (!editingId && !pendingTemplatePath)}
+                className="gap-1.5"
+              >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 {editingId ? 'حفظ التعديلات' : 'حفظ الترويسة'}
               </Button>
-              <Button type="button" variant="ghost" onClick={resetForm}><X className="h-4 w-4 ml-1" /> إلغاء</Button>
+              <Button type="button" variant="ghost" onClick={() => resetForm()}><X className="h-4 w-4 ml-1" /> إلغاء</Button>
             </div>
           </CardContent>
         </Card>
