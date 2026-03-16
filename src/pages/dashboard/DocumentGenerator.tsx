@@ -531,6 +531,11 @@ const DocumentGenerator = () => {
   const exportWord = async (content: string, title: string) => {
     const lh = selectedLetterhead;
 
+    if (!lh?.template_path) {
+      toast({ title: 'يرجى اختيار ترويسة أولاً قبل تحميل المستند', variant: 'destructive' });
+      return;
+    }
+
     if (lh?.template_path) {
       // Merge content into Word template
       try {
