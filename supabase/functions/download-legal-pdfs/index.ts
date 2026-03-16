@@ -16,7 +16,6 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    // Get batch size from request or default to 5
     const { batch_size = 5 } = await req.json().catch(() => ({}));
 
     // Find documents with source URLs but no local PDF
@@ -25,6 +24,7 @@ Deno.serve(async (req) => {
       .select("id, title, source, doc_type")
       .not("source", "is", null)
       .is("local_pdf_path", null)
+      .like("source", "%adala.justice.gov.ma%")
       .limit(batch_size);
 
     if (fetchErr) throw fetchErr;
@@ -43,18 +43,23 @@ Deno.serve(async (req) => {
       try {
         if (!doc.source) continue;
 
-        // Clean the source URL
-        let sourceUrl = doc.source.replace(/#.*$/, ""); // Remove hash fragments
+        const sourceUrl = doc.source.replace(/#.*$/, "");
 
-        // Fetch the PDF
-        const response = await fetch(sourceUrl, {
+        // Encode URL properly for Arabic characters
+        let fetchUrl: string;
+        try {
+          fetchUrl = encodeURI(decodeURI(sourceUrl));
+        } catch {
+          fetchUrl = encodeURI(sourceUrl);
+        }
+
+        const response = await fetch(fetchUrl, {
           headers: {
             "User-Agent": "Mozilla/5.0 (compatible; LegalBot/1.0)",
           },
         });
 
         if (!response.ok) {
-          // Mark as failed so we don't retry endlessly
           await supabase
             .from("legal_documents")
             .update({ local_pdf_path: "fetch_failed" })
@@ -64,24 +69,15 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        const contentType = response.headers.get("content-type") || "";
-        const isPdf = contentType.includes("pdf") || sourceUrl.toLowerCase().endsWith(".pdf");
-
-        // Generate a clean file name
-        const sanitizedTitle = doc.title
-          .replace(/[^\u0600-\u06FFa-zA-Z0-9\s\-_.]/g, "")
-          .replace(/\s+/g, "_")
-          .slice(0, 80);
-        const ext = isPdf ? "pdf" : "pdf"; // Default to pdf
-        const filePath = `${doc.doc_type}/${doc.id}_${sanitizedTitle}.${ext}`;
-
         const fileData = await response.arrayBuffer();
 
-        // Upload to storage
+        // Use ONLY the document UUID as filename - no Arabic characters
+        const filePath = `${doc.doc_type}/${doc.id}.pdf`;
+
         const { error: uploadErr } = await supabase.storage
           .from("legal-pdfs")
           .upload(filePath, fileData, {
-            contentType: isPdf ? "application/pdf" : contentType,
+            contentType: "application/pdf",
             upsert: true,
           });
 
@@ -92,7 +88,6 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Update the document with local path
         await supabase
           .from("legal_documents")
           .update({ local_pdf_path: filePath })
@@ -102,7 +97,6 @@ Deno.serve(async (req) => {
         results.push({ id: doc.id, title: doc.title, status: "success" });
       } catch (e) {
         console.error(`Error processing ${doc.id}:`, e);
-        // Mark as failed
         await supabase
           .from("legal_documents")
           .update({ local_pdf_path: "fetch_failed" })
