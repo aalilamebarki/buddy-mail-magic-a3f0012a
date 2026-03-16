@@ -203,7 +203,7 @@ const Letterheads = () => {
           </h1>
           <p className="text-muted-foreground text-xs mt-1">ارفع ملف Word (.doc أو .docx) كقالب ترويسة وسيتم لصق النص المولّد داخله</p>
         </div>
-        <Button onClick={() => { resetForm(); setShowForm(true); }} className="gap-1.5">
+        <Button type="button" onClick={() => { resetForm(); setShowForm(true); }} className="gap-1.5">
           <Plus className="h-4 w-4" /> ترويسة جديدة
         </Button>
       </div>
