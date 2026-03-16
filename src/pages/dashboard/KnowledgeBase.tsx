@@ -151,6 +151,7 @@ const KnowledgeBase = () => {
     if (totalDownloaded > 0) toast.success(`تم تحميل ${totalDownloaded} ملف PDF`);
   };
 
+  const fetchStats = async () => {
     const types = ['law', 'dahir', 'decree', 'organic_law', 'circular', 'convention', 'decision', 'ruling', 'doctrine'];
     const results: Record<string, number> = {};
     
