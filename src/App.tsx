@@ -35,6 +35,7 @@ import SeoSettings from "./pages/dashboard/SeoSettings";
 import AuditLog from "./pages/dashboard/AuditLog";
 import ClientDashboard from "./pages/dashboard/ClientDashboard";
 import KnowledgeBase from "./pages/dashboard/KnowledgeBase";
+import DocumentGenerator from "./pages/dashboard/DocumentGenerator";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
