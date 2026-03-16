@@ -439,6 +439,8 @@ export type Database = {
       }
       legal_documents: {
         Row: {
+          ai_classification: Json | null
+          ai_summary: string | null
           category: string | null
           content: string
           court_chamber: string | null
@@ -447,13 +449,23 @@ export type Database = {
           doc_type: string
           embedding: string | null
           id: string
+          issuing_authority: string | null
           local_pdf_path: string | null
           metadata: Json | null
+          official_gazette_date: string | null
+          official_gazette_number: string | null
+          pdf_url: string | null
           reference_number: string | null
+          resource_page_id: number | null
+          signing_date: string | null
           source: string | null
+          subject: string | null
           title: string
+          year_issued: number | null
         }
         Insert: {
+          ai_classification?: Json | null
+          ai_summary?: string | null
           category?: string | null
           content: string
           court_chamber?: string | null
@@ -462,13 +474,23 @@ export type Database = {
           doc_type?: string
           embedding?: string | null
           id?: string
+          issuing_authority?: string | null
           local_pdf_path?: string | null
           metadata?: Json | null
+          official_gazette_date?: string | null
+          official_gazette_number?: string | null
+          pdf_url?: string | null
           reference_number?: string | null
+          resource_page_id?: number | null
+          signing_date?: string | null
           source?: string | null
+          subject?: string | null
           title: string
+          year_issued?: number | null
         }
         Update: {
+          ai_classification?: Json | null
+          ai_summary?: string | null
           category?: string | null
           content?: string
           court_chamber?: string | null
@@ -477,11 +499,19 @@ export type Database = {
           doc_type?: string
           embedding?: string | null
           id?: string
+          issuing_authority?: string | null
           local_pdf_path?: string | null
           metadata?: Json | null
+          official_gazette_date?: string | null
+          official_gazette_number?: string | null
+          pdf_url?: string | null
           reference_number?: string | null
+          resource_page_id?: number | null
+          signing_date?: string | null
           source?: string | null
+          subject?: string | null
           title?: string
+          year_issued?: number | null
         }
         Relationships: []
       }
