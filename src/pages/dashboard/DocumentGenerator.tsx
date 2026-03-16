@@ -131,6 +131,7 @@ const DocumentGenerator = () => {
   const [referenceDocs, setReferenceDocs] = useState<ReferenceDocument[]>([]);
   const [showRefDocs, setShowRefDocs] = useState(false);
   const [isUploadingRef, setIsUploadingRef] = useState(false);
+  const [refDocFilter, setRefDocFilter] = useState<string>('الكل');
 
   // Archive
   const [searchQuery, setSearchQuery] = useState('');
