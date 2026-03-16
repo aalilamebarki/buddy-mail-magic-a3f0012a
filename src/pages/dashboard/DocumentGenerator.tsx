@@ -64,8 +64,7 @@ interface ClientInfo {
 interface Letterhead {
   id: string;
   lawyer_name: string;
-  header_image_path: string | null;
-  footer_image_path: string | null;
+  template_path: string | null;
 }
 
 interface CaseThread {
