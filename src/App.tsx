@@ -35,6 +35,7 @@ import SeoSettings from "./pages/dashboard/SeoSettings";
 import AuditLog from "./pages/dashboard/AuditLog";
 import ClientDashboard from "./pages/dashboard/ClientDashboard";
 import KnowledgeBase from "./pages/dashboard/KnowledgeBase";
+import DocumentGenerator from "./pages/dashboard/DocumentGenerator";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -87,6 +88,7 @@ const App = () => (
                   <Route path="audit-log" element={<AuditLog />} />
                   <Route path="client-dashboard" element={<ClientDashboard />} />
                   <Route path="knowledge-base" element={<KnowledgeBase />} />
+                  <Route path="document-generator" element={<DocumentGenerator />} />
                 </Route>
 
                 <Route path="*" element={<NotFound />} />

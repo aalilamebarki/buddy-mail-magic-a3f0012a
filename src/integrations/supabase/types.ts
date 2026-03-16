@@ -261,6 +261,113 @@ export type Database = {
           },
         ]
       }
+      document_attachments: {
+        Row: {
+          created_at: string
+          document_id: string
+          file_name: string
+          file_path: string
+          file_type: string | null
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          document_id: string
+          file_name: string
+          file_path: string
+          file_type?: string | null
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          document_id?: string
+          file_name?: string
+          file_path?: string
+          file_type?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_attachments_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "generated_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      generated_documents: {
+        Row: {
+          case_id: string | null
+          case_number: string | null
+          client_id: string | null
+          client_name: string | null
+          content: string | null
+          court: string | null
+          created_at: string
+          doc_type: string
+          id: string
+          metadata: Json | null
+          next_court: string | null
+          opposing_party: string | null
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          case_id?: string | null
+          case_number?: string | null
+          client_id?: string | null
+          client_name?: string | null
+          content?: string | null
+          court?: string | null
+          created_at?: string
+          doc_type: string
+          id?: string
+          metadata?: Json | null
+          next_court?: string | null
+          opposing_party?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          case_id?: string | null
+          case_number?: string | null
+          client_id?: string | null
+          client_name?: string | null
+          content?: string | null
+          court?: string | null
+          created_at?: string
+          doc_type?: string
+          id?: string
+          metadata?: Json | null
+          next_court?: string | null
+          opposing_party?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_documents_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_documents_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       legal_documents: {
         Row: {
           category: string | null
