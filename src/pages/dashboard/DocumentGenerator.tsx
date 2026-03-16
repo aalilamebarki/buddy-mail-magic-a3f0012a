@@ -1078,7 +1078,11 @@ const DocumentGenerator = () => {
 
         {/* Input */}
         <div className="border-t border-border pt-2">
-          {caseDocs.length === 0 && !DOCS_NOT_REQUIRED_TYPES.includes(activeDocType) ? (
+          {!activeDocType ? (
+            <div className="text-center py-3">
+              <p className="text-xs text-muted-foreground">⬆️ اختر نوع المستند أولاً</p>
+            </div>
+          ) : caseDocs.length === 0 && !DOCS_NOT_REQUIRED_TYPES.includes(activeDocType) ? (
             <div className="text-center py-3">
               <p className="text-xs text-muted-foreground">⬆️ أضف وثائق الملف أعلاه لتتمكن من بدء الصياغة</p>
             </div>
