@@ -133,17 +133,6 @@ const Letterheads = () => {
       return result.value || '<p style="color:gray;text-align:center;">الملف فارغ</p>';
     }
 
-    if (ext === 'doc') {
-      try {
-        const result = await mammoth.convertToHtml({ arrayBuffer });
-        return result.value?.trim()
-          ? result.value
-          : fallbackPreview(fileName, 'ملف .doc تم اختياره بنجاح، لكن المعاينة قد لا تكون متاحة');
-      } catch {
-        return fallbackPreview(fileName, 'ملف .doc تم اختياره بنجاح، لكن المعاينة غير متاحة');
-      }
-    }
-
     return '<p style="color:gray;text-align:center;">صيغة غير مدعومة</p>';
   };
 
@@ -211,10 +200,10 @@ const Letterheads = () => {
     if (!nextFile || !user) return;
 
     const ext = getFileExtension(nextFile.name);
-    if (ext !== 'doc' && ext !== 'docx') {
+    if (ext !== 'docx') {
       toast({
         title: 'صيغة غير مدعومة',
-        description: 'يرجى اختيار ملف .doc أو .docx',
+        description: 'يرجى اختيار ملف بصيغة .docx فقط (احفظ ملف .doc كـ .docx من Word)',
         variant: 'destructive',
       });
       return;
@@ -376,7 +365,7 @@ const Letterheads = () => {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".doc,.docx"
+        accept=".docx"
         onChange={handleTemplateChange}
         className="hidden"
         tabIndex={-1}
@@ -423,7 +412,7 @@ const Letterheads = () => {
                 className="w-full gap-2"
               >
                 <Upload className="h-4 w-4" />
-                {uploadingTemplate ? 'جاري الرفع...' : 'اختر ملف (.doc / .docx)'}
+                {uploadingTemplate ? 'جاري الرفع...' : 'اختر ملف (.docx)'}
               </Button>
 
               {uploadingTemplate && (
@@ -459,7 +448,7 @@ const Letterheads = () => {
                   </Button>
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground">الصيغ المدعومة: .doc و .docx</p>
+                <p className="text-xs text-muted-foreground">الصيغة المدعومة: .docx فقط</p>
               )}
             </div>
 
