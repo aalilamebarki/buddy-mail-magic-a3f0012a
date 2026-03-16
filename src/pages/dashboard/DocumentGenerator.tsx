@@ -246,11 +246,38 @@ const DocumentGenerator = () => {
     const text = inputText.trim();
     if (!text || isStreaming) return;
 
-    const userMsg: ChatMessage = { role: 'user', content: text };
-    const newMessages = [...chatMessages, userMsg];
-    setChatMessages(newMessages);
     setInputText('');
     setIsStreaming(true);
+
+    // Parse attachments if any
+    let attachmentTexts: { name: string; text: string }[] = [];
+    if (attachments.length > 0) {
+      setIsParsing(true);
+      try {
+        attachmentTexts = await extractAllFiles(attachments);
+      } catch (e) {
+        console.error('Error parsing files:', e);
+      }
+      setIsParsing(false);
+    }
+
+    // Build user message with attachment content
+    let fullUserContent = text;
+    if (attachmentTexts.length > 0) {
+      fullUserContent += '\n\n📎 الملفات المرفقة:\n';
+      for (const att of attachmentTexts) {
+        fullUserContent += `\n--- [${att.name}] ---\n${att.text}\n`;
+      }
+    }
+
+    const userMsg: ChatMessage = { role: 'user', content: fullUserContent };
+    const displayMsg: ChatMessage = { 
+      role: 'user', 
+      content: text + (attachments.length > 0 ? `\n\n📎 ${attachments.map(f => f.name).join('، ')}` : '')
+    };
+    const newMessages = [...chatMessages, userMsg];
+    setChatMessages(prev => [...prev, displayMsg]);
+    setAttachments([]);
 
     const threadContext = {
       clientName: currentThread?.clientName || selectedClient?.full_name || '',
