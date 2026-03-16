@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import {
   FileText, Search, Download, Loader2, Save, Eye,
   FileUp, Trash2, Sparkles, Send, FolderOpen,
-  ArrowRight, MessageSquare, ChevronDown, ChevronUp, User
+  ArrowRight, MessageSquare, ChevronDown, ChevronUp, User, Plus, X, UserPlus
 } from 'lucide-react';
 import { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel } from 'docx';
 import { saveAs } from 'file-saver';
