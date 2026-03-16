@@ -52,6 +52,13 @@ interface ClientInfo {
   cin: string | null;
 }
 
+interface Letterhead {
+  id: string;
+  lawyer_name: string;
+  header_image_path: string | null;
+  footer_image_path: string | null;
+}
+
 interface CaseThread {
   threadId: string;
   clientName: string;
