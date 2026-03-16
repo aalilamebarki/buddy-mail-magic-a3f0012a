@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { BookOpen, Plus, Upload, Search, FileText, Scale, Database, Globe, Loader2, Gavel, ScrollText, FileCheck, Building2, Eye } from 'lucide-react';
+import { BookOpen, Plus, Upload, Search, FileText, Scale, Database, Globe, Loader2, Gavel, ScrollText, FileCheck, Building2, Eye, Download } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
 interface LegalDocument {
