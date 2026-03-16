@@ -25,6 +25,30 @@ interface DraftState {
 
 const DRAFT_STORAGE_KEY = 'letterhead-draft-v1';
 
+const hasDraftData = (draft: DraftState) => Boolean(
+  draft.showForm || draft.lawyerName || draft.pendingTemplatePath || draft.pendingTemplateName
+);
+
+const readStoredDraft = (): DraftState | null => {
+  if (typeof window === 'undefined') return null;
+
+  const rawDraft = window.sessionStorage.getItem(DRAFT_STORAGE_KEY);
+  if (!rawDraft) return null;
+
+  return JSON.parse(rawDraft) as DraftState;
+};
+
+const writeStoredDraft = (draft: DraftState | null) => {
+  if (typeof window === 'undefined') return;
+
+  if (!draft || !hasDraftData(draft)) {
+    window.sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+    return;
+  }
+
+  window.sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+};
+
 const fallbackPreview = (fileName: string, message: string) => `
   <div style="text-align:center;color:gray;padding:20px;">
     <p style="font-size:14px;">📄 ${fileName}</p>
@@ -58,45 +82,36 @@ const Letterheads = () => {
   }, [user]);
 
   useEffect(() => {
-    if (draftRestored || typeof window === 'undefined') return;
+    if (draftRestored) return;
 
     try {
-      const rawDraft = window.sessionStorage.getItem(DRAFT_STORAGE_KEY);
-      if (!rawDraft) {
+      const draft = readStoredDraft();
+      if (!draft) {
         setDraftRestored(true);
         return;
       }
 
-      const draft = JSON.parse(rawDraft) as DraftState;
       setLawyerName(draft.lawyerName || '');
       setPendingTemplatePath(draft.pendingTemplatePath || null);
       setPendingTemplateName(draft.pendingTemplateName || null);
       setShowForm(Boolean(draft.showForm));
     } catch (error) {
       console.error('Failed to restore draft:', error);
-      window.sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+      writeStoredDraft(null);
     } finally {
       setDraftRestored(true);
     }
   }, [draftRestored]);
 
   useEffect(() => {
-    if (!draftRestored || typeof window === 'undefined') return;
+    if (!draftRestored) return;
 
-    const hasDraft = showForm || lawyerName || pendingTemplatePath || pendingTemplateName;
-    if (!hasDraft) {
-      window.sessionStorage.removeItem(DRAFT_STORAGE_KEY);
-      return;
-    }
-
-    const draft: DraftState = {
+    writeStoredDraft({
       lawyerName,
       pendingTemplatePath,
       pendingTemplateName,
       showForm,
-    };
-
-    window.sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+    });
   }, [draftRestored, lawyerName, pendingTemplatePath, pendingTemplateName, showForm]);
 
   const loadLetterheads = async () => {
@@ -186,8 +201,11 @@ const Letterheads = () => {
   };
 
   const handleTemplateChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const nextFile = event.target.files?.[0] ?? null;
-    event.target.value = '';
+    event.preventDefault();
+    event.stopPropagation();
+
+    const nextFile = event.currentTarget.files?.[0] ?? null;
+    event.currentTarget.value = '';
 
     if (!nextFile || !user) return;
 
@@ -201,9 +219,18 @@ const Letterheads = () => {
       return;
     }
 
+    const draftBeforeUpload: DraftState = {
+      lawyerName,
+      pendingTemplatePath,
+      pendingTemplateName,
+      showForm: true,
+    };
+
+    writeStoredDraft(draftBeforeUpload);
     setUploadingTemplate(true);
     setTemplateFile(nextFile);
     setPreviewHtml(null);
+    setShowForm(true);
 
     try {
       const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
@@ -214,6 +241,14 @@ const Letterheads = () => {
       if (error) throw error;
 
       const oldPendingPath = pendingTemplatePath;
+      const nextDraft: DraftState = {
+        lawyerName,
+        pendingTemplatePath: path,
+        pendingTemplateName: nextFile.name,
+        showForm: true,
+      };
+
+      writeStoredDraft(nextDraft);
       setPendingTemplatePath(path);
       setPendingTemplateName(nextFile.name);
       toast({ title: 'تم تجهيز ملف الترويسة ✅' });
@@ -222,9 +257,10 @@ const Letterheads = () => {
         cleanupPendingUpload(oldPendingPath);
       }
     } catch (error: any) {
+      writeStoredDraft(draftBeforeUpload);
       setTemplateFile(null);
-      setPendingTemplatePath(null);
-      setPendingTemplateName(null);
+      setPendingTemplatePath(draftBeforeUpload.pendingTemplatePath);
+      setPendingTemplateName(draftBeforeUpload.pendingTemplateName);
       toast({ title: 'خطأ في رفع الملف', description: error.message, variant: 'destructive' });
     } finally {
       setUploadingTemplate(false);
@@ -258,9 +294,7 @@ const Letterheads = () => {
         toast({ title: 'تم إضافة الترويسة ✅' });
       }
 
-      if (typeof window !== 'undefined') {
-        window.sessionStorage.removeItem(DRAFT_STORAGE_KEY);
-      }
+      writeStoredDraft(null);
       resetForm(false);
       loadLetterheads();
     } catch (e: any) {
@@ -278,6 +312,12 @@ const Letterheads = () => {
     setPendingTemplateName(lh.template_path?.split('/').pop() || null);
     setPreviewHtml(null);
     setShowForm(true);
+    writeStoredDraft({
+      lawyerName: lh.lawyer_name,
+      pendingTemplatePath: lh.template_path,
+      pendingTemplateName: lh.template_path?.split('/').pop() || null,
+      showForm: true,
+    });
   };
 
   const deleteLetterhead = async (lh: Letterhead) => {
@@ -308,10 +348,7 @@ const Letterheads = () => {
     setPreviewHtml(null);
     setPreviewLoading(false);
     setUploadingTemplate(false);
-
-    if (typeof window !== 'undefined') {
-      window.sessionStorage.removeItem(DRAFT_STORAGE_KEY);
-    }
+    writeStoredDraft(null);
 
     if (pathToCleanup) {
       cleanupPendingUpload(pathToCleanup);
