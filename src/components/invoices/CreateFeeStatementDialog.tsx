@@ -128,7 +128,12 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated }: Props) => {
     setSaving(true);
     try {
       const now = new Date();
-      const statementNumber = `FEE-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
+
+      // Get sequential number from DB
+      const { data: seqNumber, error: seqError } = await supabase
+        .rpc('next_accounting_number', { _user_id: user.id, _type: 'fee_statement' });
+      if (seqError) throw seqError;
+      const statementNumber = seqNumber as string;
 
       const client = clients.find(c => c.id === form.clientId);
       const letterhead = letterheads.find(l => l.id === form.letterheadId);
@@ -214,6 +219,19 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated }: Props) => {
       if (uploadError) throw uploadError;
 
       await supabase.from('fee_statements').update({ pdf_path: pdfPath }).eq('id', stmt.id);
+
+      // Record accounting entry
+      await supabase.from('accounting_entries').insert({
+        user_id: user.id,
+        entry_number: statementNumber,
+        entry_type: 'fee_statement',
+        reference_id: stmt.id,
+        client_id: form.clientId || null,
+        description: `بيان أتعاب — ${client?.full_name || ''} — ${selectedCases.map(c => c.case_number).join(', ')}`,
+        amount_ht: subtotal,
+        tax_amount: taxAmount,
+        amount_ttc: totalAmount,
+      });
 
       toast({ title: 'تم إنشاء بيان الأتعاب بنجاح ✅' });
       setForm({ clientId: '', letterheadId: '', powerOfAttorneyDate: '', lawyerFees: '', taxRate: '10', notes: '' });

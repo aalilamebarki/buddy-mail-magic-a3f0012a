@@ -63,16 +63,18 @@ const CreateInvoiceDialog = ({ open, onOpenChange, onCreated }: Props) => {
         return;
       }
 
-      // Generate invoice number
-      const now = new Date();
-      const invoiceNumber = `INV-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
+      // Get sequential number from DB
+      const { data: seqNumber, error: seqError } = await supabase
+        .rpc('next_accounting_number', { _user_id: user.id, _type: 'invoice' });
+      if (seqError) throw seqError;
+      const invoiceNumber = seqNumber as string;
 
-      // Get names for PDF
+      const now = new Date();
       const client = clients.find(c => c.id === form.clientId);
       const caseItem = cases.find(c => c.id === form.caseId);
       const letterhead = letterheads.find(l => l.id === form.letterheadId);
 
-      // Insert invoice record first to get the signature UUID
+      // Insert invoice record
       const { data: invoice, error } = await supabase
         .from('invoices')
         .insert({
@@ -89,6 +91,20 @@ const CreateInvoiceDialog = ({ open, onOpenChange, onCreated }: Props) => {
         .single();
 
       if (error) throw error;
+
+      // Record accounting entry
+      await supabase.from('accounting_entries').insert({
+        user_id: user.id,
+        entry_number: invoiceNumber,
+        entry_type: 'invoice',
+        reference_id: invoice.id,
+        client_id: form.clientId || null,
+        description: form.description || `وصل أداء أتعاب — ${client?.full_name || ''}`,
+        amount_ht: amount,
+        tax_amount: 0,
+        amount_ttc: amount,
+        payment_method: form.paymentMethod,
+      });
 
       // Generate PDF
       const pdfBlob = await generateInvoicePDF({
@@ -109,14 +125,9 @@ const CreateInvoiceDialog = ({ open, onOpenChange, onCreated }: Props) => {
       const { error: uploadError } = await supabase.storage
         .from('invoices')
         .upload(pdfPath, pdfBlob, { contentType: 'application/pdf' });
-
       if (uploadError) throw uploadError;
 
-      // Update invoice with PDF path
-      await supabase
-        .from('invoices')
-        .update({ pdf_path: pdfPath })
-        .eq('id', invoice.id);
+      await supabase.from('invoices').update({ pdf_path: pdfPath }).eq('id', invoice.id);
 
       toast({ title: 'تم إنشاء الوصل بنجاح ✅' });
       setForm({ clientId: '', caseId: '', letterheadId: '', amount: '', description: '', paymentMethod: 'cash' });
