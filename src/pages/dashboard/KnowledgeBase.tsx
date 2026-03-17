@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { BookOpen, Plus, Upload, Search, FileText, Scale, Database, Globe, Loader2, Gavel, ScrollText, FileCheck, Building2, Eye, Download } from 'lucide-react';
+import { BookOpen, Plus, Upload, Search, FileText, Scale, Database, Globe, Loader2, Gavel, ScrollText, FileCheck, Building2, Eye, Download, Play, Square, Zap, HardDrive, RefreshCw } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
 interface LegalDocument {
@@ -27,6 +27,11 @@ interface LegalDocument {
   decision_date: string | null;
   created_at: string;
   metadata: any;
+  pdf_url: string | null;
+  local_pdf_path: string | null;
+  year_issued: number | null;
+  official_gazette_number: string | null;
+  issuing_authority: string | null;
 }
 
 const DOC_TYPES = [
@@ -54,6 +59,12 @@ const COURT_CHAMBERS = [
   'الغرفة المدنية', 'الغرفة الجنائية', 'الغرفة التجارية',
   'الغرفة الاجتماعية', 'الغرفة الإدارية', 'غرفة الأحوال الشخصية والميراث', 'جميع الغرف',
 ];
+
+type LogEntry = {
+  time: string;
+  message: string;
+  type: 'info' | 'success' | 'error' | 'warning';
+};
 
 const KnowledgeBase = () => {
   const [activeTab, setActiveTab] = useState('legislation');
@@ -118,33 +129,105 @@ const KnowledgeBase = () => {
   const [pdfDownloadLog, setPdfDownloadLog] = useState<string[]>([]);
   const [pdfDownloadDialogOpen, setPdfDownloadDialogOpen] = useState(false);
 
+  // Firecrawl scraper state (merged from LegalScraper)
+  const [fcScraping, setFcScraping] = useState(false);
+  const [fcStartPage, setFcStartPage] = useState(1);
+  const [fcEndPage, setFcEndPage] = useState(1070);
+  const [fcBatchSize, setFcBatchSize] = useState(5);
+  const [fcCurrentPage, setFcCurrentPage] = useState(0);
+  const [fcLogs, setFcLogs] = useState<LogEntry[]>([]);
+  const fcStopRef = useRef(false);
+  const fcLogsEndRef = useRef<HTMLDivElement>(null);
+  const [fcStats, setFcStats] = useState<{ totalDocs: number; withLocalPdf: number; lastPage: number } | null>(null);
+
+  const addFcLog = (message: string, type: LogEntry['type'] = 'info') => {
+    const time = new Date().toLocaleTimeString('ar-MA');
+    setFcLogs(prev => [...prev.slice(-100), { time, message, type }]);
+  };
+
+  const fetchFcStats = async () => {
+    const { count: total } = await supabase.from('legal_documents').select('*', { count: 'exact', head: true });
+    const { count: withPdf } = await supabase.from('legal_documents').select('*', { count: 'exact', head: true })
+      .not('local_pdf_path', 'is', null).neq('local_pdf_path', 'fetch_failed').neq('local_pdf_path', 'upload_failed');
+    const { data: maxP } = await supabase.from('legal_documents').select('resource_page_id')
+      .not('resource_page_id', 'is', null).order('resource_page_id', { ascending: false }).limit(1);
+    const lastPage = maxP?.[0]?.resource_page_id || 0;
+    setFcStats({ totalDocs: total || 0, withLocalPdf: withPdf || 0, lastPage });
+    if (lastPage > 0) setFcStartPage(lastPage + 1);
+  };
+
+  useEffect(() => { fcLogsEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [fcLogs]);
+
+  const startFcScraping = async () => {
+    setFcScraping(true);
+    fcStopRef.current = false;
+    addFcLog(`🚀 بدء الجلب من صفحة ${fcStartPage} إلى ${fcEndPage} (دفعات من ${fcBatchSize})`, 'info');
+    let currentStart = fcStartPage;
+    while (currentStart <= fcEndPage && !fcStopRef.current) {
+      setFcCurrentPage(currentStart);
+      addFcLog(`📄 جلب الصفحات ${currentStart} - ${Math.min(currentStart + fcBatchSize - 1, fcEndPage)}...`);
+      try {
+        const { data, error } = await supabase.functions.invoke('firecrawl-legal-scraper', {
+          body: { action: 'batch_scrape', start_page: currentStart, end_page: fcEndPage, batch_size: fcBatchSize },
+        });
+        if (error) { addFcLog(`❌ خطأ: ${error.message}`, 'error'); await new Promise(r => setTimeout(r, 5000)); continue; }
+        if (data?.results) {
+          for (const r of data.results) {
+            if (r.status === 'done') addFcLog(`✅ صفحة ${r.page_id}: وُجد ${r.found} رابط، حُفظ ${r.saved}`, 'success');
+            else if (r.status === 'skipped') addFcLog(`⏭️ صفحة ${r.page_id}: تم جلبها مسبقاً`, 'warning');
+            else if (r.status === 'firecrawl_error') addFcLog(`⚠️ صفحة ${r.page_id}: خطأ Firecrawl (${r.code})`, 'error');
+            else addFcLog(`⚠️ صفحة ${r.page_id}: ${r.status}`, 'warning');
+          }
+        }
+        currentStart = data?.next_start || currentStart + fcBatchSize;
+        if (!fcStopRef.current && currentStart <= fcEndPage) await new Promise(r => setTimeout(r, 2000));
+      } catch (e: any) {
+        addFcLog(`❌ خطأ غير متوقع: ${e.message}`, 'error');
+        await new Promise(r => setTimeout(r, 5000));
+        currentStart += fcBatchSize;
+      }
+    }
+    if (fcStopRef.current) addFcLog('⏹️ تم إيقاف الجلب', 'warning');
+    else addFcLog('🎉 اكتمل الجلب!', 'success');
+    setFcScraping(false);
+    fetchFcStats();
+    fetchStats();
+  };
+
+  const stopFcScraping = () => { fcStopRef.current = true; addFcLog('⏳ جاري الإيقاف...', 'warning'); };
+
+  const testFcSinglePage = async () => {
+    addFcLog(`🧪 اختبار صفحة ${fcStartPage}...`);
+    try {
+      const { data, error } = await supabase.functions.invoke('firecrawl-legal-scraper', {
+        body: { action: 'scrape_page', page_id: fcStartPage },
+      });
+      if (error) addFcLog(`❌ خطأ: ${error.message}`, 'error');
+      else if (data?.skipped) addFcLog(`⏭️ الصفحة مجلوبة مسبقاً`, 'warning');
+      else {
+        addFcLog(`✅ نتيجة: ${data?.count || 0} وثيقة`, 'success');
+        if (data?.results) for (const r of data.results) addFcLog(`   ${r.status} - ${r.title}`, r.status.includes('✅') ? 'success' : 'info');
+      }
+    } catch (e: any) { addFcLog(`❌ ${e.message}`, 'error'); }
+  };
+
+  const fcProgress = fcCurrentPage > 0 ? ((fcCurrentPage - fcStartPage) / (fcEndPage - fcStartPage + 1)) * 100 : 0;
+
   const handleDownloadPdfs = async () => {
     setPdfDownloading(true);
     setPdfDownloadLog([]);
     let totalDownloaded = 0;
     let totalFailed = 0;
-    const maxRounds = 20; // 20 rounds × 5 = 100 docs max per session
-    
+    const maxRounds = 20;
     for (let round = 0; round < maxRounds; round++) {
       try {
-        const { data, error } = await supabase.functions.invoke('download-legal-pdfs', {
-          body: { batch_size: 5 },
-        });
+        const { data, error } = await supabase.functions.invoke('download-legal-pdfs', { body: { batch_size: 5 } });
         if (error) throw error;
-        if (!data || data.downloaded === 0) {
-          setPdfDownloadLog(prev => [...prev, '✅ تم تحميل جميع الوثائق المتاحة']);
-          break;
-        }
+        if (!data || data.downloaded === 0) { setPdfDownloadLog(prev => [...prev, '✅ تم تحميل جميع الوثائق المتاحة']); break; }
         totalDownloaded += data.downloaded;
         totalFailed += data.failed;
-        setPdfDownloadLog(prev => [
-          ...prev,
-          `📥 الدفعة ${round + 1}: تحميل ${data.downloaded}، فشل ${data.failed}`,
-        ]);
-      } catch (e: any) {
-        setPdfDownloadLog(prev => [...prev, `❌ خطأ: ${e.message}`]);
-        break;
-      }
+        setPdfDownloadLog(prev => [...prev, `📥 الدفعة ${round + 1}: تحميل ${data.downloaded}، فشل ${data.failed}`]);
+      } catch (e: any) { setPdfDownloadLog(prev => [...prev, `❌ خطأ: ${e.message}`]); break; }
     }
     setPdfDownloadLog(prev => [...prev, `📊 الإجمالي: ${totalDownloaded} محمّل، ${totalFailed} فشل`]);
     setPdfDownloading(false);
@@ -154,46 +237,39 @@ const KnowledgeBase = () => {
   const fetchStats = async () => {
     const types = ['law', 'dahir', 'decree', 'organic_law', 'circular', 'convention', 'decision', 'ruling', 'doctrine'];
     const results: Record<string, number> = {};
-    
     const promises = types.map(async (t) => {
       const { count } = await supabase.from('legal_documents').select('*', { count: 'exact', head: true }).eq('doc_type', t);
       results[t] = count || 0;
     });
     await Promise.all(promises);
-    
     const { count: total } = await supabase.from('legal_documents').select('*', { count: 'exact', head: true });
     results.total = total || 0;
-    
     setStats(results);
   };
 
   const fetchDocuments = async () => {
+    if (activeTab === 'tools') return;
     setLoading(true);
     const isLegislation = activeTab === 'legislation';
-    
     let query = supabase
       .from('legal_documents')
-      .select('id, title, content, doc_type, category, source, reference_number, court_chamber, decision_date, created_at, metadata')
+      .select('id, title, content, doc_type, category, source, reference_number, court_chamber, decision_date, created_at, metadata, pdf_url, local_pdf_path, year_issued, official_gazette_number, issuing_authority')
       .order('created_at', { ascending: false })
       .limit(100);
 
     if (isLegislation) {
-      if (filterSubType !== 'all') {
-        query = query.eq('doc_type', filterSubType);
-      } else {
-        query = query.in('doc_type', LEGISLATION_TYPES);
-      }
+      if (filterSubType !== 'all') query = query.eq('doc_type', filterSubType);
+      else query = query.in('doc_type', LEGISLATION_TYPES);
     } else {
       query = query.eq('doc_type', RULING_TYPE);
       if (filterChamber !== 'all') query = query.eq('court_chamber', filterChamber);
     }
-
     if (filterCategory !== 'all') query = query.eq('category', filterCategory);
     if (searchQuery.trim()) query = query.ilike('title', `%${searchQuery}%`);
 
     const { data, error } = await query;
     if (error) toast.error('خطأ في تحميل المستندات');
-    else setDocuments(data || []);
+    else setDocuments((data || []) as LegalDocument[]);
     setLoading(false);
   };
 
@@ -202,11 +278,12 @@ const KnowledgeBase = () => {
     fetchStats();
   }, [activeTab, filterSubType, filterCategory, filterChamber, searchQuery]);
 
+  useEffect(() => {
+    if (activeTab === 'tools') fetchFcStats();
+  }, [activeTab]);
+
   const handleAddDocument = async () => {
-    if (!form.title.trim() || !form.content.trim()) {
-      toast.error('العنوان والمحتوى مطلوبان');
-      return;
-    }
+    if (!form.title.trim() || !form.content.trim()) { toast.error('العنوان والمحتوى مطلوبان'); return; }
     setSubmitting(true);
     try {
       const { error } = await supabase.functions.invoke('legal-knowledge', {
@@ -226,304 +303,181 @@ const KnowledgeBase = () => {
       setAddDialogOpen(false);
       fetchDocuments();
       fetchStats();
-    } catch {
-      toast.error('خطأ في إضافة المستند');
-    }
+    } catch { toast.error('خطأ في إضافة المستند'); }
     setSubmitting(false);
   };
 
   // Scraping handlers
   const handleMapWebsite = async () => {
-    setScraping(true);
-    setScrapeStep('mapping');
-    setScrapeResults([]);
-    setDiscoveredUrls([]);
+    setScraping(true); setScrapeStep('mapping'); setScrapeResults([]); setDiscoveredUrls([]);
     try {
-      const { data, error } = await supabase.functions.invoke('scrape-rulings', {
-        body: { action: 'map', url: scrapeUrl, limit: 500 },
-      });
+      const { data, error } = await supabase.functions.invoke('scrape-rulings', { body: { action: 'map', url: scrapeUrl, limit: 500 } });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'فشل في اكتشاف الروابط');
-      const urls = (data.links || []).filter((u: string) =>
-        u.includes('juriscassation') || u.includes('adala') || u.includes('decision') || u.includes('arret')
-      );
-      setDiscoveredUrls(urls);
-      setScrapeStep('idle');
+      const urls = (data.links || []).filter((u: string) => u.includes('juriscassation') || u.includes('adala') || u.includes('decision') || u.includes('arret'));
+      setDiscoveredUrls(urls); setScrapeStep('idle');
       toast.success(`تم اكتشاف ${urls.length} رابط`);
-    } catch (e: any) {
-      toast.error(e.message || 'خطأ في اكتشاف الروابط');
-      setScrapeStep('idle');
-    }
+    } catch (e: any) { toast.error(e.message); setScrapeStep('idle'); }
     setScraping(false);
   };
 
   const handleScrapeUrls = async () => {
     if (discoveredUrls.length === 0) { toast.error('لا توجد روابط لجلبها'); return; }
-    setScraping(true);
-    setScrapeStep('scraping');
-    setScrapeProgress(0);
-    const allResults: any[] = [];
-    const batchSize = 10;
-    const total = discoveredUrls.length;
+    setScraping(true); setScrapeStep('scraping'); setScrapeProgress(0);
+    const allResults: any[] = []; const batchSize = 10; const total = discoveredUrls.length;
     for (let i = 0; i < total; i += batchSize) {
       const batch = discoveredUrls.slice(i, i + batchSize);
       try {
-        const { data, error } = await supabase.functions.invoke('scrape-rulings', {
-          body: { action: 'batch', urls: batch },
-        });
+        const { data, error } = await supabase.functions.invoke('scrape-rulings', { body: { action: 'batch', urls: batch } });
         if (!error && data?.results) allResults.push(...data.results);
       } catch (e) { console.error('Batch error:', e); }
       setScrapeProgress(Math.round(((i + batch.length) / total) * 100));
       setScrapeResults([...allResults]);
     }
-    setScrapeStep('done');
-    setScraping(false);
-    const successCount = allResults.filter(r => r.success).length;
-    toast.success(`تم جلب ${successCount} قرار من أصل ${total} رابط`);
-    fetchDocuments();
-    fetchStats();
+    setScrapeStep('done'); setScraping(false);
+    toast.success(`تم جلب ${allResults.filter(r => r.success).length} قرار من أصل ${total} رابط`);
+    fetchDocuments(); fetchStats();
   };
 
   const handleAutoIngest = async () => {
-    setAutoIngesting(true);
-    setAutoIngestLog([]);
-    setAutoIngestDocs(0);
-    setAutoIngestProgress(0);
+    setAutoIngesting(true); setAutoIngestLog([]); setAutoIngestDocs(0); setAutoIngestProgress(0);
     const sourceNames: Record<string, string> = { sgg: 'الجريدة الرسمية', cassation: 'محكمة النقض' };
-    
     let { data: statusData } = await supabase.functions.invoke('auto-ingest', { body: { action: 'status' } });
     const totalSearches = statusData?.sources?.[autoIngestSource]?.total || 20;
-
     setAutoIngestLog(prev => [...prev, `🔍 بدء الجلب من ${sourceNames[autoIngestSource]}...`]);
-    
-    let nextIndex = 0;
-    let remaining = 1;
-    let totalDocsAdded = 0;
-    let completed = 0;
-
+    let nextIndex = 0; let remaining = 1; let totalDocsAdded = 0; let completed = 0;
     while (remaining > 0) {
       try {
-        const { data, error } = await supabase.functions.invoke('auto-ingest', {
-          body: { action: 'batch_search', source: autoIngestSource, start_index: nextIndex, count: 2 },
-        });
+        const { data, error } = await supabase.functions.invoke('auto-ingest', { body: { action: 'batch_search', source: autoIngestSource, start_index: nextIndex, count: 2 } });
         if (error) { setAutoIngestLog(prev => [...prev, `❌ خطأ: ${error.message}`]); break; }
         if (data?.ingested?.length > 0) {
           for (const doc of data.ingested) {
             const typeLabel = DOC_TYPES.find(t => t.value === doc.doc_type)?.label || doc.doc_type;
             setAutoIngestLog(prev => [...prev, `✅ [${typeLabel}] ${doc.title} (${doc.chunks} أجزاء)`]);
           }
-          totalDocsAdded += data.documentsAdded || 0;
-          setAutoIngestDocs(totalDocsAdded);
-        } else {
-          setAutoIngestLog(prev => [...prev, `📄 تم فحص ${data?.processed || 0} استعلامات - لا جديد`]);
-        }
-        remaining = data?.remaining ?? 0;
-        nextIndex = data?.nextIndex ?? nextIndex + 2;
-        completed += data?.processed || 0;
-        setAutoIngestProgress(Math.round((completed / Math.max(totalSearches, 1)) * 100));
+          totalDocsAdded += data.documentsAdded || 0; setAutoIngestDocs(totalDocsAdded);
+        } else { setAutoIngestLog(prev => [...prev, `📄 تم فحص ${data?.processed || 0} استعلامات - لا جديد`]); }
+        remaining = data?.remaining ?? 0; nextIndex = data?.nextIndex ?? nextIndex + 2;
+        completed += data?.processed || 0; setAutoIngestProgress(Math.round((completed / Math.max(totalSearches, 1)) * 100));
         await new Promise(r => setTimeout(r, 500));
-      } catch (err: any) {
-        setAutoIngestLog(prev => [...prev, `❌ خطأ: ${err.message}`]);
-        break;
-      }
+      } catch (err: any) { setAutoIngestLog(prev => [...prev, `❌ خطأ: ${err.message}`]); break; }
     }
     setAutoIngestLog(prev => [...prev, `🎉 تم الانتهاء! أُضيف ${totalDocsAdded} مستند جديد`]);
-    setAutoIngesting(false);
-    fetchDocuments();
-    fetchStats();
+    setAutoIngesting(false); fetchDocuments(); fetchStats();
     toast.success(`تم إضافة ${totalDocsAdded} مستند جديد`);
   };
 
   // SGG Archive Scraper
   const handleSggDiscover = async () => {
-    setSggScraping(true);
-    setSggStep('discovering');
+    setSggScraping(true); setSggStep('discovering');
     setSggLog(['🔍 جاري اكتشاف صفحات القوانين من الأمانة العامة للحكومة...']);
-    setSggNewUrls([]);
-    setSggTotalIngested(0);
+    setSggNewUrls([]); setSggTotalIngested(0);
     try {
-      const { data, error } = await supabase.functions.invoke('scrape-sgg-laws', {
-        body: { action: 'discover', base_url: 'https://www.sgg.gov.ma' },
-      });
+      const { data, error } = await supabase.functions.invoke('scrape-sgg-laws', { body: { action: 'discover', base_url: 'https://www.sgg.gov.ma' } });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'فشل الاكتشاف');
       setSggNewUrls(data.urls || []);
       setSggStats({ found: data.lawLinks || 0, new: data.newLinks || 0, alreadyScraped: data.alreadyScraped || 0 });
-      setSggLog(prev => [
-        ...prev,
-        `📊 إجمالي الروابط: ${data.totalFound}`,
-        `📄 روابط القوانين: ${data.lawLinks}`,
-        `✅ تم جلبها مسبقاً: ${data.alreadyScraped}`,
-        `🆕 روابط جديدة: ${data.newLinks}`,
-      ]);
+      setSggLog(prev => [...prev, `📊 إجمالي الروابط: ${data.totalFound}`, `📄 روابط القوانين: ${data.lawLinks}`, `✅ تم جلبها مسبقاً: ${data.alreadyScraped}`, `🆕 روابط جديدة: ${data.newLinks}`]);
       setSggStep('idle');
       if (data.newLinks === 0) toast.info('جميع القوانين المتوفرة تم جلبها مسبقاً');
       else toast.success(`تم اكتشاف ${data.newLinks} قانون جديد`);
-    } catch (e: any) {
-      toast.error(e.message || 'خطأ في الاكتشاف');
-      setSggLog(prev => [...prev, `❌ خطأ: ${e.message}`]);
-      setSggStep('idle');
-    }
+    } catch (e: any) { toast.error(e.message); setSggLog(prev => [...prev, `❌ خطأ: ${e.message}`]); setSggStep('idle'); }
     setSggScraping(false);
   };
 
   const handleSggScrapeAll = async () => {
     if (sggNewUrls.length === 0) { toast.error('لا توجد روابط جديدة'); return; }
-    setSggScraping(true);
-    setSggStep('scraping');
-    setSggProgress(0);
+    setSggScraping(true); setSggStep('scraping'); setSggProgress(0);
     setSggLog(prev => [...prev, `🚀 بدء جلب ${sggNewUrls.length} قانون...`]);
-    let totalIngested = 0;
-    const batchSize = 10;
-    const total = sggNewUrls.length;
-    let processedCount = 0;
+    let totalIngested = 0; const batchSize = 10; const total = sggNewUrls.length; let processedCount = 0;
     for (let i = 0; i < total; i += batchSize) {
       const batch = sggNewUrls.slice(i, i + batchSize);
       try {
-        const { data, error } = await supabase.functions.invoke('scrape-sgg-laws', {
-          body: { action: 'scrape_batch', urls_to_scrape: batch },
-        });
+        const { data, error } = await supabase.functions.invoke('scrape-sgg-laws', { body: { action: 'scrape_batch', urls_to_scrape: batch } });
         if (error) { setSggLog(prev => [...prev, `❌ خطأ في الدفعة: ${error.message}`]); continue; }
         if (data?.results) {
           for (const r of data.results) {
-            if (r.success) {
-              const typeLabel = DOC_TYPES.find(t => t.value === r.doc_type)?.label || r.doc_type || 'نص';
-              setSggLog(prev => [...prev, `✅ [${typeLabel}] ${r.title} [${r.category}] (${r.ingested} أجزاء)`]);
-            } else if (r.skipped) {
-              setSggLog(prev => [...prev, `⏭️ موجود مسبقاً`]);
-            } else {
-              setSggLog(prev => [...prev, `⚠️ ${r.error}`]);
-            }
+            if (r.success) { const typeLabel = DOC_TYPES.find(t => t.value === r.doc_type)?.label || r.doc_type || 'نص'; setSggLog(prev => [...prev, `✅ [${typeLabel}] ${r.title} [${r.category}] (${r.ingested} أجزاء)`]); }
+            else if (r.skipped) setSggLog(prev => [...prev, `⏭️ موجود مسبقاً`]);
+            else setSggLog(prev => [...prev, `⚠️ ${r.error}`]);
           }
-          totalIngested += data.totalIngested || 0;
-          setSggTotalIngested(totalIngested);
+          totalIngested += data.totalIngested || 0; setSggTotalIngested(totalIngested);
         }
-        processedCount += batch.length;
-        setSggProgress(Math.round((processedCount / total) * 100));
-      } catch (err: any) {
-        setSggLog(prev => [...prev, `❌ خطأ: ${err.message}`]);
-      }
+        processedCount += batch.length; setSggProgress(Math.round((processedCount / total) * 100));
+      } catch (err: any) { setSggLog(prev => [...prev, `❌ خطأ: ${err.message}`]); }
     }
-    setSggStep('done');
-    setSggScraping(false);
+    setSggStep('done'); setSggScraping(false);
     setSggLog(prev => [...prev, `🎉 انتهى الجلب! تم إضافة ${totalIngested} جزء قانوني جديد`]);
     toast.success(`تم إضافة ${totalIngested} جزء قانوني`);
-    fetchDocuments();
-    fetchStats();
+    fetchDocuments(); fetchStats();
   };
 
-  // Adala PDF Scraper - Load links file, check existing, scrape new
+  // Adala PDF Scraper
   const handleAdalaLoadAndCheck = async () => {
-    setAdalaScraping(true);
-    setAdalaStep('loading');
+    setAdalaScraping(true); setAdalaStep('loading');
     setAdalaLog(['📂 جاري تحميل قائمة روابط PDF من بوابة عدالة...']);
-    setAdalaAllUrls([]);
-    setAdalaNewUrls([]);
-    setAdalaTotalIngested(0);
-
+    setAdalaAllUrls([]); setAdalaNewUrls([]); setAdalaTotalIngested(0);
     try {
-      // Step 1: Fetch the links file
       const resp = await fetch('/data/adala_pdf_links.txt');
       if (!resp.ok) throw new Error('فشل تحميل ملف الروابط');
       const text = await resp.text();
-      
-      // Parse PDF URLs from lines like: المصدر (Resource 3) | الرابط: https://...pdf#toolbar=0
       const urls: string[] = [];
       for (const line of text.split('\n')) {
         const match = line.match(/الرابط:\s*(https?:\/\/[^\s]+)/);
         if (match) urls.push(match[1].trim());
       }
-
       setAdalaAllUrls(urls);
       setAdalaLog(prev => [...prev, `📊 تم العثور على ${urls.length} رابط PDF`]);
       setAdalaStep('checking');
       setAdalaLog(prev => [...prev, '🔍 جاري فحص الروابط الموجودة مسبقاً...']);
-
-      // Step 2: Check existing in batches (send cleaned URLs for DB check)
       const cleanedUrls = urls.map(u => u.split('#')[0]);
-      const CHUNK = 200;
-      const allNew: string[] = [];
-      let existingCount = 0;
-
+      const CHUNK = 200; const allNew: string[] = []; let existingCount = 0;
       for (let i = 0; i < urls.length; i += CHUNK) {
         const batchClean = cleanedUrls.slice(i, i + CHUNK);
         const batchOriginal = urls.slice(i, i + CHUNK);
-        
-        const { data, error } = await supabase.functions.invoke('scrape-adala-pdfs', {
-          body: { action: 'check_existing', pdf_urls: batchClean },
-        });
+        const { data, error } = await supabase.functions.invoke('scrape-adala-pdfs', { body: { action: 'check_existing', pdf_urls: batchClean } });
         if (error) throw error;
-        
         const existingSet = new Set(batchClean.filter((_, idx) => !data.newUrls.includes(batchClean[idx])));
         for (let j = 0; j < batchClean.length; j++) {
-          if (!existingSet.has(batchClean[j])) {
-            allNew.push(batchOriginal[j]);
-          } else {
-            existingCount++;
-          }
+          if (!existingSet.has(batchClean[j])) allNew.push(batchOriginal[j]);
+          else existingCount++;
         }
       }
-
       setAdalaNewUrls(allNew);
       setAdalaStats({ total: urls.length, existing: existingCount, newCount: allNew.length });
-      setAdalaLog(prev => [
-        ...prev,
-        `📊 إجمالي الروابط: ${urls.length}`,
-        `✅ موجود مسبقاً: ${existingCount}`,
-        `🆕 روابط جديدة: ${allNew.length}`,
-      ]);
+      setAdalaLog(prev => [...prev, `📊 إجمالي الروابط: ${urls.length}`, `✅ موجود مسبقاً: ${existingCount}`, `🆕 روابط جديدة: ${allNew.length}`]);
       setAdalaStep('idle');
       if (allNew.length === 0) toast.info('جميع روابط PDF تم جلبها مسبقاً');
       else toast.success(`تم اكتشاف ${allNew.length} رابط PDF جديد`);
-    } catch (e: any) {
-      toast.error(e.message || 'خطأ في التحميل');
-      setAdalaLog(prev => [...prev, `❌ خطأ: ${e.message}`]);
-      setAdalaStep('idle');
-    }
+    } catch (e: any) { toast.error(e.message); setAdalaLog(prev => [...prev, `❌ خطأ: ${e.message}`]); setAdalaStep('idle'); }
     setAdalaScraping(false);
   };
 
   const handleAdalaScrapeAll = async () => {
     if (adalaNewUrls.length === 0) { toast.error('لا توجد روابط جديدة'); return; }
-    setAdalaScraping(true);
-    setAdalaStep('scraping');
-    setAdalaProgress(0);
+    setAdalaScraping(true); setAdalaStep('scraping'); setAdalaProgress(0);
     setAdalaLog(prev => [...prev, `🚀 بدء جلب ${adalaNewUrls.length} ملف PDF...`]);
-    let totalIngested = 0;
-    const batchSize = 3;
-    const total = adalaNewUrls.length;
-    let processedCount = 0;
-
+    let totalIngested = 0; const batchSize = 3; const total = adalaNewUrls.length; let processedCount = 0;
     for (let i = 0; i < total; i += batchSize) {
       const batch = adalaNewUrls.slice(i, i + batchSize);
       try {
-        const { data, error } = await supabase.functions.invoke('scrape-adala-pdfs', {
-          body: { action: 'scrape_batch', pdf_urls: batch, batch_size: batchSize },
-        });
+        const { data, error } = await supabase.functions.invoke('scrape-adala-pdfs', { body: { action: 'scrape_batch', pdf_urls: batch, batch_size: batchSize } });
         if (error) { setAdalaLog(prev => [...prev, `❌ خطأ في الدفعة: ${error.message}`]); continue; }
         if (data?.results) {
           for (const r of data.results) {
-            if (r.success) {
-              setAdalaLog(prev => [...prev, `✅ [${r.docType}] ${r.title} (${r.ingested} أجزاء) [${r.category}]`]);
-            } else {
-              setAdalaLog(prev => [...prev, `⚠️ ${r.title}: ${r.error}`]);
-            }
+            if (r.success) setAdalaLog(prev => [...prev, `✅ [${r.docType}] ${r.title} (${r.ingested} أجزاء) [${r.category}]`]);
+            else setAdalaLog(prev => [...prev, `⚠️ ${r.title}: ${r.error}`]);
           }
-          totalIngested += data.totalIngested || 0;
-          setAdalaTotalIngested(totalIngested);
+          totalIngested += data.totalIngested || 0; setAdalaTotalIngested(totalIngested);
         }
-        processedCount += batch.length;
-        setAdalaProgress(Math.round((processedCount / total) * 100));
-      } catch (err: any) {
-        setAdalaLog(prev => [...prev, `❌ خطأ: ${err.message}`]);
-      }
+        processedCount += batch.length; setAdalaProgress(Math.round((processedCount / total) * 100));
+      } catch (err: any) { setAdalaLog(prev => [...prev, `❌ خطأ: ${err.message}`]); }
     }
-    setAdalaStep('done');
-    setAdalaScraping(false);
+    setAdalaStep('done'); setAdalaScraping(false);
     setAdalaLog(prev => [...prev, `🎉 انتهى الجلب! تم إضافة ${totalIngested} جزء قانوني جديد`]);
     toast.success(`تم إضافة ${totalIngested} جزء قانوني من بوابة عدالة`);
-    fetchDocuments();
-    fetchStats();
+    fetchDocuments(); fetchStats();
   };
 
   const getTypeLabel = (type: string) => DOC_TYPES.find(t => t.value === type)?.label || type;
@@ -555,6 +509,7 @@ const KnowledgeBase = () => {
   };
 
   const getYear = (doc: LegalDocument) => {
+    if (doc.year_issued) return String(doc.year_issued);
     if (doc.decision_date) return new Date(doc.decision_date).getFullYear().toString();
     return new Date(doc.created_at).getFullYear().toString();
   };
@@ -661,7 +616,7 @@ const KnowledgeBase = () => {
           قاعدة المعرفة القانونية
         </h1>
         <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-          النصوص القانونية وقرارات محكمة النقض التي يعتمد عليها المستشار الذكي
+          النصوص القانونية وقرارات محكمة النقض — التصفح والجلب من المصادر الرسمية
         </p>
       </div>
 
@@ -710,14 +665,18 @@ const KnowledgeBase = () => {
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="w-full grid grid-cols-2">
+        <TabsList className="w-full grid grid-cols-3">
           <TabsTrigger value="legislation" className="gap-1.5 text-xs sm:text-sm">
             <FileText className="h-4 w-4" />
             التشريعات ({legislationCount})
           </TabsTrigger>
           <TabsTrigger value="rulings" className="gap-1.5 text-xs sm:text-sm">
             <Scale className="h-4 w-4" />
-            الاجتهادات القضائية ({rulingsCount})
+            الاجتهادات ({rulingsCount})
+          </TabsTrigger>
+          <TabsTrigger value="tools" className="gap-1.5 text-xs sm:text-sm">
+            <Download className="h-4 w-4" />
+            أدوات الجلب
           </TabsTrigger>
         </TabsList>
 
@@ -732,9 +691,7 @@ const KnowledgeBase = () => {
                     <Input placeholder="بحث في التشريعات..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pr-9 text-sm" />
                   </div>
                   <Select value={filterSubType} onValueChange={setFilterSubType}>
-                    <SelectTrigger className="w-28 sm:w-40 text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
+                    <SelectTrigger className="w-28 sm:w-40 text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">جميع الأنواع</SelectItem>
                       {DOC_TYPES.filter(t => LEGISLATION_TYPES.includes(t.value)).map(t => (
@@ -743,390 +700,349 @@ const KnowledgeBase = () => {
                     </SelectContent>
                   </Select>
                   <Select value={filterCategory} onValueChange={setFilterCategory}>
-                    <SelectTrigger className="w-28 sm:w-36 text-sm hidden sm:flex">
-                      <SelectValue placeholder="التصنيف" />
-                    </SelectTrigger>
+                    <SelectTrigger className="w-28 sm:w-36 text-sm hidden sm:flex"><SelectValue placeholder="التصنيف" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">كل التصنيفات</SelectItem>
                       {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button size="sm" className="gap-1 text-xs"><Plus className="h-3.5 w-3.5" /> إضافة مستند</Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                      <DialogHeader><DialogTitle>إضافة مستند قانوني</DialogTitle></DialogHeader>
-                      <div className="space-y-4 mt-4">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1">
-                            <Label>نوع المستند *</Label>
-                            <Select value={form.doc_type} onValueChange={v => setForm(f => ({ ...f, doc_type: v }))}>
-                              <SelectTrigger><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                {DOC_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-1">
-                            <Label>التصنيف</Label>
-                            <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v }))}>
-                              <SelectTrigger><SelectValue placeholder="اختر التصنيف" /></SelectTrigger>
-                              <SelectContent>
-                                {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
-                          </div>
+                <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" className="gap-1 text-xs w-fit"><Plus className="h-3.5 w-3.5" /> إضافة مستند</Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader><DialogTitle>إضافة مستند قانوني</DialogTitle></DialogHeader>
+                    <div className="space-y-4 mt-4">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label>نوع المستند *</Label>
+                          <Select value={form.doc_type} onValueChange={v => setForm(f => ({ ...f, doc_type: v }))}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>{DOC_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
+                          </Select>
                         </div>
                         <div className="space-y-1">
-                          <Label>العنوان *</Label>
-                          <Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="مثال: قانون رقم 31.08 المتعلق بحماية المستهلك" />
+                          <Label>التصنيف</Label>
+                          <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v }))}>
+                            <SelectTrigger><SelectValue placeholder="اختر التصنيف" /></SelectTrigger>
+                            <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                          </Select>
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1">
-                            <Label>رقم المرجع</Label>
-                            <Input value={form.reference_number} onChange={e => setForm(f => ({ ...f, reference_number: e.target.value }))} placeholder="31.08" />
-                          </div>
-                          <div className="space-y-1">
-                            <Label>تاريخ الصدور</Label>
-                            <Input type="date" value={form.decision_date} onChange={e => setForm(f => ({ ...f, decision_date: e.target.value }))} />
-                          </div>
-                        </div>
-                        {form.doc_type === 'ruling' && (
-                          <div className="space-y-1">
-                            <Label>الغرفة</Label>
-                            <Select value={form.court_chamber} onValueChange={v => setForm(f => ({ ...f, court_chamber: v }))}>
-                              <SelectTrigger><SelectValue placeholder="الغرفة" /></SelectTrigger>
-                              <SelectContent>
-                                {COURT_CHAMBERS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        )}
+                      </div>
+                      <div className="space-y-1">
+                        <Label>العنوان *</Label>
+                        <Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="مثال: قانون رقم 31.08 المتعلق بحماية المستهلك" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1"><Label>رقم المرجع</Label><Input value={form.reference_number} onChange={e => setForm(f => ({ ...f, reference_number: e.target.value }))} placeholder="31.08" /></div>
+                        <div className="space-y-1"><Label>تاريخ الصدور</Label><Input type="date" value={form.decision_date} onChange={e => setForm(f => ({ ...f, decision_date: e.target.value }))} /></div>
+                      </div>
+                      {form.doc_type === 'ruling' && (
                         <div className="space-y-1">
-                          <Label>المصدر</Label>
-                          <Input value={form.source} onChange={e => setForm(f => ({ ...f, source: e.target.value }))} placeholder="مثال: الجريدة الرسمية عدد 7050" />
+                          <Label>الغرفة</Label>
+                          <Select value={form.court_chamber} onValueChange={v => setForm(f => ({ ...f, court_chamber: v }))}>
+                            <SelectTrigger><SelectValue placeholder="الغرفة" /></SelectTrigger>
+                            <SelectContent>{COURT_CHAMBERS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                          </Select>
                         </div>
-                        <div className="space-y-1">
-                          <Label>المحتوى *</Label>
-                          <Textarea value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))} placeholder="الصق هنا النص القانوني كاملاً..." rows={12} />
-                        </div>
-                        <Button onClick={handleAddDocument} disabled={submitting} className="w-full">
-                          {submitting ? 'جاري الإضافة...' : 'إضافة المستند'}
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-
-                  {/* Auto Ingest - SGG */}
-                  <Dialog open={autoIngestOpen} onOpenChange={setAutoIngestOpen}>
-                    <DialogTrigger asChild>
-                      <Button size="sm" className="gap-1 bg-green-600 hover:bg-green-700 text-white text-xs">
-                        <Database className="h-3.5 w-3.5" /> جلب شامل
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                      <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2"><Database className="h-5 w-5 text-green-600" /> جلب شامل من المصادر الرسمية</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4 mt-4">
-                        <p className="text-sm text-muted-foreground">يجلب فقط النصوص القانونية ذات الصلة (قوانين، ظهائر، مراسيم، دوريات، قرارات قضائية).</p>
-                        <div className="space-y-2">
-                          <Label>اختر المصدر</Label>
-                          <div className="grid grid-cols-1 gap-2">
-                            {[
-                              { value: 'sgg' as const, icon: FileText, name: 'الجريدة الرسمية', desc: 'القوانين والظهائر والمراسيم والدوريات' },
-                              { value: 'cassation' as const, icon: Scale, name: 'محكمة النقض', desc: 'اجتهادات وقرارات محكمة النقض' },
-                            ].map(s => (
-                              <Button key={s.value} variant={autoIngestSource === s.value ? 'default' : 'outline'} size="sm" className="justify-start gap-2 h-auto py-3" onClick={() => setAutoIngestSource(s.value)} disabled={autoIngesting}>
-                                <s.icon className="h-4 w-4 shrink-0" />
-                                <div className="text-right">
-                                  <div className="font-medium">{s.name}</div>
-                                  <div className="text-xs opacity-70">{s.desc}</div>
-                                </div>
-                              </Button>
-                            ))}
-                          </div>
-                        </div>
-                        <Button onClick={handleAutoIngest} disabled={autoIngesting} className="w-full gap-2 bg-green-600 hover:bg-green-700">
-                          {autoIngesting ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري الجلب...</> : <><Database className="h-4 w-4" /> ابدأ الجلب</>}
-                        </Button>
-                        {autoIngesting && (
-                          <div className="space-y-1">
-                            <Progress value={autoIngestProgress} className="h-2" />
-                            <div className="flex justify-between text-xs text-muted-foreground">
-                              <span>{autoIngestProgress}%</span>
-                              <span>{autoIngestDocs} مستند جديد</span>
-                            </div>
-                          </div>
-                        )}
-                        {autoIngestLog.length > 0 && (
-                          <div className="bg-muted/50 rounded-lg p-3 space-y-1 max-h-60 overflow-y-auto">
-                            {autoIngestLog.map((log, i) => <p key={i} className="text-xs">{log}</p>)}
-                          </div>
-                        )}
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-
-                  {/* SGG Archive */}
-                  <Dialog open={sggDialogOpen} onOpenChange={setSggDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button size="sm" className="gap-1 bg-amber-600 hover:bg-amber-700 text-white text-xs">
-                        <FileText className="h-3.5 w-3.5" /> أرشيف SGG
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                      <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2"><FileText className="h-5 w-5 text-amber-600" /> جلب من أرشيف الأمانة العامة للحكومة</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4 mt-4">
-                        <p className="text-sm text-muted-foreground">يكتشف جميع صفحات القوانين ويجلبها مع تصنيف تلقائي (قوانين، ظهائر، مراسيم، دوريات) ومنع التكرار.</p>
-                        <div className="border rounded-lg p-4 space-y-3">
-                          <h3 className="font-semibold text-sm flex items-center gap-2">
-                            <span className="bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 rounded-full w-6 h-6 flex items-center justify-center text-xs">1</span>
-                            اكتشاف الصفحات
-                          </h3>
-                          <Button onClick={handleSggDiscover} disabled={sggScraping} variant="outline" className="w-full gap-2">
-                            {sggStep === 'discovering' ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري الاكتشاف...</> : <><Search className="h-4 w-4" /> اكتشاف صفحات القوانين</>}
-                          </Button>
-                          {sggStats.found > 0 && (
-                            <div className="grid grid-cols-3 gap-2 text-center">
-                              <div className="bg-muted/50 rounded p-2"><p className="text-lg font-bold text-foreground">{sggStats.found}</p><p className="text-[10px] text-muted-foreground">رابط قانوني</p></div>
-                              <div className="bg-muted/50 rounded p-2"><p className="text-lg font-bold text-primary">{sggStats.new}</p><p className="text-[10px] text-muted-foreground">جديد</p></div>
-                              <div className="bg-muted/50 rounded p-2"><p className="text-lg font-bold text-muted-foreground">{sggStats.alreadyScraped}</p><p className="text-[10px] text-muted-foreground">موجود مسبقاً</p></div>
-                            </div>
-                          )}
-                        </div>
-                        {sggNewUrls.length > 0 && (
-                          <div className="border rounded-lg p-4 space-y-3">
-                            <h3 className="font-semibold text-sm flex items-center gap-2">
-                              <span className="bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 rounded-full w-6 h-6 flex items-center justify-center text-xs">2</span>
-                              جلب ({sggNewUrls.length} صفحة جديدة)
-                            </h3>
-                            <Button onClick={handleSggScrapeAll} disabled={sggScraping} className="w-full gap-2 bg-amber-600 hover:bg-amber-700">
-                              {sggStep === 'scraping' ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري الجلب...</> : <><Database className="h-4 w-4" /> جلب كل القوانين الجديدة</>}
-                            </Button>
-                          </div>
-                        )}
-                        {sggStep === 'scraping' && (
-                          <div className="space-y-1">
-                            <Progress value={sggProgress} className="h-2" />
-                            <div className="flex justify-between text-xs text-muted-foreground"><span>{sggProgress}%</span><span>{sggTotalIngested} جزء جديد</span></div>
-                          </div>
-                        )}
-                        {sggLog.length > 0 && (
-                          <div className="bg-muted/50 rounded-lg p-3 space-y-1 max-h-60 overflow-y-auto">
-                            {sggLog.map((log, i) => <p key={i} className="text-xs">{log}</p>)}
-                          </div>
-                        )}
-                        {sggStep === 'done' && (
-                          <Button onClick={() => { setSggDialogOpen(false); setSggStep('idle'); setSggLog([]); setSggNewUrls([]); setSggStats({ found: 0, new: 0, alreadyScraped: 0 }); }} variant="outline" className="w-full">إغلاق</Button>
-                        )}
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-
-                  {/* Adala Portal - Direct PDF Links */}
-                  <Dialog open={adalaDialogOpen} onOpenChange={setAdalaDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button size="sm" className="gap-1 bg-blue-600 hover:bg-blue-700 text-white text-xs">
-                        <Scale className="h-3.5 w-3.5" /> بوابة عدالة ({'>'}7500 PDF)
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                      <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2"><Scale className="h-5 w-5 text-blue-600" /> جلب ملفات PDF من بوابة عدالة</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4 mt-4">
-                        <p className="text-sm text-muted-foreground">
-                          يجلب أكثر من 7500 ملف PDF قانوني مباشرة من بوابة عدالة مع تصنيف تلقائي وتنظيم دقيق.
-                        </p>
-                        <div className="border rounded-lg p-4 space-y-3">
-                          <h3 className="font-semibold text-sm flex items-center gap-2">
-                            <span className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full w-6 h-6 flex items-center justify-center text-xs">1</span>
-                            تحميل الروابط وفحص الموجود
-                          </h3>
-                          <Button onClick={handleAdalaLoadAndCheck} disabled={adalaScraping} variant="outline" className="w-full gap-2">
-                            {(adalaStep === 'loading' || adalaStep === 'checking') ? <><Loader2 className="h-4 w-4 animate-spin" /> {adalaStep === 'loading' ? 'جاري تحميل الروابط...' : 'جاري الفحص...'}</> : <><Search className="h-4 w-4" /> تحميل وفحص روابط PDF</>}
-                          </Button>
-                          {adalaStats.total > 0 && (
-                            <div className="grid grid-cols-3 gap-2 text-center">
-                              <div className="bg-muted/50 rounded p-2"><p className="text-lg font-bold text-foreground">{adalaStats.total}</p><p className="text-[10px] text-muted-foreground">إجمالي PDF</p></div>
-                              <div className="bg-muted/50 rounded p-2"><p className="text-lg font-bold text-primary">{adalaStats.newCount}</p><p className="text-[10px] text-muted-foreground">جديد</p></div>
-                              <div className="bg-muted/50 rounded p-2"><p className="text-lg font-bold text-muted-foreground">{adalaStats.existing}</p><p className="text-[10px] text-muted-foreground">موجود مسبقاً</p></div>
-                            </div>
-                          )}
-                        </div>
-                        {adalaNewUrls.length > 0 && (
-                          <div className="border rounded-lg p-4 space-y-3">
-                            <h3 className="font-semibold text-sm flex items-center gap-2">
-                              <span className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full w-6 h-6 flex items-center justify-center text-xs">2</span>
-                              جلب ({adalaNewUrls.length} ملف PDF جديد)
-                            </h3>
-                            <Button onClick={handleAdalaScrapeAll} disabled={adalaScraping} className="w-full gap-2 bg-blue-600 hover:bg-blue-700">
-                              {adalaStep === 'scraping' ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري الجلب...</> : <><Database className="h-4 w-4" /> جلب كل ملفات PDF الجديدة</>}
-                            </Button>
-                          </div>
-                        )}
-                        {adalaStep === 'scraping' && (
-                          <div className="space-y-1">
-                            <Progress value={adalaProgress} className="h-2" />
-                            <div className="flex justify-between text-xs text-muted-foreground"><span>{adalaProgress}%</span><span>{adalaTotalIngested} جزء جديد</span></div>
-                          </div>
-                        )}
-                        {adalaLog.length > 0 && (
-                          <div className="bg-muted/50 rounded-lg p-3 space-y-1 max-h-60 overflow-y-auto">
-                            {adalaLog.map((log, i) => <p key={i} className="text-xs">{log}</p>)}
-                          </div>
-                        )}
-                        {adalaStep === 'done' && (
-                          <Button onClick={() => { setAdalaDialogOpen(false); setAdalaStep('idle'); setAdalaLog([]); setAdalaNewUrls([]); setAdalaStats({ total: 0, existing: 0, newCount: 0 }); }} variant="outline" className="w-full">إغلاق</Button>
-                        )}
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-
-                  {/* Download PDFs locally */}
-                  <Dialog open={pdfDownloadDialogOpen} onOpenChange={setPdfDownloadDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button size="sm" className="gap-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs">
-                        <Download className="h-3.5 w-3.5" /> تحميل PDF محلياً
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
-                      <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2"><Download className="h-5 w-5 text-emerald-600" /> تحميل ملفات PDF وحفظها</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4 mt-4">
-                        <p className="text-sm text-muted-foreground">يقوم بتحميل ملفات PDF من المصادر الخارجية وحفظها في قاعدة بياناتك لضمان توفرها دائماً.</p>
-                        <Button onClick={handleDownloadPdfs} disabled={pdfDownloading} className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700">
-                          {pdfDownloading ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري التحميل...</> : <><Download className="h-4 w-4" /> بدء تحميل PDF</>}
-                        </Button>
-                        {pdfDownloadLog.length > 0 && (
-                          <div className="bg-muted/50 rounded-lg p-3 max-h-60 overflow-y-auto space-y-1">
-                            {pdfDownloadLog.map((log, i) => (
-                              <p key={i} className="text-xs font-mono text-muted-foreground">{log}</p>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
+                      )}
+                      <div className="space-y-1"><Label>المصدر</Label><Input value={form.source} onChange={e => setForm(f => ({ ...f, source: e.target.value }))} placeholder="مثال: الجريدة الرسمية عدد 7050" /></div>
+                      <div className="space-y-1"><Label>المحتوى *</Label><Textarea value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))} placeholder="الصق هنا النص القانوني كاملاً..." rows={12} /></div>
+                      <Button onClick={handleAddDocument} disabled={submitting} className="w-full">{submitting ? 'جاري الإضافة...' : 'إضافة المستند'}</Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
             </CardContent>
           </Card>
-
-          {/* Legislation Documents */}
-          <Card>
-            <CardContent className="p-0">
-              {renderDocumentsList(documents, false)}
-            </CardContent>
-          </Card>
+          <Card><CardContent className="p-0">{renderDocumentsList(documents, false)}</CardContent></Card>
         </TabsContent>
 
         {/* Rulings Tab */}
         <TabsContent value="rulings" className="space-y-4 mt-4">
           <Card>
             <CardContent className="p-3 sm:p-4">
-              <div className="flex flex-col gap-3">
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="بحث في القرارات القضائية..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pr-9 text-sm" />
-                  </div>
-                  <Select value={filterChamber} onValueChange={setFilterChamber}>
-                    <SelectTrigger className="w-32 sm:w-44 text-sm">
-                      <SelectValue placeholder="الغرفة" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">جميع الغرف</SelectItem>
-                      {COURT_CHAMBERS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <Select value={filterCategory} onValueChange={setFilterCategory}>
-                    <SelectTrigger className="w-28 sm:w-36 text-sm hidden sm:flex">
-                      <SelectValue placeholder="التصنيف" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">كل التصنيفات</SelectItem>
-                      {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input placeholder="بحث في القرارات القضائية..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pr-9 text-sm" />
                 </div>
-
-                <div className="flex flex-wrap gap-2">
-                  {/* Scrape Rulings */}
-                  <Dialog open={scrapeDialogOpen} onOpenChange={setScrapeDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button size="sm" variant="outline" className="gap-1 text-primary border-primary text-xs">
-                        <Globe className="h-3.5 w-3.5" /> جلب قرارات
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                      <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2"><Scale className="h-5 w-5 text-primary" /> جلب قرارات محكمة النقض</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4 mt-4">
-                        <p className="text-sm text-muted-foreground">يتم جلب القرارات مع استخراج: رقم القرار، رقم الملف، الغرفة، التاريخ، الموضوع تلقائياً.</p>
-                        <div className="space-y-2">
-                          <Label>المصدر</Label>
-                          <Input value={scrapeUrl} onChange={e => setScrapeUrl(e.target.value)} placeholder="https://..." dir="ltr" />
-                        </div>
-                        <Button onClick={handleMapWebsite} disabled={scraping} variant="outline" className="w-full gap-2">
-                          {scrapeStep === 'mapping' ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري الاكتشاف...</> : <><Search className="h-4 w-4" /> اكتشاف روابط القرارات</>}
-                        </Button>
-                        {discoveredUrls.length > 0 && (
-                          <>
-                            <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-                              <p className="text-sm font-medium">تم اكتشاف {discoveredUrls.length} رابط</p>
-                              <div className="max-h-32 overflow-y-auto text-xs text-muted-foreground space-y-1">
-                                {discoveredUrls.slice(0, 20).map((u, i) => (
-                                  <div key={i} className="truncate" dir="ltr">{u}</div>
-                                ))}
-                              </div>
-                            </div>
-                            <Button onClick={handleScrapeUrls} disabled={scraping} className="w-full gap-2">
-                              {scrapeStep === 'scraping' ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري الجلب...</> : <>جلب كل القرارات ({discoveredUrls.length})</>}
-                            </Button>
-                            {scrapeStep === 'scraping' && (
-                              <div className="space-y-1"><Progress value={scrapeProgress} className="h-2" /><p className="text-xs text-muted-foreground text-center">{scrapeProgress}%</p></div>
-                            )}
-                          </>
-                        )}
-                        {scrapeResults.length > 0 && (
-                          <div className="bg-muted/50 rounded-lg p-3 space-y-1">
-                            <p className="text-sm font-medium">النتائج: {scrapeResults.filter(r => r.success).length} ناجح من {scrapeResults.length}</p>
-                            <div className="max-h-40 overflow-y-auto text-xs space-y-1">
-                              {scrapeResults.map((r, i) => (
-                                <div key={i} className={r.success ? 'text-green-600' : 'text-destructive'}>
-                                  {r.success ? '✅' : '❌'} {r.title || r.url} {r.success && `(${r.ingested} أجزاء)`}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        {scrapeStep === 'done' && (
-                          <Button onClick={() => { setScrapeDialogOpen(false); setScrapeStep('idle'); setDiscoveredUrls([]); setScrapeResults([]); }} variant="outline" className="w-full">إغلاق</Button>
-                        )}
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
+                <Select value={filterChamber} onValueChange={setFilterChamber}>
+                  <SelectTrigger className="w-32 sm:w-44 text-sm"><SelectValue placeholder="الغرفة" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">جميع الغرف</SelectItem>
+                    {COURT_CHAMBERS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Select value={filterCategory} onValueChange={setFilterCategory}>
+                  <SelectTrigger className="w-28 sm:w-36 text-sm hidden sm:flex"><SelectValue placeholder="التصنيف" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">كل التصنيفات</SelectItem>
+                    {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
             </CardContent>
           </Card>
+          <Card><CardContent className="p-0">{renderDocumentsList(documents, true)}</CardContent></Card>
+        </TabsContent>
 
-          {/* Rulings Documents */}
+        {/* Tools Tab — All scraping tools consolidated */}
+        <TabsContent value="tools" className="space-y-4 mt-4">
+          {/* Firecrawl Stats */}
+          {fcStats && (
+            <div className="grid grid-cols-3 gap-3">
+              <Card><CardContent className="p-3 text-center">
+                <Database className="h-5 w-5 mx-auto mb-1 text-primary" />
+                <div className="text-2xl font-bold text-primary">{fcStats.totalDocs}</div>
+                <div className="text-xs text-muted-foreground">إجمالي الوثائق</div>
+              </CardContent></Card>
+              <Card><CardContent className="p-3 text-center">
+                <HardDrive className="h-5 w-5 mx-auto mb-1 text-green-600" />
+                <div className="text-2xl font-bold text-green-600">{fcStats.withLocalPdf}</div>
+                <div className="text-xs text-muted-foreground">مع PDF محلي</div>
+              </CardContent></Card>
+              <Card><CardContent className="p-3 text-center">
+                <Zap className="h-5 w-5 mx-auto mb-1 text-amber-600" />
+                <div className="text-2xl font-bold text-amber-600">{fcStats.lastPage}</div>
+                <div className="text-xs text-muted-foreground">آخر صفحة مجلوبة</div>
+              </CardContent></Card>
+            </div>
+          )}
+
+          {/* Firecrawl Scraper */}
           <Card>
-            <CardContent className="p-0">
-              {renderDocumentsList(documents, true)}
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Zap className="h-4 w-4 text-amber-500" />
+                جلب وثائق بوابة عدالة (Firecrawl)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-xs text-muted-foreground">من صفحة</label>
+                  <Input type="number" min={1} max={1070} value={fcStartPage} onChange={e => setFcStartPage(Number(e.target.value))} disabled={fcScraping} />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">إلى صفحة</label>
+                  <Input type="number" min={1} max={1070} value={fcEndPage} onChange={e => setFcEndPage(Number(e.target.value))} disabled={fcScraping} />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">حجم الدفعة</label>
+                  <Input type="number" min={1} max={10} value={fcBatchSize} onChange={e => setFcBatchSize(Number(e.target.value))} disabled={fcScraping} />
+                </div>
+              </div>
+              {fcScraping && (
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>صفحة {fcCurrentPage} من {fcEndPage}</span>
+                    <span>{Math.round(fcProgress)}%</span>
+                  </div>
+                  <Progress value={fcProgress} className="h-2" />
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={testFcSinglePage} disabled={fcScraping}>🧪 اختبار صفحة</Button>
+                {!fcScraping ? (
+                  <Button size="sm" onClick={startFcScraping} className="flex-1"><Play className="h-4 w-4 ml-1" /> بدء الجلب</Button>
+                ) : (
+                  <Button size="sm" variant="destructive" onClick={stopFcScraping} className="flex-1"><Square className="h-4 w-4 ml-1" /> إيقاف</Button>
+                )}
+              </div>
+              {fcLogs.length > 0 && (
+                <div className="bg-muted rounded-md p-2 max-h-48 overflow-y-auto text-xs font-mono space-y-1" dir="rtl">
+                  {fcLogs.map((log, i) => (
+                    <div key={i} className={log.type === 'error' ? 'text-destructive' : log.type === 'success' ? 'text-green-600 dark:text-green-400' : log.type === 'warning' ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}>
+                      <span className="text-muted-foreground/60">[{log.time}]</span> {log.message}
+                    </div>
+                  ))}
+                  <div ref={fcLogsEndRef} />
+                </div>
+              )}
             </CardContent>
           </Card>
+
+          {/* Other Scraping Tools */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Auto Ingest */}
+            <Card className="cursor-pointer hover:border-primary/40 transition-colors" onClick={() => setAutoIngestOpen(true)}>
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0"><Database className="h-5 w-5 text-green-600" /></div>
+                <div>
+                  <h3 className="font-semibold text-sm">جلب شامل</h3>
+                  <p className="text-xs text-muted-foreground">الجريدة الرسمية ومحكمة النقض</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* SGG Archive */}
+            <Card className="cursor-pointer hover:border-primary/40 transition-colors" onClick={() => setSggDialogOpen(true)}>
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0"><FileText className="h-5 w-5 text-amber-600" /></div>
+                <div>
+                  <h3 className="font-semibold text-sm">أرشيف SGG</h3>
+                  <p className="text-xs text-muted-foreground">الأمانة العامة للحكومة</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Adala Portal */}
+            <Card className="cursor-pointer hover:border-primary/40 transition-colors" onClick={() => setAdalaDialogOpen(true)}>
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0"><Scale className="h-5 w-5 text-blue-600" /></div>
+                <div>
+                  <h3 className="font-semibold text-sm">بوابة عدالة PDF</h3>
+                  <p className="text-xs text-muted-foreground">أكثر من 7500 ملف PDF</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Rulings Scraper */}
+            <Card className="cursor-pointer hover:border-primary/40 transition-colors" onClick={() => setScrapeDialogOpen(true)}>
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0"><Gavel className="h-5 w-5 text-primary" /></div>
+                <div>
+                  <h3 className="font-semibold text-sm">جلب قرارات النقض</h3>
+                  <p className="text-xs text-muted-foreground">من موقع محكمة النقض</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Download PDFs locally */}
+            <Card className="cursor-pointer hover:border-primary/40 transition-colors" onClick={() => setPdfDownloadDialogOpen(true)}>
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0"><Download className="h-5 w-5 text-emerald-600" /></div>
+                <div>
+                  <h3 className="font-semibold text-sm">تحميل PDF محلياً</h3>
+                  <p className="text-xs text-muted-foreground">حفظ الملفات الخارجية محلياً</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* All Dialogs */}
+          {/* Auto Ingest Dialog */}
+          <Dialog open={autoIngestOpen} onOpenChange={setAutoIngestOpen}>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader><DialogTitle className="flex items-center gap-2"><Database className="h-5 w-5 text-green-600" /> جلب شامل من المصادر الرسمية</DialogTitle></DialogHeader>
+              <div className="space-y-4 mt-4">
+                <p className="text-sm text-muted-foreground">يجلب فقط النصوص القانونية ذات الصلة.</p>
+                <div className="space-y-2">
+                  <Label>اختر المصدر</Label>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { value: 'sgg' as const, icon: FileText, name: 'الجريدة الرسمية', desc: 'القوانين والظهائر والمراسيم والدوريات' },
+                      { value: 'cassation' as const, icon: Scale, name: 'محكمة النقض', desc: 'اجتهادات وقرارات محكمة النقض' },
+                    ].map(s => (
+                      <Button key={s.value} variant={autoIngestSource === s.value ? 'default' : 'outline'} size="sm" className="justify-start gap-2 h-auto py-3" onClick={() => setAutoIngestSource(s.value)} disabled={autoIngesting}>
+                        <s.icon className="h-4 w-4 shrink-0" />
+                        <div className="text-right"><div className="font-medium">{s.name}</div><div className="text-xs opacity-70">{s.desc}</div></div>
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                <Button onClick={handleAutoIngest} disabled={autoIngesting} className="w-full gap-2 bg-green-600 hover:bg-green-700">
+                  {autoIngesting ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري الجلب...</> : <><Database className="h-4 w-4" /> ابدأ الجلب</>}
+                </Button>
+                {autoIngesting && <div className="space-y-1"><Progress value={autoIngestProgress} className="h-2" /><div className="flex justify-between text-xs text-muted-foreground"><span>{autoIngestProgress}%</span><span>{autoIngestDocs} مستند جديد</span></div></div>}
+                {autoIngestLog.length > 0 && <div className="bg-muted/50 rounded-lg p-3 space-y-1 max-h-60 overflow-y-auto">{autoIngestLog.map((log, i) => <p key={i} className="text-xs">{log}</p>)}</div>}
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* SGG Archive Dialog */}
+          <Dialog open={sggDialogOpen} onOpenChange={setSggDialogOpen}>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader><DialogTitle className="flex items-center gap-2"><FileText className="h-5 w-5 text-amber-600" /> جلب من أرشيف الأمانة العامة للحكومة</DialogTitle></DialogHeader>
+              <div className="space-y-4 mt-4">
+                <p className="text-sm text-muted-foreground">يكتشف جميع صفحات القوانين ويجلبها مع تصنيف تلقائي.</p>
+                <div className="border rounded-lg p-4 space-y-3">
+                  <h3 className="font-semibold text-sm">1. اكتشاف الصفحات</h3>
+                  <Button onClick={handleSggDiscover} disabled={sggScraping} variant="outline" className="w-full gap-2">
+                    {sggStep === 'discovering' ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري الاكتشاف...</> : <><Search className="h-4 w-4" /> اكتشاف صفحات القوانين</>}
+                  </Button>
+                  {sggStats.found > 0 && <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="bg-muted/50 rounded p-2"><p className="text-lg font-bold">{sggStats.found}</p><p className="text-[10px] text-muted-foreground">رابط قانوني</p></div>
+                    <div className="bg-muted/50 rounded p-2"><p className="text-lg font-bold text-primary">{sggStats.new}</p><p className="text-[10px] text-muted-foreground">جديد</p></div>
+                    <div className="bg-muted/50 rounded p-2"><p className="text-lg font-bold text-muted-foreground">{sggStats.alreadyScraped}</p><p className="text-[10px] text-muted-foreground">موجود مسبقاً</p></div>
+                  </div>}
+                </div>
+                {sggNewUrls.length > 0 && <div className="border rounded-lg p-4 space-y-3">
+                  <h3 className="font-semibold text-sm">2. جلب ({sggNewUrls.length} صفحة جديدة)</h3>
+                  <Button onClick={handleSggScrapeAll} disabled={sggScraping} className="w-full gap-2 bg-amber-600 hover:bg-amber-700">
+                    {sggStep === 'scraping' ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري الجلب...</> : <><Database className="h-4 w-4" /> جلب كل القوانين الجديدة</>}
+                  </Button>
+                </div>}
+                {sggStep === 'scraping' && <div className="space-y-1"><Progress value={sggProgress} className="h-2" /><div className="flex justify-between text-xs text-muted-foreground"><span>{sggProgress}%</span><span>{sggTotalIngested} جزء جديد</span></div></div>}
+                {sggLog.length > 0 && <div className="bg-muted/50 rounded-lg p-3 space-y-1 max-h-60 overflow-y-auto">{sggLog.map((log, i) => <p key={i} className="text-xs">{log}</p>)}</div>}
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Adala Portal Dialog */}
+          <Dialog open={adalaDialogOpen} onOpenChange={setAdalaDialogOpen}>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader><DialogTitle className="flex items-center gap-2"><Scale className="h-5 w-5 text-blue-600" /> جلب ملفات PDF من بوابة عدالة</DialogTitle></DialogHeader>
+              <div className="space-y-4 mt-4">
+                <p className="text-sm text-muted-foreground">يجلب أكثر من 7500 ملف PDF قانوني مباشرة من بوابة عدالة.</p>
+                <div className="border rounded-lg p-4 space-y-3">
+                  <h3 className="font-semibold text-sm">1. تحميل الروابط وفحص الموجود</h3>
+                  <Button onClick={handleAdalaLoadAndCheck} disabled={adalaScraping} variant="outline" className="w-full gap-2">
+                    {(adalaStep === 'loading' || adalaStep === 'checking') ? <><Loader2 className="h-4 w-4 animate-spin" /> {adalaStep === 'loading' ? 'جاري تحميل الروابط...' : 'جاري الفحص...'}</> : <><Search className="h-4 w-4" /> تحميل وفحص روابط PDF</>}
+                  </Button>
+                  {adalaStats.total > 0 && <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="bg-muted/50 rounded p-2"><p className="text-lg font-bold">{adalaStats.total}</p><p className="text-[10px] text-muted-foreground">إجمالي PDF</p></div>
+                    <div className="bg-muted/50 rounded p-2"><p className="text-lg font-bold text-primary">{adalaStats.newCount}</p><p className="text-[10px] text-muted-foreground">جديد</p></div>
+                    <div className="bg-muted/50 rounded p-2"><p className="text-lg font-bold text-muted-foreground">{adalaStats.existing}</p><p className="text-[10px] text-muted-foreground">موجود مسبقاً</p></div>
+                  </div>}
+                </div>
+                {adalaNewUrls.length > 0 && <div className="border rounded-lg p-4 space-y-3">
+                  <h3 className="font-semibold text-sm">2. جلب ({adalaNewUrls.length} ملف PDF جديد)</h3>
+                  <Button onClick={handleAdalaScrapeAll} disabled={adalaScraping} className="w-full gap-2 bg-blue-600 hover:bg-blue-700">
+                    {adalaStep === 'scraping' ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري الجلب...</> : <><Database className="h-4 w-4" /> جلب كل ملفات PDF الجديدة</>}
+                  </Button>
+                </div>}
+                {adalaStep === 'scraping' && <div className="space-y-1"><Progress value={adalaProgress} className="h-2" /><div className="flex justify-between text-xs text-muted-foreground"><span>{adalaProgress}%</span><span>{adalaTotalIngested} جزء جديد</span></div></div>}
+                {adalaLog.length > 0 && <div className="bg-muted/50 rounded-lg p-3 space-y-1 max-h-60 overflow-y-auto">{adalaLog.map((log, i) => <p key={i} className="text-xs">{log}</p>)}</div>}
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Rulings Scraper Dialog */}
+          <Dialog open={scrapeDialogOpen} onOpenChange={setScrapeDialogOpen}>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader><DialogTitle className="flex items-center gap-2"><Scale className="h-5 w-5 text-primary" /> جلب قرارات محكمة النقض</DialogTitle></DialogHeader>
+              <div className="space-y-4 mt-4">
+                <p className="text-sm text-muted-foreground">يتم جلب القرارات مع استخراج: رقم القرار، رقم الملف، الغرفة، التاريخ، الموضوع تلقائياً.</p>
+                <div className="space-y-2"><Label>المصدر</Label><Input value={scrapeUrl} onChange={e => setScrapeUrl(e.target.value)} placeholder="https://..." dir="ltr" /></div>
+                <Button onClick={handleMapWebsite} disabled={scraping} variant="outline" className="w-full gap-2">
+                  {scrapeStep === 'mapping' ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري الاكتشاف...</> : <><Search className="h-4 w-4" /> اكتشاف روابط القرارات</>}
+                </Button>
+                {discoveredUrls.length > 0 && <>
+                  <div className="bg-muted/50 rounded-lg p-3 space-y-2"><p className="text-sm font-medium">تم اكتشاف {discoveredUrls.length} رابط</p><div className="max-h-32 overflow-y-auto text-xs text-muted-foreground space-y-1">{discoveredUrls.slice(0, 20).map((u, i) => <div key={i} className="truncate" dir="ltr">{u}</div>)}</div></div>
+                  <Button onClick={handleScrapeUrls} disabled={scraping} className="w-full gap-2">{scrapeStep === 'scraping' ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري الجلب...</> : <>جلب كل القرارات ({discoveredUrls.length})</>}</Button>
+                  {scrapeStep === 'scraping' && <div className="space-y-1"><Progress value={scrapeProgress} className="h-2" /><p className="text-xs text-muted-foreground text-center">{scrapeProgress}%</p></div>}
+                </>}
+                {scrapeResults.length > 0 && <div className="bg-muted/50 rounded-lg p-3 space-y-1"><p className="text-sm font-medium">النتائج: {scrapeResults.filter(r => r.success).length} ناجح من {scrapeResults.length}</p><div className="max-h-40 overflow-y-auto text-xs space-y-1">{scrapeResults.map((r, i) => <div key={i} className={r.success ? 'text-green-600' : 'text-destructive'}>{r.success ? '✅' : '❌'} {r.title || r.url} {r.success && `(${r.ingested} أجزاء)`}</div>)}</div></div>}
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* PDF Download Dialog */}
+          <Dialog open={pdfDownloadDialogOpen} onOpenChange={setPdfDownloadDialogOpen}>
+            <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+              <DialogHeader><DialogTitle className="flex items-center gap-2"><Download className="h-5 w-5 text-emerald-600" /> تحميل ملفات PDF وحفظها</DialogTitle></DialogHeader>
+              <div className="space-y-4 mt-4">
+                <p className="text-sm text-muted-foreground">يقوم بتحميل ملفات PDF من المصادر الخارجية وحفظها محلياً.</p>
+                <Button onClick={handleDownloadPdfs} disabled={pdfDownloading} className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700">
+                  {pdfDownloading ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري التحميل...</> : <><Download className="h-4 w-4" /> بدء تحميل PDF</>}
+                </Button>
+                {pdfDownloadLog.length > 0 && <div className="bg-muted/50 rounded-lg p-3 max-h-60 overflow-y-auto space-y-1">{pdfDownloadLog.map((log, i) => <p key={i} className="text-xs font-mono text-muted-foreground">{log}</p>)}</div>}
+              </div>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
       </Tabs>
     </div>

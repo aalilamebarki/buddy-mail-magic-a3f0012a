@@ -48,7 +48,7 @@ const ClientDashboard = lazy(() => import("./pages/dashboard/ClientDashboard"));
 const KnowledgeBase = lazy(() => import("./pages/dashboard/KnowledgeBase"));
 const DocumentGenerator = lazy(() => import("./pages/dashboard/DocumentGenerator"));
 const Letterheads = lazy(() => import("./pages/dashboard/Letterheads"));
-const LegalScraper = lazy(() => import("./pages/dashboard/LegalScraper"));
+
 const Invoices = lazy(() => import("./pages/dashboard/Invoices"));
 const FeeStatements = lazy(() => import("./pages/dashboard/FeeStatements"));
 
@@ -114,7 +114,7 @@ const App = () => (
                     <Route path="knowledge-base" element={<KnowledgeBase />} />
                     <Route path="document-generator" element={<DocumentGenerator />} />
                     <Route path="letterheads" element={<Letterheads />} />
-                    <Route path="legal-scraper" element={<LegalScraper />} />
+                    
                     <Route path="invoices" element={<Invoices />} />
                     <Route path="fee-statements" element={<FeeStatements />} />
                   </Route>
