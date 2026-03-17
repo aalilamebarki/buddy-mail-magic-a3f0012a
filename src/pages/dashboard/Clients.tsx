@@ -239,29 +239,47 @@ const Clients = () => {
                   <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">لا يوجد موكلين</TableCell></TableRow>
                 ) : (
                   filtered.map((c) => (
-                    <TableRow key={c.id}>
-                      <TableCell className="font-medium">{c.full_name}</TableCell>
-                      <TableCell dir="ltr">{c.email}</TableCell>
-                      <TableCell dir="ltr">{c.phone}</TableCell>
-                      <TableCell dir="ltr">{c.cin}</TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="sm" className="gap-1 h-7 text-xs" onClick={() => navigate(`/dashboard/cases?client_id=${c.id}`)}>
-                          <FolderOpen className="h-3.5 w-3.5" />
-                          {caseCounts[c.id] || 0}
-                        </Button>
-                      </TableCell>
-                      <TableCell>{new Date(c.created_at).toLocaleDateString('ar-MA')}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(c)}>
-                            <Pencil className="h-4 w-4" />
+                    <>
+                      <TableRow key={c.id}>
+                        <TableCell className="font-medium">{c.full_name}</TableCell>
+                        <TableCell dir="ltr">{c.email}</TableCell>
+                        <TableCell dir="ltr">{c.phone}</TableCell>
+                        <TableCell dir="ltr">{c.cin}</TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="sm" className="gap-1 h-7 text-xs" onClick={() => navigate(`/dashboard/cases?client_id=${c.id}`)}>
+                            <FolderOpen className="h-3.5 w-3.5" />
+                            {caseCounts[c.id] || 0}
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => openDelete(c)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                        </TableCell>
+                        <TableCell>{new Date(c.created_at).toLocaleDateString('ar-MA')}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button
+                              variant={expandedClient === c.id ? 'secondary' : 'ghost'}
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => setExpandedClient(expandedClient === c.id ? null : c.id)}
+                              title="الحساب المالي"
+                            >
+                              <DollarSign className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(c)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => openDelete(c)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                      {expandedClient === c.id && (
+                        <TableRow key={`${c.id}-finance`}>
+                          <TableCell colSpan={7} className="bg-muted/30 p-4">
+                            <ClientFinanceSection clientId={c.id} invoices={invoices} statements={statements} />
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </>
                   ))
                 )}
               </TableBody>
