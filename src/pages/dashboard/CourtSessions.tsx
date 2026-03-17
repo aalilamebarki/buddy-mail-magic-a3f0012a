@@ -283,8 +283,9 @@ const CourtSessions = () => {
 
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
     doc.addFileToVFS('Amiri-Regular.ttf', fontBase64);
-    doc.addFont('Amiri-Regular.ttf', 'Amiri', 'normal');
+    doc.addFont('Amiri-Regular.ttf', 'Amiri', 'normal', 'Identity-H');
     doc.setFont('Amiri');
+    doc.setLanguage('ar');
     doc.setR2L(true);
 
     const pageW = doc.internal.pageSize.getWidth();
