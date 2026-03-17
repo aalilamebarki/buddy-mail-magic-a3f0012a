@@ -8,16 +8,94 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Receipt, FileText, Plus, Download, Loader2, QrCode, Search, Pencil, DollarSign, BookOpen, TrendingUp } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { useInvoices } from '@/hooks/useInvoices';
+import { useInvoices, type InvoiceRecord } from '@/hooks/useInvoices';
 import { useFeeStatements, type FeeStatementRecord } from '@/hooks/useFeeStatements';
 import { useAccountingEntries } from '@/hooks/useAccounting';
-
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { formatDateShort } from '@/lib/formatters';
 import { exportAccountingExcel, exportAccountingPDF } from '@/lib/export-accounting';
+import { downloadInvoicePdf, downloadFeeStatementPdf } from '@/lib/dynamic-pdf-downloads';
 import CreateInvoiceDialog from '@/components/invoices/CreateInvoiceDialog';
 import CreateFeeStatementDialog from '@/components/invoices/CreateFeeStatementDialog';
+
+const PAYMENT_LABELS: Record<string, string> = {
+  cash: 'نقداً',
+  check: 'شيك',
+  transfer: 'تحويل بنكي',
+  card: 'بطاقة بنكية',
+};
+
+const ENTRY_TYPE_LABELS: Record<string, { label: string; sublabel: string; color: string }> = {
+  invoice: { label: 'وصل أداء', sublabel: 'تحصيل', color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200' },
+  fee_statement: { label: 'بيان أتعاب', sublabel: 'أتعاب فقط', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
+};
+
+const buildStatementLabel = (s: FeeStatementRecord) => {
+  const clientName = s.clients?.full_name || '—';
+  const caseNumbers = (s.fee_statement_cases && s.fee_statement_cases.length > 0)
+    ? s.fee_statement_cases.map(fc => fc.cases?.case_number).filter(Boolean).join(' / ')
+    : s.cases?.case_number || '—';
+  const date = formatDateShort(s.created_at);
+  return `بيان الأتعاب للسيد ${clientName} ملف عدد ${caseNumbers} ${date} ${s.statement_number}`;
+};
+
+const currentYear = new Date().getFullYear();
+const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
+
+const Billing = () => {
+  const { invoices, loading: invLoading, refetch: refetchInv } = useInvoices();
+  const { statements, loading: fsLoading, refetch: refetchFs } = useFeeStatements();
+  const { toast } = useToast();
+
+  const [activeTab, setActiveTab] = useState('invoices');
+  const [invDialogOpen, setInvDialogOpen] = useState(false);
+  const [fsDialogOpen, setFsDialogOpen] = useState(false);
+  const [editStatement, setEditStatement] = useState<FeeStatementRecord | null>(null);
+  const [search, setSearch] = useState('');
+  const [downloading, setDownloading] = useState<string | null>(null);
+
+  // Accounting
+  const [accYear, setAccYear] = useState(currentYear);
+  const { entries, loading: accLoading, stats } = useAccountingEntries(accYear);
+
+  const filteredInvoices = invoices.filter(inv =>
+    !search ||
+    inv.invoice_number.toLowerCase().includes(search.toLowerCase()) ||
+    inv.clients?.full_name?.includes(search) ||
+    inv.cases?.title?.includes(search)
+  );
+
+  const filteredStatements = statements.filter(s =>
+    !search ||
+    s.statement_number.toLowerCase().includes(search.toLowerCase()) ||
+    s.clients?.full_name?.includes(search) ||
+    s.cases?.title?.includes(search)
+  );
+
+  const totalInvoices = filteredInvoices.reduce((sum, inv) => sum + Number(inv.amount), 0);
+  const totalStatements = filteredStatements.reduce((sum, s) => sum + Number(s.total_amount), 0);
+
+  const downloadInvoice = async (invoice: InvoiceRecord) => {
+    setDownloading(invoice.id);
+    try {
+      await downloadInvoicePdf(invoice);
+    } catch (e: any) {
+      toast({ title: 'خطأ في التحميل', description: e.message, variant: 'destructive' });
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  const downloadStatement = async (statement: FeeStatementRecord) => {
+    setDownloading(statement.id);
+    try {
+      await downloadFeeStatementPdf(statement);
+    } catch (e: any) {
+      toast({ title: 'خطأ في التحميل', description: e.message, variant: 'destructive' });
+    } finally {
+      setDownloading(null);
+    }
+  };
 
 const PAYMENT_LABELS: Record<string, string> = {
   cash: 'نقداً',
