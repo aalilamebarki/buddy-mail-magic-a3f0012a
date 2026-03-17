@@ -293,16 +293,16 @@ const CourtSessions = () => {
 
     // Title
     doc.setFontSize(20);
-    doc.text(docTitle, pageW / 2, 18, { align: 'center', lang: 'ar' });
+    doc.text(docTitle, pageW / 2, 18, { align: 'center' } as any);
     doc.setFontSize(11);
     doc.setTextColor(80);
-    doc.text(periodLabel, pageW / 2, 26, { align: 'center', lang: 'ar' });
+    doc.text(periodLabel, pageW / 2, 26, { align: 'center' } as any);
 
     // Stats line
     doc.setFontSize(10);
     doc.setTextColor(0);
     const statsText = `${totalSessions} جلسة  |  ${totalCourts} محكمة`;
-    doc.text(statsText, pageW / 2, 33, { align: 'center' });
+    doc.text(statsText, pageW / 2, 33, { align: 'center' } as any);
 
     // Separator line
     doc.setDrawColor(0);
