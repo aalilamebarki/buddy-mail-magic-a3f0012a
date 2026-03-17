@@ -122,13 +122,23 @@ const CaseDetail = () => {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <Scale className="h-4 w-4" /> بيانات الخصم
+              <Scale className="h-4 w-4" /> بيانات الخصوم ({opponents.length || 1})
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">الاسم:</span><span>{caseData.opposing_party || '—'}</span></div>
-            {caseData.opposing_party_address && <div className="flex justify-between"><span className="text-muted-foreground">العنوان:</span><span>{caseData.opposing_party_address}</span></div>}
-            {caseData.opposing_party_phone && <div className="flex justify-between"><span className="text-muted-foreground">الهاتف:</span><span dir="ltr">{caseData.opposing_party_phone}</span></div>}
+          <CardContent className="space-y-3 text-sm">
+            {opponents.length > 0 ? opponents.map((opp, i) => (
+              <div key={opp.id || i} className={cn("space-y-1", i > 0 && "pt-2 border-t")}>
+                <div className="flex justify-between"><span className="text-muted-foreground">الخصم {opponents.length > 1 ? i + 1 : ''}:</span><span className="font-medium">{opp.name}</span></div>
+                {opp.address && <div className="flex justify-between"><span className="text-muted-foreground">العنوان:</span><span>{opp.address}</span></div>}
+                {opp.phone && <div className="flex justify-between"><span className="text-muted-foreground">الهاتف:</span><span dir="ltr">{opp.phone}</span></div>}
+              </div>
+            )) : (
+              <div className="space-y-1">
+                <div className="flex justify-between"><span className="text-muted-foreground">الاسم:</span><span>{caseData.opposing_party || '—'}</span></div>
+                {caseData.opposing_party_address && <div className="flex justify-between"><span className="text-muted-foreground">العنوان:</span><span>{caseData.opposing_party_address}</span></div>}
+                {caseData.opposing_party_phone && <div className="flex justify-between"><span className="text-muted-foreground">الهاتف:</span><span dir="ltr">{caseData.opposing_party_phone}</span></div>}
+              </div>
+            )}
           </CardContent>
         </Card>
 
