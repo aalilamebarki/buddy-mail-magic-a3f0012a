@@ -60,6 +60,7 @@ const Cases = () => {
   const [form, setForm] = useState<CaseForm>(emptyForm);
   const [opponents, setOpponents] = useState<Opponent[]>([{ ...emptyOpponent }]);
   const [presenceParties, setPresenceParties] = useState<PresenceParty[]>([]);
+  const [againstAllInterested, setAgainstAllInterested] = useState(false);
   const [saving, setSaving] = useState(false);
   const [filterClientId, setFilterClientId] = useState<string>(preselectedClientId || '');
   const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
@@ -103,6 +104,7 @@ const Cases = () => {
     setForm({ ...emptyForm, client_id: filterClientId || '' });
     setOpponents([{ ...emptyOpponent }]);
     setPresenceParties([]);
+    setAgainstAllInterested(false);
     setDialogOpen(true);
   };
 
@@ -120,9 +122,13 @@ const Cases = () => {
     if (data && data.length > 0) {
       const opps = data.filter((o: any) => o.party_type !== 'presence');
       const pres = data.filter((o: any) => o.party_type === 'presence');
-      setOpponents(opps.length > 0 ? opps.map((o: any) => ({ name: o.name, address: o.address || '', phone: o.phone || '' })) : [{ ...emptyOpponent }]);
+      // Check if "كل من له المصلحة" mode
+      const isAllInterested = opps.length === 1 && opps[0].name === 'كل من له المصلحة';
+      setAgainstAllInterested(isAllInterested);
+      setOpponents(isAllInterested ? [{ ...emptyOpponent }] : opps.length > 0 ? opps.map((o: any) => ({ name: o.name, address: o.address || '', phone: o.phone || '' })) : [{ ...emptyOpponent }]);
       setPresenceParties(pres.map((o: any) => ({ name: o.name, address: o.address || '', phone: o.phone || '' })));
     } else {
+      setAgainstAllInterested(false);
       setOpponents([{
         name: c.opposing_party || '',
         address: c.opposing_party_address || '',
@@ -146,10 +152,14 @@ const Cases = () => {
     if (!form.court.trim()) { toast.error('المحكمة مطلوبة'); return; }
     if (!form.case_type) { toast.error('نوع الملف مطلوب'); return; }
 
-    // Check if النيابة العامة is in presence parties — if so, opponents are optional
+    const ALL_INTERESTED = 'كل من له المصلحة';
+    // If "كل من له المصلحة" is checked, opponents are replaced by that single entry
     const hasNiyabaPresence = presenceParties.some(p => isNiyaba(p.name));
-    const validOpponents = opponents.filter(o => o.name.trim());
-    if (!hasNiyabaPresence && validOpponents.length === 0) { toast.error('يجب إضافة خصم واحد على الأقل أو إضافة النيابة العامة بحضور'); return; }
+    const validOpponents = againstAllInterested ? [] : opponents.filter(o => o.name.trim());
+    if (!againstAllInterested && !hasNiyabaPresence && validOpponents.length === 0) {
+      toast.error('يجب إضافة خصم واحد على الأقل أو تفعيل "كل من له المصلحة"');
+      return;
+    }
 
     // Check duplicates
     const names = validOpponents.map(o => o.name.trim());
@@ -177,7 +187,9 @@ const Cases = () => {
       let opposingSummary: string | null = null;
       let oppAddress: string | null = null;
       let oppPhone: string | null = null;
-      if (validOpponents.length > 0) {
+      if (againstAllInterested) {
+        opposingSummary = ALL_INTERESTED;
+      } else if (validOpponents.length > 0) {
         const firstOpponent = validOpponents[0].name.trim();
         opposingSummary = validOpponents.length > 1 ? `${firstOpponent} ومن معه` : firstOpponent;
         oppAddress = validOpponents[0].address.trim() || null;
@@ -212,14 +224,16 @@ const Cases = () => {
 
       // Insert opponents
       const validPresence = presenceParties.filter(p => p.name.trim());
-      const opponentsPayload = validOpponents.map((o, i) => ({
-        case_id: caseId,
-        name: o.name.trim(),
-        address: o.address.trim() || null,
-        phone: o.phone.trim() || null,
-        sort_order: i,
-        party_type: 'opponent',
-      }));
+      const opponentsPayload = againstAllInterested
+        ? [{ case_id: caseId, name: ALL_INTERESTED, address: null, phone: null, sort_order: 0, party_type: 'opponent' }]
+        : validOpponents.map((o, i) => ({
+            case_id: caseId,
+            name: o.name.trim(),
+            address: o.address.trim() || null,
+            phone: o.phone.trim() || null,
+            sort_order: i,
+            party_type: 'opponent',
+          }));
       const presencePayload = validPresence.map((p, i) => ({
         case_id: caseId,
         name: p.name.trim(),
@@ -542,66 +556,86 @@ const Cases = () => {
               </Select>
             </div>
 
-            {/* Opponents Section */}
+            {/* Against All Interested Toggle + Opponents Section */}
             <div className="space-y-3">
-              <Label className="text-sm font-medium">المدعى عليهم (الخصوم) *</Label>
-              {opponents.map((opp, index) => {
-                const niyaba = isNiyaba(opp.name);
-                return (
-                  <div key={index} className="relative border rounded-lg p-3 space-y-2 bg-muted/30">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground font-medium">خصم {index + 1}</span>
-                      {opponents.length > 1 && (
-                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => removeOpponent(index)}>
-                          <X className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
-                    </div>
-                    <div>
-                      <Label className="text-xs">الخصم (ضد) *</Label>
-                      <Input
-                        value={opp.name}
-                        onChange={e => updateOpponent(index, 'name', e.target.value)}
-                        onBlur={() => {
-                          const name = opp.name.trim();
-                          if (name && opponents.some((o, i) => i !== index && o.name.trim() === name)) {
-                            toast.error('لقد سبق إدخال هذا المدعى عليه');
-                          }
-                        }}
-                        placeholder="اسم الطرف المقابل"
-                      />
-                    </div>
-                    {!niyaba && (
-                      <>
-                        <div>
-                          <Label className="text-xs">عنوان الخصم *</Label>
-                          <Input
-                            value={opp.address}
-                            onChange={e => updateOpponent(index, 'address', e.target.value)}
-                            placeholder="عنوان الطرف المقابل"
-                          />
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">المدعى عليهم (الخصوم) {!againstAllInterested && '*'}</Label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={againstAllInterested}
+                    onChange={e => setAgainstAllInterested(e.target.checked)}
+                    className="rounded border-border"
+                  />
+                  <span className="text-xs text-muted-foreground">كل من له المصلحة</span>
+                </label>
+              </div>
+
+              {againstAllInterested ? (
+                <div className="border rounded-lg p-3 bg-muted/30 text-center">
+                  <p className="text-sm text-muted-foreground">ضد: <strong className="text-foreground">كل من له المصلحة</strong></p>
+                </div>
+              ) : (
+                <>
+                  {opponents.map((opp, index) => {
+                    const niyaba = isNiyaba(opp.name);
+                    return (
+                      <div key={index} className="relative border rounded-lg p-3 space-y-2 bg-muted/30">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground font-medium">خصم {index + 1}</span>
+                          {opponents.length > 1 && (
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => removeOpponent(index)}>
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                         </div>
                         <div>
-                          <Label className="text-xs">هاتف الخصم</Label>
+                          <Label className="text-xs">الخصم (ضد) *</Label>
                           <Input
-                            value={opp.phone}
-                            onChange={e => updateOpponent(index, 'phone', e.target.value)}
-                            placeholder="اختياري"
+                            value={opp.name}
+                            onChange={e => updateOpponent(index, 'name', e.target.value)}
+                            onBlur={() => {
+                              const name = opp.name.trim();
+                              if (name && opponents.some((o, i) => i !== index && o.name.trim() === name)) {
+                                toast.error('لقد سبق إدخال هذا المدعى عليه');
+                              }
+                            }}
+                            placeholder="اسم الطرف المقابل"
                           />
                         </div>
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full border-dashed text-muted-foreground"
-                onClick={addOpponent}
-              >
-                <Plus className="h-4 w-4 ml-1" /> أضف مدعى عليه آخر
-              </Button>
+                        {!niyaba && (
+                          <>
+                            <div>
+                              <Label className="text-xs">عنوان الخصم *</Label>
+                              <Input
+                                value={opp.address}
+                                onChange={e => updateOpponent(index, 'address', e.target.value)}
+                                placeholder="عنوان الطرف المقابل"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">هاتف الخصم</Label>
+                              <Input
+                                value={opp.phone}
+                                onChange={e => updateOpponent(index, 'phone', e.target.value)}
+                                placeholder="اختياري"
+                              />
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full border-dashed text-muted-foreground"
+                    onClick={addOpponent}
+                  >
+                    <Plus className="h-4 w-4 ml-1" /> أضف مدعى عليه آخر
+                  </Button>
+                </>
+              )}
             </div>
 
             {/* Presence Parties Section (بحضور) */}
