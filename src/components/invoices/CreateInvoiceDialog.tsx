@@ -229,14 +229,19 @@ const CreateInvoiceDialog = ({ open, onOpenChange, onCreated }: Props) => {
 
             <div className="space-y-2">
               <Label>الملف (اختياري)</Label>
-              <Select value={form.caseId} onValueChange={v => update('caseId', v)}>
-                <SelectTrigger><SelectValue placeholder="ربط بملف" /></SelectTrigger>
-                <SelectContent>
-                  {filteredCases.map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex gap-2">
+                <Select value={form.caseId} onValueChange={v => update('caseId', v)}>
+                  <SelectTrigger className="flex-1"><SelectValue placeholder="ربط بملف" /></SelectTrigger>
+                  <SelectContent>
+                    {filteredCases.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button type="button" variant="outline" size="icon" className="shrink-0" onClick={() => setShowCaseDialog(true)} title="ملف جديد">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
 
             <div className="space-y-2">
