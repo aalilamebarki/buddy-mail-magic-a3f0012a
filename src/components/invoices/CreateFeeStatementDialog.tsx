@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, FileText, Plus, Trash2, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { Loader2, FileText, Plus, Trash2, X, ChevronDown, ChevronUp, Eye, ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -52,6 +53,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
   const letterheads = useLetterheadOptions();
 
   const [saving, setSaving] = useState(false);
+  const [step, setStep] = useState<'form' | 'preview'>('form');
   const [form, setForm] = useState({
     clientId: '',
     letterheadId: '',
@@ -106,6 +108,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
     } else if (!open) {
       setForm({ clientId: '', letterheadId: '', powerOfAttorneyDate: '', notes: '' });
       setCaseBlocks([]);
+      setStep('form');
     }
   }, [editData, open]);
 
@@ -427,282 +430,420 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
     }
   };
 
+  const handleShowPreview = () => {
+    const hasContent = caseBlocks.some(b =>
+      b.lawyerFees || b.items.some(i => i.description && i.amount)
+    );
+    if (!hasContent) {
+      toast({ title: 'يرجى إضافة مصاريف أو أتعاب لملف واحد على الأقل', variant: 'destructive' });
+      return;
+    }
+    const missingNumber = selectedCasesData.find(c => !c.case_number);
+    if (missingNumber) {
+      toast({ title: `الملف "${missingNumber.title}" لا يحتوي على رقم ملف`, variant: 'destructive' });
+      return;
+    }
+    setStep('preview');
+  };
+
+  const client = clients.find(c => c.id === form.clientId);
+  const letterhead = letterheads.find(l => l.id === form.letterheadId);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" />
-            {isEdit ? 'تعديل بيان الأتعاب' : 'بيان أتعاب ومصاريف جديد'}
+            {step === 'preview' ? 'معاينة البيان' : isEdit ? 'تعديل بيان الأتعاب' : 'بيان أتعاب ومصاريف جديد'}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Client & Letterhead */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">الموكل *</Label>
-              <Select value={form.clientId} onValueChange={v => update('clientId', v)}>
-                <SelectTrigger className="text-sm"><SelectValue placeholder="اختر" /></SelectTrigger>
-                <SelectContent>
-                  {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">الترويسة</Label>
-              <Select value={form.letterheadId} onValueChange={v => update('letterheadId', v)}>
-                <SelectTrigger className="text-sm"><SelectValue placeholder="اختر" /></SelectTrigger>
-                <SelectContent>
-                  {letterheads.map(l => <SelectItem key={l.id} value={l.id}>{l.lawyer_name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Power of Attorney Date */}
-          <div className="space-y-1.5">
-            <Label className="text-xs">تاريخ التوكيل</Label>
-            <Input
-              type="date"
-              value={form.powerOfAttorneyDate}
-              onChange={e => update('powerOfAttorneyDate', e.target.value)}
-              className="text-sm"
-            />
-          </div>
-
-          {/* Add Case Selector */}
-          <div className="space-y-2">
-            <Label className="text-xs font-semibold">الملفات * (يجب أن تحتوي على رقم ملف)</Label>
-            <div className="flex gap-2">
-              <Select value={caseSelectValue} onValueChange={addCase}>
-                <SelectTrigger className="text-sm flex-1"><SelectValue placeholder="اختر ملفاً لإضافته" /></SelectTrigger>
-                <SelectContent>
-                  {availableCases.map(c => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.title} {c.case_number ? `(${c.case_number})` : '⚠️ بدون رقم'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button type="button" variant="outline" size="sm" className="shrink-0 gap-1 text-xs" onClick={() => setShowNewCase(v => !v)}>
-                <Plus className="h-3.5 w-3.5" /> ملف جديد
-              </Button>
-            </div>
-            {caseBlocks.length === 0 && !showNewCase && (
-              <p className="text-[10px] text-destructive">يرجى اختيار ملف واحد على الأقل</p>
-            )}
-
-            {/* Inline New Case Form */}
-            {showNewCase && (
-              <Card className="border-dashed border-primary/30">
-                <CardContent className="p-3 space-y-3">
-                  <p className="text-xs font-semibold text-primary">إنشاء ملف جديد</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <Label className="text-[10px]">عنوان الملف *</Label>
-                      <Input className="text-sm h-8" placeholder="مثال: نزاع عقاري" value={newCase.title} onChange={e => setNewCase(p => ({ ...p, title: e.target.value }))} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px]">رقم الملف *</Label>
-                      <Input className="text-sm h-8" placeholder="مثال: 2026/123" value={newCase.case_number} onChange={e => setNewCase(p => ({ ...p, case_number: e.target.value }))} />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <Label className="text-[10px]">المحكمة</Label>
-                      <Input className="text-sm h-8" placeholder="مثال: المحكمة الابتدائية" value={newCase.court} onChange={e => setNewCase(p => ({ ...p, court: e.target.value }))} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px]">نوع الملف</Label>
-                      <Select value={newCase.case_type} onValueChange={v => setNewCase(p => ({ ...p, case_type: v }))}>
-                        <SelectTrigger className="text-sm h-8"><SelectValue placeholder="اختر" /></SelectTrigger>
-                        <SelectContent>
-                          {['مدني', 'جنائي', 'تجاري', 'أسري', 'إداري', 'عقاري', 'اجتماعي', 'استعجالي', 'أخرى'].map(t => (
-                            <SelectItem key={t} value={t}>{t}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button type="button" size="sm" className="flex-1 gap-1 text-xs" disabled={!newCase.title.trim() || !newCase.case_number.trim() || creatingCase} onClick={handleCreateCase}>
-                      {creatingCase ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-                      إنشاء وإضافة
-                    </Button>
-                    <Button type="button" variant="ghost" size="sm" className="text-xs" onClick={() => setShowNewCase(false)}>إلغاء</Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* Per-Case Blocks */}
-          {caseBlocks.map((block, blockIdx) => {
-            const caseInfo = cases.find(c => c.id === block.caseId);
-            const calc = caseCalcs[blockIdx];
-            return (
-              <Card key={block.caseId} className="border-primary/20">
-                {/* Case Header */}
-                <div
-                  className="flex items-center justify-between px-3 py-2 cursor-pointer bg-muted/30 rounded-t-lg"
-                  onClick={() => toggleCollapse(block.caseId)}
-                >
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <Badge variant="outline" className="text-[10px] shrink-0 bg-primary/10 text-primary">
-                      ملف {blockIdx + 1}
-                    </Badge>
-                    <span className="text-xs font-semibold truncate">
-                      {caseInfo?.title} — {caseInfo?.case_number}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-xs font-bold text-primary">
-                      {calc?.totalAmount.toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د
-                    </span>
-                    <button
-                      onClick={e => { e.stopPropagation(); removeCase(block.caseId); }}
-                      className="hover:text-destructive"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                    {block.collapsed ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
-                  </div>
+        {step === 'preview' ? (
+          /* ─── PREVIEW STEP ─── */
+          <div className="space-y-4">
+            {/* Client Info */}
+            <div className="rounded-lg border bg-muted/20 p-3 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">الموكل</span>
+                <span className="font-semibold">{client?.full_name || '—'}</span>
+              </div>
+              {form.powerOfAttorneyDate && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">تاريخ التوكيل</span>
+                  <span>{formatDateArabic(form.powerOfAttorneyDate, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                 </div>
+              )}
+              {letterhead && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">الترويسة</span>
+                  <span>{letterhead.lawyer_name}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">عدد الملفات</span>
+                <Badge variant="outline">{caseBlocks.length}</Badge>
+              </div>
+            </div>
 
-                {!block.collapsed && (
-                  <CardContent className="pt-3 space-y-3">
-                    {/* Expenses */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs font-semibold">المصاريف القضائية</Label>
-                        <Button type="button" variant="ghost" size="sm" onClick={() => addCaseItem(block.caseId)} className="h-6 text-[10px] gap-1">
-                          <Plus className="h-3 w-3" /> إضافة سطر
-                        </Button>
-                      </div>
-
-                      <div className="flex flex-wrap gap-1">
-                        {COMMON_EXPENSES.map(exp => (
-                          <Button
-                            key={exp}
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-5 text-[9px] px-1.5"
-                            onClick={() => addCommonExpense(block.caseId, exp)}
-                          >
-                            {exp}
-                          </Button>
-                        ))}
-                      </div>
-
-                      <div className="space-y-1.5 max-h-36 overflow-y-auto">
-                        {block.items.map((item, idx) => (
-                          <div key={idx} className="flex gap-2 items-center">
-                            <Input
-                              placeholder="البيان"
-                              value={item.description}
-                              onChange={e => updateCaseItem(block.caseId, idx, 'description', e.target.value)}
-                              className="text-xs flex-1 h-8"
-                            />
-                            <Input
-                              type="number"
-                              placeholder="المبلغ"
-                              min="0"
-                              step="0.01"
-                              value={item.amount}
-                              onChange={e => updateCaseItem(block.caseId, idx, 'amount', e.target.value)}
-                              className="text-xs w-20 h-8"
-                            />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0 text-destructive"
-                              onClick={() => removeCaseItem(block.caseId, idx)}
-                              disabled={block.items.length <= 1}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
+            {/* Per-case summary */}
+            {caseBlocks.map((block, blockIdx) => {
+              const caseInfo = cases.find(c => c.id === block.caseId);
+              const calc = caseCalcs[blockIdx];
+              const validItems = block.items.filter(i => i.description && parseFloat(i.amount) > 0);
+              return (
+                <Card key={block.caseId} className="border-primary/20">
+                  <div className="px-3 py-2 bg-muted/30 rounded-t-lg flex items-center gap-2">
+                    <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary">ملف {blockIdx + 1}</Badge>
+                    <span className="text-xs font-semibold">{caseInfo?.title} — {caseInfo?.case_number}</span>
+                    {caseInfo?.court && <span className="text-[10px] text-muted-foreground mr-auto">({caseInfo.court})</span>}
+                  </div>
+                  <CardContent className="pt-3 space-y-2">
+                    {/* Expense items */}
+                    {validItems.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-semibold text-muted-foreground">المصاريف القضائية</p>
+                        {validItems.map((item, idx) => (
+                          <div key={idx} className="flex justify-between text-xs">
+                            <span>{item.description}</span>
+                            <span className="font-medium">{parseFloat(item.amount).toLocaleString('ar-u-nu-latn')} د</span>
                           </div>
                         ))}
+                        <div className="flex justify-between text-xs border-t border-dashed pt-1">
+                          <span className="text-muted-foreground">مجموع المصاريف</span>
+                          <span className="font-bold">{calc.expensesTotal.toLocaleString('ar-u-nu-latn')} د</span>
+                        </div>
                       </div>
+                    )}
 
-                      <div className="text-[10px] text-muted-foreground">
-                        مجموع المصاريف: <span className="font-bold text-foreground">
-                          {(calc?.expensesTotal || 0).toLocaleString('ar-u-nu-latn')} درهم
-                        </span>
+                    {/* Lawyer fees */}
+                    {calc.lawyerFees > 0 && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">أتعاب المحامي</span>
+                        <span className="font-bold">{calc.lawyerFees.toLocaleString('ar-u-nu-latn')} د</span>
                       </div>
+                    )}
+
+                    <Separator />
+
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">المجموع قبل الضريبة (HT)</span>
+                      <span className="font-semibold">{calc.subtotal.toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د</span>
                     </div>
-
-                    {/* Lawyer Fees & Case Total */}
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="space-y-1">
-                        <Label className="text-[10px]">أتعاب المحامي (درهم)</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={block.lawyerFees}
-                          onChange={e => updateCaseBlock(block.caseId, 'lawyerFees', e.target.value)}
-                          className="text-xs h-8"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[10px]">TVA ({TAX_RATE}%)</Label>
-                        <div className="h-8 flex items-center justify-center rounded-md border bg-muted/30 text-xs text-orange-600 font-semibold">
-                          {(calc?.taxAmount || 0).toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[10px]">المجموع الكلي</Label>
-                        <div className="h-8 flex items-center justify-center rounded-md border bg-primary/10 text-xs font-bold text-primary">
-                          {(calc?.totalAmount || 0).toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د
-                        </div>
-                      </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">TVA ({TAX_RATE}%)</span>
+                      <span className="font-semibold text-destructive">{calc.taxAmount.toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د</span>
+                    </div>
+                    <div className="flex justify-between text-sm font-bold text-primary">
+                      <span>المجموع الكلي (TTC)</span>
+                      <span>{calc.totalAmount.toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د</span>
                     </div>
                   </CardContent>
-                )}
-              </Card>
-            );
-          })}
+                </Card>
+              );
+            })}
 
-          {/* Grand Total */}
-          {caseBlocks.length > 0 && (
-            <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-3 space-y-1.5">
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">مجموع الأتعاب والمصاريف HT</span>
-                <span className="font-bold">{grandTotal.subtotal.toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د</span>
+            {/* Grand total */}
+            {caseBlocks.length > 1 && (
+              <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-3 space-y-1.5">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">مجموع الأتعاب والمصاريف HT</span>
+                  <span className="font-bold">{grandTotal.subtotal.toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">مجموع TVA ({TAX_RATE}%)</span>
+                  <span className="font-bold text-destructive">{grandTotal.taxAmount.toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د</span>
+                </div>
+                <div className="flex justify-between text-sm border-t pt-1.5">
+                  <span className="font-bold">المبلغ الإجمالي TTC</span>
+                  <span className="font-bold text-primary text-base">{grandTotal.totalAmount.toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د</span>
+                </div>
               </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">مجموع TVA ({TAX_RATE}%)</span>
-                <span className="font-bold text-orange-600">{grandTotal.taxAmount.toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د</span>
+            )}
+
+            {/* Notes */}
+            {form.notes && (
+              <div className="text-xs text-muted-foreground rounded-lg border p-2">
+                <span className="font-semibold">ملاحظات:</span> {form.notes}
               </div>
-              <div className="flex justify-between text-sm border-t pt-1.5">
-                <span className="font-bold">المبلغ الإجمالي TTC</span>
-                <span className="font-bold text-primary text-base">{grandTotal.totalAmount.toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د</span>
+            )}
+
+            {/* Action buttons */}
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setStep('form')} className="flex-1 gap-1.5">
+                <ArrowRight className="h-4 w-4" /> تعديل
+              </Button>
+              <Button onClick={handleSubmit} disabled={saving} className="flex-1 gap-1.5">
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                {saving ? 'جاري الحفظ...' : 'تأكيد وإصدار PDF'}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          /* ─── FORM STEP ─── */
+          <div className="space-y-4">
+            {/* Client & Letterhead */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">الموكل *</Label>
+                <Select value={form.clientId} onValueChange={v => update('clientId', v)}>
+                  <SelectTrigger className="text-sm"><SelectValue placeholder="اختر" /></SelectTrigger>
+                  <SelectContent>
+                    {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">الترويسة</Label>
+                <Select value={form.letterheadId} onValueChange={v => update('letterheadId', v)}>
+                  <SelectTrigger className="text-sm"><SelectValue placeholder="اختر" /></SelectTrigger>
+                  <SelectContent>
+                    {letterheads.map(l => <SelectItem key={l.id} value={l.id}>{l.lawyer_name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-          )}
 
-          {/* Notes */}
-          <div className="space-y-1.5">
-            <Label className="text-xs">ملاحظات</Label>
-            <Textarea
-              placeholder="ملاحظات إضافية..."
-              value={form.notes}
-              onChange={e => update('notes', e.target.value)}
-              rows={2}
-              className="text-sm"
-            />
+            {/* Power of Attorney Date */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">تاريخ التوكيل</Label>
+              <Input
+                type="date"
+                value={form.powerOfAttorneyDate}
+                onChange={e => update('powerOfAttorneyDate', e.target.value)}
+                className="text-sm"
+              />
+            </div>
+
+            {/* Add Case Selector */}
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold">الملفات * (يجب أن تحتوي على رقم ملف)</Label>
+              <div className="flex gap-2">
+                <Select value={caseSelectValue} onValueChange={addCase}>
+                  <SelectTrigger className="text-sm flex-1"><SelectValue placeholder="اختر ملفاً لإضافته" /></SelectTrigger>
+                  <SelectContent>
+                    {availableCases.map(c => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.title} {c.case_number ? `(${c.case_number})` : '⚠️ بدون رقم'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button type="button" variant="outline" size="sm" className="shrink-0 gap-1 text-xs" onClick={() => setShowNewCase(v => !v)}>
+                  <Plus className="h-3.5 w-3.5" /> ملف جديد
+                </Button>
+              </div>
+              {caseBlocks.length === 0 && !showNewCase && (
+                <p className="text-[10px] text-destructive">يرجى اختيار ملف واحد على الأقل</p>
+              )}
+
+              {/* Inline New Case Form */}
+              {showNewCase && (
+                <Card className="border-dashed border-primary/30">
+                  <CardContent className="p-3 space-y-3">
+                    <p className="text-xs font-semibold text-primary">إنشاء ملف جديد</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-[10px]">عنوان الملف *</Label>
+                        <Input className="text-sm h-8" placeholder="مثال: نزاع عقاري" value={newCase.title} onChange={e => setNewCase(p => ({ ...p, title: e.target.value }))} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px]">رقم الملف *</Label>
+                        <Input className="text-sm h-8" placeholder="مثال: 2026/123" value={newCase.case_number} onChange={e => setNewCase(p => ({ ...p, case_number: e.target.value }))} />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-[10px]">المحكمة</Label>
+                        <Input className="text-sm h-8" placeholder="مثال: المحكمة الابتدائية" value={newCase.court} onChange={e => setNewCase(p => ({ ...p, court: e.target.value }))} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px]">نوع الملف</Label>
+                        <Select value={newCase.case_type} onValueChange={v => setNewCase(p => ({ ...p, case_type: v }))}>
+                          <SelectTrigger className="text-sm h-8"><SelectValue placeholder="اختر" /></SelectTrigger>
+                          <SelectContent>
+                            {['مدني', 'جنائي', 'تجاري', 'أسري', 'إداري', 'عقاري', 'اجتماعي', 'استعجالي', 'أخرى'].map(t => (
+                              <SelectItem key={t} value={t}>{t}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button type="button" size="sm" className="flex-1 gap-1 text-xs" disabled={!newCase.title.trim() || !newCase.case_number.trim() || creatingCase} onClick={handleCreateCase}>
+                        {creatingCase ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                        إنشاء وإضافة
+                      </Button>
+                      <Button type="button" variant="ghost" size="sm" className="text-xs" onClick={() => setShowNewCase(false)}>إلغاء</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            {/* Per-Case Blocks */}
+            {caseBlocks.map((block, blockIdx) => {
+              const caseInfo = cases.find(c => c.id === block.caseId);
+              const calc = caseCalcs[blockIdx];
+              return (
+                <Card key={block.caseId} className="border-primary/20">
+                  <div
+                    className="flex items-center justify-between px-3 py-2 cursor-pointer bg-muted/30 rounded-t-lg"
+                    onClick={() => toggleCollapse(block.caseId)}
+                  >
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <Badge variant="outline" className="text-[10px] shrink-0 bg-primary/10 text-primary">
+                        ملف {blockIdx + 1}
+                      </Badge>
+                      <span className="text-xs font-semibold truncate">
+                        {caseInfo?.title} — {caseInfo?.case_number}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs font-bold text-primary">
+                        {calc?.totalAmount.toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د
+                      </span>
+                      <button
+                        onClick={e => { e.stopPropagation(); removeCase(block.caseId); }}
+                        className="hover:text-destructive"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                      {block.collapsed ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+                    </div>
+                  </div>
+
+                  {!block.collapsed && (
+                    <CardContent className="pt-3 space-y-3">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs font-semibold">المصاريف القضائية</Label>
+                          <Button type="button" variant="ghost" size="sm" onClick={() => addCaseItem(block.caseId)} className="h-6 text-[10px] gap-1">
+                            <Plus className="h-3 w-3" /> إضافة سطر
+                          </Button>
+                        </div>
+
+                        <div className="flex flex-wrap gap-1">
+                          {COMMON_EXPENSES.map(exp => (
+                            <Button
+                              key={exp}
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-5 text-[9px] px-1.5"
+                              onClick={() => addCommonExpense(block.caseId, exp)}
+                            >
+                              {exp}
+                            </Button>
+                          ))}
+                        </div>
+
+                        <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                          {block.items.map((item, idx) => (
+                            <div key={idx} className="flex gap-2 items-center">
+                              <Input
+                                placeholder="البيان"
+                                value={item.description}
+                                onChange={e => updateCaseItem(block.caseId, idx, 'description', e.target.value)}
+                                className="text-xs flex-1 h-8"
+                              />
+                              <Input
+                                type="number"
+                                placeholder="المبلغ"
+                                min="0"
+                                step="0.01"
+                                value={item.amount}
+                                onChange={e => updateCaseItem(block.caseId, idx, 'amount', e.target.value)}
+                                className="text-xs w-20 h-8"
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-destructive"
+                                onClick={() => removeCaseItem(block.caseId, idx)}
+                                disabled={block.items.length <= 1}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="text-[10px] text-muted-foreground">
+                          مجموع المصاريف: <span className="font-bold text-foreground">
+                            {(calc?.expensesTotal || 0).toLocaleString('ar-u-nu-latn')} درهم
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">أتعاب المحامي (درهم)</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={block.lawyerFees}
+                            onChange={e => updateCaseBlock(block.caseId, 'lawyerFees', e.target.value)}
+                            className="text-xs h-8"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">TVA ({TAX_RATE}%)</Label>
+                          <div className="h-8 flex items-center justify-center rounded-md border bg-muted/30 text-xs text-destructive font-semibold">
+                            {(calc?.taxAmount || 0).toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">المجموع الكلي</Label>
+                          <div className="h-8 flex items-center justify-center rounded-md border bg-primary/10 text-xs font-bold text-primary">
+                            {(calc?.totalAmount || 0).toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  )}
+                </Card>
+              );
+            })}
+
+            {/* Grand Total */}
+            {caseBlocks.length > 0 && (
+              <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-3 space-y-1.5">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">مجموع الأتعاب والمصاريف HT</span>
+                  <span className="font-bold">{grandTotal.subtotal.toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">مجموع TVA ({TAX_RATE}%)</span>
+                  <span className="font-bold text-destructive">{grandTotal.taxAmount.toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د</span>
+                </div>
+                <div className="flex justify-between text-sm border-t pt-1.5">
+                  <span className="font-bold">المبلغ الإجمالي TTC</span>
+                  <span className="font-bold text-primary text-base">{grandTotal.totalAmount.toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د</span>
+                </div>
+              </div>
+            )}
+
+            {/* Notes */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">ملاحظات</Label>
+              <Textarea
+                placeholder="ملاحظات إضافية..."
+                value={form.notes}
+                onChange={e => update('notes', e.target.value)}
+                rows={2}
+                className="text-sm"
+              />
+            </div>
+
+            <Button onClick={handleShowPreview} disabled={!canSubmit} className="w-full gap-2">
+              <Eye className="h-4 w-4" /> معاينة البيان قبل الإصدار
+            </Button>
           </div>
-
-          <Button onClick={handleSubmit} disabled={!canSubmit} className="w-full gap-2">
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
-            {saving ? 'جاري الحفظ...' : isEdit ? 'حفظ التعديلات وتحميل PDF' : 'إنشاء البيان وتحميل PDF'}
-          </Button>
-        </div>
+        )}
       </DialogContent>
     </Dialog>
   );
