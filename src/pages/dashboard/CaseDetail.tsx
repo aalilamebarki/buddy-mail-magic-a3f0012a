@@ -210,7 +210,7 @@ const CaseDetail = () => {
                   <Input
                     value={caseNumberEdit}
                     onChange={e => setCaseNumberEdit(e.target.value)}
-                    className="h-7 w-40 font-mono text-sm"
+                    className="h-7 w-40 text-sm"
                     dir="ltr"
                     placeholder="رقم/رمز/سنة"
                     autoFocus
