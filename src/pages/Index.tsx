@@ -18,7 +18,7 @@ const Index = () => (
       <title>محاماة ذكية - محتوى قانوني مغربي بمعايير عالمية</title>
       <meta name="description" content="مقالات قانونية معمّقة، أدوات ذكية، واستشارات مدعومة بالذكاء الاصطناعي لفهم القانون المغربي بوضوح." />
     </Helmet>
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-background" dir="rtl">
       <Navbar />
       <main className="flex-1">
         <HeroSection />

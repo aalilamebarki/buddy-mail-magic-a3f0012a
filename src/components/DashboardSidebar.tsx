@@ -146,7 +146,7 @@ const DashboardSidebar = () => {
       </div>
 
       {/* Desktop: fixed sidebar */}
-      <aside className="hidden lg:flex w-64 bg-card border-r border-border flex-col h-screen sticky top-0 shrink-0">
+      <aside className="hidden lg:flex w-64 bg-card border-l border-border flex-col h-screen sticky top-0 shrink-0">
         <SidebarContent />
       </aside>
     </>

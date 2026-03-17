@@ -130,7 +130,7 @@ const DocumentCenter = () => {
         <meta name="description" content="مركز الوثائق القانونية المغربية: ظهائر، قوانين، مراسيم، وقرارات قضائية مع إمكانية البحث والتحميل." />
       </Helmet>
 
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background" dir="rtl">
         {/* Nav */}
         <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-2xl border-b border-border/30">
           <div className="container mx-auto px-4 flex items-center justify-between h-16">
