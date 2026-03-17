@@ -19,9 +19,13 @@ interface CaseForm {
   case_type: string;
   description: string;
   client_id: string;
+  opposing_party: string;
+  opposing_party_address: string;
+  opposing_party_phone: string;
+  court: string;
 }
 
-const emptyForm: CaseForm = { title: '', case_type: '', description: '', client_id: '' };
+const emptyForm: CaseForm = { title: '', case_type: '', description: '', client_id: '', opposing_party: '', opposing_party_address: '', opposing_party_phone: '', court: '' };
 
 const caseTypes = [
   'مدني', 'جنائي', 'تجاري', 'إداري', 'عقاري', 'أسري', 'شغل', 'آخر'
@@ -82,6 +86,10 @@ const Cases = () => {
       case_type: c.case_type || '',
       description: c.description || '',
       client_id: c.client_id || '',
+      opposing_party: c.opposing_party || '',
+      opposing_party_address: c.opposing_party_address || '',
+      opposing_party_phone: c.opposing_party_phone || '',
+      court: c.court || '',
     });
     setDialogOpen(true);
   };
@@ -94,13 +102,21 @@ const Cases = () => {
   const handleSave = async () => {
     if (!form.title.trim()) { toast.error('عنوان الملف مطلوب'); return; }
     if (!form.client_id) { toast.error('يجب اختيار الموكل'); return; }
+    if (!form.opposing_party.trim()) { toast.error('اسم الخصم مطلوب'); return; }
+    if (!form.opposing_party_address.trim()) { toast.error('عنوان الخصم مطلوب'); return; }
+    if (!form.court.trim()) { toast.error('المحكمة مطلوبة'); return; }
+    if (!form.case_type) { toast.error('نوع الملف مطلوب'); return; }
     setSaving(true);
     try {
       const payload = {
         title: form.title.trim(),
-        case_type: form.case_type || null,
+        case_type: form.case_type,
         description: form.description.trim() || null,
         client_id: form.client_id,
+        opposing_party: form.opposing_party.trim(),
+        opposing_party_address: form.opposing_party_address.trim(),
+        opposing_party_phone: form.opposing_party_phone.trim() || null,
+        court: form.court.trim(),
       };
       if (editingCase) {
         const { error } = await supabase.from('cases').update(payload).eq('id', editingCase.id);
@@ -291,7 +307,7 @@ const Cases = () => {
               <Input value={form.title} onChange={e => updateField('title', e.target.value)} placeholder="مثال: نزاع عقاري - الدار البيضاء" />
             </div>
             <div>
-              <Label>نوع القضية</Label>
+              <Label>نوع الملف *</Label>
               <Select value={form.case_type} onValueChange={(v) => updateField('case_type', v)}>
                 <SelectTrigger>
                   <SelectValue placeholder="اختر النوع" />
@@ -302,6 +318,22 @@ const Cases = () => {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label>الخصم (ضد) *</Label>
+              <Input value={form.opposing_party} onChange={e => updateField('opposing_party', e.target.value)} placeholder="اسم الطرف المقابل" />
+            </div>
+            <div>
+              <Label>عنوان الخصم *</Label>
+              <Input value={form.opposing_party_address} onChange={e => updateField('opposing_party_address', e.target.value)} placeholder="عنوان الطرف المقابل" />
+            </div>
+            <div>
+              <Label>هاتف الخصم</Label>
+              <Input value={form.opposing_party_phone} onChange={e => updateField('opposing_party_phone', e.target.value)} placeholder="اختياري" />
+            </div>
+            <div>
+              <Label>المحكمة *</Label>
+              <Input value={form.court} onChange={e => updateField('court', e.target.value)} placeholder="مثال: المحكمة الابتدائية بالدار البيضاء" />
             </div>
             <div>
               <Label>ملاحظات</Label>
