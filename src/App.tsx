@@ -48,6 +48,7 @@ const KnowledgeBase = lazy(() => import("./pages/dashboard/KnowledgeBase"));
 const DocumentGenerator = lazy(() => import("./pages/dashboard/DocumentGenerator"));
 const Letterheads = lazy(() => import("./pages/dashboard/Letterheads"));
 const LegalScraper = lazy(() => import("./pages/dashboard/LegalScraper"));
+const Invoices = lazy(() => import("./pages/dashboard/Invoices"));
 
 const queryClient = new QueryClient();
 
@@ -111,6 +112,7 @@ const App = () => (
                     <Route path="document-generator" element={<DocumentGenerator />} />
                     <Route path="letterheads" element={<Letterheads />} />
                     <Route path="legal-scraper" element={<LegalScraper />} />
+                    <Route path="invoices" element={<Invoices />} />
                   </Route>
 
                   <Route path="*" element={<NotFound />} />
