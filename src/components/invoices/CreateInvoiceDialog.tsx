@@ -212,11 +212,24 @@ const CreateInvoiceDialog = ({ open, onOpenChange, onCreated }: Props) => {
         clientName: client?.full_name || 'غير محدد',
         caseName: caseItem?.title,
         caseNumber: caseItem?.case_number || undefined,
+        caseType: caseItem?.case_type || undefined,
         amount,
         description: form.description || undefined,
         paymentMethod: form.paymentMethod,
         date: formatDateArabic(now, { year: 'numeric', month: 'long', day: 'numeric' }),
         lawyerName: letterhead?.lawyer_name || 'مكتب المحاماة',
+        letterhead: letterhead ? {
+          lawyerName: letterhead.lawyer_name,
+          nameFr: letterhead.name_fr,
+          titleAr: letterhead.title_ar,
+          titleFr: letterhead.title_fr,
+          barNameAr: letterhead.bar_name_ar,
+          barNameFr: letterhead.bar_name_fr,
+          address: letterhead.address,
+          city: letterhead.city,
+          phone: letterhead.phone,
+          email: letterhead.email,
+        } : undefined,
       });
 
       const pdfPath = `${user.id}/${invoice.id}.pdf`;
