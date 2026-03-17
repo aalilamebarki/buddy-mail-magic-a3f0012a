@@ -325,16 +325,19 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
         }
       }
 
-      // Accounting entry
+      // Accounting entry — only lawyer fees count as revenue (expenses are pass-through)
+      const feesOnlyTax = caseCalcs.reduce((s, c) => s + (c.lawyerFees * c.taxRate / 100), 0);
+      const feesOnlyTTC = grandTotal.lawyerFees + feesOnlyTax;
+
       if (isEdit) {
         await supabase
           .from('accounting_entries')
           .update({
             client_id: form.clientId || null,
             description: `بيان أتعاب — ${client?.full_name || ''} — ${selectedCasesData.map(c => c.case_number).join(', ')}`,
-            amount_ht: grandTotal.subtotal,
-            tax_amount: grandTotal.taxAmount,
-            amount_ttc: grandTotal.totalAmount,
+            amount_ht: grandTotal.lawyerFees,
+            tax_amount: feesOnlyTax,
+            amount_ttc: feesOnlyTTC,
           })
           .eq('reference_id', stmtId)
           .eq('entry_type', 'fee_statement');
@@ -346,9 +349,9 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
           reference_id: stmtId,
           client_id: form.clientId || null,
           description: `بيان أتعاب — ${client?.full_name || ''} — ${selectedCasesData.map(c => c.case_number).join(', ')}`,
-          amount_ht: grandTotal.subtotal,
-          tax_amount: grandTotal.taxAmount,
-          amount_ttc: grandTotal.totalAmount,
+          amount_ht: grandTotal.lawyerFees,
+          tax_amount: feesOnlyTax,
+          amount_ttc: feesOnlyTTC,
         });
       }
 
