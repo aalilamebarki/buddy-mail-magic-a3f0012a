@@ -34,6 +34,7 @@ interface ExpenseItem {
 interface CaseBlock {
   caseId: string;
   lawyerFees: string;
+  taxRate: string;
   items: ExpenseItem[];
   collapsed: boolean;
 }
