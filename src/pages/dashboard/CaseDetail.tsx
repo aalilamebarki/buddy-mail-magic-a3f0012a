@@ -58,30 +58,57 @@ const CaseDetail = () => {
 
   const needsCaseNumber = caseData && !caseData.case_number;
 
-  const handleAddSession = async () => {
+  const openEditSession = (session: any) => {
+    setEditingSession(session);
+    setSessionDate(new Date(session.session_date + 'T00:00:00'));
+    setSessionNotes(session.notes || '');
+    setSessionDialogOpen(true);
+  };
+
+  const openAddSession = () => {
+    setEditingSession(null);
+    setSessionDate(undefined);
+    setSessionNotes('');
+    setCaseNumberInput('');
+    setSessionDialogOpen(true);
+  };
+
+  const handleSaveSession = async () => {
     if (!sessionDate || !user || !id) {
       toast.error('يرجى اختيار تاريخ الجلسة');
       return;
     }
-    const finalCaseNumber = caseData?.case_number || caseNumberInput.trim();
-    if (!finalCaseNumber) {
-      toast.error('رقم الملف مطلوب');
-      return;
+    if (!editingSession) {
+      const finalCaseNumber = caseData?.case_number || caseNumberInput.trim();
+      if (!finalCaseNumber) {
+        toast.error('رقم الملف مطلوب');
+        return;
+      }
     }
     setSaving(true);
     try {
-      if (needsCaseNumber && caseNumberInput.trim()) {
+      if (!editingSession && needsCaseNumber && caseNumberInput.trim()) {
         await supabase.from('cases').update({ case_number: caseNumberInput.trim() }).eq('id', id);
       }
-      const { error } = await supabase.from('court_sessions').insert({
-        case_id: id,
-        session_date: format(sessionDate, 'yyyy-MM-dd'),
-        notes: sessionNotes || null,
-        user_id: user.id,
-      });
-      if (error) throw error;
-      toast.success('تمت إضافة الجلسة');
+      if (editingSession) {
+        const { error } = await supabase.from('court_sessions').update({
+          session_date: format(sessionDate, 'yyyy-MM-dd'),
+          notes: sessionNotes || null,
+        }).eq('id', editingSession.id);
+        if (error) throw error;
+        toast.success('تم تعديل الجلسة');
+      } else {
+        const { error } = await supabase.from('court_sessions').insert({
+          case_id: id,
+          session_date: format(sessionDate, 'yyyy-MM-dd'),
+          notes: sessionNotes || null,
+          user_id: user.id,
+        });
+        if (error) throw error;
+        toast.success('تمت إضافة الجلسة');
+      }
       setSessionDialogOpen(false);
+      setEditingSession(null);
       setSessionDate(undefined);
       setSessionNotes('');
       setCaseNumberInput('');
@@ -90,6 +117,14 @@ const CaseDetail = () => {
       toast.error('خطأ في حفظ الجلسة');
     }
     setSaving(false);
+  };
+
+  const handleDeleteSession = async (sessionId: string) => {
+    if (!confirm('هل تريد حذف هذه الجلسة؟')) return;
+    const { error } = await supabase.from('court_sessions').delete().eq('id', sessionId);
+    if (error) { toast.error('خطأ في حذف الجلسة'); return; }
+    toast.success('تم حذف الجلسة');
+    fetchData();
   };
 
   if (loading) return <div className="text-center py-12 text-muted-foreground">جاري التحميل...</div>;
