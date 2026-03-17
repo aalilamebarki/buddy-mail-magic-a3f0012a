@@ -191,18 +191,14 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
         .select('id')
         .single();
       if (error) throw error;
-      // Refresh cases list and add the new case to blocks
-      const { data: refreshed } = await supabase.from('cases').select('*').order('created_at', { ascending: false });
-      if (refreshed) {
-        // Force useCases hook won't update, so we add directly
-        const newCaseId = data.id;
-        setCaseBlocks(prev => [...prev, {
-          caseId: newCaseId,
-          lawyerFees: '',
-          items: [{ description: '', amount: '' }],
-          collapsed: false,
-        }]);
-      }
+      const newCaseId = data.id;
+      await refetchCases();
+      setCaseBlocks(prev => [...prev, {
+        caseId: newCaseId,
+        lawyerFees: '',
+        items: [{ description: '', amount: '' }],
+        collapsed: false,
+      }]);
       setNewCase({ title: '', case_number: '', court: '', case_type: '' });
       setShowNewCase(false);
       toast({ title: 'تم إنشاء الملف وإضافته ✅' });
