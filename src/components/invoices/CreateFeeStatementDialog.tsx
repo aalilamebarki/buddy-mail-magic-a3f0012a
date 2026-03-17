@@ -328,7 +328,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
           fee_statement_id: stmtId,
           case_id: block.caseId,
           lawyer_fees: calc.lawyerFees,
-          tax_rate: TAX_RATE,
+          tax_rate: calc.taxRate,
           tax_amount: calc.taxAmount,
           subtotal: calc.subtotal,
           total_amount: calc.totalAmount,
