@@ -569,21 +569,25 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">الموكل *</Label>
-                <Select value={form.clientId} onValueChange={v => update('clientId', v)}>
-                  <SelectTrigger className="text-sm"><SelectValue placeholder="اختر" /></SelectTrigger>
-                  <SelectContent>
-                    {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  options={clients.map(c => ({ value: c.id, label: c.full_name, sublabel: c.phone || c.email || undefined }))}
+                  value={form.clientId}
+                  onValueChange={v => update('clientId', v)}
+                  placeholder="اختر"
+                  searchPlaceholder="ابحث باسم الموكل..."
+                  triggerClassName="text-sm"
+                />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">الترويسة</Label>
-                <Select value={form.letterheadId} onValueChange={v => update('letterheadId', v)}>
-                  <SelectTrigger className="text-sm"><SelectValue placeholder="اختر" /></SelectTrigger>
-                  <SelectContent>
-                    {letterheads.map(l => <SelectItem key={l.id} value={l.id}>{l.lawyer_name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  options={letterheads.map(l => ({ value: l.id, label: l.lawyer_name }))}
+                  value={form.letterheadId}
+                  onValueChange={v => update('letterheadId', v)}
+                  placeholder="اختر"
+                  searchPlaceholder="ابحث باسم المحامي..."
+                  triggerClassName="text-sm"
+                />
               </div>
             </div>
 
