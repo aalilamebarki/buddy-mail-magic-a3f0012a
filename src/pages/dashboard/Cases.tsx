@@ -230,9 +230,56 @@ const Cases = () => {
     setOpponents(prev => prev.filter((_, i) => i !== index));
   };
 
+  // Fuzzy search: match if all characters of the query appear in order in the name
+  const fuzzyMatch = (name: string, query: string): boolean => {
+    const n = name.toLowerCase();
+    const q = query.toLowerCase();
+    // First try simple includes
+    if (n.includes(q)) return true;
+    // Try matching each word of query independently
+    const words = q.split(/\s+/).filter(Boolean);
+    if (words.length > 1) {
+      return words.every(w => fuzzyMatch(name, w));
+    }
+    // Subsequence match with max 1 skip tolerance per 3 chars
+    let ni = 0;
+    let matched = 0;
+    for (let qi = 0; qi < q.length && ni < n.length; ni++) {
+      if (n[qi] === q[qi] || n[ni] === q[qi]) {
+        if (n[ni] === q[qi]) { matched++; qi++; }
+      }
+    }
+    if (matched >= q.length) return true;
+    // Levenshtein-based: allow ~30% errors
+    const maxDist = Math.max(1, Math.floor(q.length * 0.4));
+    return levenshteinDistance(n, q) <= maxDist || 
+      // Also check if any word in the name is close to query
+      n.split(/\s+/).some(w => levenshteinDistance(w, q) <= maxDist);
+  };
+
+  const levenshteinDistance = (a: string, b: string): number => {
+    const m = a.length, n = b.length;
+    if (m === 0) return n;
+    if (n === 0) return m;
+    const dp: number[][] = Array.from({ length: m + 1 }, (_, i) => {
+      const row = new Array(n + 1).fill(0);
+      row[0] = i;
+      return row;
+    });
+    for (let j = 1; j <= n; j++) dp[0][j] = j;
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        dp[i][j] = a[i - 1] === b[j - 1]
+          ? dp[i - 1][j - 1]
+          : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+      }
+    }
+    return dp[m][n];
+  };
+
   const filteredClients = useMemo(() => {
     if (!clientSearch) return clients;
-    return clients.filter(c => c.full_name.includes(clientSearch));
+    return clients.filter(c => fuzzyMatch(c.full_name, clientSearch.trim()));
   }, [clients, clientSearch]);
 
   const selectedClientLabel = form.client_id ? clients.find(c => c.id === form.client_id)?.full_name : '';
