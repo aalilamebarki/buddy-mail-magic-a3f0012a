@@ -783,7 +783,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-4 gap-2">
                         <div className="space-y-1">
                           <Label className="text-[10px]">أتعاب المحامي (درهم)</Label>
                           <Input
@@ -798,6 +798,19 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[10px]">TVA (%)</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="1"
+                            placeholder="10"
+                            value={block.taxRate}
+                            onChange={e => updateCaseBlock(block.caseId, 'taxRate', e.target.value)}
+                            className="text-xs h-8"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">مبلغ TVA</Label>
                           <div className="h-8 flex items-center justify-center rounded-md border bg-muted/30 text-xs text-destructive font-semibold">
                             {(calc?.taxAmount || 0).toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د
                           </div>
