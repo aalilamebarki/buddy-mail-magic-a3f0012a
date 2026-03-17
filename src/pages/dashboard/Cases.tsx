@@ -36,6 +36,12 @@ const emptyOpponent: Opponent = { name: '', address: '', phone: '' };
 
 const NIYABA = 'النيابة العامة';
 
+interface PresenceParty {
+  name: string;
+  address: string;
+  phone: string;
+}
+
 const caseTypes = ['مدني', 'جنائي', 'تجاري', 'إداري', 'عقاري', 'أسري', 'شغل', 'آخر'];
 
 const Cases = () => {
