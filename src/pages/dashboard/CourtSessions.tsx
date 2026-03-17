@@ -257,74 +257,136 @@ const CourtSessions = () => {
     const totalSessions = Object.values(byCourt).reduce((s, a) => s + a.length, 0);
     const totalCourts = Object.keys(byCourt).length;
 
-    const container = document.createElement('div');
-    container.style.cssText = 'position:absolute;left:-9999px;top:0;width:297mm;';
-    document.body.appendChild(container);
+    // --- Generate PDF using jsPDF with Arabic font ---
+    toast.info('جاري إنشاء PDF...');
 
-    const wrapper = document.createElement('div');
-    wrapper.setAttribute('dir', 'rtl');
-    wrapper.setAttribute('lang', 'ar');
-    wrapper.className = 'pdf-export';
-    wrapper.style.cssText = `font-family:'IBM Plex Sans Arabic','Traditional Arabic',sans-serif;font-size:12px;color:#000;direction:rtl;background:#fff;padding:30px 40px;`;
+    const { default: jsPDF } = await import('jspdf');
+    await import('jspdf-autotable');
 
-    const styleEl = document.createElement('style');
-    styleEl.textContent = `
-      .pdf-export * { box-sizing: border-box; margin: 0; padding: 0; }
-      .pdf-export .header { text-align: center; margin-bottom: 28px; padding-bottom: 18px; border-bottom: 1px solid #000; }
-      .pdf-export .header h1 { font-size: 22px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 6px; }
-      .pdf-export .header .subtitle { font-size: 12px; color: #333; margin-bottom: 12px; }
-      .pdf-export .header .stats-row { display: flex; justify-content: center; gap: 30px; margin-top: 10px; }
-      .pdf-export .header .stat { font-size: 12px; color: #222; }
-      .pdf-export .header .stat strong { font-size: 16px; margin-left: 4px; }
-      .pdf-export .court-block { margin-bottom: 20px; break-inside: avoid; }
-      .pdf-export .court-title { font-size: 13px; font-weight: 700; padding: 6px 10px; background: #000; color: #fff; margin-bottom: 0; }
-      .pdf-export table { width: 100%; border-collapse: collapse; margin-bottom: 0; }
-      .pdf-export th { font-size: 10px; font-weight: 700; padding: 6px 8px; text-align: right; background: #eee; border: 1px solid #999; text-transform: uppercase; letter-spacing: 0.3px; }
-      .pdf-export td { font-size: 11px; padding: 5px 8px; border: 1px solid #bbb; }
-      .pdf-export tr:nth-child(even) td { background: #f7f7f7; }
-      .pdf-export .num-cell { text-align: center; width: 28px; color: #555; font-size: 10px; }
-      .pdf-export .case-num-cell { direction: ltr; text-align: center; font-family: 'Courier New', monospace; font-size: 11px; }
-      .pdf-export .date-cell { white-space: nowrap; font-size: 10.5px; }
-      .pdf-export .footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #000; display: flex; justify-content: space-between; font-size: 9px; color: #555; }
-    `;
-    wrapper.appendChild(styleEl);
+    // Fetch Arabic font from Google Fonts
+    const fontUrl = 'https://fonts.gstatic.com/s/ibmplexsansarabic/v12/Qw3CZRtWPQCuHme67tEYUIx3Kh0PHR9N6Y.ttf';
+    const fontResponse = await fetch(fontUrl);
+    const fontBuffer = await fontResponse.arrayBuffer();
+    const uint8Array = new Uint8Array(fontBuffer);
+    let binary = '';
+    for (let i = 0; i < uint8Array.length; i++) {
+      binary += String.fromCharCode(uint8Array[i]);
+    }
+    const fontBase64 = btoa(binary);
 
-    const contentDiv = document.createElement('div');
-    contentDiv.innerHTML = `
-      <div class="header">
-        <h1>${docTitle}</h1>
-        <div class="subtitle">${periodLabel}</div>
-        <div class="stats-row">
-          <span class="stat"><strong>${totalSessions}</strong>جلسة</span>
-          <span class="stat"><strong>${totalCourts}</strong>محكمة</span>
-        </div>
-      </div>
-      ${courtSections}
-      <div class="footer">
-        <span>${docTitle}</span>
-        <span>${new Date().toLocaleDateString('ar-MA', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-      </div>
-    `;
-    wrapper.appendChild(contentDiv);
-    container.appendChild(wrapper);
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    doc.addFileToVFS('IBMPlexSansArabic-Regular.ttf', fontBase64);
+    doc.addFont('IBMPlexSansArabic-Regular.ttf', 'IBMPlexArabic', 'normal');
+    doc.setFont('IBMPlexArabic');
+    doc.setR2L(true);
 
-    await new Promise(resolve => setTimeout(resolve, 500));
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
 
-    const { default: html2pdf } = await import('html2pdf.js');
+    // Title
+    doc.setFontSize(20);
+    doc.text(docTitle, pageW / 2, 18, { align: 'center' });
+    doc.setFontSize(11);
+    doc.setTextColor(80);
+    doc.text(periodLabel, pageW / 2, 26, { align: 'center' });
+
+    // Stats line
+    doc.setFontSize(10);
+    doc.setTextColor(0);
+    const statsText = `${totalSessions} جلسة  |  ${totalCourts} محكمة`;
+    doc.text(statsText, pageW / 2, 33, { align: 'center' });
+
+    // Separator line
+    doc.setDrawColor(0);
+    doc.setLineWidth(0.5);
+    doc.line(15, 36, pageW - 15, 36);
+
+    let currentY = 42;
+
+    // Court sections
+    for (const [court, items] of Object.entries(byCourt)) {
+      if (currentY + 20 > pageH - 15) {
+        doc.addPage();
+        currentY = 15;
+      }
+
+      // Court header bar
+      doc.setFillColor(0, 0, 0);
+      doc.rect(15, currentY, pageW - 30, 8, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(11);
+      doc.text(`${court} — ${(items as any[]).length} جلسة`, pageW - 20, currentY + 5.5, { align: 'right' });
+      doc.setTextColor(0);
+      currentY += 10;
+
+      // Table data
+      const tableHead = [['#', 'الموكل', 'رقم الملف', 'المدعى عليه', 'تاريخ الجلسة', 'الجلسة المقبلة']];
+      const tableBody = (items as any[]).map((s: any, i: number) => {
+        const nextDate = getNextSession(s.case_id, s.session_date);
+        const fmtDate = new Date(s.session_date + 'T00:00:00').toLocaleDateString('ar-MA', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+        const fmtNext = nextDate ? new Date(nextDate + 'T00:00:00').toLocaleDateString('ar-MA', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+        return [
+          String(i + 1),
+          s.cases?.clients?.full_name || '—',
+          s.cases?.case_number || '—',
+          s.cases?.opposing_party || '—',
+          fmtDate,
+          fmtNext,
+        ];
+      });
+
+      (doc as any).autoTable({
+        head: tableHead,
+        body: tableBody,
+        startY: currentY,
+        margin: { left: 15, right: 15 },
+        styles: {
+          font: 'IBMPlexArabic',
+          fontStyle: 'normal',
+          fontSize: 9,
+          halign: 'right',
+          cellPadding: 2.5,
+          lineColor: [150, 150, 150],
+          lineWidth: 0.2,
+          textColor: [0, 0, 0],
+        },
+        headStyles: {
+          fillColor: [230, 230, 230],
+          textColor: [0, 0, 0],
+          fontStyle: 'normal',
+          fontSize: 9,
+          halign: 'right',
+          lineColor: [100, 100, 100],
+          lineWidth: 0.3,
+        },
+        alternateRowStyles: { fillColor: [248, 248, 248] },
+        columnStyles: {
+          0: { halign: 'center', cellWidth: 10 },
+          2: { halign: 'center', cellWidth: 35 },
+          4: { cellWidth: 45 },
+          5: { cellWidth: 45 },
+        },
+      });
+
+      currentY = (doc as any).lastAutoTable.finalY + 8;
+    }
+
+    // Footer
+    const footerY = pageH - 8;
+    doc.setFontSize(8);
+    doc.setTextColor(120);
+    doc.setLineWidth(0.3);
+    doc.line(15, footerY - 3, pageW - 15, footerY - 3);
+    doc.text(docTitle, pageW - 15, footerY, { align: 'right' });
+    const genDate = new Date().toLocaleDateString('ar-MA', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    doc.text(genDate, 15, footerY, { align: 'left' });
+
     const fileName = mode === 'week'
       ? 'جدول_الجلسات_الأسبوع.pdf'
       : `جلسة_يوم_${format(exportDate, 'yyyy-MM-dd')}.pdf`;
 
-    // @ts-ignore
-    html2pdf().set({
-      margin: [8, 8, 8, 8],
-      filename: fileName,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, scrollY: 0, width: wrapper.scrollWidth, windowWidth: wrapper.scrollWidth },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
-    }).from(wrapper).save().then(() => {
-      document.body.removeChild(container);
-    });
+    doc.save(fileName);
+    toast.success('تم تحميل PDF بنجاح');
     setExportMode(null);
   }, [sessions, exportDate, getNextSession]);
 
