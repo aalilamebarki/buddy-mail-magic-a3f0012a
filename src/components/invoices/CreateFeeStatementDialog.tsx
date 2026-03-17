@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Loader2, FileText, Plus, Trash2, X, ChevronDown, ChevronUp, Eye, ArrowRight } from 'lucide-react';
+import CreateCaseDialog from '@/components/cases/CreateCaseDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
