@@ -542,7 +542,7 @@ const BlogArticle = () => {
         <motion.div className="h-full bg-gradient-to-l from-legal-gold via-primary to-legal-emerald" style={{ width: progressWidth }} />
       </motion.div>
 
-      <div className={`min-h-screen bg-background transition-all duration-500 ${focusMode ? 'focus-reading' : ''}`}>
+      <div className={`min-h-screen bg-background transition-all duration-500 ${focusMode ? 'focus-reading' : ''}`} dir="rtl">
 
         {/* ═══ STICKY HEADER ═══ */}
         <header className="sticky top-0 z-50 print:hidden">
