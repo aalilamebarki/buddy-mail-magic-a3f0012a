@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 export interface FeeStatementItemRecord {
   id: string;
   fee_statement_id: string;
+  case_id: string | null;
   description: string;
   amount: number;
   sort_order: number;
@@ -13,6 +14,11 @@ export interface FeeStatementCaseRecord {
   id: string;
   fee_statement_id: string;
   case_id: string;
+  lawyer_fees: number;
+  tax_rate: number;
+  tax_amount: number;
+  subtotal: number;
+  total_amount: number;
   cases?: { title: string; case_number: string | null; court: string | null } | null;
 }
 
