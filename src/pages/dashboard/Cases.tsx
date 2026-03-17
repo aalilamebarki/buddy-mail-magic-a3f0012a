@@ -162,6 +162,14 @@ const Cases = () => {
       }
     }
 
+    const validPresenceCheck = presenceParties.filter(p => p.name.trim());
+    for (const p of validPresenceCheck) {
+      if (!isNiyaba(p.name) && !p.address.trim()) {
+        toast.error(`عنوان الطرف بحضور "${p.name}" مطلوب`);
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       // Build opposing_party summary for the cases table
@@ -612,7 +620,7 @@ const Cases = () => {
                     {!niyaba && (
                       <>
                         <div>
-                          <Label className="text-xs">العنوان</Label>
+                          <Label className="text-xs">العنوان *</Label>
                           <Input
                             value={party.address}
                             onChange={e => updatePresenceParty(index, 'address', e.target.value)}
