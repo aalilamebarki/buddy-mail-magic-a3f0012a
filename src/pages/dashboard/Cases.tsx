@@ -107,17 +107,17 @@ const Cases = () => {
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input placeholder="بحث بالعنوان أو رقم الملف أو اسم الموكل..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-10" />
         </div>
-        <Select value={filterClientId || 'all'} onValueChange={(v) => setFilterClientId(v === 'all' ? '' : v)}>
-          <SelectTrigger className="w-full sm:w-[200px]">
-            <SelectValue placeholder="كل الموكلين" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">كل الموكلين</SelectItem>
-            {clients.map(c => (
-              <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <SearchableSelect
+          options={[
+            { value: 'all', label: 'كل الموكلين' },
+            ...clients.map(c => ({ value: c.id, label: c.full_name, sublabel: c.phone || undefined })),
+          ]}
+          value={filterClientId || 'all'}
+          onValueChange={(v) => setFilterClientId(v === 'all' ? '' : v)}
+          placeholder="كل الموكلين"
+          searchPlaceholder="ابحث باسم الموكل..."
+          triggerClassName="w-full sm:w-[200px]"
+        />
       </div>
 
       {/* Mobile: card view */}
