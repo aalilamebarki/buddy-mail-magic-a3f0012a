@@ -423,7 +423,7 @@ const CourtSessions = () => {
                 {items.map(s => (
                   <TableRow key={s.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/dashboard/cases/${s.case_id}`)}>
                     <TableCell className="font-mono text-sm whitespace-nowrap">
-                      {new Date(s.session_date + 'T00:00:00').toLocaleDateString('ar-MA', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
+                      {new Date(s.session_date + 'T00:00:00').toLocaleDateString('ar-u-nu-latn', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
                     </TableCell>
                     <TableCell className="text-sm font-medium">{s.cases?.clients?.full_name || '—'}</TableCell>
                     <TableCell className="text-sm">{s.cases?.opposing_party || '—'}</TableCell>
