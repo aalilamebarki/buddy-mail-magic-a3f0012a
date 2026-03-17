@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DollarSign, TrendingUp, Receipt, FileText, BookOpen, Loader2 } from 'lucide-react';
+import { DollarSign, TrendingUp, Receipt, FileText, BookOpen, Loader2, Download } from 'lucide-react';
 import { useAccountingEntries } from '@/hooks/useAccounting';
 import { formatDateShort } from '@/lib/formatters';
+import { exportAccountingExcel, exportAccountingPDF } from '@/lib/export-accounting';
 
 const ENTRY_TYPE_LABELS: Record<string, { label: string; color: string }> = {
   invoice: { label: 'وصل أداء', color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200' },
