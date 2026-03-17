@@ -544,38 +544,14 @@ const Cases = () => {
                   </div>
                 );
               })}
-              <Input
-                placeholder="أضف مدعى عليه آخر..."
-                className="border-dashed"
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    const val = (e.target as HTMLInputElement).value.trim();
-                    if (val) {
-                      const isDuplicate = opponents.some(o => o.name.trim() === val);
-                      if (isDuplicate) {
-                        toast.error('لقد سبق إدخال هذا المدعى عليه');
-                        return;
-                      }
-                      setOpponents(prev => [...prev, { name: val, address: '', phone: '' }]);
-                      (e.target as HTMLInputElement).value = '';
-                    }
-                  }
-                }}
-                onBlur={e => {
-                  const val = e.target.value.trim();
-                  if (val) {
-                    const isDuplicate = opponents.some(o => o.name.trim() === val);
-                    if (isDuplicate) {
-                      toast.error('لقد سبق إدخال هذا المدعى عليه');
-                      e.target.value = '';
-                      return;
-                    }
-                    setOpponents(prev => [...prev, { name: val, address: '', phone: '' }]);
-                    e.target.value = '';
-                  }
-                }}
-              />
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full border-dashed text-muted-foreground"
+                onClick={addOpponent}
+              >
+                <Plus className="h-4 w-4 ml-1" /> أضف مدعى عليه آخر
+              </Button>
             </div>
 
             <div>
