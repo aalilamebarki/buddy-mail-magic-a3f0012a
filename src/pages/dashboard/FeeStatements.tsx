@@ -1,0 +1,173 @@
+import { useState } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { FileText, Plus, Download, Loader2, Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { useFeeStatements } from '@/hooks/useFeeStatements';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { formatDateShort } from '@/lib/formatters';
+import CreateFeeStatementDialog from '@/components/invoices/CreateFeeStatementDialog';
+
+const FeeStatements = () => {
+  const { statements, loading, refetch } = useFeeStatements();
+  const { toast } = useToast();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [downloading, setDownloading] = useState<string | null>(null);
+
+  const filtered = statements.filter(s =>
+    !search ||
+    s.statement_number.toLowerCase().includes(search.toLowerCase()) ||
+    s.clients?.full_name?.includes(search) ||
+    s.cases?.title?.includes(search)
+  );
+
+  const totalAmount = filtered.reduce((sum, s) => sum + Number(s.total_amount), 0);
+
+  const downloadPdf = async (id: string, pdfPath: string | null, number: string) => {
+    if (!pdfPath) {
+      toast({ title: 'لا يوجد ملف PDF', variant: 'destructive' });
+      return;
+    }
+    setDownloading(id);
+    try {
+      const { data, error } = await supabase.storage.from('invoices').download(pdfPath);
+      if (error) throw error;
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${number}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      toast({ title: 'خطأ في التحميل', description: e.message, variant: 'destructive' });
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
+            <FileText className="h-5 w-5 text-primary" />
+            بيانات الأتعاب والمصاريف
+          </h1>
+          <p className="text-muted-foreground text-xs mt-1">فواتير تفصيلية للمصاريف القضائية وأتعاب المحاماة</p>
+        </div>
+        <Button onClick={() => setDialogOpen(true)} className="gap-1.5">
+          <Plus className="h-4 w-4" /> بيان جديد
+        </Button>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <Card>
+          <CardContent className="pt-4 pb-3">
+            <p className="text-xs text-muted-foreground">عدد البيانات</p>
+            <p className="text-xl font-bold text-foreground">{filtered.length}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3">
+            <p className="text-xs text-muted-foreground">المجموع الكلي</p>
+            <p className="text-xl font-bold text-primary">{totalAmount.toLocaleString('ar-u-nu-latn')} درهم</p>
+          </CardContent>
+        </Card>
+        <Card className="col-span-2 sm:col-span-1">
+          <CardContent className="pt-4 pb-3">
+            <p className="text-xs text-muted-foreground">آخر بيان</p>
+            <p className="text-sm font-medium text-foreground">
+              {statements.length > 0 ? formatDateShort(statements[0].created_at) : '—'}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Search */}
+      <div className="relative max-w-sm">
+        <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="بحث بالرقم أو اسم الموكل..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="pr-9 text-sm"
+        />
+      </div>
+
+      {/* Table */}
+      <Card>
+        <CardContent className="p-0">
+          {filtered.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <FileText className="h-10 w-10 mx-auto mb-3 opacity-30" />
+              <p>لا توجد بيانات بعد</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-right">الرقم</TableHead>
+                    <TableHead className="text-right">الموكل</TableHead>
+                    <TableHead className="text-right">الملف</TableHead>
+                    <TableHead className="text-right">المصاريف</TableHead>
+                    <TableHead className="text-right">الأتعاب</TableHead>
+                    <TableHead className="text-right">المجموع</TableHead>
+                    <TableHead className="text-right">التاريخ</TableHead>
+                    <TableHead className="text-right">PDF</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map(s => {
+                    const expTotal = (s.fee_statement_items || []).reduce((sum, i) => sum + Number(i.amount), 0);
+                    return (
+                      <TableRow key={s.id}>
+                        <TableCell className="font-mono text-xs" dir="ltr">{s.statement_number}</TableCell>
+                        <TableCell>{s.clients?.full_name || '—'}</TableCell>
+                        <TableCell className="text-xs">{s.cases?.title || '—'}</TableCell>
+                        <TableCell className="text-xs">{expTotal.toLocaleString('ar-u-nu-latn')} د</TableCell>
+                        <TableCell className="text-xs">{Number(s.lawyer_fees).toLocaleString('ar-u-nu-latn')} د</TableCell>
+                        <TableCell className="font-bold">{Number(s.total_amount).toLocaleString('ar-u-nu-latn')} د</TableCell>
+                        <TableCell className="text-xs">{formatDateShort(s.created_at)}</TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            onClick={() => downloadPdf(s.id, s.pdf_path, s.statement_number)}
+                            disabled={downloading === s.id}
+                          >
+                            {downloading === s.id
+                              ? <Loader2 className="h-4 w-4 animate-spin" />
+                              : <Download className="h-4 w-4" />}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <CreateFeeStatementDialog open={dialogOpen} onOpenChange={setDialogOpen} onCreated={refetch} />
+    </div>
+  );
+};
+
+export default FeeStatements;
