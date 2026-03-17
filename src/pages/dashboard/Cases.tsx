@@ -35,6 +35,7 @@ const emptyForm: CaseForm = { title: '', case_type: '', description: '', client_
 const emptyOpponent: Opponent = { name: '', address: '', phone: '' };
 
 const NIYABA = 'النيابة العامة';
+const HIDDEN_ADDRESS_PARTIES = [NIYABA, 'قاضي التوثيق'];
 
 interface PresenceParty {
   name: string;
@@ -224,7 +225,7 @@ const Cases = () => {
     setDeleteDialogOpen(true);
   };
 
-  const isNiyaba = (name: string) => name.trim() === NIYABA;
+  const isNiyaba = (name: string) => HIDDEN_ADDRESS_PARTIES.includes(name.trim());
 
   const handleSave = async () => {
     if (!form.title.trim()) { toast.error('عنوان الملف مطلوب'); return; }
@@ -738,7 +739,7 @@ const Cases = () => {
                       <Input
                         value={party.name}
                         onChange={e => updatePresenceParty(index, 'name', e.target.value)}
-                        placeholder="مثال: النيابة العامة، المحافظ..."
+                        placeholder="مثال: النيابة العامة، قاضي التوثيق، المحافظ..."
                       />
                     </div>
                     {!niyaba && (
