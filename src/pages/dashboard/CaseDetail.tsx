@@ -28,6 +28,7 @@ const CaseDetail = () => {
   const [opponents, setOpponents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [sessionDialogOpen, setSessionDialogOpen] = useState(false);
+  const [editingSession, setEditingSession] = useState<any>(null);
   const [sessionDate, setSessionDate] = useState<Date | undefined>(undefined);
   const [sessionNotes, setSessionNotes] = useState('');
   const [caseNumberInput, setCaseNumberInput] = useState('');
