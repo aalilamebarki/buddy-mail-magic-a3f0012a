@@ -307,7 +307,7 @@ const Cases = () => {
               <Input value={form.title} onChange={e => updateField('title', e.target.value)} placeholder="مثال: نزاع عقاري - الدار البيضاء" />
             </div>
             <div>
-              <Label>نوع القضية</Label>
+              <Label>نوع الملف *</Label>
               <Select value={form.case_type} onValueChange={(v) => updateField('case_type', v)}>
                 <SelectTrigger>
                   <SelectValue placeholder="اختر النوع" />
@@ -318,6 +318,22 @@ const Cases = () => {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label>الخصم (ضد) *</Label>
+              <Input value={form.opposing_party} onChange={e => updateField('opposing_party', e.target.value)} placeholder="اسم الطرف المقابل" />
+            </div>
+            <div>
+              <Label>عنوان الخصم *</Label>
+              <Input value={form.opposing_party_address} onChange={e => updateField('opposing_party_address', e.target.value)} placeholder="عنوان الطرف المقابل" />
+            </div>
+            <div>
+              <Label>هاتف الخصم</Label>
+              <Input value={form.opposing_party_phone} onChange={e => updateField('opposing_party_phone', e.target.value)} placeholder="اختياري" />
+            </div>
+            <div>
+              <Label>المحكمة *</Label>
+              <Input value={form.court} onChange={e => updateField('court', e.target.value)} placeholder="مثال: المحكمة الابتدائية بالدار البيضاء" />
             </div>
             <div>
               <Label>ملاحظات</Label>
