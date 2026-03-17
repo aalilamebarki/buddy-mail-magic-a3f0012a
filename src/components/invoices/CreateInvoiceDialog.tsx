@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Receipt, Eye, ArrowRight } from 'lucide-react';
+import { Loader2, Receipt, Eye, ArrowRight, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -15,6 +15,7 @@ import { useCases } from '@/hooks/useCases';
 import { useLetterheadOptions } from '@/hooks/useInvoices';
 import { generateInvoicePDF } from '@/lib/generate-invoice-pdf';
 import { formatDateArabic } from '@/lib/formatters';
+import CreateCaseDialog from '@/components/cases/CreateCaseDialog';
 
 interface Props {
   open: boolean;
