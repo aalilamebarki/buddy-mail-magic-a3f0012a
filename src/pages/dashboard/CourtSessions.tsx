@@ -405,7 +405,7 @@ const CourtSessions = () => {
           <CardTitle className="text-base">{title} ({items.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-auto">
+          <div className="overflow-x-auto -webkit-overflow-scrolling-touch" style={{ WebkitOverflowScrolling: 'touch' }}>
             <Table>
               <TableHeader>
                 <TableRow>
