@@ -1,0 +1,1 @@
+ALTER TABLE public.case_opponents ADD COLUMN party_type text NOT NULL DEFAULT 'opponent';

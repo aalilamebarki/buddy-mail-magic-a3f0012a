@@ -113,6 +113,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          party_type: string
           phone: string | null
           sort_order: number
         }
@@ -122,6 +123,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          party_type?: string
           phone?: string | null
           sort_order?: number
         }
@@ -131,6 +133,7 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          party_type?: string
           phone?: string | null
           sort_order?: number
         }

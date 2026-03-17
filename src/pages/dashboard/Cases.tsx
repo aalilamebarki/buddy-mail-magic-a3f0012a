@@ -36,6 +36,12 @@ const emptyOpponent: Opponent = { name: '', address: '', phone: '' };
 
 const NIYABA = 'النيابة العامة';
 
+interface PresenceParty {
+  name: string;
+  address: string;
+  phone: string;
+}
+
 const caseTypes = ['مدني', 'جنائي', 'تجاري', 'إداري', 'عقاري', 'أسري', 'شغل', 'آخر'];
 
 const Cases = () => {
@@ -53,6 +59,7 @@ const Cases = () => {
   const [deletingCase, setDeletingCase] = useState<any>(null);
   const [form, setForm] = useState<CaseForm>(emptyForm);
   const [opponents, setOpponents] = useState<Opponent[]>([{ ...emptyOpponent }]);
+  const [presenceParties, setPresenceParties] = useState<PresenceParty[]>([]);
   const [saving, setSaving] = useState(false);
   const [filterClientId, setFilterClientId] = useState<string>(preselectedClientId || '');
   const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
@@ -95,6 +102,7 @@ const Cases = () => {
     setEditingCase(null);
     setForm({ ...emptyForm, client_id: filterClientId || '' });
     setOpponents([{ ...emptyOpponent }]);
+    setPresenceParties([]);
     setDialogOpen(true);
   };
 
@@ -107,17 +115,20 @@ const Cases = () => {
       client_id: c.client_id || '',
       court: c.court || '',
     });
-    // Fetch opponents
+    // Fetch opponents and presence parties
     const { data } = await supabase.from('case_opponents').select('*').eq('case_id', c.id).order('sort_order');
     if (data && data.length > 0) {
-      setOpponents(data.map((o: any) => ({ name: o.name, address: o.address || '', phone: o.phone || '' })));
+      const opps = data.filter((o: any) => o.party_type !== 'presence');
+      const pres = data.filter((o: any) => o.party_type === 'presence');
+      setOpponents(opps.length > 0 ? opps.map((o: any) => ({ name: o.name, address: o.address || '', phone: o.phone || '' })) : [{ ...emptyOpponent }]);
+      setPresenceParties(pres.map((o: any) => ({ name: o.name, address: o.address || '', phone: o.phone || '' })));
     } else {
-      // Fallback to legacy fields
       setOpponents([{
         name: c.opposing_party || '',
         address: c.opposing_party_address || '',
         phone: c.opposing_party_phone || '',
       }]);
+      setPresenceParties([]);
     }
     setDialogOpen(true);
   };
@@ -182,14 +193,25 @@ const Cases = () => {
       }
 
       // Insert opponents
+      const validPresence = presenceParties.filter(p => p.name.trim());
       const opponentsPayload = validOpponents.map((o, i) => ({
         case_id: caseId,
         name: o.name.trim(),
         address: o.address.trim() || null,
         phone: o.phone.trim() || null,
         sort_order: i,
+        party_type: 'opponent',
       }));
-      const { error: oppError } = await supabase.from('case_opponents').insert(opponentsPayload);
+      const presencePayload = validPresence.map((p, i) => ({
+        case_id: caseId,
+        name: p.name.trim(),
+        address: p.address.trim() || null,
+        phone: p.phone.trim() || null,
+        sort_order: i,
+        party_type: 'presence',
+      }));
+      const allParties = [...opponentsPayload, ...presencePayload];
+      const { error: oppError } = await supabase.from('case_opponents').insert(allParties);
       if (oppError) throw oppError;
 
       toast.success(editingCase ? 'تم تحديث الملف' : 'تم إنشاء الملف بنجاح');
@@ -230,7 +252,17 @@ const Cases = () => {
     setOpponents(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Fuzzy search: match if all characters of the query appear in order in the name
+  const updatePresenceParty = (index: number, field: keyof PresenceParty, value: string) => {
+    setPresenceParties(prev => prev.map((p, i) => i === index ? { ...p, [field]: value } : p));
+  };
+
+  const addPresenceParty = () => {
+    setPresenceParties(prev => [...prev, { name: '', address: '', phone: '' }]);
+  };
+
+  const removePresenceParty = (index: number) => {
+    setPresenceParties(prev => prev.filter((_, i) => i !== index));
+  };
   const fuzzyMatch = (name: string, query: string): boolean => {
     const n = name.toLowerCase();
     const q = query.toLowerCase();
@@ -551,6 +583,62 @@ const Cases = () => {
                 onClick={addOpponent}
               >
                 <Plus className="h-4 w-4 ml-1" /> أضف مدعى عليه آخر
+              </Button>
+            </div>
+
+            {/* Presence Parties Section (بحضور) */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">بحضور (أطراف مدخلة في الدعوى)</Label>
+              </div>
+              {presenceParties.map((party, index) => {
+                const niyaba = isNiyaba(party.name);
+                return (
+                  <div key={index} className="relative border rounded-lg p-3 space-y-2 bg-accent/20 border-accent/40">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground font-medium">طرف {index + 1}</span>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => removePresenceParty(index)}>
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                    <div>
+                      <Label className="text-xs">الاسم *</Label>
+                      <Input
+                        value={party.name}
+                        onChange={e => updatePresenceParty(index, 'name', e.target.value)}
+                        placeholder="مثال: النيابة العامة، المحافظ..."
+                      />
+                    </div>
+                    {!niyaba && (
+                      <>
+                        <div>
+                          <Label className="text-xs">العنوان</Label>
+                          <Input
+                            value={party.address}
+                            onChange={e => updatePresenceParty(index, 'address', e.target.value)}
+                            placeholder="عنوان الطرف"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">الهاتف</Label>
+                          <Input
+                            value={party.phone}
+                            onChange={e => updatePresenceParty(index, 'phone', e.target.value)}
+                            placeholder="اختياري"
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full border-dashed text-muted-foreground"
+                onClick={addPresenceParty}
+              >
+                <UserRoundPlus className="h-4 w-4 ml-1" /> أضف طرف بحضور
               </Button>
             </div>
 
