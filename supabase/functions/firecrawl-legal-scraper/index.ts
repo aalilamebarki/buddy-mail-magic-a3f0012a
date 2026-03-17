@@ -257,11 +257,12 @@ Deno.serve(async (req) => {
           Authorization: `Bearer ${firecrawlKey}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          url,
-          formats: ["markdown", "html", "links"],
-          waitFor: 3000,
-        }),
+      body: JSON.stringify({
+        url,
+        formats: ["markdown", "html", "links"],
+        waitFor: 5000,
+        timeout: 60000,
+      }),
       });
 
       if (!scrapeResp.ok) {
