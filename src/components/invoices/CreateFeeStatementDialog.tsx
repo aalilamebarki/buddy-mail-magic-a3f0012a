@@ -54,6 +54,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
 
   const [saving, setSaving] = useState(false);
   const [step, setStep] = useState<'form' | 'preview'>('form');
+  const [form, setForm] = useState({
     clientId: '',
     letterheadId: '',
     powerOfAttorneyDate: '',
