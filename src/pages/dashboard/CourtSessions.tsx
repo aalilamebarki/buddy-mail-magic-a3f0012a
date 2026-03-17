@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { CalendarDays, Plus, Search, ChevronsUpDown, Check, FolderOpen, Pencil, Trash2, FileDown, CalendarRange } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useSessions } from '@/hooks/useSessions';
+import { useCases } from '@/hooks/useCases';
 import { toast } from 'sonner';
 import { format, startOfWeek, endOfWeek, addDays } from 'date-fns';
 import { ar } from 'date-fns/locale';
@@ -22,9 +24,12 @@ import { cn } from '@/lib/utils';
 const CourtSessions = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [sessions, setSessions] = useState<any[]>([]);
-  const [cases, setCases] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { sessions, loading: sessionsLoading, getNextSession, refetch: refetchSessions } = useSessions();
+  const { cases, loading: casesLoading, refetch: refetchCases } = useCases({ status: 'active' });
+  const loading = sessionsLoading || casesLoading;
+
+  const fetchData = () => { refetchSessions(); refetchCases(); };
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [casePopoverOpen, setCasePopoverOpen] = useState(false);
   const [caseSearch, setCaseSearch] = useState('');
@@ -39,24 +44,6 @@ const CourtSessions = () => {
   const [sessionDate, setSessionDate] = useState<Date | undefined>(undefined);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
-
-  const fetchData = async () => {
-    const [sessionsRes, casesRes] = await Promise.all([
-      supabase
-        .from('court_sessions')
-        .select('*, cases(title, case_number, court, opposing_party, clients(full_name))')
-        .order('session_date', { ascending: true }),
-      supabase
-        .from('cases')
-        .select('id, title, case_number, court, opposing_party, clients(full_name)')
-        .eq('status', 'active'),
-    ]);
-    if (sessionsRes.data) setSessions(sessionsRes.data);
-    if (casesRes.data) setCases(casesRes.data);
-    setLoading(false);
-  };
-
-  useEffect(() => { fetchData(); }, []);
 
   const filteredCases = useMemo(() => {
     if (!caseSearch) return cases;
@@ -174,12 +161,6 @@ const CourtSessions = () => {
   };
 
   // ---- PDF Export Logic ----
-  const getNextSession = useCallback((caseId: string, afterDate: string): string | null => {
-    const future = sessions
-      .filter(s => s.case_id === caseId && s.session_date > afterDate)
-      .sort((a, b) => a.session_date.localeCompare(b.session_date));
-    return future.length > 0 ? future[0].session_date : null;
-  }, [sessions]);
 
   const handleExportPDF = useCallback(async (mode: 'day' | 'week') => {
     let dateStart: string;
