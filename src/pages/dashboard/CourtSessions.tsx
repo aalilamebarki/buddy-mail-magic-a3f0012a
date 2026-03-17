@@ -261,7 +261,8 @@ const CourtSessions = () => {
     toast.info('جاري إنشاء PDF...');
 
     const { default: jsPDF } = await import('jspdf');
-    await import('jspdf-autotable');
+    const autoTableModule = await import('jspdf-autotable');
+    // jspdf-autotable adds itself to jsPDF prototype via side effect
 
     // Fetch Amiri Arabic font (local file)
     const fontUrl = '/fonts/Amiri-Regular.ttf';
