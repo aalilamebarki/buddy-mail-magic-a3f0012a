@@ -139,6 +139,11 @@ const Cases = () => {
     const validOpponents = opponents.filter(o => o.name.trim());
     if (validOpponents.length === 0) { toast.error('يجب إضافة خصم واحد على الأقل'); return; }
 
+    // Check duplicates
+    const names = validOpponents.map(o => o.name.trim());
+    const uniqueNames = new Set(names);
+    if (uniqueNames.size !== names.length) { toast.error('لقد سبق إدخال هذا المدعى عليه'); return; }
+
     for (const opp of validOpponents) {
       if (!isNiyaba(opp.name) && !opp.address.trim()) {
         toast.error(`عنوان الخصم "${opp.name}" مطلوب`);
