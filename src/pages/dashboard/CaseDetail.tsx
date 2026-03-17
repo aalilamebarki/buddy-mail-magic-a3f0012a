@@ -214,7 +214,7 @@ const CaseDetail = () => {
           <CardTitle className="text-base flex items-center gap-2">
             <CalendarDays className="h-4 w-4" /> الجلسات ({sessions.length})
           </CardTitle>
-          <Button size="sm" onClick={() => setSessionDialogOpen(true)} className="gap-1">
+          <Button size="sm" onClick={openAddSession} className="gap-1">
             <Plus className="h-4 w-4" /> إضافة جلسة
           </Button>
         </CardHeader>
