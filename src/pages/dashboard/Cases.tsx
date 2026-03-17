@@ -115,17 +115,20 @@ const Cases = () => {
       client_id: c.client_id || '',
       court: c.court || '',
     });
-    // Fetch opponents
+    // Fetch opponents and presence parties
     const { data } = await supabase.from('case_opponents').select('*').eq('case_id', c.id).order('sort_order');
     if (data && data.length > 0) {
-      setOpponents(data.map((o: any) => ({ name: o.name, address: o.address || '', phone: o.phone || '' })));
+      const opps = data.filter((o: any) => o.party_type !== 'presence');
+      const pres = data.filter((o: any) => o.party_type === 'presence');
+      setOpponents(opps.length > 0 ? opps.map((o: any) => ({ name: o.name, address: o.address || '', phone: o.phone || '' })) : [{ ...emptyOpponent }]);
+      setPresenceParties(pres.map((o: any) => ({ name: o.name, address: o.address || '', phone: o.phone || '' })));
     } else {
-      // Fallback to legacy fields
       setOpponents([{
         name: c.opposing_party || '',
         address: c.opposing_party_address || '',
         phone: c.opposing_party_phone || '',
       }]);
+      setPresenceParties([]);
     }
     setDialogOpen(true);
   };
