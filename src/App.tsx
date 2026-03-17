@@ -50,6 +50,7 @@ const DocumentGenerator = lazy(() => import("./pages/dashboard/DocumentGenerator
 const Letterheads = lazy(() => import("./pages/dashboard/Letterheads"));
 const LegalScraper = lazy(() => import("./pages/dashboard/LegalScraper"));
 const Invoices = lazy(() => import("./pages/dashboard/Invoices"));
+const FeeStatements = lazy(() => import("./pages/dashboard/FeeStatements"));
 
 const queryClient = new QueryClient();
 
@@ -115,6 +116,7 @@ const App = () => (
                     <Route path="letterheads" element={<Letterheads />} />
                     <Route path="legal-scraper" element={<LegalScraper />} />
                     <Route path="invoices" element={<Invoices />} />
+                    <Route path="fee-statements" element={<FeeStatements />} />
                   </Route>
 
                   <Route path="*" element={<NotFound />} />

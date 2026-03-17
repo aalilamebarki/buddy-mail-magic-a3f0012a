@@ -431,6 +431,126 @@ export type Database = {
           },
         ]
       }
+      fee_statement_items: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string
+          fee_statement_id: string
+          id: string
+          sort_order: number
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          description: string
+          fee_statement_id: string
+          id?: string
+          sort_order?: number
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string
+          fee_statement_id?: string
+          id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fee_statement_items_fee_statement_id_fkey"
+            columns: ["fee_statement_id"]
+            isOneToOne: false
+            referencedRelation: "fee_statements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fee_statements: {
+        Row: {
+          case_id: string | null
+          client_id: string | null
+          created_at: string
+          id: string
+          lawyer_fees: number
+          letterhead_id: string | null
+          notes: string | null
+          pdf_path: string | null
+          power_of_attorney_date: string | null
+          signature_uuid: string
+          statement_number: string
+          status: string
+          subtotal: number
+          tax_amount: number
+          tax_rate: number
+          total_amount: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          case_id?: string | null
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          lawyer_fees?: number
+          letterhead_id?: string | null
+          notes?: string | null
+          pdf_path?: string | null
+          power_of_attorney_date?: string | null
+          signature_uuid?: string
+          statement_number: string
+          status?: string
+          subtotal?: number
+          tax_amount?: number
+          tax_rate?: number
+          total_amount?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          case_id?: string | null
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          lawyer_fees?: number
+          letterhead_id?: string | null
+          notes?: string | null
+          pdf_path?: string | null
+          power_of_attorney_date?: string | null
+          signature_uuid?: string
+          statement_number?: string
+          status?: string
+          subtotal?: number
+          tax_amount?: number
+          tax_rate?: number
+          total_amount?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fee_statements_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fee_statements_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fee_statements_letterhead_id_fkey"
+            columns: ["letterhead_id"]
+            isOneToOne: false
+            referencedRelation: "letterheads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       generated_documents: {
         Row: {
           case_id: string | null
