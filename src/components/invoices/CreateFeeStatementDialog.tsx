@@ -627,7 +627,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
                     options={availableCases.map(c => ({
                       value: c.id,
                       label: c.title,
-                      sublabel: c.case_number ? c.case_number : '⚠️ بدون رقم',
+                      sublabel: c.case_number ? `ملف: ${c.case_number}` : '⚠️ بدون رقم',
                     }))}
                     value={caseSelectValue}
                     onValueChange={addCase}
