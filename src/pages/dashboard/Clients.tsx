@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, FolderOpen } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -23,7 +25,9 @@ interface ClientForm {
 const emptyForm: ClientForm = { full_name: '', email: '', phone: '', cin: '', address: '', notes: '' };
 
 const Clients = () => {
+  const navigate = useNavigate();
   const [clients, setClients] = useState<any[]>([]);
+  const [caseCounts, setCaseCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -34,8 +38,18 @@ const Clients = () => {
   const [saving, setSaving] = useState(false);
 
   const fetchClients = async () => {
-    const { data } = await supabase.from('clients').select('*').order('created_at', { ascending: false });
-    if (data) setClients(data);
+    const [clientsRes, casesRes] = await Promise.all([
+      supabase.from('clients').select('*').order('created_at', { ascending: false }),
+      supabase.from('cases').select('client_id'),
+    ]);
+    if (clientsRes.data) setClients(clientsRes.data);
+    if (casesRes.data) {
+      const counts: Record<string, number> = {};
+      casesRes.data.forEach((c: any) => {
+        if (c.client_id) counts[c.client_id] = (counts[c.client_id] || 0) + 1;
+      });
+      setCaseCounts(counts);
+    }
     setLoading(false);
   };
 
@@ -163,6 +177,9 @@ const Clients = () => {
                     {c.email && <p className="text-xs text-muted-foreground" dir="ltr">{c.email}</p>}
                   </div>
                   <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(`/dashboard/cases?client_id=${c.id}`)}>
+                      <FolderOpen className="h-3.5 w-3.5" />
+                    </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(c)}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
@@ -172,7 +189,10 @@ const Clients = () => {
                   </div>
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  {c.phone && <span dir="ltr">{c.phone}</span>}
+                  <div className="flex items-center gap-2">
+                    {c.phone && <span dir="ltr">{c.phone}</span>}
+                    <Badge variant="outline" className="text-[10px]">{caseCounts[c.id] || 0} ملف</Badge>
+                  </div>
                   <span>{new Date(c.created_at).toLocaleDateString('ar-MA')}</span>
                 </div>
               </CardContent>
@@ -192,15 +212,16 @@ const Clients = () => {
                   <TableHead>البريد</TableHead>
                   <TableHead>الهاتف</TableHead>
                   <TableHead>رقم البطاقة</TableHead>
+                  <TableHead>الملفات</TableHead>
                   <TableHead>التاريخ</TableHead>
-                  <TableHead className="w-24">إجراءات</TableHead>
+                  <TableHead className="w-28">إجراءات</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-8">جاري التحميل...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center py-8">جاري التحميل...</TableCell></TableRow>
                 ) : filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">لا يوجد موكلين</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">لا يوجد موكلين</TableCell></TableRow>
                 ) : (
                   filtered.map((c) => (
                     <TableRow key={c.id}>
@@ -208,6 +229,12 @@ const Clients = () => {
                       <TableCell dir="ltr">{c.email}</TableCell>
                       <TableCell dir="ltr">{c.phone}</TableCell>
                       <TableCell dir="ltr">{c.cin}</TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="sm" className="gap-1 h-7 text-xs" onClick={() => navigate(`/dashboard/cases?client_id=${c.id}`)}>
+                          <FolderOpen className="h-3.5 w-3.5" />
+                          {caseCounts[c.id] || 0}
+                        </Button>
+                      </TableCell>
                       <TableCell>{new Date(c.created_at).toLocaleDateString('ar-MA')}</TableCell>
                       <TableCell>
                         <div className="flex gap-1">
