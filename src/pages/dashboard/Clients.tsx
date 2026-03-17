@@ -212,15 +212,16 @@ const Clients = () => {
                   <TableHead>البريد</TableHead>
                   <TableHead>الهاتف</TableHead>
                   <TableHead>رقم البطاقة</TableHead>
+                  <TableHead>الملفات</TableHead>
                   <TableHead>التاريخ</TableHead>
-                  <TableHead className="w-24">إجراءات</TableHead>
+                  <TableHead className="w-28">إجراءات</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-8">جاري التحميل...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center py-8">جاري التحميل...</TableCell></TableRow>
                 ) : filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">لا يوجد موكلين</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">لا يوجد موكلين</TableCell></TableRow>
                 ) : (
                   filtered.map((c) => (
                     <TableRow key={c.id}>
@@ -228,6 +229,12 @@ const Clients = () => {
                       <TableCell dir="ltr">{c.email}</TableCell>
                       <TableCell dir="ltr">{c.phone}</TableCell>
                       <TableCell dir="ltr">{c.cin}</TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="sm" className="gap-1 h-7 text-xs" onClick={() => navigate(`/dashboard/cases?client_id=${c.id}`)}>
+                          <FolderOpen className="h-3.5 w-3.5" />
+                          {caseCounts[c.id] || 0}
+                        </Button>
+                      </TableCell>
                       <TableCell>{new Date(c.created_at).toLocaleDateString('ar-MA')}</TableCell>
                       <TableCell>
                         <div className="flex gap-1">
