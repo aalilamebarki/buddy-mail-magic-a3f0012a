@@ -186,16 +186,20 @@ const CourtSessions = () => {
     let dateEnd: string;
     let periodLabel: string;
 
+    let docTitle: string;
+
     if (mode === 'day') {
       dateStart = format(exportDate, 'yyyy-MM-dd');
       dateEnd = dateStart;
       periodLabel = new Date(exportDate).toLocaleDateString('ar-MA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      docTitle = `جلسة يوم ${periodLabel}`;
     } else {
       const ws = startOfWeek(exportDate, { weekStartsOn: 1 });
       const we = endOfWeek(exportDate, { weekStartsOn: 1 });
       dateStart = format(ws, 'yyyy-MM-dd');
       dateEnd = format(we, 'yyyy-MM-dd');
       periodLabel = `من ${new Date(ws).toLocaleDateString('ar-MA', { day: 'numeric', month: 'long', year: 'numeric' })} إلى ${new Date(we).toLocaleDateString('ar-MA', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+      docTitle = 'جدول الجلسات لهذا الأسبوع';
     }
 
     const filtered = sessions.filter(s => s.session_date >= dateStart && s.session_date <= dateEnd);
@@ -261,7 +265,7 @@ const CourtSessions = () => {
 <html dir="rtl" lang="ar">
 <head>
 <meta charset="utf-8">
-<title>جدول الجلسات</title>
+<title>${docTitle}</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap');
   @page { size: A4 landscape; margin: 12mm 15mm; }
@@ -444,7 +448,7 @@ const CourtSessions = () => {
 </head>
 <body>
   <div class="doc-header">
-    <h1>جدول الجلسات</h1>
+    <h1>${docTitle}</h1>
     <p class="period">${periodLabel}</p>
     <div class="stats">
       <div class="stat-box"><span class="num">${totalSessions}</span><span class="label">جلسة</span></div>
@@ -455,7 +459,7 @@ const CourtSessions = () => {
     ${courtSections}
   </div>
   <div class="doc-footer">
-    <span>جدول الجلسات — ${periodLabel}</span>
+    <span>${docTitle} — ${periodLabel}</span></span>
     <span class="gen-date">تم الإنشاء: ${new Date().toLocaleDateString('ar-MA', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
   </div>
 </body>
