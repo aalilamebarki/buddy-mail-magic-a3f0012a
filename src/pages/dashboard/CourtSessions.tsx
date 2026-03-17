@@ -274,6 +274,20 @@ const CourtSessions = () => {
               </Popover>
             </div>
 
+            {/* Case number - show if missing */}
+            {needsCaseNumber && (
+              <div className="space-y-2">
+                <Label>رقم الملف *</Label>
+                <Input
+                  value={caseNumber}
+                  onChange={e => setCaseNumber(e.target.value)}
+                  placeholder="مثال: 123/1234/2025"
+                  className="font-mono"
+                  dir="ltr"
+                />
+                <p className="text-xs text-muted-foreground">هذا الملف لا يحتوي على رقم بعد. أدخل الرقم الكامل (رقم/رمز/سنة)</p>
+              </div>
+            )}
             {/* Date picker */}
             <div className="space-y-2">
               <Label>تاريخ الجلسة *</Label>
