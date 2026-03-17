@@ -40,6 +40,9 @@ const Clients = () => {
   const [deletingClient, setDeletingClient] = useState<any>(null);
   const [form, setForm] = useState<ClientForm>(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [expandedClient, setExpandedClient] = useState<string | null>(null);
+  const { invoices } = useInvoices();
+  const { statements } = useFeeStatements();
 
   const fetchClients = async () => {
     const [clientsRes, casesRes] = await Promise.all([
