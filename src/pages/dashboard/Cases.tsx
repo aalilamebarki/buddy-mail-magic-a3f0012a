@@ -183,6 +183,29 @@ const Cases = () => {
       }]);
       setPresenceParties([]);
     }
+    // Determine court level from saved court name
+    if (c.court) {
+      const courtRecord = courtsDb.find(ct => ct.name === c.court);
+      if (courtRecord) {
+        if (['ابتدائية', 'مركز قضائي', 'ابتدائية مصنفة'].includes(courtRecord.court_type)) {
+          setCourtLevel('ابتدائية');
+          setCourtSubType(courtRecord.court_type);
+        } else if (['استئناف', 'استئناف تجارية', 'استئناف إدارية'].includes(courtRecord.court_type)) {
+          setCourtLevel('استئناف');
+          setCourtSubType('');
+        } else if (courtRecord.court_type === 'نقض') {
+          setCourtLevel('نقض');
+          setCourtSubType('');
+        }
+      } else {
+        setCourtLevel('');
+        setCourtSubType('');
+      }
+    } else {
+      setCourtLevel('');
+      setCourtSubType('');
+    }
+    setCourtSearchTerm('');
     setDialogOpen(true);
   };
 
