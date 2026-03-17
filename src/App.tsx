@@ -23,6 +23,7 @@ import Dashboard from "./pages/Dashboard";
 import DashboardHome from "./pages/dashboard/DashboardHome";
 import Cases from "./pages/dashboard/Cases";
 import CaseDetail from "./pages/dashboard/CaseDetail";
+import CourtSessions from "./pages/dashboard/CourtSessions";
 import Clients from "./pages/dashboard/Clients";
 import Articles from "./pages/dashboard/Articles";
 import Finance from "./pages/dashboard/Finance";
@@ -79,6 +80,7 @@ const App = () => (
                   <Route index element={<DashboardHome />} />
                   <Route path="cases" element={<Cases />} />
                   <Route path="cases/:id" element={<CaseDetail />} />
+                  <Route path="court-sessions" element={<CourtSessions />} />
                   <Route path="clients" element={<Clients />} />
                   <Route path="articles" element={<Articles />} />
                   <Route path="finance" element={<Finance />} />

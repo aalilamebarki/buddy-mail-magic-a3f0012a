@@ -3,41 +3,82 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowRight, FileText, User, Scale, MapPin, ClipboardList } from 'lucide-react';
+import { ArrowRight, FileText, User, Scale, MapPin, ClipboardList, CalendarDays, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { ar } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 const CaseDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [caseData, setCaseData] = useState<any>(null);
   const [documents, setDocuments] = useState<any[]>([]);
+  const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sessionDialogOpen, setSessionDialogOpen] = useState(false);
+  const [sessionDate, setSessionDate] = useState<Date | undefined>(undefined);
+  const [sessionNotes, setSessionNotes] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
+  const fetchData = async () => {
     if (!id) return;
-    const fetchCase = async () => {
-      const [caseRes, docsRes] = await Promise.all([
-        supabase.from('cases').select('*, clients(full_name, phone, email, cin, address)').eq('id', id).single(),
-        supabase.from('generated_documents').select('id, title, doc_type, status, created_at, next_court').eq('case_id', id).order('created_at', { ascending: false }),
-      ]);
-      if (caseRes.error) {
-        toast.error('لم يتم العثور على الملف');
-        navigate('/dashboard/cases');
-        return;
-      }
-      setCaseData(caseRes.data);
-      if (docsRes.data) setDocuments(docsRes.data);
-      setLoading(false);
-    };
-    fetchCase();
-  }, [id, navigate]);
+    const [caseRes, docsRes, sessionsRes] = await Promise.all([
+      supabase.from('cases').select('*, clients(full_name, phone, email, cin, address)').eq('id', id).single(),
+      supabase.from('generated_documents').select('id, title, doc_type, status, created_at, next_court').eq('case_id', id).order('created_at', { ascending: false }),
+      supabase.from('court_sessions').select('*').eq('case_id', id).order('session_date', { ascending: true }),
+    ]);
+    if (caseRes.error) {
+      toast.error('لم يتم العثور على الملف');
+      navigate('/dashboard/cases');
+      return;
+    }
+    setCaseData(caseRes.data);
+    if (docsRes.data) setDocuments(docsRes.data);
+    if (sessionsRes.data) setSessions(sessionsRes.data);
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchData(); }, [id, navigate]);
+
+  const handleAddSession = async () => {
+    if (!sessionDate || !user || !id) {
+      toast.error('يرجى اختيار تاريخ الجلسة');
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase.from('court_sessions').insert({
+      case_id: id,
+      session_date: format(sessionDate, 'yyyy-MM-dd'),
+      notes: sessionNotes || null,
+      user_id: user.id,
+    });
+    if (error) {
+      toast.error('خطأ في حفظ الجلسة');
+    } else {
+      toast.success('تمت إضافة الجلسة');
+      setSessionDialogOpen(false);
+      setSessionDate(undefined);
+      setSessionNotes('');
+      fetchData();
+    }
+    setSaving(false);
+  };
 
   if (loading) return <div className="text-center py-12 text-muted-foreground">جاري التحميل...</div>;
   if (!caseData) return null;
 
   const clientName = caseData.clients?.full_name || '—';
+  const today = format(new Date(), 'yyyy-MM-dd');
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -60,7 +101,6 @@ const CaseDetail = () => {
 
       {/* Info Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Client Info */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -76,7 +116,6 @@ const CaseDetail = () => {
           </CardContent>
         </Card>
 
-        {/* Opposing Party */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -90,7 +129,6 @@ const CaseDetail = () => {
           </CardContent>
         </Card>
 
-        {/* Case Info */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -106,6 +144,43 @@ const CaseDetail = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* الجلسات */}
+      <Card>
+        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <CalendarDays className="h-4 w-4" /> الجلسات ({sessions.length})
+          </CardTitle>
+          <Button size="sm" onClick={() => setSessionDialogOpen(true)} className="gap-1">
+            <Plus className="h-4 w-4" /> إضافة جلسة
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {sessions.length === 0 ? (
+            <p className="text-center text-sm text-muted-foreground py-6">لا توجد جلسات بعد</p>
+          ) : (
+            <div className="space-y-2">
+              {sessions.map(s => (
+                <div key={s.id} className="flex items-center justify-between p-3 rounded-lg border">
+                  <div>
+                    <p className="text-sm font-medium">
+                      {new Date(s.session_date + 'T00:00:00').toLocaleDateString('ar-MA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                    </p>
+                    {s.notes && <p className="text-xs text-muted-foreground mt-1">{s.notes}</p>}
+                  </div>
+                  {s.session_date === today ? (
+                    <Badge className="bg-primary text-primary-foreground">اليوم</Badge>
+                  ) : s.session_date > today ? (
+                    <Badge variant="outline" className="text-emerald-600 border-emerald-300">قادمة</Badge>
+                  ) : (
+                    <Badge variant="secondary">منتهية</Badge>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* سجل الإجراءات */}
       <Card>
@@ -148,6 +223,39 @@ const CaseDetail = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Add Session Dialog */}
+      <Dialog open={sessionDialogOpen} onOpenChange={setSessionDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>إضافة جلسة جديدة</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>تاريخ الجلسة *</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start font-normal", !sessionDate && "text-muted-foreground")}>
+                    <CalendarDays className="h-4 w-4 ml-2" />
+                    {sessionDate ? format(sessionDate, 'PPP', { locale: ar }) : 'اختر التاريخ'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={sessionDate} onSelect={setSessionDate} className={cn("p-3 pointer-events-auto")} />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-2">
+              <Label>ملاحظات</Label>
+              <Textarea value={sessionNotes} onChange={e => setSessionNotes(e.target.value)} placeholder="ملاحظات اختيارية..." rows={3} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSessionDialogOpen(false)}>إلغاء</Button>
+            <Button onClick={handleAddSession} disabled={saving}>{saving ? 'جاري الحفظ...' : 'حفظ'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

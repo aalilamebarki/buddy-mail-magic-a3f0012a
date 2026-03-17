@@ -284,6 +284,47 @@ export type Database = {
           },
         ]
       }
+      court_sessions: {
+        Row: {
+          case_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          session_date: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          case_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          session_date: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          case_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          session_date?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "court_sessions_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       courts: {
         Row: {
           address: string | null

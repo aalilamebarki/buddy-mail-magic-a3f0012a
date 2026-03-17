@@ -6,6 +6,7 @@ import {
   Scale,
   LayoutDashboard,
   Gavel,
+  CalendarDays,
   FolderOpen,
   Users,
   FileText,
@@ -34,6 +35,7 @@ import RoleGuard from './RoleGuard';
 const menuItems = [
   { icon: LayoutDashboard, label: 'الرئيسية', path: '/dashboard', roles: ['director', 'partner', 'clerk', 'content_writer'] as const },
   { icon: FolderOpen, label: 'الملفات', path: '/dashboard/cases', roles: ['director', 'partner', 'clerk'] as const },
+  { icon: CalendarDays, label: 'يومية الجلسات', path: '/dashboard/court-sessions', roles: ['director', 'partner', 'clerk'] as const },
   { icon: Users, label: 'الموكلين', path: '/dashboard/clients', roles: ['director', 'partner', 'clerk'] as const },
   { icon: FileText, label: 'المقالات', path: '/dashboard/articles', roles: ['director', 'partner', 'content_writer'] as const },
   { icon: DollarSign, label: 'المالية', path: '/dashboard/finance', roles: ['director', 'partner'] as const },
