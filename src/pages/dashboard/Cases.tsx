@@ -829,7 +829,43 @@ const Cases = () => {
                     <Command shouldFilter={false}>
                       <CommandInput placeholder="ابحث باسم المحكمة أو المدينة..." value={courtSearchTerm} onValueChange={setCourtSearchTerm} />
                       <CommandList>
-                        <CommandEmpty>لا توجد نتائج</CommandEmpty>
+                        <CommandEmpty>
+                          <div className="py-2 text-center space-y-2">
+                            <p className="text-sm text-muted-foreground">لا توجد نتائج</p>
+                            {courtSearchTerm.trim() && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="gap-1.5"
+                                onClick={async () => {
+                                  const courtType = courtLevel === 'استئناف'
+                                    ? (courtSearchTerm.includes('تجارية') ? 'استئناف تجارية' : courtSearchTerm.includes('إدارية') ? 'استئناف إدارية' : 'استئناف')
+                                    : (courtSubType || 'ابتدائية');
+                                  const newCourt = {
+                                    name: courtSearchTerm.trim(),
+                                    city: '',
+                                    court_type: courtType,
+                                    addressee: courtLevel === 'استئناف' ? 'السيد الرئيس الأول لمحكمة الاستئناف' : 'السيد رئيس المحكمة الابتدائية',
+                                  };
+                                  const { data, error } = await supabase.from('courts').insert(newCourt).select().single();
+                                  if (!error && data) {
+                                    setCourtsDb(prev => [...prev, data]);
+                                    updateField('court', data.name);
+                                    setCourtPopoverOpen(false);
+                                    setCourtSearchTerm('');
+                                    toast.success('تمت إضافة المحكمة بنجاح');
+                                  } else {
+                                    toast.error('خطأ في إضافة المحكمة');
+                                  }
+                                }}
+                              >
+                                <Plus className="h-3.5 w-3.5" />
+                                إضافة "{courtSearchTerm.trim()}"
+                              </Button>
+                            )}
+                          </div>
+                        </CommandEmpty>
                         <CommandGroup>
                           {filteredCourts.map(c => (
                             <CommandItem key={c.id} value={c.id} onSelect={() => { updateField('court', c.name); setCourtPopoverOpen(false); setCourtSearchTerm(''); }}>
