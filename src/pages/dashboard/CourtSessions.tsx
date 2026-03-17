@@ -283,8 +283,9 @@ const CourtSessions = () => {
 
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
     doc.addFileToVFS('Amiri-Regular.ttf', fontBase64);
-    doc.addFont('Amiri-Regular.ttf', 'Amiri', 'normal');
+    doc.addFont('Amiri-Regular.ttf', 'Amiri', 'normal', 'Identity-H');
     doc.setFont('Amiri');
+    doc.setLanguage('ar');
     doc.setR2L(true);
 
     const pageW = doc.internal.pageSize.getWidth();
@@ -292,16 +293,16 @@ const CourtSessions = () => {
 
     // Title
     doc.setFontSize(20);
-    doc.text(docTitle, pageW / 2, 18, { align: 'center' });
+    doc.text(docTitle, pageW / 2, 18, { align: 'center' } as any);
     doc.setFontSize(11);
     doc.setTextColor(80);
-    doc.text(periodLabel, pageW / 2, 26, { align: 'center' });
+    doc.text(periodLabel, pageW / 2, 26, { align: 'center' } as any);
 
     // Stats line
     doc.setFontSize(10);
     doc.setTextColor(0);
     const statsText = `${totalSessions} جلسة  |  ${totalCourts} محكمة`;
-    doc.text(statsText, pageW / 2, 33, { align: 'center' });
+    doc.text(statsText, pageW / 2, 33, { align: 'center' } as any);
 
     // Separator line
     doc.setDrawColor(0);
