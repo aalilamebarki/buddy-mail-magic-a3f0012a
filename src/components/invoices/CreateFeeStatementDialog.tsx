@@ -797,7 +797,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
                           />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-[10px]">TVA ({TAX_RATE}%)</Label>
+                          <Label className="text-[10px]">TVA (%)</Label>
                           <div className="h-8 flex items-center justify-center rounded-md border bg-muted/30 text-xs text-destructive font-semibold">
                             {(calc?.taxAmount || 0).toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د
                           </div>
