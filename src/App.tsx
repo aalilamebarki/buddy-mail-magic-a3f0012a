@@ -77,6 +77,7 @@ const App = () => (
                 >
                   <Route index element={<DashboardHome />} />
                   <Route path="cases" element={<Cases />} />
+                  <Route path="cases/:id" element={<CaseDetail />} />
                   <Route path="clients" element={<Clients />} />
                   <Route path="articles" element={<Articles />} />
                   <Route path="finance" element={<Finance />} />
