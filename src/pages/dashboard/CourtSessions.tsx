@@ -326,10 +326,10 @@ const CourtSessions = () => {
                   </Command>
                 </PopoverContent>
               </Popover>
-            </div>
+            </div>}
 
             {/* Case number - show if missing */}
-            {needsCaseNumber && (
+            {!editingSession && needsCaseNumber && (
               <div className="space-y-2">
                 <Label>رقم الملف *</Label>
                 <Input
