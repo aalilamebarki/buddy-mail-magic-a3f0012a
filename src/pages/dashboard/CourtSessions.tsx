@@ -181,7 +181,7 @@ const CourtSessions = () => {
     return future.length > 0 ? future[0].session_date : null;
   }, [sessions]);
 
-  const handleExportPDF = useCallback((mode: 'day' | 'week') => {
+  const handleExportPDF = useCallback(async (mode: 'day' | 'week') => {
     let dateStart: string;
     let dateEnd: string;
     let periodLabel: string;
@@ -317,12 +317,28 @@ const CourtSessions = () => {
 </body>
 </html>`;
 
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(html);
-      printWindow.document.close();
-      setTimeout(() => { printWindow.print(); }, 400);
-    }
+    const container = document.createElement('div');
+    container.innerHTML = html;
+    container.style.position = 'absolute';
+    container.style.left = '-9999px';
+    container.style.top = '0';
+    document.body.appendChild(container);
+
+    const { default: html2pdf } = await import('html2pdf.js');
+    const fileName = mode === 'week'
+      ? 'جدول_الجلسات_الأسبوع.pdf'
+      : `جلسة_يوم_${format(exportDate, 'yyyy-MM-dd')}.pdf`;
+
+    // @ts-ignore
+    html2pdf().set({
+      margin: 0,
+      filename: fileName,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+    }).from(container.firstElementChild as HTMLElement).save().then(() => {
+      document.body.removeChild(container);
+    });
     setExportMode(null);
   }, [sessions, exportDate, getNextSession]);
 
