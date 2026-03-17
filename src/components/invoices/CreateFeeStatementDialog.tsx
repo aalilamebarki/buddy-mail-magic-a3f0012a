@@ -415,7 +415,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
       });
 
       // Upload PDF
-      const pdfPath = `fee-statements/${user.id}/${stmtId}.pdf`;
+      const pdfPath = `${user.id}/fee-statements/${stmtId}.pdf`;
       if (isEdit) {
         await supabase.storage.from('invoices').remove([pdfPath]);
       }
