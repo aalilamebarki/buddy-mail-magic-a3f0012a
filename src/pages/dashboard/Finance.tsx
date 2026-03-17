@@ -46,16 +46,36 @@ const Finance = () => {
           </h1>
           <p className="text-muted-foreground text-xs mt-1">سجل محاسبي مرقم حسب القانون — السنة المالية {year}</p>
         </div>
-        <Select value={String(year)} onValueChange={v => setYear(Number(v))}>
-          <SelectTrigger className="w-32">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {years.map(y => (
-              <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs"
+            onClick={() => exportAccountingExcel(entries, year)}
+            disabled={entries.length === 0}
+          >
+            <Download className="h-3.5 w-3.5" /> Excel
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs"
+            onClick={() => exportAccountingPDF(entries, year)}
+            disabled={entries.length === 0}
+          >
+            <Download className="h-3.5 w-3.5" /> PDF
+          </Button>
+          <Select value={String(year)} onValueChange={v => setYear(Number(v))}>
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {years.map(y => (
+                <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Stats */}
