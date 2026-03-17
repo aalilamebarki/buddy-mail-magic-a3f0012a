@@ -6,6 +6,7 @@ import {
   Scale,
   LayoutDashboard,
   Gavel,
+  FolderOpen,
   Users,
   FileText,
   DollarSign,
