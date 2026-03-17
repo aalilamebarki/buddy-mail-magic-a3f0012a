@@ -67,6 +67,11 @@ const Cases = () => {
   const [clientSearch, setClientSearch] = useState('');
   const [addClientDialogOpen, setAddClientDialogOpen] = useState(false);
   const [newClientName, setNewClientName] = useState('');
+  const [courtLevel, setCourtLevel] = useState<string>('');
+  const [courtSubType, setCourtSubType] = useState<string>('');
+  const [courtsDb, setCourtsDb] = useState<any[]>([]);
+  const [courtPopoverOpen, setCourtPopoverOpen] = useState(false);
+  const [courtSearchTerm, setCourtSearchTerm] = useState('');
 
   const fetchData = async () => {
     const [casesRes, clientsRes] = await Promise.all([
