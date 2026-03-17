@@ -103,6 +103,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
         setCaseBlocks([{
           caseId: editData.case_id,
           lawyerFees: String(editData.lawyer_fees || ''),
+          taxRate: String(editData.tax_rate ?? DEFAULT_TAX_RATE),
           items: caseItems.length > 0 ? caseItems : [{ description: '', amount: '' }],
           collapsed: false,
         }]);
