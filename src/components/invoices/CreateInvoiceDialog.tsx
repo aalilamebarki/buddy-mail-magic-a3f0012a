@@ -34,8 +34,9 @@ const CreateInvoiceDialog = ({ open, onOpenChange, onCreated }: Props) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { clients } = useClients();
-  const { cases } = useCases({ withClients: false });
+  const { cases, refetch: refetchCases } = useCases({ withClients: false });
   const letterheads = useLetterheadOptions();
+  const [showCaseDialog, setShowCaseDialog] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [step, setStep] = useState<'form' | 'preview'>('form');
