@@ -46,10 +46,10 @@ const VerifyInvoice = () => {
         <CardHeader className="text-center pb-2">
           {invoice ? (
             <div className="flex flex-col items-center gap-2">
-              <div className="h-16 w-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                <ShieldCheck className="h-8 w-8 text-green-600 dark:text-green-400" />
+              <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                <ShieldCheck className="h-8 w-8 text-primary" />
               </div>
-              <CardTitle className="text-green-700 dark:text-green-400">وصل موثّق ✓</CardTitle>
+              <CardTitle className="text-primary">وصل موثّق ✓</CardTitle>
               <p className="text-xs text-muted-foreground">تم التحقق من صحة هذا الوصل بنجاح</p>
             </div>
           ) : (
