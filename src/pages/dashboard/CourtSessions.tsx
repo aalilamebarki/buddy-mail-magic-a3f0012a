@@ -89,22 +89,34 @@ const CourtSessions = () => {
       toast.error('يرجى اختيار الملف وتاريخ الجلسة');
       return;
     }
+    // Validate case_number
+    const finalCaseNumber = selectedCase?.case_number || caseNumber.trim();
+    if (!finalCaseNumber) {
+      toast.error('رقم الملف مطلوب');
+      return;
+    }
     setSaving(true);
-    const { error } = await supabase.from('court_sessions').insert({
-      case_id: selectedCaseId,
-      session_date: format(sessionDate, 'yyyy-MM-dd'),
-      notes: notes || null,
-      user_id: user.id,
-    });
-    if (error) {
-      toast.error('خطأ في حفظ الجلسة');
-    } else {
+    try {
+      // Update case_number if it was missing
+      if (needsCaseNumber && caseNumber.trim()) {
+        await supabase.from('cases').update({ case_number: caseNumber.trim() }).eq('id', selectedCaseId);
+      }
+      const { error } = await supabase.from('court_sessions').insert({
+        case_id: selectedCaseId,
+        session_date: format(sessionDate, 'yyyy-MM-dd'),
+        notes: notes || null,
+        user_id: user.id,
+      });
+      if (error) throw error;
       toast.success('تمت إضافة الجلسة');
       setDialogOpen(false);
       setSelectedCaseId('');
       setSessionDate(undefined);
       setNotes('');
+      setCaseNumber('');
       fetchData();
+    } catch {
+      toast.error('خطأ في حفظ الجلسة');
     }
     setSaving(false);
   };
