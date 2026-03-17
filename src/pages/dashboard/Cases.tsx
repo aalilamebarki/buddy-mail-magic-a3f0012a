@@ -207,7 +207,8 @@ const Cases = () => {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold text-foreground text-sm truncate">{c.title}</p>
-                    <p className="text-xs text-muted-foreground">{getClientName(c)}</p>
+                    <p className="text-xs text-muted-foreground">لفائدة: {getClientName(c)}</p>
+                    <p className="text-xs text-muted-foreground">ضد: {c.opposing_party || '—'}</p>
                     {c.case_number && <p className="text-xs text-muted-foreground font-mono">{c.case_number}</p>}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
@@ -238,7 +239,7 @@ const Cases = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>العنوان</TableHead>
-                  <TableHead>الموكل</TableHead>
+                  <TableHead>لفائدة</TableHead>
                   <TableHead>النوع</TableHead>
                   <TableHead>المحكمة</TableHead>
                   <TableHead>رقم الملف</TableHead>
@@ -256,7 +257,7 @@ const Cases = () => {
                   filtered.map((c) => (
                     <TableRow key={c.id}>
                       <TableCell className="font-medium">{c.title}</TableCell>
-                      <TableCell>{getClientName(c)}</TableCell>
+                      <TableCell>لفائدة: {getClientName(c)}</TableCell>
                       <TableCell>{c.case_type || '—'}</TableCell>
                       <TableCell>{c.court || '—'}</TableCell>
                       <TableCell className="font-mono">{c.case_number || '—'}</TableCell>
