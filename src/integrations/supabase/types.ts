@@ -520,18 +520,33 @@ export type Database = {
           created_at: string
           fee_statement_id: string
           id: string
+          lawyer_fees: number
+          subtotal: number
+          tax_amount: number
+          tax_rate: number
+          total_amount: number
         }
         Insert: {
           case_id: string
           created_at?: string
           fee_statement_id: string
           id?: string
+          lawyer_fees?: number
+          subtotal?: number
+          tax_amount?: number
+          tax_rate?: number
+          total_amount?: number
         }
         Update: {
           case_id?: string
           created_at?: string
           fee_statement_id?: string
           id?: string
+          lawyer_fees?: number
+          subtotal?: number
+          tax_amount?: number
+          tax_rate?: number
+          total_amount?: number
         }
         Relationships: [
           {
@@ -553,6 +568,7 @@ export type Database = {
       fee_statement_items: {
         Row: {
           amount: number
+          case_id: string | null
           created_at: string
           description: string
           fee_statement_id: string
@@ -561,6 +577,7 @@ export type Database = {
         }
         Insert: {
           amount?: number
+          case_id?: string | null
           created_at?: string
           description: string
           fee_statement_id: string
@@ -569,6 +586,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          case_id?: string | null
           created_at?: string
           description?: string
           fee_statement_id?: string
@@ -576,6 +594,13 @@ export type Database = {
           sort_order?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "fee_statement_items_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fee_statement_items_fee_statement_id_fkey"
             columns: ["fee_statement_id"]
