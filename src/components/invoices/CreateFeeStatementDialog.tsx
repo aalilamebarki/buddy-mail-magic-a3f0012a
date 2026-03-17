@@ -34,6 +34,7 @@ interface ExpenseItem {
 interface CaseBlock {
   caseId: string;
   lawyerFees: string;
+  taxRate: string;
   items: ExpenseItem[];
   collapsed: boolean;
 }
@@ -43,7 +44,7 @@ const COMMON_EXPENSES = [
   'مصاريف التبليغ', 'رسوم الاستئناف', 'واجبات الدمغة', 'مصاريف النقل',
 ];
 
-const TAX_RATE = 10; // Fixed 10% per case
+const DEFAULT_TAX_RATE = '10';
 
 const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: Props) => {
   const { user } = useAuth();
@@ -88,6 +89,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
           return {
             caseId: fc.case_id,
             lawyerFees: String(fc.lawyer_fees || editData.lawyer_fees || ''),
+            taxRate: String(fc.tax_rate ?? editData.tax_rate ?? DEFAULT_TAX_RATE),
             items: caseItems.length > 0 ? caseItems : [{ description: '', amount: '' }],
             collapsed: false,
           };
@@ -101,6 +103,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
         setCaseBlocks([{
           caseId: editData.case_id,
           lawyerFees: String(editData.lawyer_fees || ''),
+          taxRate: String(editData.tax_rate ?? DEFAULT_TAX_RATE),
           items: caseItems.length > 0 ? caseItems : [{ description: '', amount: '' }],
           collapsed: false,
         }]);
@@ -125,6 +128,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
     setCaseBlocks(prev => [...prev, {
       caseId,
       lawyerFees: '',
+      taxRate: DEFAULT_TAX_RATE,
       items: [{ description: '', amount: '' }],
       collapsed: false,
     }]);
@@ -199,6 +203,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
       setCaseBlocks(prev => [...prev, {
         caseId: newCaseId,
         lawyerFees: '',
+        taxRate: DEFAULT_TAX_RATE,
         items: [{ description: '', amount: '' }],
         collapsed: false,
       }]);
@@ -221,10 +226,11 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
   const caseCalcs = caseBlocks.map(b => {
     const expensesTotal = b.items.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
     const lawyerFees = parseFloat(b.lawyerFees) || 0;
+    const taxRate = parseFloat(b.taxRate) || 0;
     const subtotal = expensesTotal + lawyerFees;
-    const taxAmount = subtotal * TAX_RATE / 100;
+    const taxAmount = subtotal * taxRate / 100;
     const totalAmount = subtotal + taxAmount;
-    return { caseId: b.caseId, expensesTotal, lawyerFees, subtotal, taxAmount, totalAmount };
+    return { caseId: b.caseId, expensesTotal, lawyerFees, taxRate, subtotal, taxAmount, totalAmount };
   });
 
   const grandTotal = {
@@ -275,7 +281,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
             letterhead_id: form.letterheadId || null,
             power_of_attorney_date: form.powerOfAttorneyDate || null,
             lawyer_fees: grandTotal.lawyerFees,
-            tax_rate: TAX_RATE,
+            tax_rate: caseCalcs[0]?.taxRate || 10,
             tax_amount: grandTotal.taxAmount,
             subtotal: grandTotal.subtotal,
             total_amount: grandTotal.totalAmount,
@@ -302,7 +308,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
             statement_number: statementNumber,
             power_of_attorney_date: form.powerOfAttorneyDate || null,
             lawyer_fees: grandTotal.lawyerFees,
-            tax_rate: TAX_RATE,
+            tax_rate: caseCalcs[0]?.taxRate || 10,
             tax_amount: grandTotal.taxAmount,
             subtotal: grandTotal.subtotal,
             total_amount: grandTotal.totalAmount,
@@ -322,7 +328,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
           fee_statement_id: stmtId,
           case_id: block.caseId,
           lawyer_fees: calc.lawyerFees,
-          tax_rate: TAX_RATE,
+          tax_rate: calc.taxRate,
           tax_amount: calc.taxAmount,
           subtotal: calc.subtotal,
           total_amount: calc.totalAmount,
@@ -398,7 +404,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
         powerOfAttorneyDate: form.powerOfAttorneyDate
           ? formatDateArabic(form.powerOfAttorneyDate, { year: 'numeric', month: 'long', day: 'numeric' })
           : undefined,
-        taxRate: TAX_RATE,
+        taxRate: caseCalcs[0]?.taxRate || 10,
         grandSubtotal: grandTotal.subtotal,
         grandTaxAmount: grandTotal.taxAmount,
         grandTotal: grandTotal.totalAmount,
@@ -531,7 +537,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
                       <span className="font-semibold">{calc.subtotal.toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د</span>
                     </div>
                     <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">TVA ({TAX_RATE}%)</span>
+                      <span className="text-muted-foreground">TVA ({calc.taxRate}%)</span>
                       <span className="font-semibold text-destructive">{calc.taxAmount.toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د</span>
                     </div>
                     <div className="flex justify-between text-sm font-bold text-primary">
@@ -551,7 +557,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
                   <span className="font-bold">{grandTotal.subtotal.toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د</span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">مجموع TVA ({TAX_RATE}%)</span>
+                  <span className="text-muted-foreground">مجموع TVA</span>
                   <span className="font-bold text-destructive">{grandTotal.taxAmount.toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د</span>
                 </div>
                 <div className="flex justify-between text-sm border-t pt-1.5">
@@ -777,7 +783,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-4 gap-2">
                         <div className="space-y-1">
                           <Label className="text-[10px]">أتعاب المحامي (درهم)</Label>
                           <Input
@@ -791,7 +797,20 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
                           />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-[10px]">TVA ({TAX_RATE}%)</Label>
+                          <Label className="text-[10px]">TVA (%)</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="1"
+                            placeholder="10"
+                            value={block.taxRate}
+                            onChange={e => updateCaseBlock(block.caseId, 'taxRate', e.target.value)}
+                            className="text-xs h-8"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">مبلغ TVA</Label>
                           <div className="h-8 flex items-center justify-center rounded-md border bg-muted/30 text-xs text-destructive font-semibold">
                             {(calc?.taxAmount || 0).toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د
                           </div>
@@ -817,7 +836,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
                   <span className="font-bold">{grandTotal.subtotal.toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د</span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">مجموع TVA ({TAX_RATE}%)</span>
+                  <span className="text-muted-foreground">مجموع TVA</span>
                   <span className="font-bold text-destructive">{grandTotal.taxAmount.toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د</span>
                 </div>
                 <div className="flex justify-between text-sm border-t pt-1.5">
