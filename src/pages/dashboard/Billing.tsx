@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { useInvoices } from '@/hooks/useInvoices';
 import { useFeeStatements, type FeeStatementRecord } from '@/hooks/useFeeStatements';
 import { useAccountingEntries } from '@/hooks/useAccounting';
-import { useClientLedger } from '@/hooks/useClientLedger';
+
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { formatDateShort } from '@/lib/formatters';
