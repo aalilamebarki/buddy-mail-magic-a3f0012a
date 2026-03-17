@@ -198,7 +198,7 @@ const CourtSessions = () => {
       const we = endOfWeek(exportDate, { weekStartsOn: 1 });
       dateStart = format(ws, 'yyyy-MM-dd');
       dateEnd = format(we, 'yyyy-MM-dd');
-      periodLabel = `من ${new Date(ws).toLocaleDateString('ar-MA', { day: 'numeric', month: 'long', year: 'numeric' })} إلى ${new Date(we).toLocaleDateString('ar-MA', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+      periodLabel = `من ${new Date(ws).toLocaleDateString('ar-u-nu-latn', { day: 'numeric', month: 'long', year: 'numeric' })} إلى ${new Date(we).toLocaleDateString('ar-u-nu-latn', { day: 'numeric', month: 'long', year: 'numeric' })}`;
       docTitle = 'جدول الجلسات لهذا الأسبوع';
     }
 
