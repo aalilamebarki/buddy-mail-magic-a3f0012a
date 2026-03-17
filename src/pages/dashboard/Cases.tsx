@@ -174,8 +174,17 @@ const Cases = () => {
     setSaving(true);
     try {
       // Build opposing_party summary for the cases table
-      const firstOpponent = validOpponents[0].name.trim();
-      const opposingSummary = validOpponents.length > 1 ? `${firstOpponent} ومن معه` : firstOpponent;
+      let opposingSummary: string | null = null;
+      let oppAddress: string | null = null;
+      let oppPhone: string | null = null;
+      if (validOpponents.length > 0) {
+        const firstOpponent = validOpponents[0].name.trim();
+        opposingSummary = validOpponents.length > 1 ? `${firstOpponent} ومن معه` : firstOpponent;
+        oppAddress = validOpponents[0].address.trim() || null;
+        oppPhone = validOpponents[0].phone.trim() || null;
+      } else if (hasNiyabaPresence) {
+        opposingSummary = NIYABA;
+      }
 
       const payload = {
         title: form.title.trim(),
@@ -183,8 +192,8 @@ const Cases = () => {
         description: form.description.trim() || null,
         client_id: form.client_id,
         opposing_party: opposingSummary,
-        opposing_party_address: validOpponents[0].address.trim() || null,
-        opposing_party_phone: validOpponents[0].phone.trim() || null,
+        opposing_party_address: oppAddress,
+        opposing_party_phone: oppPhone,
         court: form.court.trim(),
       };
 
