@@ -263,14 +263,20 @@ const CourtSessions = () => {
     const { default: jsPDF } = await import('jspdf');
     await import('jspdf-autotable');
 
-    // Fetch Arabic font from Google Fonts
-    const fontUrl = 'https://fonts.gstatic.com/s/ibmplexsansarabic/v12/Qw3CZRtWPQCuHme67tEYUIx3Kh0PHR9N6Y.ttf';
+    // Fetch Amiri Arabic font (local file)
+    const fontUrl = '/fonts/Amiri-Regular.ttf';
     const fontResponse = await fetch(fontUrl);
+    if (!fontResponse.ok) {
+      toast.error('خطأ في تحميل الخط العربي');
+      return;
+    }
     const fontBuffer = await fontResponse.arrayBuffer();
     const uint8Array = new Uint8Array(fontBuffer);
     let binary = '';
-    for (let i = 0; i < uint8Array.length; i++) {
-      binary += String.fromCharCode(uint8Array[i]);
+    const chunkSize = 8192;
+    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+      const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
+      binary += String.fromCharCode.apply(null, Array.from(chunk));
     }
     const fontBase64 = btoa(binary);
 
