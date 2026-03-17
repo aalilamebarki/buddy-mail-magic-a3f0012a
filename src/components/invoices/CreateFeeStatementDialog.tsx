@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,11 +15,13 @@ import { useCases } from '@/hooks/useCases';
 import { useLetterheadOptions } from '@/hooks/useInvoices';
 import { generateFeeStatementPDF } from '@/lib/generate-fee-statement-pdf';
 import { formatDateArabic } from '@/lib/formatters';
+import type { FeeStatementRecord } from '@/hooks/useFeeStatements';
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated: () => void;
+  editData?: FeeStatementRecord | null;
 }
 
 interface ExpenseItem {
@@ -38,7 +40,7 @@ const COMMON_EXPENSES = [
   'مصاريف النقل',
 ];
 
-const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated }: Props) => {
+const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: Props) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { clients } = useClients();
@@ -57,6 +59,43 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated }: Props) => {
   const [selectedCaseIds, setSelectedCaseIds] = useState<string[]>([]);
   const [caseSelectValue, setCaseSelectValue] = useState('');
   const [items, setItems] = useState<ExpenseItem[]>([{ description: '', amount: '' }]);
+
+  const isEdit = !!editData;
+
+  // Pre-fill form when editing
+  useEffect(() => {
+    if (editData && open) {
+      setForm({
+        clientId: editData.client_id || '',
+        letterheadId: editData.letterhead_id || '',
+        powerOfAttorneyDate: editData.power_of_attorney_date || '',
+        lawyerFees: String(editData.lawyer_fees || ''),
+        taxRate: String(editData.tax_rate || '10'),
+        notes: editData.notes || '',
+      });
+
+      // Set cases from junction table or fallback
+      if (editData.fee_statement_cases && editData.fee_statement_cases.length > 0) {
+        setSelectedCaseIds(editData.fee_statement_cases.map(fc => fc.case_id));
+      } else if (editData.case_id) {
+        setSelectedCaseIds([editData.case_id]);
+      }
+
+      // Set items
+      if (editData.fee_statement_items && editData.fee_statement_items.length > 0) {
+        setItems(editData.fee_statement_items
+          .sort((a, b) => a.sort_order - b.sort_order)
+          .map(i => ({ description: i.description, amount: String(i.amount) })));
+      } else {
+        setItems([{ description: '', amount: '' }]);
+      }
+    } else if (!open) {
+      // Reset on close
+      setForm({ clientId: '', letterheadId: '', powerOfAttorneyDate: '', lawyerFees: '', taxRate: '10', notes: '' });
+      setSelectedCaseIds([]);
+      setItems([{ description: '', amount: '' }]);
+    }
+  }, [editData, open]);
 
   const update = (field: string, value: string) => setForm(prev => ({ ...prev, [field]: value }));
 
@@ -118,7 +157,6 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated }: Props) => {
       return;
     }
 
-    // Validate all cases have case_number
     const missingNumber = selectedCases.find(c => !c.case_number);
     if (missingNumber) {
       toast({ title: `الملف "${missingNumber.title}" لا يحتوي على رقم ملف`, variant: 'destructive' });
@@ -128,67 +166,138 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated }: Props) => {
     setSaving(true);
     try {
       const now = new Date();
-
-      // Get sequential number from DB
-      const { data: seqNumber, error: seqError } = await supabase
-        .rpc('next_accounting_number', { _user_id: user.id, _type: 'fee_statement' });
-      if (seqError) throw seqError;
-      const statementNumber = seqNumber as string;
-
       const client = clients.find(c => c.id === form.clientId);
       const letterhead = letterheads.find(l => l.id === form.letterheadId);
 
-      // Use first case as primary case_id for backward compat
-      const { data: stmt, error } = await supabase
-        .from('fee_statements')
-        .insert({
+      let stmtId: string;
+      let signatureUuid: string;
+      let statementNumber: string;
+
+      if (isEdit) {
+        // UPDATE existing
+        stmtId = editData.id;
+        signatureUuid = editData.signature_uuid;
+        statementNumber = editData.statement_number;
+
+        await supabase
+          .from('fee_statements')
+          .update({
+            client_id: form.clientId || null,
+            case_id: selectedCaseIds[0] || null,
+            letterhead_id: form.letterheadId || null,
+            power_of_attorney_date: form.powerOfAttorneyDate || null,
+            lawyer_fees: lawyerFees,
+            tax_rate: taxRate,
+            tax_amount: taxAmount,
+            subtotal,
+            total_amount: totalAmount,
+            notes: form.notes || null,
+          })
+          .eq('id', stmtId);
+
+        // Replace junction cases
+        await supabase.from('fee_statement_cases').delete().eq('fee_statement_id', stmtId);
+        if (selectedCaseIds.length > 0) {
+          await supabase.from('fee_statement_cases').insert(
+            selectedCaseIds.map(caseId => ({ fee_statement_id: stmtId, case_id: caseId }))
+          );
+        }
+
+        // Replace items
+        await supabase.from('fee_statement_items').delete().eq('fee_statement_id', stmtId);
+        const validItems = items.filter(i => i.description && parseFloat(i.amount) > 0);
+        if (validItems.length > 0) {
+          await supabase.from('fee_statement_items').insert(
+            validItems.map((item, idx) => ({
+              fee_statement_id: stmtId,
+              description: item.description,
+              amount: parseFloat(item.amount),
+              sort_order: idx,
+            }))
+          );
+        }
+
+        // Update accounting entry
+        await supabase
+          .from('accounting_entries')
+          .update({
+            client_id: form.clientId || null,
+            description: `بيان أتعاب — ${client?.full_name || ''} — ${selectedCases.map(c => c.case_number).join(', ')}`,
+            amount_ht: subtotal,
+            tax_amount: taxAmount,
+            amount_ttc: totalAmount,
+          })
+          .eq('reference_id', stmtId)
+          .eq('entry_type', 'fee_statement');
+
+      } else {
+        // CREATE new
+        const { data: seqNumber, error: seqError } = await supabase
+          .rpc('next_accounting_number', { _user_id: user.id, _type: 'fee_statement' });
+        if (seqError) throw seqError;
+        statementNumber = seqNumber as string;
+
+        const { data: stmt, error } = await supabase
+          .from('fee_statements')
+          .insert({
+            user_id: user.id,
+            client_id: form.clientId || null,
+            case_id: selectedCaseIds[0] || null,
+            letterhead_id: form.letterheadId || null,
+            statement_number: statementNumber,
+            power_of_attorney_date: form.powerOfAttorneyDate || null,
+            lawyer_fees: lawyerFees,
+            tax_rate: taxRate,
+            tax_amount: taxAmount,
+            subtotal,
+            total_amount: totalAmount,
+            notes: form.notes || null,
+          })
+          .select('id, signature_uuid')
+          .single();
+        if (error) throw error;
+        stmtId = stmt.id;
+        signatureUuid = stmt.signature_uuid;
+
+        // Insert junction cases
+        if (selectedCaseIds.length > 0) {
+          await supabase.from('fee_statement_cases').insert(
+            selectedCaseIds.map(caseId => ({ fee_statement_id: stmtId, case_id: caseId }))
+          );
+        }
+
+        // Insert items
+        const validItems = items.filter(i => i.description && parseFloat(i.amount) > 0);
+        if (validItems.length > 0) {
+          await supabase.from('fee_statement_items').insert(
+            validItems.map((item, idx) => ({
+              fee_statement_id: stmtId,
+              description: item.description,
+              amount: parseFloat(item.amount),
+              sort_order: idx,
+            }))
+          );
+        }
+
+        // Record accounting entry
+        await supabase.from('accounting_entries').insert({
           user_id: user.id,
+          entry_number: statementNumber,
+          entry_type: 'fee_statement',
+          reference_id: stmtId,
           client_id: form.clientId || null,
-          case_id: selectedCaseIds[0] || null,
-          letterhead_id: form.letterheadId || null,
-          statement_number: statementNumber,
-          power_of_attorney_date: form.powerOfAttorneyDate || null,
-          lawyer_fees: lawyerFees,
-          tax_rate: taxRate,
+          description: `بيان أتعاب — ${client?.full_name || ''} — ${selectedCases.map(c => c.case_number).join(', ')}`,
+          amount_ht: subtotal,
           tax_amount: taxAmount,
-          subtotal,
-          total_amount: totalAmount,
-          notes: form.notes || null,
-        })
-        .select('id, signature_uuid')
-        .single();
-
-      if (error) throw error;
-
-      // Insert junction cases
-      if (selectedCaseIds.length > 0) {
-        const { error: casesError } = await supabase
-          .from('fee_statement_cases')
-          .insert(selectedCaseIds.map(caseId => ({
-            fee_statement_id: stmt.id,
-            case_id: caseId,
-          })));
-        if (casesError) throw casesError;
+          amount_ttc: totalAmount,
+        });
       }
 
-      // Insert items
+      // Generate PDF (both create & edit)
       const validItems = items.filter(i => i.description && parseFloat(i.amount) > 0);
-      if (validItems.length > 0) {
-        const { error: itemsError } = await supabase
-          .from('fee_statement_items')
-          .insert(validItems.map((item, idx) => ({
-            fee_statement_id: stmt.id,
-            description: item.description,
-            amount: parseFloat(item.amount),
-            sort_order: idx,
-          })));
-        if (itemsError) throw itemsError;
-      }
-
-      // Generate PDF
       const pdfBlob = await generateFeeStatementPDF({
         statementNumber,
-        signatureUuid: stmt.signature_uuid,
+        signatureUuid,
         clientName: client?.full_name || '—',
         clientCin: client?.cin || undefined,
         clientPhone: client?.phone || undefined,
@@ -211,32 +320,19 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated }: Props) => {
         lawyerName: letterhead?.lawyer_name || 'مكتب المحاماة',
       });
 
-      // Upload PDF
-      const pdfPath = `fee-statements/${user.id}/${stmt.id}.pdf`;
+      // Upload PDF (overwrite for edit)
+      const pdfPath = `fee-statements/${user.id}/${stmtId}.pdf`;
+      if (isEdit) {
+        await supabase.storage.from('invoices').remove([pdfPath]);
+      }
       const { error: uploadError } = await supabase.storage
         .from('invoices')
-        .upload(pdfPath, pdfBlob, { contentType: 'application/pdf' });
+        .upload(pdfPath, pdfBlob, { contentType: 'application/pdf', upsert: true });
       if (uploadError) throw uploadError;
 
-      await supabase.from('fee_statements').update({ pdf_path: pdfPath }).eq('id', stmt.id);
+      await supabase.from('fee_statements').update({ pdf_path: pdfPath }).eq('id', stmtId);
 
-      // Record accounting entry
-      await supabase.from('accounting_entries').insert({
-        user_id: user.id,
-        entry_number: statementNumber,
-        entry_type: 'fee_statement',
-        reference_id: stmt.id,
-        client_id: form.clientId || null,
-        description: `بيان أتعاب — ${client?.full_name || ''} — ${selectedCases.map(c => c.case_number).join(', ')}`,
-        amount_ht: subtotal,
-        tax_amount: taxAmount,
-        amount_ttc: totalAmount,
-      });
-
-      toast({ title: 'تم إنشاء بيان الأتعاب بنجاح ✅' });
-      setForm({ clientId: '', letterheadId: '', powerOfAttorneyDate: '', lawyerFees: '', taxRate: '10', notes: '' });
-      setSelectedCaseIds([]);
-      setItems([{ description: '', amount: '' }]);
+      toast({ title: isEdit ? 'تم تحديث البيان بنجاح ✅' : 'تم إنشاء بيان الأتعاب بنجاح ✅' });
       onOpenChange(false);
       onCreated();
     } catch (e: any) {
@@ -252,7 +348,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated }: Props) => {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" />
-            بيان أتعاب ومصاريف جديد
+            {isEdit ? 'تعديل بيان الأتعاب' : 'بيان أتعاب ومصاريف جديد'}
           </DialogTitle>
         </DialogHeader>
 
@@ -429,7 +525,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated }: Props) => {
 
           <Button onClick={handleSubmit} disabled={!canSubmit} className="w-full gap-2">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
-            {saving ? 'جاري الإنشاء...' : 'إنشاء البيان وتحميل PDF'}
+            {saving ? 'جاري الحفظ...' : isEdit ? 'حفظ التعديلات وتحميل PDF' : 'إنشاء البيان وتحميل PDF'}
           </Button>
         </div>
       </DialogContent>

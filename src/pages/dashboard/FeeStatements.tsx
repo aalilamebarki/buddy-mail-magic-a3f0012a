@@ -3,18 +3,29 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { FileText, Plus, Download, Loader2, Search } from 'lucide-react';
+import { FileText, Plus, Download, Loader2, Search, Pencil } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { useFeeStatements } from '@/hooks/useFeeStatements';
+import { useFeeStatements, type FeeStatementRecord } from '@/hooks/useFeeStatements';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { formatDateShort } from '@/lib/formatters';
 import CreateFeeStatementDialog from '@/components/invoices/CreateFeeStatementDialog';
 
+/** بيان الأتعاب للسيد X ملف عدد Y — تاريخ — رقم */
+const buildStatementLabel = (s: FeeStatementRecord) => {
+  const clientName = s.clients?.full_name || '—';
+  const caseNumbers = (s.fee_statement_cases && s.fee_statement_cases.length > 0)
+    ? s.fee_statement_cases.map(fc => fc.cases?.case_number).filter(Boolean).join(' / ')
+    : s.cases?.case_number || '—';
+  const date = formatDateShort(s.created_at);
+  return `بيان الأتعاب للسيد ${clientName} ملف عدد ${caseNumbers} ${date} ${s.statement_number}`;
+};
+
 const FeeStatements = () => {
   const { statements, loading, refetch } = useFeeStatements();
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editStatement, setEditStatement] = useState<FeeStatementRecord | null>(null);
   const [search, setSearch] = useState('');
   const [downloading, setDownloading] = useState<string | null>(null);
 
@@ -49,6 +60,21 @@ const FeeStatements = () => {
     }
   };
 
+  const openEdit = (s: FeeStatementRecord) => {
+    setEditStatement(s);
+    setDialogOpen(true);
+  };
+
+  const openCreate = () => {
+    setEditStatement(null);
+    setDialogOpen(true);
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    setDialogOpen(open);
+    if (!open) setEditStatement(null);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
@@ -67,7 +93,7 @@ const FeeStatements = () => {
           </h1>
           <p className="text-muted-foreground text-xs mt-1">فواتير تفصيلية للمصاريف القضائية وأتعاب المحاماة</p>
         </div>
-        <Button onClick={() => setDialogOpen(true)} className="gap-1.5">
+        <Button onClick={openCreate} className="gap-1.5">
           <Plus className="h-4 w-4" /> بيان جديد
         </Button>
       </div>
@@ -120,14 +146,11 @@ const FeeStatements = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-right">الرقم</TableHead>
-                    <TableHead className="text-right">الموكل</TableHead>
-                    <TableHead className="text-right">الملف</TableHead>
+                    <TableHead className="text-right">التسمية</TableHead>
                     <TableHead className="text-right">المصاريف</TableHead>
                     <TableHead className="text-right">الأتعاب</TableHead>
                     <TableHead className="text-right">المجموع</TableHead>
-                    <TableHead className="text-right">التاريخ</TableHead>
-                    <TableHead className="text-right">PDF</TableHead>
+                    <TableHead className="text-right">إجراءات</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -135,29 +158,36 @@ const FeeStatements = () => {
                     const expTotal = (s.fee_statement_items || []).reduce((sum, i) => sum + Number(i.amount), 0);
                     return (
                       <TableRow key={s.id}>
-                        <TableCell className="font-mono text-xs" dir="ltr">{s.statement_number}</TableCell>
-                        <TableCell>{s.clients?.full_name || '—'}</TableCell>
-                        <TableCell className="text-xs">
-                          {(s.fee_statement_cases && s.fee_statement_cases.length > 0)
-                            ? s.fee_statement_cases.map(fc => fc.cases?.title).filter(Boolean).join(' / ')
-                            : s.cases?.title || '—'}
+                        <TableCell className="text-xs max-w-xs">
+                          <p className="font-medium text-foreground">{buildStatementLabel(s)}</p>
                         </TableCell>
                         <TableCell className="text-xs">{expTotal.toLocaleString('ar-u-nu-latn')} د</TableCell>
                         <TableCell className="text-xs">{Number(s.lawyer_fees).toLocaleString('ar-u-nu-latn')} د</TableCell>
                         <TableCell className="font-bold">{Number(s.total_amount).toLocaleString('ar-u-nu-latn')} د</TableCell>
-                        <TableCell className="text-xs">{formatDateShort(s.created_at)}</TableCell>
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0"
-                            onClick={() => downloadPdf(s.id, s.pdf_path, s.statement_number)}
-                            disabled={downloading === s.id}
-                          >
-                            {downloading === s.id
-                              ? <Loader2 className="h-4 w-4 animate-spin" />
-                              : <Download className="h-4 w-4" />}
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0"
+                              title="تعديل"
+                              onClick={() => openEdit(s)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0"
+                              title="تحميل PDF"
+                              onClick={() => downloadPdf(s.id, s.pdf_path, s.statement_number)}
+                              disabled={downloading === s.id}
+                            >
+                              {downloading === s.id
+                                ? <Loader2 className="h-4 w-4 animate-spin" />
+                                : <Download className="h-4 w-4" />}
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -169,7 +199,12 @@ const FeeStatements = () => {
         </CardContent>
       </Card>
 
-      <CreateFeeStatementDialog open={dialogOpen} onOpenChange={setDialogOpen} onCreated={refetch} />
+      <CreateFeeStatementDialog
+        open={dialogOpen}
+        onOpenChange={handleDialogClose}
+        onCreated={refetch}
+        editData={editStatement}
+      />
     </div>
   );
 };
