@@ -298,6 +298,16 @@ const CreateInvoiceDialog = ({ open, onOpenChange, onCreated }: Props) => {
         )}
       </DialogContent>
     </Dialog>
+    <CreateCaseDialog
+      open={showCaseDialog}
+      onOpenChange={setShowCaseDialog}
+      onCreated={(caseId) => {
+        refetchCases();
+        update('caseId', caseId);
+      }}
+      preselectedClientId={form.clientId || undefined}
+    />
+    </>
   );
 };
 
