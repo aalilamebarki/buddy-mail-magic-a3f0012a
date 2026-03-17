@@ -763,7 +763,7 @@ const DocumentGenerator = () => {
               )}
             </div>
             <p className="text-xs text-muted-foreground truncate">
-              {selectedCase.court_level} • {selectedCase.court || ''} • ملف: {selectedCase.case_number}
+              {selectedCase.court_level} • {selectedCase.court || ''} • ملف: <span dir="ltr">{selectedCase.case_number}</span>
               {selectedCase.case_type && ` • ${selectedCase.case_type}`}
             </p>
           </div>
