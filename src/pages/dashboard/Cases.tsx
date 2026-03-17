@@ -414,6 +414,24 @@ const Cases = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Quick Add Client Dialog */}
+      <Dialog open={addClientDialogOpen} onOpenChange={setAddClientDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>إضافة موكل جديد</DialogTitle>
+            <DialogDescription>أدخل اسم الموكل لإضافته بسرعة</DialogDescription>
+          </DialogHeader>
+          <div>
+            <Label>الاسم الكامل *</Label>
+            <Input value={newClientName} onChange={e => setNewClientName(e.target.value)} placeholder="اسم الموكل" autoFocus />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setAddClientDialogOpen(false)}>إلغاء</Button>
+            <Button onClick={handleAddQuickClient}>إضافة</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
