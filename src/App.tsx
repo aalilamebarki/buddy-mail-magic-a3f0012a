@@ -48,7 +48,7 @@ const ClientDashboard = lazy(() => import("./pages/dashboard/ClientDashboard"));
 const KnowledgeBase = lazy(() => import("./pages/dashboard/KnowledgeBase"));
 const DocumentGenerator = lazy(() => import("./pages/dashboard/DocumentGenerator"));
 const Letterheads = lazy(() => import("./pages/dashboard/Letterheads"));
-const LegalScraper = lazy(() => import("./pages/dashboard/LegalScraper"));
+
 const Invoices = lazy(() => import("./pages/dashboard/Invoices"));
 const FeeStatements = lazy(() => import("./pages/dashboard/FeeStatements"));
 
