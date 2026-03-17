@@ -331,8 +331,8 @@ const CourtSessions = () => {
       const tableHead = [['#', 'الموكل', 'رقم الملف', 'المدعى عليه', 'تاريخ الجلسة', 'الجلسة المقبلة']];
       const tableBody = (items as any[]).map((s: any, i: number) => {
         const nextDate = getNextSession(s.case_id, s.session_date);
-        const fmtDate = new Date(s.session_date + 'T00:00:00').toLocaleDateString('ar-MA', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-        const fmtNext = nextDate ? new Date(nextDate + 'T00:00:00').toLocaleDateString('ar-MA', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+        const fmtDate = new Date(s.session_date + 'T00:00:00').toLocaleDateString('ar-u-nu-latn', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+        const fmtNext = nextDate ? new Date(nextDate + 'T00:00:00').toLocaleDateString('ar-u-nu-latn', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : '—';
         return [
           String(i + 1),
           s.cases?.clients?.full_name || '—',
