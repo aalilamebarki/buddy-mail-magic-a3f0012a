@@ -14,6 +14,89 @@ export type Database = {
   }
   public: {
     Tables: {
+      accounting_counters: {
+        Row: {
+          fiscal_year: number
+          id: string
+          last_fee_statement_number: number
+          last_invoice_number: number
+          user_id: string
+        }
+        Insert: {
+          fiscal_year: number
+          id?: string
+          last_fee_statement_number?: number
+          last_invoice_number?: number
+          user_id: string
+        }
+        Update: {
+          fiscal_year?: number
+          id?: string
+          last_fee_statement_number?: number
+          last_invoice_number?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      accounting_entries: {
+        Row: {
+          amount_ht: number
+          amount_ttc: number
+          client_id: string | null
+          created_at: string
+          description: string | null
+          entry_date: string
+          entry_number: string
+          entry_type: string
+          fiscal_year: number
+          id: string
+          payment_method: string | null
+          reference_id: string
+          tax_amount: number
+          user_id: string
+        }
+        Insert: {
+          amount_ht?: number
+          amount_ttc?: number
+          client_id?: string | null
+          created_at?: string
+          description?: string | null
+          entry_date?: string
+          entry_number: string
+          entry_type: string
+          fiscal_year?: number
+          id?: string
+          payment_method?: string | null
+          reference_id: string
+          tax_amount?: number
+          user_id: string
+        }
+        Update: {
+          amount_ht?: number
+          amount_ttc?: number
+          client_id?: string | null
+          created_at?: string
+          description?: string | null
+          entry_date?: string
+          entry_number?: string
+          entry_type?: string
+          fiscal_year?: number
+          id?: string
+          payment_method?: string | null
+          reference_id?: string
+          tax_amount?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounting_entries_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       article_reactions: {
         Row: {
           article_id: string
@@ -1092,6 +1175,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      next_accounting_number: {
+        Args: { _type: string; _user_id: string }
+        Returns: string
       }
       search_legal_documents: {
         Args: {
