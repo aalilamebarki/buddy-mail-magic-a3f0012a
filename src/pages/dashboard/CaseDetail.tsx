@@ -295,14 +295,14 @@ const CaseDetail = () => {
         </CardContent>
       </Card>
 
-      {/* Add Session Dialog */}
-      <Dialog open={sessionDialogOpen} onOpenChange={setSessionDialogOpen}>
+      {/* Session Dialog */}
+      <Dialog open={sessionDialogOpen} onOpenChange={(open) => { setSessionDialogOpen(open); if (!open) setEditingSession(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>إضافة جلسة جديدة</DialogTitle>
+            <DialogTitle>{editingSession ? 'تعديل الجلسة' : 'إضافة جلسة جديدة'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            {needsCaseNumber && (
+            {!editingSession && needsCaseNumber && (
               <div className="space-y-2">
                 <Label>رقم الملف *</Label>
                 <Input
@@ -336,7 +336,7 @@ const CaseDetail = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSessionDialogOpen(false)}>إلغاء</Button>
-            <Button onClick={handleAddSession} disabled={saving}>{saving ? 'جاري الحفظ...' : 'حفظ'}</Button>
+            <Button onClick={handleSaveSession} disabled={saving}>{saving ? 'جاري الحفظ...' : 'حفظ'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
