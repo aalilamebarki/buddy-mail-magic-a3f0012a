@@ -53,7 +53,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
   const letterheads = useLetterheadOptions();
 
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
+  const [step, setStep] = useState<'form' | 'preview'>('form');
     clientId: '',
     letterheadId: '',
     powerOfAttorneyDate: '',
