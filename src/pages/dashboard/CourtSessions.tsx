@@ -264,27 +264,28 @@ const CourtSessions = () => {
     const wrapper = document.createElement('div');
     wrapper.setAttribute('dir', 'rtl');
     wrapper.setAttribute('lang', 'ar');
+    wrapper.className = 'pdf-export';
     wrapper.style.cssText = `font-family:'IBM Plex Sans Arabic','Traditional Arabic',sans-serif;font-size:12px;color:#000;direction:rtl;background:#fff;padding:30px 40px;`;
 
     const styleEl = document.createElement('style');
     styleEl.textContent = `
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      .header { text-align: center; margin-bottom: 28px; padding-bottom: 18px; border-bottom: 1px solid #000; }
-      .header h1 { font-size: 22px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 6px; }
-      .header .subtitle { font-size: 12px; color: #333; margin-bottom: 12px; }
-      .header .stats-row { display: flex; justify-content: center; gap: 30px; margin-top: 10px; }
-      .header .stat { font-size: 12px; color: #222; }
-      .header .stat strong { font-size: 16px; margin-left: 4px; }
-      .court-block { margin-bottom: 20px; break-inside: avoid; }
-      .court-title { font-size: 13px; font-weight: 700; padding: 6px 10px; background: #000; color: #fff; margin-bottom: 0; }
-      table { width: 100%; border-collapse: collapse; margin-bottom: 0; }
-      th { font-size: 10px; font-weight: 700; padding: 6px 8px; text-align: right; background: #eee; border: 1px solid #999; text-transform: uppercase; letter-spacing: 0.3px; }
-      td { font-size: 11px; padding: 5px 8px; border: 1px solid #bbb; }
-      tr:nth-child(even) td { background: #f7f7f7; }
-      .num-cell { text-align: center; width: 28px; color: #555; font-size: 10px; }
-      .case-num-cell { direction: ltr; text-align: center; font-family: 'Courier New', monospace; font-size: 11px; }
-      .date-cell { white-space: nowrap; font-size: 10.5px; }
-      .footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #000; display: flex; justify-content: space-between; font-size: 9px; color: #555; }
+      .pdf-export * { box-sizing: border-box; margin: 0; padding: 0; }
+      .pdf-export .header { text-align: center; margin-bottom: 28px; padding-bottom: 18px; border-bottom: 1px solid #000; }
+      .pdf-export .header h1 { font-size: 22px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 6px; }
+      .pdf-export .header .subtitle { font-size: 12px; color: #333; margin-bottom: 12px; }
+      .pdf-export .header .stats-row { display: flex; justify-content: center; gap: 30px; margin-top: 10px; }
+      .pdf-export .header .stat { font-size: 12px; color: #222; }
+      .pdf-export .header .stat strong { font-size: 16px; margin-left: 4px; }
+      .pdf-export .court-block { margin-bottom: 20px; break-inside: avoid; }
+      .pdf-export .court-title { font-size: 13px; font-weight: 700; padding: 6px 10px; background: #000; color: #fff; margin-bottom: 0; }
+      .pdf-export table { width: 100%; border-collapse: collapse; margin-bottom: 0; }
+      .pdf-export th { font-size: 10px; font-weight: 700; padding: 6px 8px; text-align: right; background: #eee; border: 1px solid #999; text-transform: uppercase; letter-spacing: 0.3px; }
+      .pdf-export td { font-size: 11px; padding: 5px 8px; border: 1px solid #bbb; }
+      .pdf-export tr:nth-child(even) td { background: #f7f7f7; }
+      .pdf-export .num-cell { text-align: center; width: 28px; color: #555; font-size: 10px; }
+      .pdf-export .case-num-cell { direction: ltr; text-align: center; font-family: 'Courier New', monospace; font-size: 11px; }
+      .pdf-export .date-cell { white-space: nowrap; font-size: 10.5px; }
+      .pdf-export .footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #000; display: flex; justify-content: space-between; font-size: 9px; color: #555; }
     `;
     wrapper.appendChild(styleEl);
 
