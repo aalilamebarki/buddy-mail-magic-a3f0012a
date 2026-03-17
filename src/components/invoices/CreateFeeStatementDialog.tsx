@@ -363,6 +363,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
           caseTitle: caseInfo?.title || '',
           caseNumber: caseInfo?.case_number || '',
           court: caseInfo?.court || undefined,
+          caseType: caseInfo?.case_type || undefined,
           items: block.items
             .filter(i => i.description && parseFloat(i.amount) > 0)
             .map(i => ({ description: i.description, amount: parseFloat(i.amount) })),
