@@ -293,10 +293,10 @@ const CourtSessions = () => {
 
     // Title
     doc.setFontSize(20);
-    doc.text(docTitle, pageW / 2, 18, { align: 'center' });
+    doc.text(docTitle, pageW / 2, 18, { align: 'center', lang: 'ar' });
     doc.setFontSize(11);
     doc.setTextColor(80);
-    doc.text(periodLabel, pageW / 2, 26, { align: 'center' });
+    doc.text(periodLabel, pageW / 2, 26, { align: 'center', lang: 'ar' });
 
     // Stats line
     doc.setFontSize(10);
