@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,12 +7,15 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, Search, Trash2, Pencil, FolderOpen, User } from 'lucide-react';
+import { Plus, Search, Trash2, Pencil, FolderOpen, User, ChevronsUpDown, Check, UserPlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface CaseForm {
   title: string;
@@ -47,6 +50,10 @@ const Cases = () => {
   const [form, setForm] = useState<CaseForm>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [filterClientId, setFilterClientId] = useState<string>(preselectedClientId || '');
+  const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
+  const [clientSearch, setClientSearch] = useState('');
+  const [addClientDialogOpen, setAddClientDialogOpen] = useState(false);
+  const [newClientName, setNewClientName] = useState('');
 
   const fetchData = async () => {
     const [casesRes, clientsRes] = await Promise.all([
@@ -151,6 +158,24 @@ const Cases = () => {
   };
 
   const updateField = (field: keyof CaseForm, value: string) => setForm(prev => ({ ...prev, [field]: value }));
+
+  const filteredClients = useMemo(() => {
+    if (!clientSearch) return clients;
+    return clients.filter(c => c.full_name.includes(clientSearch));
+  }, [clients, clientSearch]);
+
+  const selectedClientLabel = form.client_id ? clients.find(c => c.id === form.client_id)?.full_name : '';
+
+  const handleAddQuickClient = async () => {
+    if (!newClientName.trim()) { toast.error('اسم الموكل مطلوب'); return; }
+    const { data, error } = await supabase.from('clients').insert({ full_name: newClientName.trim() }).select('id, full_name').single();
+    if (error) { toast.error('خطأ في إضافة الموكل'); return; }
+    setClients(prev => [...prev, data].sort((a, b) => a.full_name.localeCompare(b.full_name)));
+    updateField('client_id', data.id);
+    setNewClientName('');
+    setAddClientDialogOpen(false);
+    toast.success('تم إضافة الموكل');
+  };
 
   const selectedClientName = filterClientId ? clients.find(c => c.id === filterClientId)?.full_name : null;
 
@@ -292,16 +317,42 @@ const Cases = () => {
           <div className="space-y-3">
             <div>
               <Label>الموكل *</Label>
-              <Select value={form.client_id} onValueChange={(v) => updateField('client_id', v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="اختر الموكل" />
-                </SelectTrigger>
-                <SelectContent>
-                  {clients.map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={clientPopoverOpen} onOpenChange={setClientPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                    {selectedClientLabel || 'ابحث عن الموكل أو أضف جديد...'}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command shouldFilter={false}>
+                    <CommandInput placeholder="ابحث باسم الموكل..." value={clientSearch} onValueChange={setClientSearch} />
+                    <CommandList>
+                      <CommandEmpty className="p-2">
+                        <Button variant="ghost" className="w-full justify-start gap-2 text-primary" onClick={() => { setNewClientName(clientSearch); setAddClientDialogOpen(true); setClientPopoverOpen(false); }}>
+                          <UserPlus className="h-4 w-4" /> إضافة "{clientSearch}" كموكل جديد
+                        </Button>
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {filteredClients.map(c => (
+                          <CommandItem key={c.id} value={c.id} onSelect={() => { updateField('client_id', c.id); setClientPopoverOpen(false); setClientSearch(''); }}>
+                            <Check className={cn("mr-2 h-4 w-4", form.client_id === c.id ? "opacity-100" : "opacity-0")} />
+                            {c.full_name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                      {clientSearch && filteredClients.length > 0 && (
+                        <CommandGroup>
+                          <CommandItem onSelect={() => { setNewClientName(clientSearch); setAddClientDialogOpen(true); setClientPopoverOpen(false); }}>
+                            <UserPlus className="mr-2 h-4 w-4 text-primary" />
+                            <span className="text-primary">إضافة "{clientSearch}" كموكل جديد</span>
+                          </CommandItem>
+                        </CommandGroup>
+                      )}
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <div>
               <Label>عنوان الملف *</Label>
@@ -363,6 +414,24 @@ const Cases = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Quick Add Client Dialog */}
+      <Dialog open={addClientDialogOpen} onOpenChange={setAddClientDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>إضافة موكل جديد</DialogTitle>
+            <DialogDescription>أدخل اسم الموكل لإضافته بسرعة</DialogDescription>
+          </DialogHeader>
+          <div>
+            <Label>الاسم الكامل *</Label>
+            <Input value={newClientName} onChange={e => setNewClientName(e.target.value)} placeholder="اسم الموكل" autoFocus />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setAddClientDialogOpen(false)}>إلغاء</Button>
+            <Button onClick={handleAddQuickClient}>إضافة</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
