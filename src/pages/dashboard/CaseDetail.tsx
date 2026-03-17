@@ -224,20 +224,28 @@ const CaseDetail = () => {
           ) : (
             <div className="space-y-2">
               {sessions.map(s => (
-                <div key={s.id} className="flex items-center justify-between p-3 rounded-lg border">
-                  <div>
+                <div key={s.id} className="flex items-center justify-between p-3 rounded-lg border gap-2">
+                  <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium">
                       {new Date(s.session_date + 'T00:00:00').toLocaleDateString('ar-MA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                     </p>
                     {s.notes && <p className="text-xs text-muted-foreground mt-1">{s.notes}</p>}
                   </div>
-                  {s.session_date === today ? (
-                    <Badge className="bg-primary text-primary-foreground">اليوم</Badge>
-                  ) : s.session_date > today ? (
-                    <Badge variant="outline" className="text-emerald-600 border-emerald-300">قادمة</Badge>
-                  ) : (
-                    <Badge variant="secondary">منتهية</Badge>
-                  )}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {s.session_date === today ? (
+                      <Badge className="bg-primary text-primary-foreground">اليوم</Badge>
+                    ) : s.session_date > today ? (
+                      <Badge variant="outline" className="text-emerald-600 border-emerald-300">قادمة</Badge>
+                    ) : (
+                      <Badge variant="secondary">منتهية</Badge>
+                    )}
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditSession(s)}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDeleteSession(s.id)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
