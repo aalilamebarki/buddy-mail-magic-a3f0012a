@@ -226,10 +226,11 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
   const caseCalcs = caseBlocks.map(b => {
     const expensesTotal = b.items.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
     const lawyerFees = parseFloat(b.lawyerFees) || 0;
+    const taxRate = parseFloat(b.taxRate) || 0;
     const subtotal = expensesTotal + lawyerFees;
-    const taxAmount = subtotal * TAX_RATE / 100;
+    const taxAmount = subtotal * taxRate / 100;
     const totalAmount = subtotal + taxAmount;
-    return { caseId: b.caseId, expensesTotal, lawyerFees, subtotal, taxAmount, totalAmount };
+    return { caseId: b.caseId, expensesTotal, lawyerFees, taxRate, subtotal, taxAmount, totalAmount };
   });
 
   const grandTotal = {
