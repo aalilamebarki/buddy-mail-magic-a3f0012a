@@ -102,7 +102,7 @@ const CreateInvoiceDialog = ({ open, onOpenChange, onCreated }: Props) => {
   const caseOptions = filteredCases.map(c => ({
     value: c.id,
     label: c.title,
-    sublabel: c.case_number || undefined,
+    sublabel: c.case_number ? `ملف: ${c.case_number}` : undefined,
   }));
 
   const letterheadOptions = letterheads.map(l => ({
