@@ -112,8 +112,48 @@ const Cases = () => {
     setOpponents([{ ...emptyOpponent }]);
     setPresenceParties([]);
     setAgainstAllInterested(false);
+    setCourtLevel('');
+    setCourtSubType('');
+    setCourtSearchTerm('');
     setDialogOpen(true);
   };
+
+  const determineCourtLevel = (courtName: string) => {
+    const court = courtsDb.find(c => c.name === courtName);
+    if (!court) return;
+    if (['ابتدائية', 'مركز قضائي', 'ابتدائية مصنفة'].includes(court.court_type)) {
+      setCourtLevel('ابتدائية');
+      setCourtSubType(court.court_type);
+    } else if (['استئناف', 'استئناف تجارية', 'استئناف إدارية'].includes(court.court_type)) {
+      setCourtLevel('استئناف');
+      setCourtSubType('');
+    } else if (court.court_type === 'نقض') {
+      setCourtLevel('نقض');
+      setCourtSubType('');
+    } else {
+      setCourtLevel('ابتدائية');
+      setCourtSubType('');
+    }
+  };
+
+  const filteredCourts = useMemo(() => {
+    let filtered = courtsDb;
+    if (courtLevel === 'ابتدائية') {
+      if (courtSubType) {
+        filtered = courtsDb.filter(c => c.court_type === courtSubType);
+      } else {
+        filtered = courtsDb.filter(c => ['ابتدائية', 'مركز قضائي', 'ابتدائية مصنفة'].includes(c.court_type));
+      }
+    } else if (courtLevel === 'استئناف') {
+      filtered = courtsDb.filter(c => ['استئناف', 'استئناف تجارية', 'استئناف إدارية'].includes(c.court_type));
+    } else if (courtLevel === 'نقض') {
+      filtered = courtsDb.filter(c => c.court_type === 'نقض');
+    }
+    if (courtSearchTerm) {
+      filtered = filtered.filter(c => fuzzyMatch(c.name, courtSearchTerm) || fuzzyMatch(c.city, courtSearchTerm));
+    }
+    return filtered;
+  }, [courtsDb, courtLevel, courtSubType, courtSearchTerm]);
 
   const openEdit = async (c: any) => {
     setEditingCase(c);
