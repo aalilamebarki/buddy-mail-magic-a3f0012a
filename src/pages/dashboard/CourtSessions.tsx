@@ -191,7 +191,7 @@ const CourtSessions = () => {
     if (mode === 'day') {
       dateStart = format(exportDate, 'yyyy-MM-dd');
       dateEnd = dateStart;
-      periodLabel = new Date(exportDate).toLocaleDateString('ar-MA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      periodLabel = new Date(exportDate).toLocaleDateString('ar-u-nu-latn', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
       docTitle = `جلسة يوم ${periodLabel}`;
     } else {
       const ws = startOfWeek(exportDate, { weekStartsOn: 1 });
