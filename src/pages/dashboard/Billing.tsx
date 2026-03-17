@@ -6,17 +6,19 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Receipt, FileText, Plus, Download, Loader2, QrCode, Search, Pencil, DollarSign, BookOpen, TrendingUp } from 'lucide-react';
+import { Receipt, FileText, Plus, Download, Loader2, QrCode, Search, Pencil, DollarSign, BookOpen, TrendingUp, Users } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useInvoices } from '@/hooks/useInvoices';
 import { useFeeStatements, type FeeStatementRecord } from '@/hooks/useFeeStatements';
 import { useAccountingEntries } from '@/hooks/useAccounting';
+import { useClientLedger } from '@/hooks/useClientLedger';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { formatDateShort } from '@/lib/formatters';
 import { exportAccountingExcel, exportAccountingPDF } from '@/lib/export-accounting';
 import CreateInvoiceDialog from '@/components/invoices/CreateInvoiceDialog';
 import CreateFeeStatementDialog from '@/components/invoices/CreateFeeStatementDialog';
+import ClientLedgerTab from '@/components/billing/ClientLedgerTab';
 
 const PAYMENT_LABELS: Record<string, string> = {
   cash: 'نقداً',
