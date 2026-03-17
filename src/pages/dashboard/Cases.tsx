@@ -146,9 +146,10 @@ const Cases = () => {
     if (!form.court.trim()) { toast.error('المحكمة مطلوبة'); return; }
     if (!form.case_type) { toast.error('نوع الملف مطلوب'); return; }
 
-    // Validate opponents
+    // Check if النيابة العامة is in presence parties — if so, opponents are optional
+    const hasNiyabaPresence = presenceParties.some(p => isNiyaba(p.name));
     const validOpponents = opponents.filter(o => o.name.trim());
-    if (validOpponents.length === 0) { toast.error('يجب إضافة خصم واحد على الأقل'); return; }
+    if (!hasNiyabaPresence && validOpponents.length === 0) { toast.error('يجب إضافة خصم واحد على الأقل أو إضافة النيابة العامة بحضور'); return; }
 
     // Check duplicates
     const names = validOpponents.map(o => o.name.trim());
