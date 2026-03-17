@@ -19,9 +19,13 @@ interface CaseForm {
   case_type: string;
   description: string;
   client_id: string;
+  opposing_party: string;
+  opposing_party_address: string;
+  opposing_party_phone: string;
+  court: string;
 }
 
-const emptyForm: CaseForm = { title: '', case_type: '', description: '', client_id: '' };
+const emptyForm: CaseForm = { title: '', case_type: '', description: '', client_id: '', opposing_party: '', opposing_party_address: '', opposing_party_phone: '', court: '' };
 
 const caseTypes = [
   'مدني', 'جنائي', 'تجاري', 'إداري', 'عقاري', 'أسري', 'شغل', 'آخر'
