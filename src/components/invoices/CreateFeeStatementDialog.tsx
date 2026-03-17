@@ -44,7 +44,7 @@ const COMMON_EXPENSES = [
   'مصاريف التبليغ', 'رسوم الاستئناف', 'واجبات الدمغة', 'مصاريف النقل',
 ];
 
-const TAX_RATE = 10; // Fixed 10% per case
+const DEFAULT_TAX_RATE = '10';
 
 const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: Props) => {
   const { user } = useAuth();
