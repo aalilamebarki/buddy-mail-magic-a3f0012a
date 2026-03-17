@@ -239,7 +239,7 @@ const Cases = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>العنوان</TableHead>
-                  <TableHead>الموكل</TableHead>
+                  <TableHead>لفائدة</TableHead>
                   <TableHead>النوع</TableHead>
                   <TableHead>المحكمة</TableHead>
                   <TableHead>رقم الملف</TableHead>
