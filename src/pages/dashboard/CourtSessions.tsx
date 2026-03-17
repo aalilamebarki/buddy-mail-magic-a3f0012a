@@ -430,7 +430,7 @@ const CourtSessions = () => {
                     </TableCell>
                     <TableCell className="text-sm font-medium">{s.cases?.clients?.full_name || '—'}</TableCell>
                     <TableCell className="text-sm">{s.cases?.opposing_party || '—'}</TableCell>
-                    <TableCell className="font-mono text-sm">{s.cases?.case_number || '—'}</TableCell>
+                    <TableCell className="font-mono text-sm" dir="ltr">{s.cases?.case_number || '—'}</TableCell>
                     <TableCell className="text-sm">{s.cases?.court || '—'}</TableCell>
                     <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{s.notes || '—'}</TableCell>
                     <TableCell>{getSessionBadge(s.session_date)}</TableCell>
