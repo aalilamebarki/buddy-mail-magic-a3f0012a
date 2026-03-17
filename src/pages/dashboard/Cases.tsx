@@ -137,6 +137,16 @@ const Cases = () => {
   };
 
   const filteredCourts = useMemo(() => {
+    const _fuzzy = (name: string, query: string): boolean => {
+      const n = name.toLowerCase();
+      const q = query.toLowerCase();
+      if (n.includes(q)) return true;
+      const words = q.split(/\s+/).filter(Boolean);
+      if (words.length > 1) return words.every(w => _fuzzy(name, w));
+      let j = 0;
+      for (let i = 0; i < n.length && j < q.length; i++) { if (n[i] === q[j]) j++; }
+      return j === q.length;
+    };
     let filtered = courtsDb;
     if (courtLevel === 'ابتدائية') {
       if (courtSubType) {
@@ -150,7 +160,7 @@ const Cases = () => {
       filtered = courtsDb.filter(c => c.court_type === 'نقض');
     }
     if (courtSearchTerm) {
-      filtered = filtered.filter(c => fuzzyMatch(c.name, courtSearchTerm) || fuzzyMatch(c.city, courtSearchTerm));
+      filtered = filtered.filter(c => _fuzzy(c.name, courtSearchTerm) || _fuzzy(c.city, courtSearchTerm));
     }
     return filtered;
   }, [courtsDb, courtLevel, courtSubType, courtSearchTerm]);
