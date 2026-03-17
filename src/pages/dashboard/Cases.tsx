@@ -494,6 +494,11 @@ const Cases = () => {
                     e.preventDefault();
                     const val = (e.target as HTMLInputElement).value.trim();
                     if (val) {
+                      const isDuplicate = opponents.some(o => o.name.trim() === val);
+                      if (isDuplicate) {
+                        toast.error('لقد سبق إدخال هذا المدعى عليه');
+                        return;
+                      }
                       setOpponents(prev => [...prev, { name: val, address: '', phone: '' }]);
                       (e.target as HTMLInputElement).value = '';
                     }
@@ -502,6 +507,12 @@ const Cases = () => {
                 onBlur={e => {
                   const val = e.target.value.trim();
                   if (val) {
+                    const isDuplicate = opponents.some(o => o.name.trim() === val);
+                    if (isDuplicate) {
+                      toast.error('لقد سبق إدخال هذا المدعى عليه');
+                      e.target.value = '';
+                      return;
+                    }
                     setOpponents(prev => [...prev, { name: val, address: '', phone: '' }]);
                     e.target.value = '';
                   }
