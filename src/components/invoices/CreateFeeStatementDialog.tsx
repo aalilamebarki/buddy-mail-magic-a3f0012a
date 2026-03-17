@@ -606,16 +606,20 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
             <div className="space-y-2">
               <Label className="text-xs font-semibold">الملفات * (يجب أن تحتوي على رقم ملف)</Label>
               <div className="flex gap-2">
-                <Select value={caseSelectValue} onValueChange={addCase}>
-                  <SelectTrigger className="text-sm flex-1"><SelectValue placeholder="اختر ملفاً لإضافته" /></SelectTrigger>
-                  <SelectContent>
-                    {availableCases.map(c => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.title} {c.case_number ? `(${c.case_number})` : '⚠️ بدون رقم'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex-1">
+                  <SearchableSelect
+                    options={availableCases.map(c => ({
+                      value: c.id,
+                      label: c.title,
+                      sublabel: c.case_number ? c.case_number : '⚠️ بدون رقم',
+                    }))}
+                    value={caseSelectValue}
+                    onValueChange={addCase}
+                    placeholder="اختر ملفاً لإضافته"
+                    searchPlaceholder="ابحث بعنوان الملف أو رقمه..."
+                    triggerClassName="text-sm"
+                  />
+                </div>
                 <Button type="button" variant="outline" size="sm" className="shrink-0 gap-1 text-xs" onClick={() => setShowNewCase(v => !v)}>
                   <Plus className="h-3.5 w-3.5" /> ملف جديد
                 </Button>
