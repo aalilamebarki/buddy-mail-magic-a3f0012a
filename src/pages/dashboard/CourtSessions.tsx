@@ -261,7 +261,7 @@ const CourtSessions = () => {
               )}
             </PopoverContent>
           </Popover>
-          <Button size="sm" onClick={() => setDialogOpen(true)} className="gap-1">
+          <Button size="sm" onClick={openAddSession} className="gap-1">
             <Plus className="h-4 w-4" /> إضافة جلسة
           </Button>
         </div>
