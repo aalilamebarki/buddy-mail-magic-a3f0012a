@@ -202,8 +202,6 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
       setNewCase({ title: '', case_number: '', court: '', case_type: '' });
       setShowNewCase(false);
       toast({ title: 'تم إنشاء الملف وإضافته ✅' });
-      // Refetch cases so it appears in the list
-      // We need to trigger useCases refetch - simplest way is to update cases state
     } catch (e: any) {
       toast({ title: 'خطأ في إنشاء الملف', description: e.message, variant: 'destructive' });
     } finally {
