@@ -152,7 +152,7 @@ const Billing = () => {
           </h1>
           <p className="text-muted-foreground text-xs mt-1">إدارة الوصولات وبيانات الأتعاب والسجل المحاسبي</p>
         </div>
-        {activeTab !== 'accounting' && (
+        {(activeTab === 'invoices' || activeTab === 'fee-statements') && (
           <Button
             onClick={() => activeTab === 'invoices' ? setInvDialogOpen(true) : openCreateFs()}
             className="gap-1.5"
