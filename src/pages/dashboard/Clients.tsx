@@ -177,6 +177,9 @@ const Clients = () => {
                     {c.email && <p className="text-xs text-muted-foreground" dir="ltr">{c.email}</p>}
                   </div>
                   <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(`/dashboard/cases?client_id=${c.id}`)}>
+                      <FolderOpen className="h-3.5 w-3.5" />
+                    </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(c)}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
@@ -186,7 +189,10 @@ const Clients = () => {
                   </div>
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  {c.phone && <span dir="ltr">{c.phone}</span>}
+                  <div className="flex items-center gap-2">
+                    {c.phone && <span dir="ltr">{c.phone}</span>}
+                    <Badge variant="outline" className="text-[10px]">{caseCounts[c.id] || 0} ملف</Badge>
+                  </div>
                   <span>{new Date(c.created_at).toLocaleDateString('ar-MA')}</span>
                 </div>
               </CardContent>
