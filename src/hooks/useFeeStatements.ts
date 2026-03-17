@@ -9,6 +9,13 @@ export interface FeeStatementItemRecord {
   sort_order: number;
 }
 
+export interface FeeStatementCaseRecord {
+  id: string;
+  fee_statement_id: string;
+  case_id: string;
+  cases?: { title: string; case_number: string | null; court: string | null } | null;
+}
+
 export interface FeeStatementRecord {
   id: string;
   user_id: string;
@@ -31,6 +38,7 @@ export interface FeeStatementRecord {
   cases?: { title: string; case_number: string | null; court: string | null } | null;
   letterheads?: { lawyer_name: string } | null;
   fee_statement_items?: FeeStatementItemRecord[];
+  fee_statement_cases?: FeeStatementCaseRecord[];
 }
 
 export const useFeeStatements = () => {
@@ -41,7 +49,7 @@ export const useFeeStatements = () => {
     setLoading(true);
     const { data } = await supabase
       .from('fee_statements')
-      .select('*, clients(full_name, cin, phone), cases(title, case_number, court), letterheads(lawyer_name), fee_statement_items(*)')
+      .select('*, clients(full_name, cin, phone), cases(title, case_number, court), letterheads(lawyer_name), fee_statement_items(*), fee_statement_cases(*, cases(title, case_number, court))')
       .order('created_at', { ascending: false });
     if (data) setStatements(data as unknown as FeeStatementRecord[]);
     setLoading(false);
