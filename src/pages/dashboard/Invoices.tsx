@@ -151,7 +151,7 @@ const Invoices = () => {
                       </TableCell>
                       <TableCell className="text-xs">{formatDateShort(inv.created_at)}</TableCell>
                       <TableCell>
-                        <QrCode className="h-4 w-4 text-primary" title={inv.signature_uuid} />
+                        <span title={inv.signature_uuid}><QrCode className="h-4 w-4 text-primary" /></span>
                       </TableCell>
                       <TableCell>
                         <Button
