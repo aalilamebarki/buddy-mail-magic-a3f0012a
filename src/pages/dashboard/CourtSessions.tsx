@@ -83,7 +83,7 @@ const CourtSessions = () => {
   }, [displayedSessions]);
 
   const selectedCase = cases.find(c => c.id === selectedCaseId);
-
+  const needsCaseNumber = selectedCase && !selectedCase.case_number;
   const handleSave = async () => {
     if (!selectedCaseId || !sessionDate || !user) {
       toast.error('يرجى اختيار الملف وتاريخ الجلسة');
