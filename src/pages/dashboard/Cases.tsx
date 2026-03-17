@@ -50,6 +50,10 @@ const Cases = () => {
   const [form, setForm] = useState<CaseForm>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [filterClientId, setFilterClientId] = useState<string>(preselectedClientId || '');
+  const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
+  const [clientSearch, setClientSearch] = useState('');
+  const [addClientDialogOpen, setAddClientDialogOpen] = useState(false);
+  const [newClientName, setNewClientName] = useState('');
 
   const fetchData = async () => {
     const [casesRes, clientsRes] = await Promise.all([
