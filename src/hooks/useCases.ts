@@ -32,14 +32,12 @@ export const useCases = (options: UseCasesOptions = {}) => {
   const fetchCases = useCallback(async () => {
     setLoading(true);
     let query = supabase.from('cases').select(
-      options.withClients !== false
-        ? 'id, title, case_number, case_type, court, court_level, status, description, client_id, assigned_to, opposing_party, opposing_party_address, opposing_party_phone, created_at, updated_at, clients(full_name)'
-        : '*'
+      options.withClients !== false ? '*, clients(full_name)' : '*'
     );
     if (options.status) query = query.eq('status', options.status);
     query = query.order('created_at', { ascending: false });
     const { data } = await query;
-    if (data) setCases(data as CaseRecord[]);
+    if (data) setCases(data as unknown as CaseRecord[]);
     setLoading(false);
   }, [options.status, options.withClients]);
 
