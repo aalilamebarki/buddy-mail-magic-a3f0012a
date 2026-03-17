@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,6 +33,7 @@ const caseTypes = [
 
 const Cases = () => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const preselectedClientId = searchParams.get('client_id');
 
   const [cases, setCases] = useState<any[]>([]);
@@ -202,7 +203,7 @@ const Cases = () => {
           </div>
         ) : (
           filtered.map((c) => (
-            <Card key={c.id}>
+            <Card key={c.id} className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => navigate(`/dashboard/cases/${c.id}`)}>
               <CardContent className="pt-4 pb-4 space-y-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
@@ -212,10 +213,10 @@ const Cases = () => {
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     {c.case_type && <Badge variant="secondary" className="text-xs">{c.case_type}</Badge>}
-                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => openEdit(c)}>
+                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={(e) => { e.stopPropagation(); openEdit(c); }}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
-                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => openDelete(c)}>
+                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={(e) => { e.stopPropagation(); openDelete(c); }}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
@@ -254,7 +255,7 @@ const Cases = () => {
                   <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">لا توجد ملفات</TableCell></TableRow>
                 ) : (
                   filtered.map((c) => (
-                    <TableRow key={c.id}>
+                    <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/dashboard/cases/${c.id}`)}>
                       <TableCell className="font-medium">{c.title}</TableCell>
                       <TableCell>لفائدة: {getClientName(c)}</TableCell>
                       <TableCell>{c.case_type || '—'}</TableCell>
@@ -264,10 +265,10 @@ const Cases = () => {
                       <TableCell>{new Date(c.created_at).toLocaleDateString('ar-MA')}</TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(c)}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); openEdit(c); }}>
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => openDelete(c)}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={(e) => { e.stopPropagation(); openDelete(c); }}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
