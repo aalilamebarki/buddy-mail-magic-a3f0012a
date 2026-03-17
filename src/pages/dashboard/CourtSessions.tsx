@@ -347,7 +347,7 @@ const CourtSessions = () => {
         startY: currentY,
         margin: { left: 15, right: 15 },
         styles: {
-          font: 'IBMPlexArabic',
+          font: 'Amiri',
           fontStyle: 'normal',
           fontSize: 9,
           halign: 'right',
