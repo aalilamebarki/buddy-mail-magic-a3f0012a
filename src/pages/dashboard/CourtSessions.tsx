@@ -85,32 +85,65 @@ const CourtSessions = () => {
 
   const selectedCase = cases.find(c => c.id === selectedCaseId);
   const needsCaseNumber = selectedCase && !selectedCase.case_number;
+
+  const openEditSession = (session: any) => {
+    setEditingSession(session);
+    setSelectedCaseId(session.case_id);
+    setSessionDate(new Date(session.session_date + 'T00:00:00'));
+    setNotes(session.notes || '');
+    setCaseNumber('');
+    setDialogOpen(true);
+  };
+
+  const openAddSession = () => {
+    setEditingSession(null);
+    setSelectedCaseId('');
+    setSessionDate(undefined);
+    setNotes('');
+    setCaseNumber('');
+    setDialogOpen(true);
+  };
+
   const handleSave = async () => {
-    if (!selectedCaseId || !sessionDate || !user) {
-      toast.error('يرجى اختيار الملف وتاريخ الجلسة');
+    if (!sessionDate || !user) {
+      toast.error('يرجى اختيار تاريخ الجلسة');
       return;
     }
-    // Validate case_number
-    const finalCaseNumber = selectedCase?.case_number || caseNumber.trim();
-    if (!finalCaseNumber) {
-      toast.error('رقم الملف مطلوب');
+    if (!editingSession && !selectedCaseId) {
+      toast.error('يرجى اختيار الملف');
       return;
+    }
+    if (!editingSession) {
+      const finalCaseNumber = selectedCase?.case_number || caseNumber.trim();
+      if (!finalCaseNumber) {
+        toast.error('رقم الملف مطلوب');
+        return;
+      }
     }
     setSaving(true);
     try {
-      // Update case_number if it was missing
-      if (needsCaseNumber && caseNumber.trim()) {
+      if (!editingSession && needsCaseNumber && caseNumber.trim()) {
         await supabase.from('cases').update({ case_number: caseNumber.trim() }).eq('id', selectedCaseId);
       }
-      const { error } = await supabase.from('court_sessions').insert({
-        case_id: selectedCaseId,
-        session_date: format(sessionDate, 'yyyy-MM-dd'),
-        notes: notes || null,
-        user_id: user.id,
-      });
-      if (error) throw error;
-      toast.success('تمت إضافة الجلسة');
+      if (editingSession) {
+        const { error } = await supabase.from('court_sessions').update({
+          session_date: format(sessionDate, 'yyyy-MM-dd'),
+          notes: notes || null,
+        }).eq('id', editingSession.id);
+        if (error) throw error;
+        toast.success('تم تعديل الجلسة');
+      } else {
+        const { error } = await supabase.from('court_sessions').insert({
+          case_id: selectedCaseId,
+          session_date: format(sessionDate, 'yyyy-MM-dd'),
+          notes: notes || null,
+          user_id: user.id,
+        });
+        if (error) throw error;
+        toast.success('تمت إضافة الجلسة');
+      }
       setDialogOpen(false);
+      setEditingSession(null);
       setSelectedCaseId('');
       setSessionDate(undefined);
       setNotes('');
@@ -120,6 +153,15 @@ const CourtSessions = () => {
       toast.error('خطأ في حفظ الجلسة');
     }
     setSaving(false);
+  };
+
+  const handleDeleteSession = async (sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('هل تريد حذف هذه الجلسة؟')) return;
+    const { error } = await supabase.from('court_sessions').delete().eq('id', sessionId);
+    if (error) { toast.error('خطأ في حذف الجلسة'); return; }
+    toast.success('تم حذف الجلسة');
+    fetchData();
   };
 
   const getSessionBadge = (date: string) => {
