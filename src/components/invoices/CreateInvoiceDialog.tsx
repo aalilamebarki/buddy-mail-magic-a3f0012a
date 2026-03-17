@@ -426,7 +426,7 @@ const CreateInvoiceDialog = ({ open, onOpenChange, onCreated }: Props) => {
             </div>
 
             <div className="space-y-2">
-              <Label>الترويسة</Label>
+              <Label>الترويسة *</Label>
               <SearchableSelect
                 options={letterheadOptions}
                 value={form.letterheadId}
