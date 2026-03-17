@@ -137,7 +137,11 @@ const FeeStatements = () => {
                       <TableRow key={s.id}>
                         <TableCell className="font-mono text-xs" dir="ltr">{s.statement_number}</TableCell>
                         <TableCell>{s.clients?.full_name || '—'}</TableCell>
-                        <TableCell className="text-xs">{s.cases?.title || '—'}</TableCell>
+                        <TableCell className="text-xs">
+                          {(s.fee_statement_cases && s.fee_statement_cases.length > 0)
+                            ? s.fee_statement_cases.map(fc => fc.cases?.title).filter(Boolean).join(' / ')
+                            : s.cases?.title || '—'}
+                        </TableCell>
                         <TableCell className="text-xs">{expTotal.toLocaleString('ar-u-nu-latn')} د</TableCell>
                         <TableCell className="text-xs">{Number(s.lawyer_fees).toLocaleString('ar-u-nu-latn')} د</TableCell>
                         <TableCell className="font-bold">{Number(s.total_amount).toLocaleString('ar-u-nu-latn')} د</TableCell>
