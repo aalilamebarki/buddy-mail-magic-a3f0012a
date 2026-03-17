@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, ShieldCheck, ShieldX, Receipt, ArrowRight } from 'lucide-react';
+import { Loader2, ShieldCheck, ShieldX, ArrowRight } from 'lucide-react';
 import { formatDateShort } from '@/lib/formatters';
 
 const PAYMENT_LABELS: Record<string, string> = {
@@ -41,46 +41,64 @@ const VerifyInvoice = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4" dir="rtl">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center pb-2">
+    <div className="min-h-screen bg-gradient-to-b from-muted/40 to-background flex items-center justify-center p-4" dir="rtl">
+      <Card className="w-full max-w-md shadow-xl border-2">
+        {/* Top accent bar */}
+        <div className="h-2 bg-gradient-to-l from-primary to-primary/60 rounded-t-lg" />
+
+        <CardHeader className="text-center pb-3 pt-6">
           {invoice ? (
-            <div className="flex flex-col items-center gap-2">
-              <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-                <ShieldCheck className="h-8 w-8 text-primary" />
+            <div className="flex flex-col items-center gap-3">
+              <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center ring-4 ring-primary/20">
+                <ShieldCheck className="h-10 w-10 text-primary" />
               </div>
-              <CardTitle className="text-primary">وصل موثّق ✓</CardTitle>
+              <CardTitle className="text-xl text-primary">وصل موثّق ✓</CardTitle>
               <p className="text-xs text-muted-foreground">تم التحقق من صحة هذا الوصل بنجاح</p>
             </div>
           ) : (
-            <div className="flex flex-col items-center gap-2">
-              <div className="h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center">
-                <ShieldX className="h-8 w-8 text-destructive" />
+            <div className="flex flex-col items-center gap-3">
+              <div className="h-20 w-20 rounded-full bg-destructive/10 flex items-center justify-center ring-4 ring-destructive/20">
+                <ShieldX className="h-10 w-10 text-destructive" />
               </div>
-              <CardTitle className="text-destructive">وصل غير موجود</CardTitle>
+              <CardTitle className="text-xl text-destructive">وصل غير موجود</CardTitle>
               <p className="text-xs text-muted-foreground">لم يتم العثور على وصل مطابق لهذا الرمز</p>
             </div>
           )}
         </CardHeader>
 
         {invoice && (
-          <CardContent className="space-y-3 pt-4">
-            <Row label="رقم الوصل" value={invoice.invoice_number} mono />
-            <Row label="المبلغ" value={`${Number(invoice.amount).toLocaleString('ar-u-nu-latn')} درهم`} bold />
-            <Row label="طريقة الأداء" value={PAYMENT_LABELS[invoice.payment_method] || invoice.payment_method} />
-            <Row label="الموكل" value={invoice.clients?.full_name} />
-            <Row label="الملف" value={invoice.cases?.title} />
-            {invoice.cases?.case_number && <Row label="رقم الملف" value={invoice.cases.case_number} />}
-            <Row label="المحامي" value={invoice.letterheads?.lawyer_name} />
-            <Row label="التاريخ" value={formatDateShort(invoice.created_at)} />
-            {invoice.description && <Row label="البيان" value={invoice.description} />}
-            <div className="flex justify-center pt-2">
-              <Badge variant="outline" className="text-xs">{invoice.status === 'paid' ? 'مؤدى' : invoice.status}</Badge>
+          <CardContent className="space-y-0 pt-2 px-6">
+            {/* Lawyer name header */}
+            {invoice.letterheads?.lawyer_name && (
+              <div className="text-center pb-4 mb-4 border-b-2 border-primary/20">
+                <p className="text-sm font-semibold text-primary">{invoice.letterheads.lawyer_name}</p>
+                <p className="text-[10px] text-muted-foreground">محامٍ لدى محاكم المملكة المغربية</p>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <Row label="رقم الوصل" value={invoice.invoice_number} mono />
+              <Row label="المبلغ" value={`${Number(invoice.amount).toLocaleString('ar-u-nu-latn')} درهم`} bold />
+              <Row label="طريقة الأداء" value={PAYMENT_LABELS[invoice.payment_method] || invoice.payment_method} />
+              <Row label="الموكل" value={invoice.clients?.full_name} />
+              <Row label="الملف" value={invoice.cases?.title} />
+              {invoice.cases?.case_number && <Row label="رقم الملف" value={invoice.cases.case_number} />}
+              <Row label="التاريخ" value={formatDateShort(invoice.created_at)} />
+              {invoice.description && <Row label="البيان" value={invoice.description} />}
+            </div>
+
+            <div className="flex justify-center pt-4 mt-3">
+              <Badge
+                variant={invoice.status === 'paid' ? 'default' : 'outline'}
+                className="text-xs px-4 py-1"
+              >
+                {invoice.status === 'paid' ? '✓ مؤدى' : invoice.status}
+              </Badge>
             </div>
           </CardContent>
         )}
 
-        <div className="p-4 pt-0 text-center">
+        <div className="p-5 pt-3 text-center">
           <Link to="/" className="text-xs text-primary hover:underline inline-flex items-center gap-1">
             الرئيسية <ArrowRight className="h-3 w-3" />
           </Link>
@@ -93,9 +111,11 @@ const VerifyInvoice = () => {
 const Row = ({ label, value, mono, bold }: { label: string; value?: string | null; mono?: boolean; bold?: boolean }) => {
   if (!value) return null;
   return (
-    <div className="flex justify-between items-center text-sm border-b border-border/50 pb-2">
-      <span className="text-muted-foreground">{label}</span>
-      <span className={`${mono ? 'font-mono text-xs' : ''} ${bold ? 'font-bold text-primary' : 'text-foreground'}`}>{value}</span>
+    <div className="flex justify-between items-center text-sm py-2.5 border-b border-border/40 last:border-b-0">
+      <span className="text-muted-foreground text-xs">{label}</span>
+      <span className={`${mono ? 'font-mono text-xs tracking-wider' : ''} ${bold ? 'font-bold text-base text-primary' : 'text-foreground font-medium'}`}>
+        {value}
+      </span>
     </div>
   );
 };
