@@ -103,6 +103,7 @@ const Cases = () => {
     setForm({ ...emptyForm, client_id: filterClientId || '' });
     setOpponents([{ ...emptyOpponent }]);
     setPresenceParties([]);
+    setAgainstAllInterested(false);
     setDialogOpen(true);
   };
 
