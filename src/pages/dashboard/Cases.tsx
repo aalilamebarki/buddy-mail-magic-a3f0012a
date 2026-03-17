@@ -764,9 +764,88 @@ const Cases = () => {
               </Button>
             </div>
 
-            <div>
+            <div className="space-y-3">
               <Label>المحكمة *</Label>
-              <Input value={form.court} onChange={e => updateField('court', e.target.value)} placeholder="مثال: المحكمة الابتدائية بالدار البيضاء" />
+              <div className="flex gap-2">
+                {['ابتدائية', 'استئناف', 'نقض'].map(level => (
+                  <Button
+                    key={level}
+                    type="button"
+                    variant={courtLevel === level ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => {
+                      setCourtLevel(level);
+                      setCourtSubType('');
+                      setCourtSearchTerm('');
+                      if (level === 'نقض') {
+                        updateField('court', 'محكمة النقض');
+                      } else {
+                        updateField('court', '');
+                      }
+                    }}
+                    className="flex-1"
+                  >
+                    {level}
+                  </Button>
+                ))}
+              </div>
+
+              {courtLevel === 'ابتدائية' && (
+                <div className="flex flex-wrap gap-1">
+                  {[
+                    { value: 'ابتدائية', label: 'المحاكم الابتدائية' },
+                    { value: 'مركز قضائي', label: 'المراكز القضائية' },
+                    { value: 'ابتدائية مصنفة', label: 'المحاكم المصنفة' },
+                  ].map(sub => (
+                    <Badge
+                      key={sub.value}
+                      variant={courtSubType === sub.value ? 'default' : 'outline'}
+                      className="cursor-pointer text-xs"
+                      onClick={() => {
+                        setCourtSubType(sub.value);
+                        updateField('court', '');
+                        setCourtSearchTerm('');
+                      }}
+                    >
+                      {sub.label}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+
+              {courtLevel === 'نقض' ? (
+                <div className="border rounded-lg p-3 bg-muted/30 text-center">
+                  <p className="text-sm text-muted-foreground"><strong className="text-foreground">محكمة النقض</strong> - الرباط</p>
+                </div>
+              ) : courtLevel && (courtLevel === 'استئناف' || courtSubType) ? (
+                <Popover open={courtPopoverOpen} onOpenChange={setCourtPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                      {form.court || 'ابحث عن المحكمة...'}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <Command shouldFilter={false}>
+                      <CommandInput placeholder="ابحث باسم المحكمة أو المدينة..." value={courtSearchTerm} onValueChange={setCourtSearchTerm} />
+                      <CommandList>
+                        <CommandEmpty>لا توجد نتائج</CommandEmpty>
+                        <CommandGroup>
+                          {filteredCourts.map(c => (
+                            <CommandItem key={c.id} value={c.id} onSelect={() => { updateField('court', c.name); setCourtPopoverOpen(false); setCourtSearchTerm(''); }}>
+                              <Check className={cn("mr-2 h-4 w-4", form.court === c.name ? "opacity-100" : "opacity-0")} />
+                              <div className="flex flex-col">
+                                <span className="text-sm">{c.name}</span>
+                                <span className="text-xs text-muted-foreground">{c.city}</span>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              ) : null}
             </div>
             <div>
               <Label>ملاحظات</Label>
