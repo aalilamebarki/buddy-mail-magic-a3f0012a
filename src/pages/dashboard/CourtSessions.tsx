@@ -213,31 +213,39 @@ const CourtSessions = () => {
     }
 
     // Build print HTML
-    const courtSections = Object.entries(byCourt).map(([court, items]) => {
-      const rows = items.map(s => {
+    let rowCounter = 0;
+    const courtSections = Object.entries(byCourt).map(([court, items], courtIdx) => {
+      const rows = items.map((s, i) => {
+        rowCounter++;
         const nextDate = getNextSession(s.case_id, s.session_date);
         const formattedDate = new Date(s.session_date + 'T00:00:00').toLocaleDateString('ar-MA', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
         const formattedNext = nextDate ? new Date(nextDate + 'T00:00:00').toLocaleDateString('ar-MA', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : '—';
         return `<tr>
-          <td>${s.cases?.clients?.full_name || '—'}</td>
-          <td style="direction:ltr;text-align:center">${s.cases?.case_number || '—'}</td>
-          <td>${s.cases?.opposing_party || '—'}</td>
-          <td>${formattedDate}</td>
-          <td>${formattedNext}</td>
+          <td class="num-cell">${i + 1}</td>
+          <td class="name-cell">${s.cases?.clients?.full_name || '—'}</td>
+          <td class="case-num-cell" style="direction:ltr;text-align:center">${s.cases?.case_number || '—'}</td>
+          <td class="name-cell">${s.cases?.opposing_party || '—'}</td>
+          <td class="date-cell">${formattedDate}</td>
+          <td class="date-cell">${formattedNext}</td>
         </tr>`;
       }).join('');
 
       return `
         <div class="court-section">
-          <h2>${court}</h2>
+          <div class="court-header">
+            <div class="court-icon">⚖</div>
+            <h2>${court}</h2>
+            <span class="court-count">${items.length} جلسة</span>
+          </div>
           <table>
             <thead>
               <tr>
+                <th class="num-col">#</th>
                 <th>الموكل</th>
-                <th>رقم الملف</th>
+                <th class="case-col">رقم الملف</th>
                 <th>المدعى عليه</th>
-                <th>تاريخ الجلسة</th>
-                <th>الجلسة المقبلة</th>
+                <th class="date-col">تاريخ الجلسة</th>
+                <th class="date-col">الجلسة المقبلة</th>
               </tr>
             </thead>
             <tbody>${rows}</tbody>
@@ -246,30 +254,210 @@ const CourtSessions = () => {
       `;
     }).join('');
 
+    const totalSessions = Object.values(byCourt).reduce((s, a) => s + a.length, 0);
+    const totalCourts = Object.keys(byCourt).length;
+
     const html = `<!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
 <meta charset="utf-8">
 <title>جدول الجلسات</title>
 <style>
-  @page { size: A4 landscape; margin: 15mm; }
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap');
+  @page { size: A4 landscape; margin: 12mm 15mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Traditional Arabic', 'Arial', sans-serif; font-size: 14px; color: #1a1a1a; padding: 20px; direction: rtl; }
-  h1 { text-align: center; font-size: 22px; margin-bottom: 4px; }
-  .period { text-align: center; font-size: 14px; color: #555; margin-bottom: 24px; }
-  .court-section { margin-bottom: 28px; page-break-inside: avoid; }
-  .court-section h2 { font-size: 17px; background: #f0f0f0; padding: 8px 14px; border-radius: 4px; margin-bottom: 8px; border-right: 4px solid #333; }
-  table { width: 100%; border-collapse: collapse; }
-  th, td { border: 1px solid #ccc; padding: 7px 10px; text-align: right; font-size: 13px; }
-  th { background: #f8f8f8; font-weight: bold; }
-  tr:nth-child(even) { background: #fafafa; }
-  @media print { body { padding: 0; } }
+  body {
+    font-family: 'IBM Plex Sans Arabic', 'Traditional Arabic', sans-serif;
+    font-size: 13px;
+    color: #1e293b;
+    padding: 0;
+    direction: rtl;
+    background: #fff;
+  }
+
+  /* Header */
+  .doc-header {
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0c4a6e 100%);
+    color: white;
+    padding: 28px 36px 22px;
+    margin-bottom: 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .doc-header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -20%;
+    width: 60%;
+    height: 200%;
+    background: radial-gradient(ellipse, rgba(255,255,255,0.05) 0%, transparent 70%);
+  }
+  .doc-header h1 {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 6px;
+    position: relative;
+  }
+  .doc-header .period {
+    font-size: 14px;
+    color: rgba(255,255,255,0.8);
+    font-weight: 400;
+    position: relative;
+  }
+  .doc-header .stats {
+    position: absolute;
+    left: 36px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    gap: 20px;
+  }
+  .stat-box {
+    text-align: center;
+    background: rgba(255,255,255,0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 10px;
+    padding: 10px 18px;
+    min-width: 80px;
+  }
+  .stat-box .num {
+    font-size: 24px;
+    font-weight: 700;
+    display: block;
+    line-height: 1.2;
+  }
+  .stat-box .label {
+    font-size: 10px;
+    color: rgba(255,255,255,0.7);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* Content area */
+  .content { padding: 24px 36px 20px; }
+
+  /* Court section */
+  .court-section {
+    margin-bottom: 26px;
+    page-break-inside: avoid;
+  }
+  .court-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: linear-gradient(to left, #f8fafc, #f1f5f9);
+    border-right: 4px solid #0c4a6e;
+    border-radius: 0 8px 8px 0;
+    margin-bottom: 10px;
+  }
+  .court-icon {
+    font-size: 18px;
+    width: 32px;
+    height: 32px;
+    background: #0c4a6e;
+    color: white;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .court-header h2 {
+    font-size: 15px;
+    font-weight: 600;
+    color: #0f172a;
+    flex: 1;
+  }
+  .court-count {
+    font-size: 11px;
+    background: #0c4a6e;
+    color: white;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+
+  /* Table */
+  table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    border: 1px solid #e2e8f0;
+  }
+  th {
+    background: #f1f5f9;
+    font-weight: 600;
+    font-size: 11px;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    padding: 10px 14px;
+    text-align: right;
+    border-bottom: 2px solid #e2e8f0;
+    white-space: nowrap;
+  }
+  td {
+    padding: 9px 14px;
+    font-size: 12.5px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:nth-child(even) td { background: #fafbfd; }
+  tr:hover td { background: #f0f7ff; }
+
+  .num-col { width: 40px; text-align: center; }
+  .num-cell { text-align: center; font-weight: 600; color: #94a3b8; font-size: 11px; }
+  .name-cell { font-weight: 500; color: #1e293b; }
+  .case-num-cell { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #0c4a6e; font-weight: 500; }
+  .case-col { width: 140px; }
+  .date-col { width: 160px; }
+  .date-cell { font-size: 12px; color: #475569; white-space: nowrap; }
+
+  /* Footer */
+  .doc-footer {
+    margin-top: 30px;
+    padding: 14px 36px;
+    border-top: 2px solid #f1f5f9;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 10px;
+    color: #94a3b8;
+  }
+  .doc-footer .gen-date { font-weight: 500; }
+
+  @media print {
+    body { padding: 0; }
+    .doc-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .court-icon, .court-count, th, tr:nth-child(even) td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .stat-box { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
 </style>
 </head>
 <body>
-  <h1>جدول الجلسات</h1>
-  <p class="period">${periodLabel}</p>
-  ${courtSections}
+  <div class="doc-header">
+    <h1>جدول الجلسات</h1>
+    <p class="period">${periodLabel}</p>
+    <div class="stats">
+      <div class="stat-box"><span class="num">${totalSessions}</span><span class="label">جلسة</span></div>
+      <div class="stat-box"><span class="num">${totalCourts}</span><span class="label">محكمة</span></div>
+    </div>
+  </div>
+  <div class="content">
+    ${courtSections}
+  </div>
+  <div class="doc-footer">
+    <span>جدول الجلسات — ${periodLabel}</span>
+    <span class="gen-date">تم الإنشاء: ${new Date().toLocaleDateString('ar-MA', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+  </div>
 </body>
 </html>`;
 
