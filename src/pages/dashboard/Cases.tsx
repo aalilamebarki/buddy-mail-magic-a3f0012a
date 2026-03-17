@@ -641,6 +641,8 @@ const Cases = () => {
                 <UserRoundPlus className="h-4 w-4 ml-1" /> أضف طرف بحضور
               </Button>
             </div>
+
+            <div>
               <Label>المحكمة *</Label>
               <Input value={form.court} onChange={e => updateField('court', e.target.value)} placeholder="مثال: المحكمة الابتدائية بالدار البيضاء" />
             </div>
