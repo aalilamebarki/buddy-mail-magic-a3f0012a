@@ -6,7 +6,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, FileText, Plus, Trash2, X } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Loader2, FileText, Plus, Trash2, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -29,16 +30,19 @@ interface ExpenseItem {
   amount: string;
 }
 
+interface CaseBlock {
+  caseId: string;
+  lawyerFees: string;
+  items: ExpenseItem[];
+  collapsed: boolean;
+}
+
 const COMMON_EXPENSES = [
-  'مقال افتتاحي',
-  'رسوم التسجيل',
-  'مصاريف التنفيذ',
-  'رسوم الخبرة',
-  'مصاريف التبليغ',
-  'رسوم الاستئناف',
-  'واجبات الدمغة',
-  'مصاريف النقل',
+  'مقال افتتاحي', 'رسوم التسجيل', 'مصاريف التنفيذ', 'رسوم الخبرة',
+  'مصاريف التبليغ', 'رسوم الاستئناف', 'واجبات الدمغة', 'مصاريف النقل',
 ];
+
+const TAX_RATE = 10; // Fixed 10% per case
 
 const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: Props) => {
   const { user } = useAuth();
@@ -52,13 +56,10 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
     clientId: '',
     letterheadId: '',
     powerOfAttorneyDate: '',
-    lawyerFees: '',
-    taxRate: '10',
     notes: '',
   });
-  const [selectedCaseIds, setSelectedCaseIds] = useState<string[]>([]);
+  const [caseBlocks, setCaseBlocks] = useState<CaseBlock[]>([]);
   const [caseSelectValue, setCaseSelectValue] = useState('');
-  const [items, setItems] = useState<ExpenseItem[]>([{ description: '', amount: '' }]);
 
   const isEdit = !!editData;
 
@@ -69,95 +70,142 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
         clientId: editData.client_id || '',
         letterheadId: editData.letterhead_id || '',
         powerOfAttorneyDate: editData.power_of_attorney_date || '',
-        lawyerFees: String(editData.lawyer_fees || ''),
-        taxRate: String(editData.tax_rate || '10'),
         notes: editData.notes || '',
       });
 
-      // Set cases from junction table or fallback
+      // Build case blocks from junction + items
       if (editData.fee_statement_cases && editData.fee_statement_cases.length > 0) {
-        setSelectedCaseIds(editData.fee_statement_cases.map(fc => fc.case_id));
+        const blocks: CaseBlock[] = editData.fee_statement_cases.map(fc => {
+          const caseItems = (editData.fee_statement_items || [])
+            .filter(i => i.case_id === fc.case_id)
+            .sort((a, b) => a.sort_order - b.sort_order)
+            .map(i => ({ description: i.description, amount: String(i.amount) }));
+          return {
+            caseId: fc.case_id,
+            lawyerFees: String(fc.lawyer_fees || editData.lawyer_fees || ''),
+            items: caseItems.length > 0 ? caseItems : [{ description: '', amount: '' }],
+            collapsed: false,
+          };
+        });
+        setCaseBlocks(blocks);
       } else if (editData.case_id) {
-        setSelectedCaseIds([editData.case_id]);
-      }
-
-      // Set items
-      if (editData.fee_statement_items && editData.fee_statement_items.length > 0) {
-        setItems(editData.fee_statement_items
+        // Legacy: single case
+        const caseItems = (editData.fee_statement_items || [])
           .sort((a, b) => a.sort_order - b.sort_order)
-          .map(i => ({ description: i.description, amount: String(i.amount) })));
-      } else {
-        setItems([{ description: '', amount: '' }]);
+          .map(i => ({ description: i.description, amount: String(i.amount) }));
+        setCaseBlocks([{
+          caseId: editData.case_id,
+          lawyerFees: String(editData.lawyer_fees || ''),
+          items: caseItems.length > 0 ? caseItems : [{ description: '', amount: '' }],
+          collapsed: false,
+        }]);
       }
     } else if (!open) {
-      // Reset on close
-      setForm({ clientId: '', letterheadId: '', powerOfAttorneyDate: '', lawyerFees: '', taxRate: '10', notes: '' });
-      setSelectedCaseIds([]);
-      setItems([{ description: '', amount: '' }]);
+      setForm({ clientId: '', letterheadId: '', powerOfAttorneyDate: '', notes: '' });
+      setCaseBlocks([]);
     }
   }, [editData, open]);
 
   const update = (field: string, value: string) => setForm(prev => ({ ...prev, [field]: value }));
 
-  const updateItem = (index: number, field: keyof ExpenseItem, value: string) => {
-    setItems(prev => prev.map((item, i) => i === index ? { ...item, [field]: value } : item));
-  };
-
-  const addItem = () => setItems(prev => [...prev, { description: '', amount: '' }]);
-
-  const removeItem = (index: number) => {
-    if (items.length <= 1) return;
-    setItems(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const addCommonExpense = (desc: string) => {
-    const emptyIdx = items.findIndex(i => !i.description);
-    if (emptyIdx >= 0) {
-      updateItem(emptyIdx, 'description', desc);
-    } else {
-      setItems(prev => [...prev, { description: desc, amount: '' }]);
-    }
-  };
-
+  // Case block helpers
   const addCase = (caseId: string) => {
-    if (!caseId || selectedCaseIds.includes(caseId)) return;
+    if (!caseId || caseBlocks.some(b => b.caseId === caseId)) return;
     const caseItem = cases.find(c => c.id === caseId);
     if (!caseItem?.case_number) {
       toast({ title: 'هذا الملف لا يحتوي على رقم ملف', variant: 'destructive' });
       return;
     }
-    setSelectedCaseIds(prev => [...prev, caseId]);
+    setCaseBlocks(prev => [...prev, {
+      caseId,
+      lawyerFees: '',
+      items: [{ description: '', amount: '' }],
+      collapsed: false,
+    }]);
     setCaseSelectValue('');
   };
 
   const removeCase = (caseId: string) => {
-    setSelectedCaseIds(prev => prev.filter(id => id !== caseId));
+    setCaseBlocks(prev => prev.filter(b => b.caseId !== caseId));
   };
 
-  const filteredCases = form.clientId
-    ? cases.filter(c => c.client_id === form.clientId)
-    : cases;
+  const updateCaseBlock = (caseId: string, field: keyof CaseBlock, value: any) => {
+    setCaseBlocks(prev => prev.map(b => b.caseId === caseId ? { ...b, [field]: value } : b));
+  };
 
+  const updateCaseItem = (caseId: string, idx: number, field: keyof ExpenseItem, value: string) => {
+    setCaseBlocks(prev => prev.map(b => {
+      if (b.caseId !== caseId) return b;
+      const newItems = b.items.map((item, i) => i === idx ? { ...item, [field]: value } : item);
+      return { ...b, items: newItems };
+    }));
+  };
+
+  const addCaseItem = (caseId: string) => {
+    setCaseBlocks(prev => prev.map(b => {
+      if (b.caseId !== caseId) return b;
+      return { ...b, items: [...b.items, { description: '', amount: '' }] };
+    }));
+  };
+
+  const removeCaseItem = (caseId: string, idx: number) => {
+    setCaseBlocks(prev => prev.map(b => {
+      if (b.caseId !== caseId || b.items.length <= 1) return b;
+      return { ...b, items: b.items.filter((_, i) => i !== idx) };
+    }));
+  };
+
+  const addCommonExpense = (caseId: string, desc: string) => {
+    setCaseBlocks(prev => prev.map(b => {
+      if (b.caseId !== caseId) return b;
+      const emptyIdx = b.items.findIndex(i => !i.description);
+      if (emptyIdx >= 0) {
+        const newItems = b.items.map((item, i) => i === emptyIdx ? { ...item, description: desc } : item);
+        return { ...b, items: newItems };
+      }
+      return { ...b, items: [...b.items, { description: desc, amount: '' }] };
+    }));
+  };
+
+  const toggleCollapse = (caseId: string) => {
+    setCaseBlocks(prev => prev.map(b => b.caseId === caseId ? { ...b, collapsed: !b.collapsed } : b));
+  };
+
+  const filteredCases = form.clientId ? cases.filter(c => c.client_id === form.clientId) : cases;
+  const selectedCaseIds = caseBlocks.map(b => b.caseId);
   const availableCases = filteredCases.filter(c => !selectedCaseIds.includes(c.id));
-  const selectedCases = cases.filter(c => selectedCaseIds.includes(c.id));
+  const selectedCasesData = cases.filter(c => selectedCaseIds.includes(c.id));
 
-  const expensesTotal = items.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
-  const lawyerFees = parseFloat(form.lawyerFees) || 0;
-  const taxRate = parseFloat(form.taxRate) || 0;
-  const subtotal = expensesTotal + lawyerFees;
-  const taxAmount = subtotal * taxRate / 100;
-  const totalAmount = subtotal + taxAmount;
+  // Per-case calculations
+  const caseCalcs = caseBlocks.map(b => {
+    const expensesTotal = b.items.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
+    const lawyerFees = parseFloat(b.lawyerFees) || 0;
+    const subtotal = expensesTotal + lawyerFees;
+    const taxAmount = subtotal * TAX_RATE / 100;
+    const totalAmount = subtotal + taxAmount;
+    return { caseId: b.caseId, expensesTotal, lawyerFees, subtotal, taxAmount, totalAmount };
+  });
 
-  const canSubmit = form.clientId && selectedCaseIds.length > 0 && !saving;
+  const grandTotal = {
+    subtotal: caseCalcs.reduce((s, c) => s + c.subtotal, 0),
+    taxAmount: caseCalcs.reduce((s, c) => s + c.taxAmount, 0),
+    totalAmount: caseCalcs.reduce((s, c) => s + c.totalAmount, 0),
+    lawyerFees: caseCalcs.reduce((s, c) => s + c.lawyerFees, 0),
+  };
+
+  const canSubmit = form.clientId && caseBlocks.length > 0 && !saving;
 
   const handleSubmit = async () => {
     if (!user || !canSubmit) return;
-    if (items.every(i => !i.description && !i.amount) && !form.lawyerFees) {
-      toast({ title: 'يرجى إضافة مصاريف أو أتعاب', variant: 'destructive' });
+    const hasContent = caseBlocks.some(b =>
+      b.lawyerFees || b.items.some(i => i.description && i.amount)
+    );
+    if (!hasContent) {
+      toast({ title: 'يرجى إضافة مصاريف أو أتعاب لملف واحد على الأقل', variant: 'destructive' });
       return;
     }
 
-    const missingNumber = selectedCases.find(c => !c.case_number);
+    const missingNumber = selectedCasesData.find(c => !c.case_number);
     if (missingNumber) {
       toast({ title: `الملف "${missingNumber.title}" لا يحتوي على رقم ملف`, variant: 'destructive' });
       return;
@@ -174,7 +222,6 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
       let statementNumber: string;
 
       if (isEdit) {
-        // UPDATE existing
         stmtId = editData.id;
         signatureUuid = editData.signature_uuid;
         statementNumber = editData.statement_number;
@@ -183,55 +230,22 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
           .from('fee_statements')
           .update({
             client_id: form.clientId || null,
-            case_id: selectedCaseIds[0] || null,
+            case_id: caseBlocks[0]?.caseId || null,
             letterhead_id: form.letterheadId || null,
             power_of_attorney_date: form.powerOfAttorneyDate || null,
-            lawyer_fees: lawyerFees,
-            tax_rate: taxRate,
-            tax_amount: taxAmount,
-            subtotal,
-            total_amount: totalAmount,
+            lawyer_fees: grandTotal.lawyerFees,
+            tax_rate: TAX_RATE,
+            tax_amount: grandTotal.taxAmount,
+            subtotal: grandTotal.subtotal,
+            total_amount: grandTotal.totalAmount,
             notes: form.notes || null,
           })
           .eq('id', stmtId);
 
-        // Replace junction cases
+        // Clear old junction + items
         await supabase.from('fee_statement_cases').delete().eq('fee_statement_id', stmtId);
-        if (selectedCaseIds.length > 0) {
-          await supabase.from('fee_statement_cases').insert(
-            selectedCaseIds.map(caseId => ({ fee_statement_id: stmtId, case_id: caseId }))
-          );
-        }
-
-        // Replace items
         await supabase.from('fee_statement_items').delete().eq('fee_statement_id', stmtId);
-        const validItems = items.filter(i => i.description && parseFloat(i.amount) > 0);
-        if (validItems.length > 0) {
-          await supabase.from('fee_statement_items').insert(
-            validItems.map((item, idx) => ({
-              fee_statement_id: stmtId,
-              description: item.description,
-              amount: parseFloat(item.amount),
-              sort_order: idx,
-            }))
-          );
-        }
-
-        // Update accounting entry
-        await supabase
-          .from('accounting_entries')
-          .update({
-            client_id: form.clientId || null,
-            description: `بيان أتعاب — ${client?.full_name || ''} — ${selectedCases.map(c => c.case_number).join(', ')}`,
-            amount_ht: subtotal,
-            tax_amount: taxAmount,
-            amount_ttc: totalAmount,
-          })
-          .eq('reference_id', stmtId)
-          .eq('entry_type', 'fee_statement');
-
       } else {
-        // CREATE new
         const { data: seqNumber, error: seqError } = await supabase
           .rpc('next_accounting_number', { _user_id: user.id, _type: 'fee_statement' });
         if (seqError) throw seqError;
@@ -242,15 +256,15 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
           .insert({
             user_id: user.id,
             client_id: form.clientId || null,
-            case_id: selectedCaseIds[0] || null,
+            case_id: caseBlocks[0]?.caseId || null,
             letterhead_id: form.letterheadId || null,
             statement_number: statementNumber,
             power_of_attorney_date: form.powerOfAttorneyDate || null,
-            lawyer_fees: lawyerFees,
-            tax_rate: taxRate,
-            tax_amount: taxAmount,
-            subtotal,
-            total_amount: totalAmount,
+            lawyer_fees: grandTotal.lawyerFees,
+            tax_rate: TAX_RATE,
+            tax_amount: grandTotal.taxAmount,
+            subtotal: grandTotal.subtotal,
+            total_amount: grandTotal.totalAmount,
             notes: form.notes || null,
           })
           .select('id, signature_uuid')
@@ -258,69 +272,102 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
         if (error) throw error;
         stmtId = stmt.id;
         signatureUuid = stmt.signature_uuid;
+      }
 
-        // Insert junction cases
-        if (selectedCaseIds.length > 0) {
-          await supabase.from('fee_statement_cases').insert(
-            selectedCaseIds.map(caseId => ({ fee_statement_id: stmtId, case_id: caseId }))
-          );
-        }
+      // Insert per-case junction rows with financials
+      for (const block of caseBlocks) {
+        const calc = caseCalcs.find(c => c.caseId === block.caseId)!;
+        await supabase.from('fee_statement_cases').insert({
+          fee_statement_id: stmtId,
+          case_id: block.caseId,
+          lawyer_fees: calc.lawyerFees,
+          tax_rate: TAX_RATE,
+          tax_amount: calc.taxAmount,
+          subtotal: calc.subtotal,
+          total_amount: calc.totalAmount,
+        });
 
-        // Insert items
-        const validItems = items.filter(i => i.description && parseFloat(i.amount) > 0);
+        // Insert items for this case
+        const validItems = block.items.filter(i => i.description && parseFloat(i.amount) > 0);
         if (validItems.length > 0) {
           await supabase.from('fee_statement_items').insert(
             validItems.map((item, idx) => ({
               fee_statement_id: stmtId,
+              case_id: block.caseId,
               description: item.description,
               amount: parseFloat(item.amount),
               sort_order: idx,
             }))
           );
         }
+      }
 
-        // Record accounting entry
+      // Accounting entry
+      if (isEdit) {
+        await supabase
+          .from('accounting_entries')
+          .update({
+            client_id: form.clientId || null,
+            description: `بيان أتعاب — ${client?.full_name || ''} — ${selectedCasesData.map(c => c.case_number).join(', ')}`,
+            amount_ht: grandTotal.subtotal,
+            tax_amount: grandTotal.taxAmount,
+            amount_ttc: grandTotal.totalAmount,
+          })
+          .eq('reference_id', stmtId)
+          .eq('entry_type', 'fee_statement');
+      } else {
         await supabase.from('accounting_entries').insert({
           user_id: user.id,
           entry_number: statementNumber,
           entry_type: 'fee_statement',
           reference_id: stmtId,
           client_id: form.clientId || null,
-          description: `بيان أتعاب — ${client?.full_name || ''} — ${selectedCases.map(c => c.case_number).join(', ')}`,
-          amount_ht: subtotal,
-          tax_amount: taxAmount,
-          amount_ttc: totalAmount,
+          description: `بيان أتعاب — ${client?.full_name || ''} — ${selectedCasesData.map(c => c.case_number).join(', ')}`,
+          amount_ht: grandTotal.subtotal,
+          tax_amount: grandTotal.taxAmount,
+          amount_ttc: grandTotal.totalAmount,
         });
       }
 
-      // Generate PDF (both create & edit)
-      const validItems = items.filter(i => i.description && parseFloat(i.amount) > 0);
+      // Generate PDF
+      const perCasePdfData = caseBlocks.map(block => {
+        const calc = caseCalcs.find(c => c.caseId === block.caseId)!;
+        const caseInfo = cases.find(c => c.id === block.caseId);
+        return {
+          caseTitle: caseInfo?.title || '',
+          caseNumber: caseInfo?.case_number || '',
+          court: caseInfo?.court || undefined,
+          items: block.items
+            .filter(i => i.description && parseFloat(i.amount) > 0)
+            .map(i => ({ description: i.description, amount: parseFloat(i.amount) })),
+          lawyerFees: calc.lawyerFees,
+          expensesTotal: calc.expensesTotal,
+          subtotal: calc.subtotal,
+          taxAmount: calc.taxAmount,
+          totalAmount: calc.totalAmount,
+        };
+      });
+
       const pdfBlob = await generateFeeStatementPDF({
         statementNumber,
         signatureUuid,
         clientName: client?.full_name || '—',
         clientCin: client?.cin || undefined,
         clientPhone: client?.phone || undefined,
-        cases: selectedCases.map(c => ({
-          title: c.title,
-          caseNumber: c.case_number || '',
-          court: c.court || undefined,
-        })),
         powerOfAttorneyDate: form.powerOfAttorneyDate
           ? formatDateArabic(form.powerOfAttorneyDate, { year: 'numeric', month: 'long', day: 'numeric' })
           : undefined,
-        items: validItems.map(i => ({ description: i.description, amount: parseFloat(i.amount) })),
-        lawyerFees,
-        taxRate,
-        taxAmount,
-        subtotal,
-        totalAmount,
+        taxRate: TAX_RATE,
+        grandSubtotal: grandTotal.subtotal,
+        grandTaxAmount: grandTotal.taxAmount,
+        grandTotal: grandTotal.totalAmount,
+        caseDetails: perCasePdfData,
         notes: form.notes || undefined,
         date: formatDateArabic(now, { year: 'numeric', month: 'long', day: 'numeric' }),
         lawyerName: letterhead?.lawyer_name || 'مكتب المحاماة',
       });
 
-      // Upload PDF (overwrite for edit)
+      // Upload PDF
       const pdfPath = `fee-statements/${user.id}/${stmtId}.pdf`;
       if (isEdit) {
         await supabase.storage.from('invoices').remove([pdfPath]);
@@ -344,7 +391,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" />
@@ -375,7 +422,18 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
             </div>
           </div>
 
-          {/* Cases - Multiple Selection */}
+          {/* Power of Attorney Date */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">تاريخ التوكيل</Label>
+            <Input
+              type="date"
+              value={form.powerOfAttorneyDate}
+              onChange={e => update('powerOfAttorneyDate', e.target.value)}
+              className="text-sm"
+            />
+          </div>
+
+          {/* Add Case Selector */}
           <div className="space-y-2">
             <Label className="text-xs font-semibold">الملفات * (يجب أن تحتوي على رقم ملف)</Label>
             <Select value={caseSelectValue} onValueChange={addCase}>
@@ -388,128 +446,159 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
                 ))}
               </SelectContent>
             </Select>
-
-            {selectedCases.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {selectedCases.map(c => (
-                  <Badge key={c.id} variant="secondary" className="text-xs gap-1 pr-1">
-                    {c.title} — {c.case_number}
-                    <button onClick={() => removeCase(c.id)} className="hover:text-destructive">
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
-              </div>
-            )}
-            {selectedCaseIds.length === 0 && (
+            {caseBlocks.length === 0 && (
               <p className="text-[10px] text-destructive">يرجى اختيار ملف واحد على الأقل</p>
             )}
           </div>
 
-          {/* Power of Attorney Date */}
-          <div className="space-y-1.5">
-            <Label className="text-xs">تاريخ التوكيل</Label>
-            <Input
-              type="date"
-              value={form.powerOfAttorneyDate}
-              onChange={e => update('powerOfAttorneyDate', e.target.value)}
-              className="text-sm"
-            />
-          </div>
-
-          {/* Expense Items */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm font-semibold">المصاريف القضائية</Label>
-              <Button type="button" variant="ghost" size="sm" onClick={addItem} className="h-7 text-xs gap-1">
-                <Plus className="h-3 w-3" /> إضافة سطر
-              </Button>
-            </div>
-
-            <div className="flex flex-wrap gap-1">
-              {COMMON_EXPENSES.map(exp => (
-                <Button
-                  key={exp}
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-6 text-[10px] px-2"
-                  onClick={() => addCommonExpense(exp)}
+          {/* Per-Case Blocks */}
+          {caseBlocks.map((block, blockIdx) => {
+            const caseInfo = cases.find(c => c.id === block.caseId);
+            const calc = caseCalcs[blockIdx];
+            return (
+              <Card key={block.caseId} className="border-primary/20">
+                {/* Case Header */}
+                <div
+                  className="flex items-center justify-between px-3 py-2 cursor-pointer bg-muted/30 rounded-t-lg"
+                  onClick={() => toggleCollapse(block.caseId)}
                 >
-                  {exp}
-                </Button>
-              ))}
-            </div>
-
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {items.map((item, idx) => (
-                <div key={idx} className="flex gap-2 items-center">
-                  <Input
-                    placeholder="البيان"
-                    value={item.description}
-                    onChange={e => updateItem(idx, 'description', e.target.value)}
-                    className="text-sm flex-1"
-                  />
-                  <Input
-                    type="number"
-                    placeholder="المبلغ"
-                    min="0"
-                    step="0.01"
-                    value={item.amount}
-                    onChange={e => updateItem(idx, 'amount', e.target.value)}
-                    className="text-sm w-24"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0 text-destructive"
-                    onClick={() => removeItem(idx)}
-                    disabled={items.length <= 1}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <Badge variant="outline" className="text-[10px] shrink-0 bg-primary/10 text-primary">
+                      ملف {blockIdx + 1}
+                    </Badge>
+                    <span className="text-xs font-semibold truncate">
+                      {caseInfo?.title} — {caseInfo?.case_number}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-xs font-bold text-primary">
+                      {calc?.totalAmount.toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د
+                    </span>
+                    <button
+                      onClick={e => { e.stopPropagation(); removeCase(block.caseId); }}
+                      className="hover:text-destructive"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                    {block.collapsed ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+                  </div>
                 </div>
-              ))}
-            </div>
 
-            <div className="text-xs text-muted-foreground text-left">
-              مجموع المصاريف: <span className="font-bold text-foreground">{expensesTotal.toLocaleString('ar-u-nu-latn')} درهم</span>
-            </div>
-          </div>
+                {!block.collapsed && (
+                  <CardContent className="pt-3 space-y-3">
+                    {/* Expenses */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-semibold">المصاريف القضائية</Label>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => addCaseItem(block.caseId)} className="h-6 text-[10px] gap-1">
+                          <Plus className="h-3 w-3" /> إضافة سطر
+                        </Button>
+                      </div>
 
-          {/* Lawyer Fees & Tax */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">أتعاب المحامي (درهم)</Label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-                value={form.lawyerFees}
-                onChange={e => update('lawyerFees', e.target.value)}
-                className="text-sm"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">نسبة الضريبة (%)</Label>
-              <Input
-                type="number"
-                min="0"
-                max="100"
-                value={form.taxRate}
-                onChange={e => update('taxRate', e.target.value)}
-                className="text-sm"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">المجموع الكلي</Label>
-              <div className="h-9 flex items-center justify-center rounded-md border bg-muted/30 text-sm font-bold text-primary">
-                {totalAmount.toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د
+                      <div className="flex flex-wrap gap-1">
+                        {COMMON_EXPENSES.map(exp => (
+                          <Button
+                            key={exp}
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-5 text-[9px] px-1.5"
+                            onClick={() => addCommonExpense(block.caseId, exp)}
+                          >
+                            {exp}
+                          </Button>
+                        ))}
+                      </div>
+
+                      <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                        {block.items.map((item, idx) => (
+                          <div key={idx} className="flex gap-2 items-center">
+                            <Input
+                              placeholder="البيان"
+                              value={item.description}
+                              onChange={e => updateCaseItem(block.caseId, idx, 'description', e.target.value)}
+                              className="text-xs flex-1 h-8"
+                            />
+                            <Input
+                              type="number"
+                              placeholder="المبلغ"
+                              min="0"
+                              step="0.01"
+                              value={item.amount}
+                              onChange={e => updateCaseItem(block.caseId, idx, 'amount', e.target.value)}
+                              className="text-xs w-20 h-8"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0 text-destructive"
+                              onClick={() => removeCaseItem(block.caseId, idx)}
+                              disabled={block.items.length <= 1}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="text-[10px] text-muted-foreground">
+                        مجموع المصاريف: <span className="font-bold text-foreground">
+                          {(calc?.expensesTotal || 0).toLocaleString('ar-u-nu-latn')} درهم
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Lawyer Fees & Case Total */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-[10px]">أتعاب المحامي (درهم)</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={block.lawyerFees}
+                          onChange={e => updateCaseBlock(block.caseId, 'lawyerFees', e.target.value)}
+                          className="text-xs h-8"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px]">TVA ({TAX_RATE}%)</Label>
+                        <div className="h-8 flex items-center justify-center rounded-md border bg-muted/30 text-xs text-orange-600 font-semibold">
+                          {(calc?.taxAmount || 0).toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px]">المجموع الكلي</Label>
+                        <div className="h-8 flex items-center justify-center rounded-md border bg-primary/10 text-xs font-bold text-primary">
+                          {(calc?.totalAmount || 0).toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                )}
+              </Card>
+            );
+          })}
+
+          {/* Grand Total */}
+          {caseBlocks.length > 0 && (
+            <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-3 space-y-1.5">
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">مجموع الأتعاب والمصاريف HT</span>
+                <span className="font-bold">{grandTotal.subtotal.toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">مجموع TVA ({TAX_RATE}%)</span>
+                <span className="font-bold text-orange-600">{grandTotal.taxAmount.toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د</span>
+              </div>
+              <div className="flex justify-between text-sm border-t pt-1.5">
+                <span className="font-bold">المبلغ الإجمالي TTC</span>
+                <span className="font-bold text-primary text-base">{grandTotal.totalAmount.toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د</span>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Notes */}
           <div className="space-y-1.5">
