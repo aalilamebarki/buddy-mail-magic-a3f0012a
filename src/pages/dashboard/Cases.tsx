@@ -33,6 +33,7 @@ const caseTypes = [
 
 const Cases = () => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const preselectedClientId = searchParams.get('client_id');
 
   const [cases, setCases] = useState<any[]>([]);
