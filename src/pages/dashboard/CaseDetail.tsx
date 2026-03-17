@@ -26,13 +26,6 @@ const CaseDetail = () => {
   const [sessions, setSessions] = useState<any[]>([]);
   const [opponents, setOpponents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const [caseData, setCaseData] = useState<any>(null);
-  const [documents, setDocuments] = useState<any[]>([]);
-  const [sessions, setSessions] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [sessionDialogOpen, setSessionDialogOpen] = useState(false);
   const [sessionDate, setSessionDate] = useState<Date | undefined>(undefined);
   const [sessionNotes, setSessionNotes] = useState('');
@@ -40,10 +33,11 @@ const CaseDetail = () => {
 
   const fetchData = async () => {
     if (!id) return;
-    const [caseRes, docsRes, sessionsRes] = await Promise.all([
+    const [caseRes, docsRes, sessionsRes, opponentsRes] = await Promise.all([
       supabase.from('cases').select('*, clients(full_name, phone, email, cin, address)').eq('id', id).single(),
       supabase.from('generated_documents').select('id, title, doc_type, status, created_at, next_court').eq('case_id', id).order('created_at', { ascending: false }),
       supabase.from('court_sessions').select('*').eq('case_id', id).order('session_date', { ascending: true }),
+      supabase.from('case_opponents').select('*').eq('case_id', id).order('sort_order'),
     ]);
     if (caseRes.error) {
       toast.error('لم يتم العثور على الملف');
@@ -53,6 +47,7 @@ const CaseDetail = () => {
     setCaseData(caseRes.data);
     if (docsRes.data) setDocuments(docsRes.data);
     if (sessionsRes.data) setSessions(sessionsRes.data);
+    if (opponentsRes.data) setOpponents(opponentsRes.data);
     setLoading(false);
   };
 
