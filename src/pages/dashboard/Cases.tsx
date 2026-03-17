@@ -586,7 +586,61 @@ const Cases = () => {
               </Button>
             </div>
 
-            <div>
+            {/* Presence Parties Section (بحضور) */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">بحضور (أطراف مدخلة في الدعوى)</Label>
+              </div>
+              {presenceParties.map((party, index) => {
+                const niyaba = isNiyaba(party.name);
+                return (
+                  <div key={index} className="relative border rounded-lg p-3 space-y-2 bg-accent/20 border-accent/40">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground font-medium">طرف {index + 1}</span>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => removePresenceParty(index)}>
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                    <div>
+                      <Label className="text-xs">الاسم *</Label>
+                      <Input
+                        value={party.name}
+                        onChange={e => updatePresenceParty(index, 'name', e.target.value)}
+                        placeholder="مثال: النيابة العامة، المحافظ..."
+                      />
+                    </div>
+                    {!niyaba && (
+                      <>
+                        <div>
+                          <Label className="text-xs">العنوان</Label>
+                          <Input
+                            value={party.address}
+                            onChange={e => updatePresenceParty(index, 'address', e.target.value)}
+                            placeholder="عنوان الطرف"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">الهاتف</Label>
+                          <Input
+                            value={party.phone}
+                            onChange={e => updatePresenceParty(index, 'phone', e.target.value)}
+                            placeholder="اختياري"
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full border-dashed text-muted-foreground"
+                onClick={addPresenceParty}
+              >
+                <UserRoundPlus className="h-4 w-4 ml-1" /> أضف طرف بحضور
+              </Button>
+            </div>
               <Label>المحكمة *</Label>
               <Input value={form.court} onChange={e => updateField('court', e.target.value)} placeholder="مثال: المحكمة الابتدائية بالدار البيضاء" />
             </div>
