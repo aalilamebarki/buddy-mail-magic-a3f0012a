@@ -483,7 +483,7 @@ const BlogArticle = () => {
 
   /* NOT FOUND */
   if (!article) return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-6 bg-background px-4">
+    <div className="min-h-screen flex flex-col items-center justify-center gap-6 bg-background px-4" dir="rtl">
       <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-legal-navy/10 to-legal-gold/10 flex items-center justify-center">
         <BookOpen className="h-12 w-12 text-legal-navy" />
       </div>
