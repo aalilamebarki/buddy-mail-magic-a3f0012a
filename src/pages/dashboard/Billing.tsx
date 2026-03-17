@@ -58,7 +58,6 @@ const Billing = () => {
   // Accounting
   const [accYear, setAccYear] = useState(currentYear);
   const { entries, loading: accLoading, stats } = useAccountingEntries(accYear);
-  const { clientEntries, globalStats: ledgerStats } = useClientLedger(invoices, statements);
 
   const filteredInvoices = invoices.filter(inv =>
     !search ||
