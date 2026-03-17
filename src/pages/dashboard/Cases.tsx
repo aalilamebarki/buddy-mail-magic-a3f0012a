@@ -152,10 +152,14 @@ const Cases = () => {
     if (!form.court.trim()) { toast.error('المحكمة مطلوبة'); return; }
     if (!form.case_type) { toast.error('نوع الملف مطلوب'); return; }
 
-    // Check if النيابة العامة is in presence parties — if so, opponents are optional
+    const ALL_INTERESTED = 'كل من له المصلحة';
+    // If "كل من له المصلحة" is checked, opponents are replaced by that single entry
     const hasNiyabaPresence = presenceParties.some(p => isNiyaba(p.name));
-    const validOpponents = opponents.filter(o => o.name.trim());
-    if (!hasNiyabaPresence && validOpponents.length === 0) { toast.error('يجب إضافة خصم واحد على الأقل أو إضافة النيابة العامة بحضور'); return; }
+    const validOpponents = againstAllInterested ? [] : opponents.filter(o => o.name.trim());
+    if (!againstAllInterested && !hasNiyabaPresence && validOpponents.length === 0) {
+      toast.error('يجب إضافة خصم واحد على الأقل أو تفعيل "كل من له المصلحة"');
+      return;
+    }
 
     // Check duplicates
     const names = validOpponents.map(o => o.name.trim());
@@ -183,7 +187,9 @@ const Cases = () => {
       let opposingSummary: string | null = null;
       let oppAddress: string | null = null;
       let oppPhone: string | null = null;
-      if (validOpponents.length > 0) {
+      if (againstAllInterested) {
+        opposingSummary = ALL_INTERESTED;
+      } else if (validOpponents.length > 0) {
         const firstOpponent = validOpponents[0].name.trim();
         opposingSummary = validOpponents.length > 1 ? `${firstOpponent} ومن معه` : firstOpponent;
         oppAddress = validOpponents[0].address.trim() || null;
