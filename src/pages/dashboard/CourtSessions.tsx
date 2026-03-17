@@ -342,7 +342,7 @@ const CourtSessions = () => {
         ];
       });
 
-      (doc as any).autoTable({
+      autoTableModule.default(doc, {
         head: tableHead,
         body: tableBody,
         startY: currentY,
