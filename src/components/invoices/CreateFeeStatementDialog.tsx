@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, FileText, Plus, Trash2, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { Loader2, FileText, Plus, Trash2, X, ChevronDown, ChevronUp, Eye, ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
