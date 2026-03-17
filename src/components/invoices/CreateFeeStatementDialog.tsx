@@ -220,6 +220,19 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated }: Props) => {
 
       await supabase.from('fee_statements').update({ pdf_path: pdfPath }).eq('id', stmt.id);
 
+      // Record accounting entry
+      await supabase.from('accounting_entries').insert({
+        user_id: user.id,
+        entry_number: statementNumber,
+        entry_type: 'fee_statement',
+        reference_id: stmt.id,
+        client_id: form.clientId || null,
+        description: `بيان أتعاب — ${client?.full_name || ''} — ${selectedCases.map(c => c.case_number).join(', ')}`,
+        amount_ht: subtotal,
+        tax_amount: taxAmount,
+        amount_ttc: totalAmount,
+      });
+
       toast({ title: 'تم إنشاء بيان الأتعاب بنجاح ✅' });
       setForm({ clientId: '', letterheadId: '', powerOfAttorneyDate: '', lawyerFees: '', taxRate: '10', notes: '' });
       setSelectedCaseIds([]);
