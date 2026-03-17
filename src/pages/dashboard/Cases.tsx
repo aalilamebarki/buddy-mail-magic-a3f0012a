@@ -146,9 +146,10 @@ const Cases = () => {
     if (!form.court.trim()) { toast.error('المحكمة مطلوبة'); return; }
     if (!form.case_type) { toast.error('نوع الملف مطلوب'); return; }
 
-    // Validate opponents
+    // Check if النيابة العامة is in presence parties — if so, opponents are optional
+    const hasNiyabaPresence = presenceParties.some(p => isNiyaba(p.name));
     const validOpponents = opponents.filter(o => o.name.trim());
-    if (validOpponents.length === 0) { toast.error('يجب إضافة خصم واحد على الأقل'); return; }
+    if (!hasNiyabaPresence && validOpponents.length === 0) { toast.error('يجب إضافة خصم واحد على الأقل أو إضافة النيابة العامة بحضور'); return; }
 
     // Check duplicates
     const names = validOpponents.map(o => o.name.trim());
@@ -173,8 +174,17 @@ const Cases = () => {
     setSaving(true);
     try {
       // Build opposing_party summary for the cases table
-      const firstOpponent = validOpponents[0].name.trim();
-      const opposingSummary = validOpponents.length > 1 ? `${firstOpponent} ومن معه` : firstOpponent;
+      let opposingSummary: string | null = null;
+      let oppAddress: string | null = null;
+      let oppPhone: string | null = null;
+      if (validOpponents.length > 0) {
+        const firstOpponent = validOpponents[0].name.trim();
+        opposingSummary = validOpponents.length > 1 ? `${firstOpponent} ومن معه` : firstOpponent;
+        oppAddress = validOpponents[0].address.trim() || null;
+        oppPhone = validOpponents[0].phone.trim() || null;
+      } else if (hasNiyabaPresence) {
+        opposingSummary = NIYABA;
+      }
 
       const payload = {
         title: form.title.trim(),
@@ -182,8 +192,8 @@ const Cases = () => {
         description: form.description.trim() || null,
         client_id: form.client_id,
         opposing_party: opposingSummary,
-        opposing_party_address: validOpponents[0].address.trim() || null,
-        opposing_party_phone: validOpponents[0].phone.trim() || null,
+        opposing_party_address: oppAddress,
+        opposing_party_phone: oppPhone,
         court: form.court.trim(),
       };
 
