@@ -224,14 +224,16 @@ const Cases = () => {
 
       // Insert opponents
       const validPresence = presenceParties.filter(p => p.name.trim());
-      const opponentsPayload = validOpponents.map((o, i) => ({
-        case_id: caseId,
-        name: o.name.trim(),
-        address: o.address.trim() || null,
-        phone: o.phone.trim() || null,
-        sort_order: i,
-        party_type: 'opponent',
-      }));
+      const opponentsPayload = againstAllInterested
+        ? [{ case_id: caseId, name: ALL_INTERESTED, address: null, phone: null, sort_order: 0, party_type: 'opponent' }]
+        : validOpponents.map((o, i) => ({
+            case_id: caseId,
+            name: o.name.trim(),
+            address: o.address.trim() || null,
+            phone: o.phone.trim() || null,
+            sort_order: i,
+            party_type: 'opponent',
+          }));
       const presencePayload = validPresence.map((p, i) => ({
         case_id: caseId,
         name: p.name.trim(),
