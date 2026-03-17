@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,13 +7,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Receipt, Eye, ArrowRight, Plus } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, Receipt, Eye, ArrowRight, Plus, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useClients } from '@/hooks/useClients';
 import { useCases } from '@/hooks/useCases';
-import { useLetterheadOptions } from '@/hooks/useInvoices';
+import { useLetterheadOptions, useInvoices } from '@/hooks/useInvoices';
+import { useFeeStatements } from '@/hooks/useFeeStatements';
 import { generateInvoicePDF } from '@/lib/generate-invoice-pdf';
 import { formatDateArabic } from '@/lib/formatters';
 import CreateCaseDialog from '@/components/cases/CreateCaseDialog';
@@ -37,6 +40,8 @@ const CreateInvoiceDialog = ({ open, onOpenChange, onCreated }: Props) => {
   const { clients } = useClients();
   const { cases, refetch: refetchCases } = useCases({ withClients: false });
   const letterheads = useLetterheadOptions();
+  const { invoices: allInvoices } = useInvoices();
+  const { statements } = useFeeStatements();
   const [showCaseDialog, setShowCaseDialog] = useState(false);
 
   const [saving, setSaving] = useState(false);
@@ -45,6 +50,7 @@ const CreateInvoiceDialog = ({ open, onOpenChange, onCreated }: Props) => {
     clientId: '',
     caseId: '',
     letterheadId: '',
+    feeStatementId: '',
     amount: '',
     description: '',
     paymentMethod: 'cash',
@@ -55,6 +61,29 @@ const CreateInvoiceDialog = ({ open, onOpenChange, onCreated }: Props) => {
   const filteredCases = form.clientId
     ? cases.filter(c => c.client_id === form.clientId)
     : cases;
+
+  // Fee statements for selected client
+  const clientStatements = useMemo(() => {
+    if (!form.clientId) return [];
+    return statements.filter(s => s.client_id === form.clientId);
+  }, [form.clientId, statements]);
+
+  // Calculate remaining for selected fee statement
+  const selectedStatementInfo = useMemo(() => {
+    if (!form.feeStatementId) return null;
+    const stmt = statements.find(s => s.id === form.feeStatementId);
+    if (!stmt) return null;
+
+    const paidSoFar = allInvoices
+      .filter(inv => inv.fee_statement_id === form.feeStatementId)
+      .reduce((sum, inv) => sum + Number(inv.amount), 0);
+
+    const totalAmount = Number(stmt.total_amount);
+    const remaining = Math.max(0, totalAmount - paidSoFar);
+    const progress = totalAmount > 0 ? Math.min(100, Math.round((paidSoFar / totalAmount) * 100)) : 0;
+
+    return { stmt, totalAmount, paidSoFar, remaining, progress };
+  }, [form.feeStatementId, statements, allInvoices]);
 
   const client = clients.find(c => c.id === form.clientId);
   const caseItem = cases.find(c => c.id === form.caseId);
@@ -80,6 +109,48 @@ const CreateInvoiceDialog = ({ open, onOpenChange, onCreated }: Props) => {
     value: l.id,
     label: l.lawyer_name,
   }));
+
+  const feeStatementOptions = useMemo(() => {
+    return clientStatements.map(s => {
+      const paidSoFar = allInvoices
+        .filter(inv => inv.fee_statement_id === s.id)
+        .reduce((sum, inv) => sum + Number(inv.amount), 0);
+      const remaining = Math.max(0, Number(s.total_amount) - paidSoFar);
+      return {
+        value: s.id,
+        label: s.statement_number,
+        sublabel: remaining > 0
+          ? `متبقي: ${remaining.toLocaleString('ar-u-nu-latn')} د`
+          : '✅ مؤدى بالكامل',
+      };
+    });
+  }, [clientStatements, allInvoices]);
+
+  // When fee statement is selected, auto-fill remaining amount
+  const handleFeeStatementChange = (v: string) => {
+    update('feeStatementId', v);
+    if (v) {
+      const stmt = statements.find(s => s.id === v);
+      if (stmt) {
+        const paidSoFar = allInvoices
+          .filter(inv => inv.fee_statement_id === v)
+          .reduce((sum, inv) => sum + Number(inv.amount), 0);
+        const remaining = Math.max(0, Number(stmt.total_amount) - paidSoFar);
+        if (remaining > 0) {
+          update('amount', String(remaining));
+        }
+        // Also auto-select the case if the statement has one
+        if (stmt.case_id && !form.caseId) {
+          update('caseId', stmt.case_id);
+        }
+      }
+    }
+  };
+
+  // When client changes, reset fee statement
+  const handleClientChange = (v: string) => {
+    setForm(prev => ({ ...prev, clientId: v, feeStatementId: '', caseId: '' }));
+  };
 
   const handleShowPreview = () => {
     if (!canSubmit) return;
@@ -111,6 +182,7 @@ const CreateInvoiceDialog = ({ open, onOpenChange, onCreated }: Props) => {
           client_id: form.clientId || null,
           case_id: form.caseId || null,
           letterhead_id: form.letterheadId || null,
+          fee_statement_id: form.feeStatementId || null,
           invoice_number: invoiceNumber,
           amount,
           description: form.description || null,
@@ -156,7 +228,7 @@ const CreateInvoiceDialog = ({ open, onOpenChange, onCreated }: Props) => {
       await supabase.from('invoices').update({ pdf_path: pdfPath }).eq('id', invoice.id);
 
       toast({ title: 'تم إنشاء الوصل بنجاح ✅' });
-      setForm({ clientId: '', caseId: '', letterheadId: '', amount: '', description: '', paymentMethod: 'cash' });
+      setForm({ clientId: '', caseId: '', letterheadId: '', feeStatementId: '', amount: '', description: '', paymentMethod: 'cash' });
       setStep('form');
       onOpenChange(false);
       onCreated();
@@ -196,6 +268,12 @@ const CreateInvoiceDialog = ({ open, onOpenChange, onCreated }: Props) => {
                   <span>{caseItem.title} {caseItem.case_number ? `(${caseItem.case_number})` : ''}</span>
                 </div>
               )}
+              {selectedStatementInfo && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">بيان الأتعاب</span>
+                  <span>{selectedStatementInfo.stmt.statement_number}</span>
+                </div>
+              )}
               {letterhead && (
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">الترويسة</span>
@@ -203,6 +281,30 @@ const CreateInvoiceDialog = ({ open, onOpenChange, onCreated }: Props) => {
                 </div>
               )}
             </div>
+
+            {selectedStatementInfo && (
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">المتفق عليه</span>
+                  <span className="font-medium">{selectedStatementInfo.totalAmount.toLocaleString('ar-u-nu-latn')} د</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">المدفوع سابقاً</span>
+                  <span className="font-medium">{selectedStatementInfo.paidSoFar.toLocaleString('ar-u-nu-latn')} د</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">هذا الوصل</span>
+                  <span className="font-bold text-primary">{amount.toLocaleString('ar-u-nu-latn')} د</span>
+                </div>
+                <Separator />
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">المتبقي بعد هذا الوصل</span>
+                  <span className="font-bold">
+                    {Math.max(0, selectedStatementInfo.remaining - amount).toLocaleString('ar-u-nu-latn')} د
+                  </span>
+                </div>
+              </div>
+            )}
 
             <Separator />
 
@@ -239,11 +341,58 @@ const CreateInvoiceDialog = ({ open, onOpenChange, onCreated }: Props) => {
               <SearchableSelect
                 options={clientOptions}
                 value={form.clientId}
-                onValueChange={v => update('clientId', v)}
+                onValueChange={handleClientChange}
                 placeholder="اختر الموكل"
                 searchPlaceholder="ابحث باسم الموكل..."
               />
             </div>
+
+            {/* Fee Statement linking */}
+            {form.clientId && clientStatements.length > 0 && (
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5">
+                  ربط ببيان أتعاب
+                  <Badge variant="outline" className="text-[10px] font-normal">اختياري</Badge>
+                </Label>
+                <SearchableSelect
+                  options={[
+                    { value: '__none__', label: 'بدون ربط' },
+                    ...feeStatementOptions,
+                  ]}
+                  value={form.feeStatementId || '__none__'}
+                  onValueChange={v => handleFeeStatementChange(v === '__none__' ? '' : v)}
+                  placeholder="اختر بيان أتعاب"
+                  searchPlaceholder="ابحث برقم البيان..."
+                />
+
+                {/* Remaining balance indicator */}
+                {selectedStatementInfo && (
+                  <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1.5">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">المتفق عليه</span>
+                      <span className="font-medium">{selectedStatementInfo.totalAmount.toLocaleString('ar-u-nu-latn')} د</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">المدفوع</span>
+                      <span className="font-medium text-primary">{selectedStatementInfo.paidSoFar.toLocaleString('ar-u-nu-latn')} د</span>
+                    </div>
+                    <Progress value={selectedStatementInfo.progress} className="h-2" />
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] text-muted-foreground">{selectedStatementInfo.progress}% مؤدى</span>
+                      <span className="text-xs font-bold">
+                        متبقي: {selectedStatementInfo.remaining.toLocaleString('ar-u-nu-latn')} د
+                      </span>
+                    </div>
+                    {selectedStatementInfo.remaining === 0 && (
+                      <div className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+                        <AlertCircle className="h-3 w-3" />
+                        هذا البيان مؤدى بالكامل
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label>الملف (اختياري)</Label>
