@@ -8,10 +8,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, Search, Pencil, Trash2, FolderOpen } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Plus, Search, Pencil, Trash2, FolderOpen, DollarSign, ChevronDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useInvoices } from '@/hooks/useInvoices';
+import { useFeeStatements } from '@/hooks/useFeeStatements';
+import ClientFinanceSection from '@/components/clients/ClientFinanceSection';
 
 interface ClientForm {
   full_name: string;
@@ -36,6 +40,9 @@ const Clients = () => {
   const [deletingClient, setDeletingClient] = useState<any>(null);
   const [form, setForm] = useState<ClientForm>(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [expandedClient, setExpandedClient] = useState<string | null>(null);
+  const { invoices } = useInvoices();
+  const { statements } = useFeeStatements();
 
   const fetchClients = async () => {
     const [clientsRes, casesRes] = await Promise.all([
@@ -177,6 +184,9 @@ const Clients = () => {
                     {c.email && <p className="text-xs text-muted-foreground" dir="ltr">{c.email}</p>}
                   </div>
                   <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setExpandedClient(expandedClient === c.id ? null : c.id)} title="الحساب المالي">
+                      <DollarSign className="h-3.5 w-3.5" />
+                    </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(`/dashboard/cases?client_id=${c.id}`)}>
                       <FolderOpen className="h-3.5 w-3.5" />
                     </Button>
@@ -195,6 +205,11 @@ const Clients = () => {
                   </div>
                   <span>{new Date(c.created_at).toLocaleDateString('ar-MA')}</span>
                 </div>
+                {expandedClient === c.id && (
+                  <div className="pt-2 border-t border-border">
+                    <ClientFinanceSection clientId={c.id} invoices={invoices} statements={statements} />
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))
@@ -224,29 +239,47 @@ const Clients = () => {
                   <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">لا يوجد موكلين</TableCell></TableRow>
                 ) : (
                   filtered.map((c) => (
-                    <TableRow key={c.id}>
-                      <TableCell className="font-medium">{c.full_name}</TableCell>
-                      <TableCell dir="ltr">{c.email}</TableCell>
-                      <TableCell dir="ltr">{c.phone}</TableCell>
-                      <TableCell dir="ltr">{c.cin}</TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="sm" className="gap-1 h-7 text-xs" onClick={() => navigate(`/dashboard/cases?client_id=${c.id}`)}>
-                          <FolderOpen className="h-3.5 w-3.5" />
-                          {caseCounts[c.id] || 0}
-                        </Button>
-                      </TableCell>
-                      <TableCell>{new Date(c.created_at).toLocaleDateString('ar-MA')}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(c)}>
-                            <Pencil className="h-4 w-4" />
+                    <>
+                      <TableRow key={c.id}>
+                        <TableCell className="font-medium">{c.full_name}</TableCell>
+                        <TableCell dir="ltr">{c.email}</TableCell>
+                        <TableCell dir="ltr">{c.phone}</TableCell>
+                        <TableCell dir="ltr">{c.cin}</TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="sm" className="gap-1 h-7 text-xs" onClick={() => navigate(`/dashboard/cases?client_id=${c.id}`)}>
+                            <FolderOpen className="h-3.5 w-3.5" />
+                            {caseCounts[c.id] || 0}
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => openDelete(c)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                        </TableCell>
+                        <TableCell>{new Date(c.created_at).toLocaleDateString('ar-MA')}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button
+                              variant={expandedClient === c.id ? 'secondary' : 'ghost'}
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => setExpandedClient(expandedClient === c.id ? null : c.id)}
+                              title="الحساب المالي"
+                            >
+                              <DollarSign className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(c)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => openDelete(c)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                      {expandedClient === c.id && (
+                        <TableRow key={`${c.id}-finance`}>
+                          <TableCell colSpan={7} className="bg-muted/30 p-4">
+                            <ClientFinanceSection clientId={c.id} invoices={invoices} statements={statements} />
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </>
                   ))
                 )}
               </TableBody>
