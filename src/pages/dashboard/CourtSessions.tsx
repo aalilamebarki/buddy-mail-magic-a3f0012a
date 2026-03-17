@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { CalendarDays, Plus, Search, ChevronsUpDown, Check, FolderOpen } from 'lucide-react';
+import { CalendarDays, Plus, Search, ChevronsUpDown, Check, FolderOpen, Pencil, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -32,6 +32,7 @@ const CourtSessions = () => {
   const [caseNumber, setCaseNumber] = useState('');
 
   // Form state
+  const [editingSession, setEditingSession] = useState<any>(null);
   const [selectedCaseId, setSelectedCaseId] = useState('');
   const [sessionDate, setSessionDate] = useState<Date | undefined>(undefined);
   const [notes, setNotes] = useState('');
@@ -84,32 +85,65 @@ const CourtSessions = () => {
 
   const selectedCase = cases.find(c => c.id === selectedCaseId);
   const needsCaseNumber = selectedCase && !selectedCase.case_number;
+
+  const openEditSession = (session: any) => {
+    setEditingSession(session);
+    setSelectedCaseId(session.case_id);
+    setSessionDate(new Date(session.session_date + 'T00:00:00'));
+    setNotes(session.notes || '');
+    setCaseNumber('');
+    setDialogOpen(true);
+  };
+
+  const openAddSession = () => {
+    setEditingSession(null);
+    setSelectedCaseId('');
+    setSessionDate(undefined);
+    setNotes('');
+    setCaseNumber('');
+    setDialogOpen(true);
+  };
+
   const handleSave = async () => {
-    if (!selectedCaseId || !sessionDate || !user) {
-      toast.error('يرجى اختيار الملف وتاريخ الجلسة');
+    if (!sessionDate || !user) {
+      toast.error('يرجى اختيار تاريخ الجلسة');
       return;
     }
-    // Validate case_number
-    const finalCaseNumber = selectedCase?.case_number || caseNumber.trim();
-    if (!finalCaseNumber) {
-      toast.error('رقم الملف مطلوب');
+    if (!editingSession && !selectedCaseId) {
+      toast.error('يرجى اختيار الملف');
       return;
+    }
+    if (!editingSession) {
+      const finalCaseNumber = selectedCase?.case_number || caseNumber.trim();
+      if (!finalCaseNumber) {
+        toast.error('رقم الملف مطلوب');
+        return;
+      }
     }
     setSaving(true);
     try {
-      // Update case_number if it was missing
-      if (needsCaseNumber && caseNumber.trim()) {
+      if (!editingSession && needsCaseNumber && caseNumber.trim()) {
         await supabase.from('cases').update({ case_number: caseNumber.trim() }).eq('id', selectedCaseId);
       }
-      const { error } = await supabase.from('court_sessions').insert({
-        case_id: selectedCaseId,
-        session_date: format(sessionDate, 'yyyy-MM-dd'),
-        notes: notes || null,
-        user_id: user.id,
-      });
-      if (error) throw error;
-      toast.success('تمت إضافة الجلسة');
+      if (editingSession) {
+        const { error } = await supabase.from('court_sessions').update({
+          session_date: format(sessionDate, 'yyyy-MM-dd'),
+          notes: notes || null,
+        }).eq('id', editingSession.id);
+        if (error) throw error;
+        toast.success('تم تعديل الجلسة');
+      } else {
+        const { error } = await supabase.from('court_sessions').insert({
+          case_id: selectedCaseId,
+          session_date: format(sessionDate, 'yyyy-MM-dd'),
+          notes: notes || null,
+          user_id: user.id,
+        });
+        if (error) throw error;
+        toast.success('تمت إضافة الجلسة');
+      }
       setDialogOpen(false);
+      setEditingSession(null);
       setSelectedCaseId('');
       setSessionDate(undefined);
       setNotes('');
@@ -119,6 +153,15 @@ const CourtSessions = () => {
       toast.error('خطأ في حفظ الجلسة');
     }
     setSaving(false);
+  };
+
+  const handleDeleteSession = async (sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('هل تريد حذف هذه الجلسة؟')) return;
+    const { error } = await supabase.from('court_sessions').delete().eq('id', sessionId);
+    if (error) { toast.error('خطأ في حذف الجلسة'); return; }
+    toast.success('تم حذف الجلسة');
+    fetchData();
   };
 
   const getSessionBadge = (date: string) => {
@@ -146,6 +189,7 @@ const CourtSessions = () => {
                   <TableHead className="text-right">المحكمة</TableHead>
                   <TableHead className="text-right">ملاحظات</TableHead>
                   <TableHead className="text-right">الحالة</TableHead>
+                  <TableHead className="text-right w-[80px]">إجراءات</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -160,6 +204,16 @@ const CourtSessions = () => {
                     <TableCell className="text-sm">{s.cases?.court || '—'}</TableCell>
                     <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{s.notes || '—'}</TableCell>
                     <TableCell>{getSessionBadge(s.session_date)}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-1" onClick={e => e.stopPropagation()}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditSession(s)}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={(e) => handleDeleteSession(s.id, e)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -207,7 +261,7 @@ const CourtSessions = () => {
               )}
             </PopoverContent>
           </Popover>
-          <Button size="sm" onClick={() => setDialogOpen(true)} className="gap-1">
+          <Button size="sm" onClick={openAddSession} className="gap-1">
             <Plus className="h-4 w-4" /> إضافة جلسة
           </Button>
         </div>
@@ -229,15 +283,15 @@ const CourtSessions = () => {
         </div>
       )}
 
-      {/* Add Session Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      {/* Session Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditingSession(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>إضافة جلسة جديدة</DialogTitle>
+            <DialogTitle>{editingSession ? 'تعديل الجلسة' : 'إضافة جلسة جديدة'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            {/* Case selector */}
-            <div className="space-y-2">
+            {/* Case selector - only for new sessions */}
+            {!editingSession && <div className="space-y-2">
               <Label>الملف *</Label>
               <Popover open={casePopoverOpen} onOpenChange={setCasePopoverOpen}>
                 <PopoverTrigger asChild>
@@ -272,10 +326,10 @@ const CourtSessions = () => {
                   </Command>
                 </PopoverContent>
               </Popover>
-            </div>
+            </div>}
 
             {/* Case number - show if missing */}
-            {needsCaseNumber && (
+            {!editingSession && needsCaseNumber && (
               <div className="space-y-2">
                 <Label>رقم الملف *</Label>
                 <Input

@@ -10,7 +10,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowRight, FileText, User, Scale, MapPin, ClipboardList, CalendarDays, Plus } from 'lucide-react';
+import { ArrowRight, FileText, User, Scale, MapPin, ClipboardList, CalendarDays, Plus, Pencil, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -28,6 +28,7 @@ const CaseDetail = () => {
   const [opponents, setOpponents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [sessionDialogOpen, setSessionDialogOpen] = useState(false);
+  const [editingSession, setEditingSession] = useState<any>(null);
   const [sessionDate, setSessionDate] = useState<Date | undefined>(undefined);
   const [sessionNotes, setSessionNotes] = useState('');
   const [caseNumberInput, setCaseNumberInput] = useState('');
@@ -57,30 +58,57 @@ const CaseDetail = () => {
 
   const needsCaseNumber = caseData && !caseData.case_number;
 
-  const handleAddSession = async () => {
+  const openEditSession = (session: any) => {
+    setEditingSession(session);
+    setSessionDate(new Date(session.session_date + 'T00:00:00'));
+    setSessionNotes(session.notes || '');
+    setSessionDialogOpen(true);
+  };
+
+  const openAddSession = () => {
+    setEditingSession(null);
+    setSessionDate(undefined);
+    setSessionNotes('');
+    setCaseNumberInput('');
+    setSessionDialogOpen(true);
+  };
+
+  const handleSaveSession = async () => {
     if (!sessionDate || !user || !id) {
       toast.error('يرجى اختيار تاريخ الجلسة');
       return;
     }
-    const finalCaseNumber = caseData?.case_number || caseNumberInput.trim();
-    if (!finalCaseNumber) {
-      toast.error('رقم الملف مطلوب');
-      return;
+    if (!editingSession) {
+      const finalCaseNumber = caseData?.case_number || caseNumberInput.trim();
+      if (!finalCaseNumber) {
+        toast.error('رقم الملف مطلوب');
+        return;
+      }
     }
     setSaving(true);
     try {
-      if (needsCaseNumber && caseNumberInput.trim()) {
+      if (!editingSession && needsCaseNumber && caseNumberInput.trim()) {
         await supabase.from('cases').update({ case_number: caseNumberInput.trim() }).eq('id', id);
       }
-      const { error } = await supabase.from('court_sessions').insert({
-        case_id: id,
-        session_date: format(sessionDate, 'yyyy-MM-dd'),
-        notes: sessionNotes || null,
-        user_id: user.id,
-      });
-      if (error) throw error;
-      toast.success('تمت إضافة الجلسة');
+      if (editingSession) {
+        const { error } = await supabase.from('court_sessions').update({
+          session_date: format(sessionDate, 'yyyy-MM-dd'),
+          notes: sessionNotes || null,
+        }).eq('id', editingSession.id);
+        if (error) throw error;
+        toast.success('تم تعديل الجلسة');
+      } else {
+        const { error } = await supabase.from('court_sessions').insert({
+          case_id: id,
+          session_date: format(sessionDate, 'yyyy-MM-dd'),
+          notes: sessionNotes || null,
+          user_id: user.id,
+        });
+        if (error) throw error;
+        toast.success('تمت إضافة الجلسة');
+      }
       setSessionDialogOpen(false);
+      setEditingSession(null);
       setSessionDate(undefined);
       setSessionNotes('');
       setCaseNumberInput('');
@@ -89,6 +117,14 @@ const CaseDetail = () => {
       toast.error('خطأ في حفظ الجلسة');
     }
     setSaving(false);
+  };
+
+  const handleDeleteSession = async (sessionId: string) => {
+    if (!confirm('هل تريد حذف هذه الجلسة؟')) return;
+    const { error } = await supabase.from('court_sessions').delete().eq('id', sessionId);
+    if (error) { toast.error('خطأ في حذف الجلسة'); return; }
+    toast.success('تم حذف الجلسة');
+    fetchData();
   };
 
   if (loading) return <div className="text-center py-12 text-muted-foreground">جاري التحميل...</div>;
@@ -178,7 +214,7 @@ const CaseDetail = () => {
           <CardTitle className="text-base flex items-center gap-2">
             <CalendarDays className="h-4 w-4" /> الجلسات ({sessions.length})
           </CardTitle>
-          <Button size="sm" onClick={() => setSessionDialogOpen(true)} className="gap-1">
+          <Button size="sm" onClick={openAddSession} className="gap-1">
             <Plus className="h-4 w-4" /> إضافة جلسة
           </Button>
         </CardHeader>
@@ -188,20 +224,28 @@ const CaseDetail = () => {
           ) : (
             <div className="space-y-2">
               {sessions.map(s => (
-                <div key={s.id} className="flex items-center justify-between p-3 rounded-lg border">
-                  <div>
+                <div key={s.id} className="flex items-center justify-between p-3 rounded-lg border gap-2">
+                  <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium">
                       {new Date(s.session_date + 'T00:00:00').toLocaleDateString('ar-MA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                     </p>
                     {s.notes && <p className="text-xs text-muted-foreground mt-1">{s.notes}</p>}
                   </div>
-                  {s.session_date === today ? (
-                    <Badge className="bg-primary text-primary-foreground">اليوم</Badge>
-                  ) : s.session_date > today ? (
-                    <Badge variant="outline" className="text-emerald-600 border-emerald-300">قادمة</Badge>
-                  ) : (
-                    <Badge variant="secondary">منتهية</Badge>
-                  )}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {s.session_date === today ? (
+                      <Badge className="bg-primary text-primary-foreground">اليوم</Badge>
+                    ) : s.session_date > today ? (
+                      <Badge variant="outline" className="text-emerald-600 border-emerald-300">قادمة</Badge>
+                    ) : (
+                      <Badge variant="secondary">منتهية</Badge>
+                    )}
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditSession(s)}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDeleteSession(s.id)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -251,14 +295,14 @@ const CaseDetail = () => {
         </CardContent>
       </Card>
 
-      {/* Add Session Dialog */}
-      <Dialog open={sessionDialogOpen} onOpenChange={setSessionDialogOpen}>
+      {/* Session Dialog */}
+      <Dialog open={sessionDialogOpen} onOpenChange={(open) => { setSessionDialogOpen(open); if (!open) setEditingSession(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>إضافة جلسة جديدة</DialogTitle>
+            <DialogTitle>{editingSession ? 'تعديل الجلسة' : 'إضافة جلسة جديدة'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            {needsCaseNumber && (
+            {!editingSession && needsCaseNumber && (
               <div className="space-y-2">
                 <Label>رقم الملف *</Label>
                 <Input
@@ -292,7 +336,7 @@ const CaseDetail = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSessionDialogOpen(false)}>إلغاء</Button>
-            <Button onClick={handleAddSession} disabled={saving}>{saving ? 'جاري الحفظ...' : 'حفظ'}</Button>
+            <Button onClick={handleSaveSession} disabled={saving}>{saving ? 'جاري الحفظ...' : 'حفظ'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
