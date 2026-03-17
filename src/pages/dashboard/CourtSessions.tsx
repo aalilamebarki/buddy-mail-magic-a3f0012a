@@ -191,14 +191,14 @@ const CourtSessions = () => {
     if (mode === 'day') {
       dateStart = format(exportDate, 'yyyy-MM-dd');
       dateEnd = dateStart;
-      periodLabel = new Date(exportDate).toLocaleDateString('ar-MA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      periodLabel = new Date(exportDate).toLocaleDateString('ar-u-nu-latn', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
       docTitle = `جلسة يوم ${periodLabel}`;
     } else {
       const ws = startOfWeek(exportDate, { weekStartsOn: 1 });
       const we = endOfWeek(exportDate, { weekStartsOn: 1 });
       dateStart = format(ws, 'yyyy-MM-dd');
       dateEnd = format(we, 'yyyy-MM-dd');
-      periodLabel = `من ${new Date(ws).toLocaleDateString('ar-MA', { day: 'numeric', month: 'long', year: 'numeric' })} إلى ${new Date(we).toLocaleDateString('ar-MA', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+      periodLabel = `من ${new Date(ws).toLocaleDateString('ar-u-nu-latn', { day: 'numeric', month: 'long', year: 'numeric' })} إلى ${new Date(we).toLocaleDateString('ar-u-nu-latn', { day: 'numeric', month: 'long', year: 'numeric' })}`;
       docTitle = 'جدول الجلسات لهذا الأسبوع';
     }
 
@@ -222,8 +222,8 @@ const CourtSessions = () => {
       const rows = items.map((s, i) => {
         rowCounter++;
         const nextDate = getNextSession(s.case_id, s.session_date);
-        const formattedDate = new Date(s.session_date + 'T00:00:00').toLocaleDateString('ar-MA', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-        const formattedNext = nextDate ? new Date(nextDate + 'T00:00:00').toLocaleDateString('ar-MA', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+        const formattedDate = new Date(s.session_date + 'T00:00:00').toLocaleDateString('ar-u-nu-latn', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+        const formattedNext = nextDate ? new Date(nextDate + 'T00:00:00').toLocaleDateString('ar-u-nu-latn', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : '—';
         return `<tr>
           <td class="num-cell">${i + 1}</td>
           <td class="name-cell">${s.cases?.clients?.full_name || '—'}</td>
@@ -331,8 +331,8 @@ const CourtSessions = () => {
       const tableHead = [['#', 'الموكل', 'رقم الملف', 'المدعى عليه', 'تاريخ الجلسة', 'الجلسة المقبلة']];
       const tableBody = (items as any[]).map((s: any, i: number) => {
         const nextDate = getNextSession(s.case_id, s.session_date);
-        const fmtDate = new Date(s.session_date + 'T00:00:00').toLocaleDateString('ar-MA', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-        const fmtNext = nextDate ? new Date(nextDate + 'T00:00:00').toLocaleDateString('ar-MA', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+        const fmtDate = new Date(s.session_date + 'T00:00:00').toLocaleDateString('ar-u-nu-latn', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+        const fmtNext = nextDate ? new Date(nextDate + 'T00:00:00').toLocaleDateString('ar-u-nu-latn', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : '—';
         return [
           String(i + 1),
           s.cases?.clients?.full_name || '—',
@@ -386,7 +386,7 @@ const CourtSessions = () => {
     doc.setLineWidth(0.3);
     doc.line(15, footerY - 3, pageW - 15, footerY - 3);
     doc.text(docTitle, pageW - 15, footerY, { align: 'right' });
-    const genDate = new Date().toLocaleDateString('ar-MA', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const genDate = new Date().toLocaleDateString('ar-u-nu-latn', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     doc.text(genDate, 15, footerY, { align: 'left' });
 
     const fileName = mode === 'week'
@@ -405,7 +405,7 @@ const CourtSessions = () => {
           <CardTitle className="text-base">{title} ({items.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-auto">
+          <div className="overflow-x-auto -webkit-overflow-scrolling-touch" style={{ WebkitOverflowScrolling: 'touch' }}>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -423,7 +423,7 @@ const CourtSessions = () => {
                 {items.map(s => (
                   <TableRow key={s.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/dashboard/cases/${s.case_id}`)}>
                     <TableCell className="font-mono text-sm whitespace-nowrap">
-                      {new Date(s.session_date + 'T00:00:00').toLocaleDateString('ar-MA', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
+                      {new Date(s.session_date + 'T00:00:00').toLocaleDateString('ar-u-nu-latn', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
                     </TableCell>
                     <TableCell className="text-sm font-medium">{s.cases?.clients?.full_name || '—'}</TableCell>
                     <TableCell className="text-sm">{s.cases?.opposing_party || '—'}</TableCell>
