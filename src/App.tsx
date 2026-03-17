@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,42 +8,54 @@ import { HelmetProvider } from "react-helmet-async";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
 import ProtectedRoute from "@/components/ProtectedRoute";
+
+// Public pages (eager)
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
-import Blog from "./pages/Blog";
-import BlogArticle from "./pages/BlogArticle";
-import LegalFeeCalculator from "./pages/LegalFeeCalculator";
-import CaseTracker from "./pages/CaseTracker";
-import AIConsultation from "./pages/AIConsultation";
-import About from "./pages/About";
-import DocumentCenter from "./pages/DocumentCenter";
-import DocumentDetail from "./pages/DocumentDetail";
-import Dashboard from "./pages/Dashboard";
-import DashboardHome from "./pages/dashboard/DashboardHome";
-import Cases from "./pages/dashboard/Cases";
-import CaseDetail from "./pages/dashboard/CaseDetail";
-import CourtSessions from "./pages/dashboard/CourtSessions";
-import Clients from "./pages/dashboard/Clients";
-import Articles from "./pages/dashboard/Articles";
-import Finance from "./pages/dashboard/Finance";
-import Analytics from "./pages/dashboard/Analytics";
-import SettingsPage from "./pages/dashboard/Settings";
-import Profile from "./pages/dashboard/Profile";
-import UserManagement from "./pages/dashboard/UserManagement";
-import Newsletter from "./pages/dashboard/Newsletter";
-import Reports from "./pages/dashboard/Reports";
-import SeoSettings from "./pages/dashboard/SeoSettings";
-import AuditLog from "./pages/dashboard/AuditLog";
-import ClientDashboard from "./pages/dashboard/ClientDashboard";
-import KnowledgeBase from "./pages/dashboard/KnowledgeBase";
-import DocumentGenerator from "./pages/dashboard/DocumentGenerator";
-import Letterheads from "./pages/dashboard/Letterheads";
-import LegalScraper from "./pages/dashboard/LegalScraper";
 import NotFound from "./pages/NotFound";
 
+// Public pages (lazy)
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const Blog = lazy(() => import("./pages/Blog"));
+const BlogArticle = lazy(() => import("./pages/BlogArticle"));
+const LegalFeeCalculator = lazy(() => import("./pages/LegalFeeCalculator"));
+const CaseTracker = lazy(() => import("./pages/CaseTracker"));
+const AIConsultation = lazy(() => import("./pages/AIConsultation"));
+const About = lazy(() => import("./pages/About"));
+const DocumentCenter = lazy(() => import("./pages/DocumentCenter"));
+const DocumentDetail = lazy(() => import("./pages/DocumentDetail"));
+
+// Dashboard (lazy)
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const DashboardHome = lazy(() => import("./pages/dashboard/DashboardHome"));
+const Cases = lazy(() => import("./pages/dashboard/Cases"));
+const CaseDetail = lazy(() => import("./pages/dashboard/CaseDetail"));
+const CourtSessions = lazy(() => import("./pages/dashboard/CourtSessions"));
+const Clients = lazy(() => import("./pages/dashboard/Clients"));
+const Articles = lazy(() => import("./pages/dashboard/Articles"));
+const Finance = lazy(() => import("./pages/dashboard/Finance"));
+const Analytics = lazy(() => import("./pages/dashboard/Analytics"));
+const SettingsPage = lazy(() => import("./pages/dashboard/Settings"));
+const Profile = lazy(() => import("./pages/dashboard/Profile"));
+const UserManagement = lazy(() => import("./pages/dashboard/UserManagement"));
+const Newsletter = lazy(() => import("./pages/dashboard/Newsletter"));
+const Reports = lazy(() => import("./pages/dashboard/Reports"));
+const SeoSettings = lazy(() => import("./pages/dashboard/SeoSettings"));
+const AuditLog = lazy(() => import("./pages/dashboard/AuditLog"));
+const ClientDashboard = lazy(() => import("./pages/dashboard/ClientDashboard"));
+const KnowledgeBase = lazy(() => import("./pages/dashboard/KnowledgeBase"));
+const DocumentGenerator = lazy(() => import("./pages/dashboard/DocumentGenerator"));
+const Letterheads = lazy(() => import("./pages/dashboard/Letterheads"));
+const LegalScraper = lazy(() => import("./pages/dashboard/LegalScraper"));
+
 const queryClient = new QueryClient();
+
+const LazyFallback = () => (
+  <div className="flex items-center justify-center min-h-[40vh]">
+    <div className="text-muted-foreground text-sm">جاري التحميل...</div>
+  </div>
+);
 
 const App = () => (
   <HelmetProvider>
@@ -53,54 +66,56 @@ const App = () => (
             <Toaster />
             <Sonner />
             <BrowserRouter>
-              <Routes>
-                {/* Public routes */}
-                <Route path="/" element={<Index />} />
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/forgot-password" element={<ForgotPassword />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
-                <Route path="/blog" element={<Blog />} />
-                <Route path="/blog/:slug" element={<BlogArticle />} />
-                <Route path="/legal-fee-calculator" element={<LegalFeeCalculator />} />
-                <Route path="/case-tracker" element={<CaseTracker />} />
-                <Route path="/ai-consultation" element={<AIConsultation />} />
-                <Route path="/about" element={<About />} />
-                <Route path="/documents" element={<DocumentCenter />} />
-                <Route path="/documents/:id" element={<DocumentDetail />} />
+              <Suspense fallback={<LazyFallback />}>
+                <Routes>
+                  {/* Public routes */}
+                  <Route path="/" element={<Index />} />
+                  <Route path="/auth" element={<Auth />} />
+                  <Route path="/forgot-password" element={<ForgotPassword />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
+                  <Route path="/blog" element={<Blog />} />
+                  <Route path="/blog/:slug" element={<BlogArticle />} />
+                  <Route path="/legal-fee-calculator" element={<LegalFeeCalculator />} />
+                  <Route path="/case-tracker" element={<CaseTracker />} />
+                  <Route path="/ai-consultation" element={<AIConsultation />} />
+                  <Route path="/about" element={<About />} />
+                  <Route path="/documents" element={<DocumentCenter />} />
+                  <Route path="/documents/:id" element={<DocumentDetail />} />
 
-                {/* Dashboard routes */}
-                <Route
-                  path="/dashboard"
-                  element={
-                    <ProtectedRoute>
-                      <Dashboard />
-                    </ProtectedRoute>
-                  }
-                >
-                  <Route index element={<DashboardHome />} />
-                  <Route path="cases" element={<Cases />} />
-                  <Route path="cases/:id" element={<CaseDetail />} />
-                  <Route path="court-sessions" element={<CourtSessions />} />
-                  <Route path="clients" element={<Clients />} />
-                  <Route path="articles" element={<Articles />} />
-                  <Route path="finance" element={<Finance />} />
-                  <Route path="analytics" element={<Analytics />} />
-                  <Route path="settings" element={<SettingsPage />} />
-                  <Route path="profile" element={<Profile />} />
-                  <Route path="users" element={<UserManagement />} />
-                  <Route path="newsletter" element={<Newsletter />} />
-                  <Route path="reports" element={<Reports />} />
-                  <Route path="seo" element={<SeoSettings />} />
-                  <Route path="audit-log" element={<AuditLog />} />
-                  <Route path="client-dashboard" element={<ClientDashboard />} />
-                  <Route path="knowledge-base" element={<KnowledgeBase />} />
-                  <Route path="document-generator" element={<DocumentGenerator />} />
-                  <Route path="letterheads" element={<Letterheads />} />
-                  <Route path="legal-scraper" element={<LegalScraper />} />
-                </Route>
+                  {/* Dashboard routes */}
+                  <Route
+                    path="/dashboard"
+                    element={
+                      <ProtectedRoute>
+                        <Dashboard />
+                      </ProtectedRoute>
+                    }
+                  >
+                    <Route index element={<DashboardHome />} />
+                    <Route path="cases" element={<Cases />} />
+                    <Route path="cases/:id" element={<CaseDetail />} />
+                    <Route path="court-sessions" element={<CourtSessions />} />
+                    <Route path="clients" element={<Clients />} />
+                    <Route path="articles" element={<Articles />} />
+                    <Route path="finance" element={<Finance />} />
+                    <Route path="analytics" element={<Analytics />} />
+                    <Route path="settings" element={<SettingsPage />} />
+                    <Route path="profile" element={<Profile />} />
+                    <Route path="users" element={<UserManagement />} />
+                    <Route path="newsletter" element={<Newsletter />} />
+                    <Route path="reports" element={<Reports />} />
+                    <Route path="seo" element={<SeoSettings />} />
+                    <Route path="audit-log" element={<AuditLog />} />
+                    <Route path="client-dashboard" element={<ClientDashboard />} />
+                    <Route path="knowledge-base" element={<KnowledgeBase />} />
+                    <Route path="document-generator" element={<DocumentGenerator />} />
+                    <Route path="letterheads" element={<Letterheads />} />
+                    <Route path="legal-scraper" element={<LegalScraper />} />
+                  </Route>
 
-                <Route path="*" element={<NotFound />} />
-              </Routes>
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Suspense>
             </BrowserRouter>
           </TooltipProvider>
         </AuthProvider>
