@@ -129,7 +129,7 @@ const Invoices = () => {
                 <TableBody>
                   {filtered.map(inv => (
                     <TableRow key={inv.id}>
-                      <TableCell className="font-mono text-xs" dir="ltr">{inv.invoice_number}</TableCell>
+                      <TableCell className="text-xs" dir="ltr">{inv.invoice_number}</TableCell>
                       <TableCell>{inv.clients?.full_name || '—'}</TableCell>
                       <TableCell className="text-xs">{inv.cases?.title || '—'}</TableCell>
                       <TableCell className="font-bold">{Number(inv.amount).toLocaleString('ar-u-nu-latn')} د</TableCell>
