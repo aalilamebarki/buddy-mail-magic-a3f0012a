@@ -102,13 +102,21 @@ const Cases = () => {
   const handleSave = async () => {
     if (!form.title.trim()) { toast.error('عنوان الملف مطلوب'); return; }
     if (!form.client_id) { toast.error('يجب اختيار الموكل'); return; }
+    if (!form.opposing_party.trim()) { toast.error('اسم الخصم مطلوب'); return; }
+    if (!form.opposing_party_address.trim()) { toast.error('عنوان الخصم مطلوب'); return; }
+    if (!form.court.trim()) { toast.error('المحكمة مطلوبة'); return; }
+    if (!form.case_type) { toast.error('نوع الملف مطلوب'); return; }
     setSaving(true);
     try {
       const payload = {
         title: form.title.trim(),
-        case_type: form.case_type || null,
+        case_type: form.case_type,
         description: form.description.trim() || null,
         client_id: form.client_id,
+        opposing_party: form.opposing_party.trim(),
+        opposing_party_address: form.opposing_party_address.trim(),
+        opposing_party_phone: form.opposing_party_phone.trim() || null,
+        court: form.court.trim(),
       };
       if (editingCase) {
         const { error } = await supabase.from('cases').update(payload).eq('id', editingCase.id);
