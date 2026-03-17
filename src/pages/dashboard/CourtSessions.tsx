@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,11 +11,11 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { CalendarDays, Plus, Search, ChevronsUpDown, Check, FolderOpen, Pencil, Trash2 } from 'lucide-react';
+import { CalendarDays, Plus, Search, ChevronsUpDown, Check, FolderOpen, Pencil, Trash2, FileDown, CalendarRange } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { format, startOfWeek, endOfWeek, addDays } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
@@ -30,6 +30,8 @@ const CourtSessions = () => {
   const [caseSearch, setCaseSearch] = useState('');
   const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
   const [caseNumber, setCaseNumber] = useState('');
+  const [exportMode, setExportMode] = useState<'day' | 'week' | null>(null);
+  const [exportDate, setExportDate] = useState<Date>(new Date());
 
   // Form state
   const [editingSession, setEditingSession] = useState<any>(null);
@@ -171,6 +173,115 @@ const CourtSessions = () => {
     return <Badge variant="secondary">منتهية</Badge>;
   };
 
+  // ---- PDF Export Logic ----
+  const getNextSession = useCallback((caseId: string, afterDate: string): string | null => {
+    const future = sessions
+      .filter(s => s.case_id === caseId && s.session_date > afterDate)
+      .sort((a, b) => a.session_date.localeCompare(b.session_date));
+    return future.length > 0 ? future[0].session_date : null;
+  }, [sessions]);
+
+  const handleExportPDF = useCallback((mode: 'day' | 'week') => {
+    let dateStart: string;
+    let dateEnd: string;
+    let periodLabel: string;
+
+    if (mode === 'day') {
+      dateStart = format(exportDate, 'yyyy-MM-dd');
+      dateEnd = dateStart;
+      periodLabel = new Date(exportDate).toLocaleDateString('ar-MA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    } else {
+      const ws = startOfWeek(exportDate, { weekStartsOn: 1 });
+      const we = endOfWeek(exportDate, { weekStartsOn: 1 });
+      dateStart = format(ws, 'yyyy-MM-dd');
+      dateEnd = format(we, 'yyyy-MM-dd');
+      periodLabel = `من ${new Date(ws).toLocaleDateString('ar-MA', { day: 'numeric', month: 'long', year: 'numeric' })} إلى ${new Date(we).toLocaleDateString('ar-MA', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+    }
+
+    const filtered = sessions.filter(s => s.session_date >= dateStart && s.session_date <= dateEnd);
+    if (filtered.length === 0) {
+      toast.error('لا توجد جلسات في هذه الفترة');
+      return;
+    }
+
+    // Group by court
+    const byCourt: Record<string, any[]> = {};
+    for (const s of filtered) {
+      const court = s.cases?.court || 'غير محددة';
+      if (!byCourt[court]) byCourt[court] = [];
+      byCourt[court].push(s);
+    }
+
+    // Build print HTML
+    const courtSections = Object.entries(byCourt).map(([court, items]) => {
+      const rows = items.map(s => {
+        const nextDate = getNextSession(s.case_id, s.session_date);
+        const formattedDate = new Date(s.session_date + 'T00:00:00').toLocaleDateString('ar-MA', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+        const formattedNext = nextDate ? new Date(nextDate + 'T00:00:00').toLocaleDateString('ar-MA', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+        return `<tr>
+          <td>${s.cases?.clients?.full_name || '—'}</td>
+          <td style="direction:ltr;text-align:center">${s.cases?.case_number || '—'}</td>
+          <td>${s.cases?.opposing_party || '—'}</td>
+          <td>${formattedDate}</td>
+          <td>${formattedNext}</td>
+        </tr>`;
+      }).join('');
+
+      return `
+        <div class="court-section">
+          <h2>${court}</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>الموكل</th>
+                <th>رقم الملف</th>
+                <th>المدعى عليه</th>
+                <th>تاريخ الجلسة</th>
+                <th>الجلسة المقبلة</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `;
+    }).join('');
+
+    const html = `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="utf-8">
+<title>جدول الجلسات</title>
+<style>
+  @page { size: A4 landscape; margin: 15mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Traditional Arabic', 'Arial', sans-serif; font-size: 14px; color: #1a1a1a; padding: 20px; direction: rtl; }
+  h1 { text-align: center; font-size: 22px; margin-bottom: 4px; }
+  .period { text-align: center; font-size: 14px; color: #555; margin-bottom: 24px; }
+  .court-section { margin-bottom: 28px; page-break-inside: avoid; }
+  .court-section h2 { font-size: 17px; background: #f0f0f0; padding: 8px 14px; border-radius: 4px; margin-bottom: 8px; border-right: 4px solid #333; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border: 1px solid #ccc; padding: 7px 10px; text-align: right; font-size: 13px; }
+  th { background: #f8f8f8; font-weight: bold; }
+  tr:nth-child(even) { background: #fafafa; }
+  @media print { body { padding: 0; } }
+</style>
+</head>
+<body>
+  <h1>جدول الجلسات</h1>
+  <p class="period">${periodLabel}</p>
+  ${courtSections}
+</body>
+</html>`;
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+      setTimeout(() => { printWindow.print(); }, 400);
+    }
+    setExportMode(null);
+  }, [sessions, exportDate, getNextSession]);
+
   const renderSessionTable = (items: any[], title: string) => (
     items.length > 0 && (
       <Card>
@@ -229,14 +340,60 @@ const CourtSessions = () => {
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-foreground flex items-center gap-2">
             <CalendarDays className="h-6 w-6" /> يومية الجلسات
           </h1>
           <p className="text-sm text-muted-foreground">إدارة مواعيد الجلسات لجميع الملفات</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          {/* Export PDF */}
+          <Popover open={exportMode !== null} onOpenChange={(open) => { if (!open) setExportMode(null); }}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1" onClick={() => setExportMode('day')}>
+                <FileDown className="h-4 w-4" /> تحميل PDF
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 p-4 pointer-events-auto" align="end">
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-foreground">تحميل جدول الجلسات</p>
+                <div className="flex gap-2">
+                  <Button
+                    variant={exportMode === 'day' ? 'default' : 'outline'}
+                    size="sm"
+                    className="flex-1 gap-1"
+                    onClick={() => setExportMode('day')}
+                  >
+                    <CalendarDays className="h-3.5 w-3.5" /> يوم
+                  </Button>
+                  <Button
+                    variant={exportMode === 'week' ? 'default' : 'outline'}
+                    size="sm"
+                    className="flex-1 gap-1"
+                    onClick={() => setExportMode('week')}
+                  >
+                    <CalendarRange className="h-3.5 w-3.5" /> أسبوع
+                  </Button>
+                </div>
+                <Calendar
+                  mode="single"
+                  selected={exportDate}
+                  onSelect={(d) => d && setExportDate(d)}
+                  className="p-2 pointer-events-auto"
+                />
+                {exportMode === 'week' && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    الأسبوع: {format(startOfWeek(exportDate, { weekStartsOn: 1 }), 'dd/MM')} — {format(endOfWeek(exportDate, { weekStartsOn: 1 }), 'dd/MM/yyyy')}
+                  </p>
+                )}
+                <Button className="w-full gap-1" size="sm" onClick={() => handleExportPDF(exportMode || 'day')}>
+                  <FileDown className="h-4 w-4" /> تحميل
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+
           {/* Filter by date */}
           <Popover>
             <PopoverTrigger asChild>
@@ -378,5 +535,4 @@ const CourtSessions = () => {
     </div>
   );
 };
-
 export default CourtSessions;
