@@ -203,7 +203,7 @@ const Billing = () => {
         )}
 
         {/* Summary Cards — for invoices & fee statements */}
-        {activeTab !== 'accounting' && (
+        {(activeTab === 'invoices' || activeTab === 'fee-statements') && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
             <Card>
               <CardContent className="pt-4 pb-3">
