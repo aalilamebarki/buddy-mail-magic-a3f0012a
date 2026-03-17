@@ -405,8 +405,11 @@ const CourtSessions = () => {
           <CardTitle className="text-base">{title} ({items.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto -webkit-overflow-scrolling-touch" style={{ WebkitOverflowScrolling: 'touch' }}>
-            <Table>
+          <div
+            className="overflow-x-auto overscroll-x-contain touch-pan-x"
+            style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-x' }}
+          >
+            <Table className="min-w-[960px]">
               <TableHeader>
                 <TableRow>
                   <TableHead className="text-right">التاريخ</TableHead>
