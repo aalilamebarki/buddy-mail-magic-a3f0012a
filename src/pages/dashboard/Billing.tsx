@@ -18,7 +18,6 @@ import { formatDateShort } from '@/lib/formatters';
 import { exportAccountingExcel, exportAccountingPDF } from '@/lib/export-accounting';
 import CreateInvoiceDialog from '@/components/invoices/CreateInvoiceDialog';
 import CreateFeeStatementDialog from '@/components/invoices/CreateFeeStatementDialog';
-import ClientLedgerTab from '@/components/billing/ClientLedgerTab';
 
 const PAYMENT_LABELS: Record<string, string> = {
   cash: 'نقداً',
