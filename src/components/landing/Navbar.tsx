@@ -32,12 +32,12 @@ const Navbar = () => {
 
   return (
     <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-      scrolled 
-        ? 'bg-background/90 backdrop-blur-xl border-b border-border shadow-sm' 
+      scrolled
+        ? 'bg-background/90 backdrop-blur-xl border-b border-border shadow-sm'
         : 'bg-transparent'
     }`}>
       <div className="container mx-auto px-4 flex items-center justify-between h-16 md:h-20">
-        <Link to="/" className="flex items-center gap-2.5">
+        <Link to="/" className="order-2 md:order-1 flex items-center gap-2.5">
           <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-legal-navy to-primary flex items-center justify-center">
             <Scale className="h-5 w-5 text-primary-foreground" />
           </div>
@@ -46,8 +46,11 @@ const Navbar = () => {
 
         <div className="hidden md:flex items-center gap-1">
           {navLinks.map(link => (
-            <Link key={link.to} to={link.to}
-              className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-accent">
+            <Link
+              key={link.to}
+              to={link.to}
+              className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-accent"
+            >
               {link.label}
             </Link>
           ))}
@@ -61,7 +64,10 @@ const Navbar = () => {
           </Link>
         </div>
 
-        <button className="md:hidden p-2 rounded-lg hover:bg-accent" onClick={() => setMobileOpen(!mobileOpen)}>
+        <button
+          className="order-1 md:hidden p-2 rounded-lg hover:bg-accent"
+          onClick={() => setMobileOpen(!mobileOpen)}
+        >
           {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
       </div>
@@ -70,12 +76,15 @@ const Navbar = () => {
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="md:hidden bg-background/95 backdrop-blur-xl border-b border-border p-5 space-y-2"
+          className="md:hidden bg-background/95 backdrop-blur-xl border-b border-border p-5 space-y-2 text-right"
         >
           {mobileNavLinks.map(link => (
-            <Link key={link.to} to={link.to}
+            <Link
+              key={link.to}
+              to={link.to}
               className="block px-4 py-3 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-all"
-              onClick={() => setMobileOpen(false)}>
+              onClick={() => setMobileOpen(false)}
+            >
               {link.label}
             </Link>
           ))}
