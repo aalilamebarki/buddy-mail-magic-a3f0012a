@@ -19,7 +19,7 @@ export interface FeeStatementCaseRecord {
   tax_amount: number;
   subtotal: number;
   total_amount: number;
-  cases?: { title: string; case_number: string | null; court: string | null } | null;
+  cases?: { title: string; case_number: string | null; court: string | null; case_type?: string | null } | null;
 }
 
 export interface FeeStatementRecord {
@@ -41,8 +41,19 @@ export interface FeeStatementRecord {
   pdf_path: string | null;
   created_at: string;
   clients?: { full_name: string; cin: string | null; phone: string | null } | null;
-  cases?: { title: string; case_number: string | null; court: string | null } | null;
-  letterheads?: { lawyer_name: string } | null;
+  cases?: { title: string; case_number: string | null; court: string | null; case_type?: string | null } | null;
+  letterheads?: {
+    lawyer_name: string;
+    name_fr?: string | null;
+    title_ar?: string | null;
+    title_fr?: string | null;
+    bar_name_ar?: string | null;
+    bar_name_fr?: string | null;
+    address?: string | null;
+    city?: string | null;
+    phone?: string | null;
+    email?: string | null;
+  } | null;
   fee_statement_items?: FeeStatementItemRecord[];
   fee_statement_cases?: FeeStatementCaseRecord[];
 }
@@ -55,7 +66,7 @@ export const useFeeStatements = () => {
     setLoading(true);
     const { data } = await supabase
       .from('fee_statements')
-      .select('*, clients(full_name, cin, phone), cases(title, case_number, court), letterheads(lawyer_name), fee_statement_items(*), fee_statement_cases(*, cases(title, case_number, court))')
+      .select('*, clients(full_name, cin, phone), cases(title, case_number, court, case_type), letterheads(lawyer_name, name_fr, title_ar, title_fr, bar_name_ar, bar_name_fr, address, city, phone, email), fee_statement_items(*), fee_statement_cases(*, cases(title, case_number, court, case_type))')
       .order('created_at', { ascending: false });
     if (data) setStatements(data as unknown as FeeStatementRecord[]);
     setLoading(false);
