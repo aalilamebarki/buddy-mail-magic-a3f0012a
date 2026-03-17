@@ -6,6 +6,7 @@ import {
   Scale,
   LayoutDashboard,
   Gavel,
+  CalendarDays,
   FolderOpen,
   Users,
   FileText,
