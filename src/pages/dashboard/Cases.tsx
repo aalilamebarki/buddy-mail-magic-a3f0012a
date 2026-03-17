@@ -317,16 +317,42 @@ const Cases = () => {
           <div className="space-y-3">
             <div>
               <Label>الموكل *</Label>
-              <Select value={form.client_id} onValueChange={(v) => updateField('client_id', v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="اختر الموكل" />
-                </SelectTrigger>
-                <SelectContent>
-                  {clients.map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={clientPopoverOpen} onOpenChange={setClientPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                    {selectedClientLabel || 'ابحث عن الموكل أو أضف جديد...'}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command shouldFilter={false}>
+                    <CommandInput placeholder="ابحث باسم الموكل..." value={clientSearch} onValueChange={setClientSearch} />
+                    <CommandList>
+                      <CommandEmpty className="p-2">
+                        <Button variant="ghost" className="w-full justify-start gap-2 text-primary" onClick={() => { setNewClientName(clientSearch); setAddClientDialogOpen(true); setClientPopoverOpen(false); }}>
+                          <UserPlus className="h-4 w-4" /> إضافة "{clientSearch}" كموكل جديد
+                        </Button>
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {filteredClients.map(c => (
+                          <CommandItem key={c.id} value={c.id} onSelect={() => { updateField('client_id', c.id); setClientPopoverOpen(false); setClientSearch(''); }}>
+                            <Check className={cn("mr-2 h-4 w-4", form.client_id === c.id ? "opacity-100" : "opacity-0")} />
+                            {c.full_name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                      {clientSearch && filteredClients.length > 0 && (
+                        <CommandGroup>
+                          <CommandItem onSelect={() => { setNewClientName(clientSearch); setAddClientDialogOpen(true); setClientPopoverOpen(false); }}>
+                            <UserPlus className="mr-2 h-4 w-4 text-primary" />
+                            <span className="text-primary">إضافة "{clientSearch}" كموكل جديد</span>
+                          </CommandItem>
+                        </CommandGroup>
+                      )}
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <div>
               <Label>عنوان الملف *</Label>
