@@ -283,11 +283,11 @@ const CourtSessions = () => {
         </div>
       )}
 
-      {/* Add Session Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      {/* Session Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditingSession(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>إضافة جلسة جديدة</DialogTitle>
+            <DialogTitle>{editingSession ? 'تعديل الجلسة' : 'إضافة جلسة جديدة'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {/* Case selector */}
