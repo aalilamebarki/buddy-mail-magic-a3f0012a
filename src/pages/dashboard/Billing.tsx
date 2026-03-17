@@ -6,17 +6,19 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Receipt, FileText, Plus, Download, Loader2, QrCode, Search, Pencil, DollarSign, BookOpen, TrendingUp } from 'lucide-react';
+import { Receipt, FileText, Plus, Download, Loader2, QrCode, Search, Pencil, DollarSign, BookOpen, TrendingUp, Users } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useInvoices } from '@/hooks/useInvoices';
 import { useFeeStatements, type FeeStatementRecord } from '@/hooks/useFeeStatements';
 import { useAccountingEntries } from '@/hooks/useAccounting';
+import { useClientLedger } from '@/hooks/useClientLedger';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { formatDateShort } from '@/lib/formatters';
 import { exportAccountingExcel, exportAccountingPDF } from '@/lib/export-accounting';
 import CreateInvoiceDialog from '@/components/invoices/CreateInvoiceDialog';
 import CreateFeeStatementDialog from '@/components/invoices/CreateFeeStatementDialog';
+import ClientLedgerTab from '@/components/billing/ClientLedgerTab';
 
 const PAYMENT_LABELS: Record<string, string> = {
   cash: 'نقداً',
@@ -57,6 +59,7 @@ const Billing = () => {
   // Accounting
   const [accYear, setAccYear] = useState(currentYear);
   const { entries, loading: accLoading, stats } = useAccountingEntries(accYear);
+  const { clientEntries, globalStats: ledgerStats } = useClientLedger(invoices, statements);
 
   const filteredInvoices = invoices.filter(inv =>
     !search ||
@@ -149,7 +152,7 @@ const Billing = () => {
           </h1>
           <p className="text-muted-foreground text-xs mt-1">إدارة الوصولات وبيانات الأتعاب والسجل المحاسبي</p>
         </div>
-        {activeTab !== 'accounting' && (
+        {(activeTab === 'invoices' || activeTab === 'fee-statements') && (
           <Button
             onClick={() => activeTab === 'invoices' ? setInvDialogOpen(true) : openCreateFs()}
             className="gap-1.5"
@@ -177,10 +180,17 @@ const Billing = () => {
             <BookOpen className="h-4 w-4" />
             السجل المحاسبي
           </TabsTrigger>
+          <TabsTrigger value="client-ledger" className="gap-1.5 flex-1 sm:flex-none">
+            <Users className="h-4 w-4" />
+            حسابات الموكلين
+            {ledgerStats.clientsWithDebt > 0 && (
+              <Badge variant="destructive" className="mr-1 text-[10px]">{ledgerStats.clientsWithDebt}</Badge>
+            )}
+          </TabsTrigger>
         </TabsList>
 
         {/* Search — for invoices & fee statements tabs */}
-        {activeTab !== 'accounting' && (
+        {(activeTab === 'invoices' || activeTab === 'fee-statements') && (
           <div className="relative max-w-sm mt-4">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -193,7 +203,7 @@ const Billing = () => {
         )}
 
         {/* Summary Cards — for invoices & fee statements */}
-        {activeTab !== 'accounting' && (
+        {(activeTab === 'invoices' || activeTab === 'fee-statements') && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
             <Card>
               <CardContent className="pt-4 pb-3">
@@ -511,6 +521,11 @@ const Billing = () => {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* Client Ledger Tab */}
+        <TabsContent value="client-ledger">
+          <ClientLedgerTab entries={clientEntries} globalStats={ledgerStats} />
         </TabsContent>
       </Tabs>
 

@@ -793,6 +793,7 @@ export type Database = {
           client_id: string | null
           created_at: string
           description: string | null
+          fee_statement_id: string | null
           id: string
           invoice_number: string
           letterhead_id: string | null
@@ -809,6 +810,7 @@ export type Database = {
           client_id?: string | null
           created_at?: string
           description?: string | null
+          fee_statement_id?: string | null
           id?: string
           invoice_number: string
           letterhead_id?: string | null
@@ -825,6 +827,7 @@ export type Database = {
           client_id?: string | null
           created_at?: string
           description?: string | null
+          fee_statement_id?: string | null
           id?: string
           invoice_number?: string
           letterhead_id?: string | null
@@ -848,6 +851,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_fee_statement_id_fkey"
+            columns: ["fee_statement_id"]
+            isOneToOne: false
+            referencedRelation: "fee_statements"
             referencedColumns: ["id"]
           },
           {

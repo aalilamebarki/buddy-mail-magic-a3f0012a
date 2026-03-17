@@ -7,6 +7,7 @@ export interface InvoiceRecord {
   client_id: string | null;
   case_id: string | null;
   letterhead_id: string | null;
+  fee_statement_id: string | null;
   invoice_number: string;
   amount: number;
   description: string | null;
@@ -19,6 +20,7 @@ export interface InvoiceRecord {
   clients?: { full_name: string } | null;
   cases?: { title: string; case_number: string | null } | null;
   letterheads?: { lawyer_name: string } | null;
+  fee_statements?: { statement_number: string; total_amount: number; lawyer_fees: number } | null;
 }
 
 export const useInvoices = () => {
@@ -29,7 +31,7 @@ export const useInvoices = () => {
     setLoading(true);
     const { data } = await supabase
       .from('invoices')
-      .select('*, clients(full_name), cases(title, case_number), letterheads(lawyer_name)')
+      .select('*, clients(full_name), cases(title, case_number), letterheads(lawyer_name), fee_statements(statement_number, total_amount, lawyer_fees)')
       .order('created_at', { ascending: false });
     if (data) setInvoices(data as unknown as InvoiceRecord[]);
     setLoading(false);
