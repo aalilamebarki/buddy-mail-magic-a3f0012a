@@ -53,16 +53,15 @@ const PAYMENT_METHODS: Record<string, string> = {
   card: 'بطاقة بنكية',
 };
 
-const NAVY: [number, number, number] = [15, 45, 80];
-const GOLD: [number, number, number] = [180, 150, 80];
-const LIGHT_BG: [number, number, number] = [245, 247, 250];
-const BORDER: [number, number, number] = [220, 225, 235];
-const GRAY: [number, number, number] = [120, 120, 120];
+const BLACK: [number, number, number] = [0, 0, 0];
+const GRAY: [number, number, number] = [100, 100, 100];
+const LIGHT_GRAY: [number, number, number] = [180, 180, 180];
+const BORDER: [number, number, number] = [200, 200, 200];
 
-/** Convert number to Arabic words (simplified for common amounts) */
+/** Convert number to Arabic words */
 const numberToArabicWords = (num: number): string => {
   if (num === 0) return 'صفر درهم';
-  
+
   const ones = ['', 'واحد', 'اثنان', 'ثلاثة', 'أربعة', 'خمسة', 'ستة', 'سبعة', 'ثمانية', 'تسعة'];
   const teens = ['عشرة', 'أحد عشر', 'اثنا عشر', 'ثلاثة عشر', 'أربعة عشر', 'خمسة عشر', 'ستة عشر', 'سبعة عشر', 'ثمانية عشر', 'تسعة عشر'];
   const tens = ['', '', 'عشرون', 'ثلاثون', 'أربعون', 'خمسون', 'ستون', 'سبعون', 'ثمانون', 'تسعون'];
@@ -125,238 +124,170 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
   doc.setFont('Amiri');
 
   const pw = 210;
-  const m = 25;
+  const m = 20;
   const cw = pw - m * 2;
-  const cx = pw / 2;
+  const rightX = pw - m;
 
   const lh = data.letterhead;
   const lawyerName = lh?.lawyerName || data.lawyerName;
-  const titleAr = lh?.titleAr || 'محامٍ';
+  const titleAr = lh?.titleAr || '';
+  const barNameAr = lh?.barNameAr || '';
   const city = lh?.city || '';
   const address = lh?.address || '';
   const phone = lh?.phone || '';
   const email = lh?.email || '';
-  const barNameAr = lh?.barNameAr || '';
 
   // QR
   const verificationUrl = `${window.location.origin}/verify/${data.signatureUuid}`;
   const qrDataUrl = await QRCode.toDataURL(verificationUrl, { width: 200, margin: 1 });
 
-  // ── Header: Navy top bar ──
-  doc.setFillColor(...NAVY);
-  doc.rect(0, 0, pw, 6, 'F');
-  doc.setFillColor(...GOLD);
-  doc.rect(0, 6, pw, 1, 'F');
+  let y = 20;
 
-  // ── Lawyer office name ──
-  let y = 18;
-  doc.setFontSize(22);
-  doc.setTextColor(...NAVY);
-  doc.text(`مكتب الأستاذ`, cx, y, { align: 'center' });
-  y += 10;
-  doc.setFontSize(24);
-  doc.text(lawyerName, cx, y, { align: 'center' });
-  y += 8;
+  // ── Lawyer Name ──
+  doc.setFontSize(16);
+  doc.setTextColor(...BLACK);
+  doc.text(`الأستاذ ${lawyerName}`, rightX, y, { align: 'right' });
+  y += 7;
 
-  // Title (e.g., محاج لدى المجلس)
   if (titleAr || barNameAr) {
-    doc.setFontSize(12);
-    doc.setTextColor(...GOLD);
-    const subtitle = [titleAr, barNameAr ? `لدى ${barNameAr}` : ''].filter(Boolean).join(' ');
-    doc.text(subtitle, cx, y, { align: 'center' });
-    y += 10;
-  } else {
+    doc.setFontSize(10);
+    doc.setTextColor(...GRAY);
+    const subtitle = [titleAr, barNameAr].filter(Boolean).join(' — ');
+    doc.text(subtitle, rightX, y, { align: 'right' });
     y += 6;
   }
 
-  // ── Contact info ──
-  if (address || phone || email) {
-    doc.setFontSize(9);
-    doc.setTextColor(...GRAY);
-
-    if (address) {
-      doc.setFontSize(10);
-      doc.setTextColor(80, 80, 80);
-      doc.text('المقر الاجتماعي', cx, y, { align: 'center' });
-      y += 5;
-      doc.setFontSize(9);
-      doc.setTextColor(...GRAY);
-      const fullAddr = [address, city].filter(Boolean).join('، ');
-      doc.text(fullAddr, cx, y, { align: 'center' });
-      y += 5;
-    }
-    if (phone) {
-      doc.text(`الهاتف: ${phone}`, cx, y, { align: 'center' });
-      y += 5;
-    }
-    if (email) {
-      doc.text(`البريد الإلكتروني: ${email}`, cx, y, { align: 'center' });
-      y += 5;
-    }
-    y += 3;
+  // Contact info on same side
+  doc.setFontSize(8);
+  doc.setTextColor(...GRAY);
+  const contactParts = [address, city, phone, email].filter(Boolean);
+  if (contactParts.length) {
+    doc.text(contactParts.join(' • '), rightX, y, { align: 'right' });
+    y += 6;
   }
 
-  // ── Divider ──
+  // ── Separator ──
+  y += 2;
   doc.setDrawColor(...BORDER);
   doc.setLineWidth(0.3);
-  doc.line(m + 10, y, pw - m - 10, y);
+  doc.line(m, y, rightX, y);
+  y += 12;
+
+  // ── Title ──
+  doc.setFontSize(20);
+  doc.setTextColor(...BLACK);
+  doc.text('وصل أداء', pw / 2, y, { align: 'center' });
   y += 10;
 
-  // ── Title: وصل أداء ──
-  doc.setFontSize(26);
-  doc.setTextColor(...NAVY);
-  doc.text('وصل أداء', cx, y, { align: 'center' });
-  y += 3;
-  // Underline
-  doc.setDrawColor(...NAVY);
-  doc.setLineWidth(0.8);
-  const titleWidth = 42;
-  doc.line(cx - titleWidth / 2, y, cx + titleWidth / 2, y);
-  y += 8;
-
-  // Receipt number
-  doc.setFontSize(10);
-  doc.setTextColor(...GRAY);
-  doc.text(`رقم الوصل: ${data.invoiceNumber}`, cx, y, { align: 'center' });
-  y += 12;
-
-  // ── Client Info Card ──
-  const cardH = data.caseType ? 65 : 52;
-  doc.setFillColor(...LIGHT_BG);
-  doc.roundedRect(m + 10, y, cw - 20, cardH, 3, 3, 'F');
-  doc.setDrawColor(...BORDER);
-  doc.setLineWidth(0.3);
-  doc.roundedRect(m + 10, y, cw - 20, cardH, 3, 3, 'S');
-  // Left border accent
-  doc.setFillColor(...NAVY);
-  doc.rect(pw - m - 10 - 3, y + 3, 3, cardH - 6, 'F');
-
-  let cardY = y + 10;
-
-  // الموكل
+  // Invoice number & date
   doc.setFontSize(9);
   doc.setTextColor(...GRAY);
-  doc.text('الموكل', cx, cardY, { align: 'center' });
-  cardY += 7;
-  doc.setFontSize(14);
-  doc.setTextColor(20, 30, 50);
-  doc.text(data.clientName, cx, cardY, { align: 'center' });
-  cardY += 10;
-
-  // رقم الملف
-  if (data.caseNumber || data.caseName) {
-    doc.setFontSize(9);
-    doc.setTextColor(...GRAY);
-    doc.text('رقم الملف', cx, cardY, { align: 'center' });
-    cardY += 6;
-    doc.setFontSize(11);
-    doc.setTextColor(20, 30, 50);
-    const caseRef = data.caseNumber ? `#${data.caseNumber}` : (data.caseName || '—');
-    doc.text(caseRef, cx, cardY, { align: 'center' });
-    cardY += 9;
-  }
-
-  // موضوع الملف
-  if (data.caseType || data.caseName) {
-    doc.setFontSize(9);
-    doc.setTextColor(...GRAY);
-    doc.text('موضوع الملف', cx, cardY, { align: 'center' });
-    cardY += 6;
-    doc.setFontSize(11);
-    doc.setTextColor(20, 30, 50);
-    doc.text(data.caseType || data.caseName || '—', cx, cardY, { align: 'center' });
-  }
-
-  y += cardH + 14;
-
-  // ── Amount Section ──
-  // Amount label
-  doc.setFontSize(11);
-  doc.setTextColor(20, 30, 50);
-  doc.text('المبلغ الإجمالي المستلم:', pw - m, y, { align: 'right' });
-
-  // Amount value - large
-  doc.setFontSize(28);
-  doc.setTextColor(...NAVY);
-  const amountStr = `MAD  ${data.amount.toLocaleString('fr-MA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  doc.text(amountStr, m, y + 2, { align: 'left' });
+  doc.text(`رقم: ${data.invoiceNumber}`, rightX, y, { align: 'right' });
+  doc.text(data.date, m, y, { align: 'left' });
   y += 12;
+
+  // ── Client & Case info ──
+  doc.setFontSize(11);
+  doc.setTextColor(...BLACK);
+  doc.text(`الموكل: ${data.clientName}`, rightX, y, { align: 'right' });
+  y += 7;
+
+  if (data.caseNumber) {
+    doc.setFontSize(10);
+    doc.setTextColor(...GRAY);
+    doc.text(`رقم الملف: ${data.caseNumber}`, rightX, y, { align: 'right' });
+    y += 7;
+  }
+
+  if (data.caseType || data.caseName) {
+    doc.setFontSize(10);
+    doc.setTextColor(...GRAY);
+    doc.text(`الموضوع: ${data.caseType || data.caseName}`, rightX, y, { align: 'right' });
+    y += 7;
+  }
+
+  y += 8;
+
+  // ── Separator ──
+  doc.setDrawColor(...BORDER);
+  doc.line(m, y, rightX, y);
+  y += 10;
+
+  // ── Amount ──
+  doc.setFontSize(11);
+  doc.setTextColor(...BLACK);
+  doc.text('المبلغ المستلم:', rightX, y, { align: 'right' });
+
+  doc.setFontSize(18);
+  doc.setTextColor(...BLACK);
+  const amountStr = `${data.amount.toLocaleString('fr-MA', { minimumFractionDigits: 2 })} درهم`;
+  doc.text(amountStr, rightX, y + 10, { align: 'right' });
+  y += 22;
 
   // Amount in words
   doc.setFontSize(9);
-  doc.setTextColor(...GOLD);
-  doc.text('المبلغ بالحروف:', pw - m, y, { align: 'right' });
-  doc.setFontSize(10);
-  doc.setTextColor(60, 60, 60);
-  const amountWords = numberToArabicWords(data.amount);
-  doc.text(amountWords, pw - m - 28, y, { align: 'right' });
-  y += 16;
+  doc.setTextColor(...GRAY);
+  doc.text(numberToArabicWords(data.amount), rightX, y, { align: 'right' });
+  y += 10;
 
-  // ── Legal paragraph ──
-  doc.setFontSize(12);
-  doc.setTextColor(30, 30, 30);
+  // Payment method
   const paymentMethodText = PAYMENT_METHODS[data.paymentMethod] || data.paymentMethod;
-  const legalText = `يشهد مكتب الأستاذ ${lawyerName} باستلام المبلغ المذكور أعلاه من السيد(ة) ${data.clientName}، وذلك رسم مستحقات الملف المشار إليه أعلاه، ويعتبر هذا الوصل بمثابة إبراء ذمة نهائي بخصوص هذا الدفع.`;
-
-  const splitText = doc.splitTextToSize(legalText, cw - 10);
-  doc.text(splitText, pw - m, y, { align: 'right' });
-  y += splitText.length * 7 + 5;
+  doc.setFontSize(10);
+  doc.setTextColor(...GRAY);
+  doc.text(`طريقة الأداء: ${paymentMethodText}`, rightX, y, { align: 'right' });
+  y += 8;
 
   if (data.description) {
-    doc.setFontSize(10);
-    doc.setTextColor(...GRAY);
-    doc.text(`البيان: ${data.description}`, pw - m, y, { align: 'right' });
+    doc.text(`البيان: ${data.description}`, rightX, y, { align: 'right' });
     y += 8;
   }
 
-  // Payment method
+  y += 6;
+
+  // ── Legal text ──
+  doc.setDrawColor(...BORDER);
+  doc.line(m, y, rightX, y);
+  y += 8;
+
   doc.setFontSize(10);
-  doc.setTextColor(...GRAY);
-  doc.text(`طريقة الأداء: ${paymentMethodText}`, pw - m, y, { align: 'right' });
-  y += 16;
+  doc.setTextColor(...BLACK);
+  const legalText = `يشهد مكتب الأستاذ ${lawyerName} باستلام المبلغ المذكور أعلاه من السيد(ة) ${data.clientName}، ويعتبر هذا الوصل بمثابة إبراء ذمة بخصوص هذا الدفع.`;
+  const splitText = doc.splitTextToSize(legalText, cw);
+  doc.text(splitText, rightX, y, { align: 'right' });
+  y += splitText.length * 6 + 10;
 
   // ── Date & City ──
   if (city) {
     doc.setFontSize(10);
     doc.setTextColor(...GRAY);
-    doc.text(`حرر ب${city} في:`, pw - m, y, { align: 'right' });
-    y += 7;
+    doc.text(`حرر ب${city} في: ${data.date}`, rightX, y, { align: 'right' });
+    y += 14;
   }
-  doc.setFontSize(13);
-  doc.setTextColor(20, 30, 50);
-  doc.text(data.date, pw - m, y, { align: 'right' });
-  y += 14;
 
-  // ── Signature Section ──
-  doc.setFontSize(11);
-  doc.setTextColor(...NAVY);
-  doc.text('توقيع وختم المكتب', cx, y, { align: 'center' });
-  y += 5;
-
-  // Signature placeholder circle
-  doc.setDrawColor(...BORDER);
-  doc.setLineWidth(0.4);
-  doc.setFillColor(248, 249, 252);
-  doc.circle(cx, y + 18, 18, 'FD');
-  doc.setFontSize(7);
-  doc.setTextColor(200, 200, 200);
-  doc.text('SEAL & SIGNATURE AREA', cx, y + 19, { align: 'center' });
+  // ── Signature ──
+  doc.setFontSize(10);
+  doc.setTextColor(...BLACK);
+  doc.text('التوقيع والختم', rightX, y, { align: 'right' });
+  y += 20;
+  doc.setDrawColor(...LIGHT_GRAY);
+  doc.setLineWidth(0.3);
+  doc.line(rightX - 50, y, rightX, y);
 
   // ── QR Code - bottom left ──
-  const qrSize = 22;
-  doc.addImage(qrDataUrl, 'PNG', m, y + 5, qrSize, qrSize);
+  const qrSize = 18;
+  const qrY = 260;
+  doc.addImage(qrDataUrl, 'PNG', m, qrY, qrSize, qrSize);
   doc.setFontSize(6);
-  doc.setTextColor(170, 170, 170);
-  doc.text('رمز التحقق', m + qrSize / 2, y + qrSize + 8, { align: 'center' });
+  doc.setTextColor(...LIGHT_GRAY);
+  doc.text('رمز التحقق', m + qrSize / 2, qrY + qrSize + 3, { align: 'center' });
 
   // ── Footer ──
-  const footerY = 282;
   doc.setDrawColor(...BORDER);
-  doc.setLineWidth(0.3);
-  doc.line(m, footerY, pw - m, footerY);
+  doc.setLineWidth(0.2);
+  doc.line(m, 285, rightX, 285);
   doc.setFontSize(7);
-  doc.setTextColor(170, 170, 170);
-  doc.text('وثيقة موقعة إلكترونياً — أي تزوير يعرض صاحبه للمتابعة القانونية', cx, footerY + 5, { align: 'center' });
+  doc.setTextColor(...LIGHT_GRAY);
+  doc.text('وثيقة موقعة إلكترونياً', pw / 2, 289, { align: 'center' });
 
   return doc.output('blob');
 };
