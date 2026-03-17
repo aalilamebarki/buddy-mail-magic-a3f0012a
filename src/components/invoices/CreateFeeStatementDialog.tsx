@@ -89,6 +89,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
           return {
             caseId: fc.case_id,
             lawyerFees: String(fc.lawyer_fees || editData.lawyer_fees || ''),
+            taxRate: String(fc.tax_rate ?? editData.tax_rate ?? DEFAULT_TAX_RATE),
             items: caseItems.length > 0 ? caseItems : [{ description: '', amount: '' }],
             collapsed: false,
           };
