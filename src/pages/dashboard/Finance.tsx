@@ -9,9 +9,9 @@ import { useAccountingEntries } from '@/hooks/useAccounting';
 import { formatDateShort } from '@/lib/formatters';
 import { exportAccountingExcel, exportAccountingPDF } from '@/lib/export-accounting';
 
-const ENTRY_TYPE_LABELS: Record<string, { label: string; color: string }> = {
-  invoice: { label: 'وصل أداء', color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200' },
-  fee_statement: { label: 'بيان أتعاب', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
+const ENTRY_TYPE_LABELS: Record<string, { label: string; sublabel: string; color: string }> = {
+  invoice: { label: 'وصل أداء', sublabel: 'تحصيل', color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200' },
+  fee_statement: { label: 'بيان أتعاب', sublabel: 'أتعاب فقط', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
 };
 
 const PAYMENT_LABELS: Record<string, string> = {
@@ -181,14 +181,19 @@ const Finance = () => {
                 </TableHeader>
                 <TableBody>
                   {entries.map(entry => {
-                    const typeInfo = ENTRY_TYPE_LABELS[entry.entry_type] || { label: entry.entry_type, color: '' };
+                    const typeInfo = ENTRY_TYPE_LABELS[entry.entry_type] || { label: entry.entry_type, sublabel: '', color: '' };
                     return (
                       <TableRow key={entry.id}>
                         <TableCell className="font-mono text-xs font-bold" dir="ltr">{entry.entry_number}</TableCell>
                         <TableCell>
-                          <Badge className={`text-[10px] ${typeInfo.color}`} variant="outline">
-                            {typeInfo.label}
-                          </Badge>
+                          <div className="flex flex-col items-start gap-0.5">
+                            <Badge className={`text-[10px] ${typeInfo.color}`} variant="outline">
+                              {typeInfo.label}
+                            </Badge>
+                            {typeInfo.sublabel && (
+                              <span className="text-[9px] text-muted-foreground">{typeInfo.sublabel}</span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="text-sm">{entry.clients?.full_name || '—'}</TableCell>
                         <TableCell className="text-xs max-w-32 truncate">{entry.description || '—'}</TableCell>
