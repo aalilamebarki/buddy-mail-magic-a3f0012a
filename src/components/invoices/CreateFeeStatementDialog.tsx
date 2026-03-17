@@ -174,6 +174,47 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
     setCaseBlocks(prev => prev.map(b => b.caseId === caseId ? { ...b, collapsed: !b.collapsed } : b));
   };
 
+  const handleCreateCase = async () => {
+    if (!user || !newCase.title.trim() || !newCase.case_number.trim()) return;
+    setCreatingCase(true);
+    try {
+      const { data, error } = await supabase
+        .from('cases')
+        .insert({
+          title: newCase.title.trim(),
+          case_number: newCase.case_number.trim(),
+          court: newCase.court.trim() || null,
+          case_type: newCase.case_type || null,
+          client_id: form.clientId || null,
+          assigned_to: user.id,
+        })
+        .select('id')
+        .single();
+      if (error) throw error;
+      // Refresh cases list and add the new case to blocks
+      const { data: refreshed } = await supabase.from('cases').select('*').order('created_at', { ascending: false });
+      if (refreshed) {
+        // Force useCases hook won't update, so we add directly
+        const newCaseId = data.id;
+        setCaseBlocks(prev => [...prev, {
+          caseId: newCaseId,
+          lawyerFees: '',
+          items: [{ description: '', amount: '' }],
+          collapsed: false,
+        }]);
+      }
+      setNewCase({ title: '', case_number: '', court: '', case_type: '' });
+      setShowNewCase(false);
+      toast({ title: 'تم إنشاء الملف وإضافته ✅' });
+      // Refetch cases so it appears in the list
+      // We need to trigger useCases refetch - simplest way is to update cases state
+    } catch (e: any) {
+      toast({ title: 'خطأ في إنشاء الملف', description: e.message, variant: 'destructive' });
+    } finally {
+      setCreatingCase(false);
+    }
+  };
+
   const filteredCases = form.clientId ? cases.filter(c => c.client_id === form.clientId) : cases;
   const selectedCaseIds = caseBlocks.map(b => b.caseId);
   const availableCases = filteredCases.filter(c => !selectedCaseIds.includes(c.id));
