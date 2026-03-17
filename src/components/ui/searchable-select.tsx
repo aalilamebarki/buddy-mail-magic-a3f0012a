@@ -86,8 +86,8 @@ const SearchableSelect = ({
             triggerClassName,
           )}
         >
-          <span className="truncate">{selected?.label || placeholder}</span>
           <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
+          <span className="truncate flex-1 text-right">{selected?.label || placeholder}</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent
