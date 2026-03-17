@@ -48,7 +48,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
   const { user } = useAuth();
   const { toast } = useToast();
   const { clients } = useClients();
-  const { cases } = useCases({ withClients: false });
+  const { cases, refetch: refetchCases } = useCases({ withClients: false });
   const letterheads = useLetterheadOptions();
 
   const [saving, setSaving] = useState(false);
