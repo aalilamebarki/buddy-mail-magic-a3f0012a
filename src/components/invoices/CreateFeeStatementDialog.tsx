@@ -439,18 +439,66 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
           {/* Add Case Selector */}
           <div className="space-y-2">
             <Label className="text-xs font-semibold">الملفات * (يجب أن تحتوي على رقم ملف)</Label>
-            <Select value={caseSelectValue} onValueChange={addCase}>
-              <SelectTrigger className="text-sm"><SelectValue placeholder="اختر ملفاً لإضافته" /></SelectTrigger>
-              <SelectContent>
-                {availableCases.map(c => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.title} {c.case_number ? `(${c.case_number})` : '⚠️ بدون رقم'}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {caseBlocks.length === 0 && (
+            <div className="flex gap-2">
+              <Select value={caseSelectValue} onValueChange={addCase}>
+                <SelectTrigger className="text-sm flex-1"><SelectValue placeholder="اختر ملفاً لإضافته" /></SelectTrigger>
+                <SelectContent>
+                  {availableCases.map(c => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.title} {c.case_number ? `(${c.case_number})` : '⚠️ بدون رقم'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button type="button" variant="outline" size="sm" className="shrink-0 gap-1 text-xs" onClick={() => setShowNewCase(v => !v)}>
+                <Plus className="h-3.5 w-3.5" /> ملف جديد
+              </Button>
+            </div>
+            {caseBlocks.length === 0 && !showNewCase && (
               <p className="text-[10px] text-destructive">يرجى اختيار ملف واحد على الأقل</p>
+            )}
+
+            {/* Inline New Case Form */}
+            {showNewCase && (
+              <Card className="border-dashed border-primary/30">
+                <CardContent className="p-3 space-y-3">
+                  <p className="text-xs font-semibold text-primary">إنشاء ملف جديد</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-[10px]">عنوان الملف *</Label>
+                      <Input className="text-sm h-8" placeholder="مثال: نزاع عقاري" value={newCase.title} onChange={e => setNewCase(p => ({ ...p, title: e.target.value }))} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px]">رقم الملف *</Label>
+                      <Input className="text-sm h-8" placeholder="مثال: 2026/123" value={newCase.case_number} onChange={e => setNewCase(p => ({ ...p, case_number: e.target.value }))} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-[10px]">المحكمة</Label>
+                      <Input className="text-sm h-8" placeholder="مثال: المحكمة الابتدائية" value={newCase.court} onChange={e => setNewCase(p => ({ ...p, court: e.target.value }))} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px]">نوع الملف</Label>
+                      <Select value={newCase.case_type} onValueChange={v => setNewCase(p => ({ ...p, case_type: v }))}>
+                        <SelectTrigger className="text-sm h-8"><SelectValue placeholder="اختر" /></SelectTrigger>
+                        <SelectContent>
+                          {['مدني', 'جنائي', 'تجاري', 'أسري', 'إداري', 'عقاري', 'اجتماعي', 'استعجالي', 'أخرى'].map(t => (
+                            <SelectItem key={t} value={t}>{t}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button type="button" size="sm" className="flex-1 gap-1 text-xs" disabled={!newCase.title.trim() || !newCase.case_number.trim() || creatingCase} onClick={handleCreateCase}>
+                      {creatingCase ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                      إنشاء وإضافة
+                    </Button>
+                    <Button type="button" variant="ghost" size="sm" className="text-xs" onClick={() => setShowNewCase(false)}>إلغاء</Button>
+                  </div>
+                </CardContent>
+              </Card>
             )}
           </div>
 
