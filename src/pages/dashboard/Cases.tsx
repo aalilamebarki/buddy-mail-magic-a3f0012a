@@ -203,7 +203,7 @@ const Cases = () => {
           </div>
         ) : (
           filtered.map((c) => (
-            <Card key={c.id}>
+            <Card key={c.id} className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => navigate(`/dashboard/cases/${c.id}`)}>
               <CardContent className="pt-4 pb-4 space-y-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
