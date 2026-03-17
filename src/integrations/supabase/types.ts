@@ -431,6 +431,42 @@ export type Database = {
           },
         ]
       }
+      fee_statement_cases: {
+        Row: {
+          case_id: string
+          created_at: string
+          fee_statement_id: string
+          id: string
+        }
+        Insert: {
+          case_id: string
+          created_at?: string
+          fee_statement_id: string
+          id?: string
+        }
+        Update: {
+          case_id?: string
+          created_at?: string
+          fee_statement_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fee_statement_cases_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fee_statement_cases_fee_statement_id_fkey"
+            columns: ["fee_statement_id"]
+            isOneToOne: false
+            referencedRelation: "fee_statements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fee_statement_items: {
         Row: {
           amount: number
