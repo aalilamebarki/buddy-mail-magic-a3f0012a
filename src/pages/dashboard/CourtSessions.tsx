@@ -290,8 +290,8 @@ const CourtSessions = () => {
             <DialogTitle>{editingSession ? 'تعديل الجلسة' : 'إضافة جلسة جديدة'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            {/* Case selector */}
-            <div className="space-y-2">
+            {/* Case selector - only for new sessions */}
+            {!editingSession && <div className="space-y-2">
               <Label>الملف *</Label>
               <Popover open={casePopoverOpen} onOpenChange={setCasePopoverOpen}>
                 <PopoverTrigger asChild>
