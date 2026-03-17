@@ -42,6 +42,7 @@ const menuItems = [
   { icon: FileText, label: 'المقالات', path: '/dashboard/articles', roles: ['director', 'partner', 'content_writer'] as const },
   { icon: DollarSign, label: 'المالية', path: '/dashboard/finance', roles: ['director', 'partner'] as const },
   { icon: Receipt, label: 'الوصولات', path: '/dashboard/invoices', roles: ['director', 'partner', 'clerk'] as const },
+  { icon: Gavel, label: 'بيانات الأتعاب', path: '/dashboard/fee-statements', roles: ['director', 'partner', 'clerk'] as const },
   { icon: BarChart3, label: 'الإحصائيات', path: '/dashboard/analytics', roles: ['director', 'partner'] as const },
   { icon: FileBarChart, label: 'التقارير', path: '/dashboard/reports', roles: ['director'] as const },
   { icon: UserCog, label: 'إدارة المستخدمين', path: '/dashboard/users', roles: ['director'] as const },
