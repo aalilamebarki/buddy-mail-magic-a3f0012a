@@ -386,7 +386,7 @@ const CourtSessions = () => {
     doc.setLineWidth(0.3);
     doc.line(15, footerY - 3, pageW - 15, footerY - 3);
     doc.text(docTitle, pageW - 15, footerY, { align: 'right' });
-    const genDate = new Date().toLocaleDateString('ar-MA', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const genDate = new Date().toLocaleDateString('ar-u-nu-latn', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     doc.text(genDate, 15, footerY, { align: 'left' });
 
     const fileName = mode === 'week'
