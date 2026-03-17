@@ -430,7 +430,7 @@ const CourtSessions = () => {
                     </TableCell>
                     <TableCell className="text-sm font-medium">{s.cases?.clients?.full_name || '—'}</TableCell>
                     <TableCell className="text-sm">{s.cases?.opposing_party || '—'}</TableCell>
-                    <TableCell className="font-mono text-sm">{s.cases?.case_number || '—'}</TableCell>
+                    <TableCell className="font-mono text-sm" dir="ltr">{s.cases?.case_number || '—'}</TableCell>
                     <TableCell className="text-sm">{s.cases?.court || '—'}</TableCell>
                     <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{s.notes || '—'}</TableCell>
                     <TableCell>{getSessionBadge(s.session_date)}</TableCell>
@@ -574,7 +574,7 @@ const CourtSessions = () => {
                   <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
                     {selectedCase ? (
                       <span className="truncate">
-                        {selectedCase.clients?.full_name || selectedCase.title} {selectedCase.case_number ? `- ${selectedCase.case_number}` : ''}
+                        {selectedCase.clients?.full_name || selectedCase.title} {selectedCase.case_number ? <span dir="ltr">{`- ${selectedCase.case_number}`}</span> : ''}
                       </span>
                     ) : 'اختر الملف...'}
                     <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
@@ -592,7 +592,7 @@ const CourtSessions = () => {
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium truncate">{c.clients?.full_name || c.title}</p>
                               <p className="text-xs text-muted-foreground">
-                                {c.case_number && `${c.case_number} • `}{c.court || ''}
+                                {c.case_number && <span dir="ltr">{`${c.case_number} • `}</span>}{c.court || ''}
                               </p>
                             </div>
                           </CommandItem>

@@ -86,7 +86,7 @@ const DashboardHome = () => {
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium truncate">{s.cases?.clients?.full_name || s.cases?.title}</p>
                         <p className="text-xs text-muted-foreground">
-                          {s.cases?.court} {s.cases?.case_number ? `• ${s.cases.case_number}` : ''}
+                          {s.cases?.court} {s.cases?.case_number ? <span dir="ltr">{`• ${s.cases.case_number}`}</span> : ''}
                         </p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
