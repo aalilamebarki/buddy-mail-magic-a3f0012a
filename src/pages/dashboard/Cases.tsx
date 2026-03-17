@@ -257,7 +257,7 @@ const Cases = () => {
                   filtered.map((c) => (
                     <TableRow key={c.id}>
                       <TableCell className="font-medium">{c.title}</TableCell>
-                      <TableCell>{getClientName(c)}</TableCell>
+                      <TableCell>لفائدة: {getClientName(c)}</TableCell>
                       <TableCell>{c.case_type || '—'}</TableCell>
                       <TableCell>{c.court || '—'}</TableCell>
                       <TableCell className="font-mono">{c.case_number || '—'}</TableCell>
