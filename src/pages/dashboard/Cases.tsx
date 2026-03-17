@@ -225,7 +225,7 @@ const Cases = () => {
     setDeleteDialogOpen(true);
   };
 
-  const isNiyaba = (name: string) => name.trim() === NIYABA;
+  const isNiyaba = (name: string) => HIDDEN_ADDRESS_PARTIES.includes(name.trim());
 
   const handleSave = async () => {
     if (!form.title.trim()) { toast.error('عنوان الملف مطلوب'); return; }
