@@ -139,6 +139,11 @@ const Cases = () => {
     const validOpponents = opponents.filter(o => o.name.trim());
     if (validOpponents.length === 0) { toast.error('يجب إضافة خصم واحد على الأقل'); return; }
 
+    // Check duplicates
+    const names = validOpponents.map(o => o.name.trim());
+    const uniqueNames = new Set(names);
+    if (uniqueNames.size !== names.length) { toast.error('لقد سبق إدخال هذا المدعى عليه'); return; }
+
     for (const opp of validOpponents) {
       if (!isNiyaba(opp.name) && !opp.address.trim()) {
         toast.error(`عنوان الخصم "${opp.name}" مطلوب`);
@@ -460,6 +465,12 @@ const Cases = () => {
                       <Input
                         value={opp.name}
                         onChange={e => updateOpponent(index, 'name', e.target.value)}
+                        onBlur={() => {
+                          const name = opp.name.trim();
+                          if (name && opponents.some((o, i) => i !== index && o.name.trim() === name)) {
+                            toast.error('لقد سبق إدخال هذا المدعى عليه');
+                          }
+                        }}
                         placeholder="اسم الطرف المقابل"
                       />
                     </div>
@@ -494,6 +505,11 @@ const Cases = () => {
                     e.preventDefault();
                     const val = (e.target as HTMLInputElement).value.trim();
                     if (val) {
+                      const isDuplicate = opponents.some(o => o.name.trim() === val);
+                      if (isDuplicate) {
+                        toast.error('لقد سبق إدخال هذا المدعى عليه');
+                        return;
+                      }
                       setOpponents(prev => [...prev, { name: val, address: '', phone: '' }]);
                       (e.target as HTMLInputElement).value = '';
                     }
@@ -502,6 +518,12 @@ const Cases = () => {
                 onBlur={e => {
                   const val = e.target.value.trim();
                   if (val) {
+                    const isDuplicate = opponents.some(o => o.name.trim() === val);
+                    if (isDuplicate) {
+                      toast.error('لقد سبق إدخال هذا المدعى عليه');
+                      e.target.value = '';
+                      return;
+                    }
                     setOpponents(prev => [...prev, { name: val, address: '', phone: '' }]);
                     e.target.value = '';
                   }
