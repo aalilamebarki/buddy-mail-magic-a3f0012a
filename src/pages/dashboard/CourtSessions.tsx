@@ -281,9 +281,9 @@ const CourtSessions = () => {
     const fontBase64 = btoa(binary);
 
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-    doc.addFileToVFS('IBMPlexSansArabic-Regular.ttf', fontBase64);
-    doc.addFont('IBMPlexSansArabic-Regular.ttf', 'IBMPlexArabic', 'normal');
-    doc.setFont('IBMPlexArabic');
+    doc.addFileToVFS('Amiri-Regular.ttf', fontBase64);
+    doc.addFont('Amiri-Regular.ttf', 'Amiri', 'normal');
+    doc.setFont('Amiri');
     doc.setR2L(true);
 
     const pageW = doc.internal.pageSize.getWidth();
