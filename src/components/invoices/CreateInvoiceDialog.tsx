@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Loader2, Receipt, Eye, ArrowRight, Plus } from 'lucide-react';
@@ -62,6 +63,23 @@ const CreateInvoiceDialog = ({ open, onOpenChange, onCreated }: Props) => {
   const paymentLabel = PAYMENT_METHODS.find(m => m.value === form.paymentMethod)?.label || form.paymentMethod;
 
   const canSubmit = form.clientId && form.amount && amount > 0;
+
+  const clientOptions = clients.map(c => ({
+    value: c.id,
+    label: c.full_name,
+    sublabel: c.phone || c.email || undefined,
+  }));
+
+  const caseOptions = filteredCases.map(c => ({
+    value: c.id,
+    label: c.title,
+    sublabel: c.case_number || undefined,
+  }));
+
+  const letterheadOptions = letterheads.map(l => ({
+    value: l.id,
+    label: l.lawyer_name,
+  }));
 
   const handleShowPreview = () => {
     if (!canSubmit) return;
@@ -218,27 +236,27 @@ const CreateInvoiceDialog = ({ open, onOpenChange, onCreated }: Props) => {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>الموكل *</Label>
-              <Select value={form.clientId} onValueChange={v => update('clientId', v)}>
-                <SelectTrigger><SelectValue placeholder="اختر الموكل" /></SelectTrigger>
-                <SelectContent>
-                  {clients.map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={clientOptions}
+                value={form.clientId}
+                onValueChange={v => update('clientId', v)}
+                placeholder="اختر الموكل"
+                searchPlaceholder="ابحث باسم الموكل..."
+              />
             </div>
 
             <div className="space-y-2">
               <Label>الملف (اختياري)</Label>
               <div className="flex gap-2">
-                <Select value={form.caseId} onValueChange={v => update('caseId', v)}>
-                  <SelectTrigger className="flex-1"><SelectValue placeholder="ربط بملف" /></SelectTrigger>
-                  <SelectContent>
-                    {filteredCases.map(c => (
-                      <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex-1">
+                  <SearchableSelect
+                    options={caseOptions}
+                    value={form.caseId}
+                    onValueChange={v => update('caseId', v)}
+                    placeholder="ربط بملف"
+                    searchPlaceholder="ابحث بعنوان الملف أو رقمه..."
+                  />
+                </div>
                 <Button type="button" variant="outline" size="icon" className="shrink-0" onClick={() => setShowCaseDialog(true)} title="ملف جديد">
                   <Plus className="h-4 w-4" />
                 </Button>
@@ -247,14 +265,13 @@ const CreateInvoiceDialog = ({ open, onOpenChange, onCreated }: Props) => {
 
             <div className="space-y-2">
               <Label>الترويسة</Label>
-              <Select value={form.letterheadId} onValueChange={v => update('letterheadId', v)}>
-                <SelectTrigger><SelectValue placeholder="اختر الترويسة" /></SelectTrigger>
-                <SelectContent>
-                  {letterheads.map(l => (
-                    <SelectItem key={l.id} value={l.id}>{l.lawyer_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={letterheadOptions}
+                value={form.letterheadId}
+                onValueChange={v => update('letterheadId', v)}
+                placeholder="اختر الترويسة"
+                searchPlaceholder="ابحث باسم المحامي..."
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-3">

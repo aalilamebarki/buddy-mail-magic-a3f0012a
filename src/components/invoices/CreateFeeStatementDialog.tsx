@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -568,21 +569,25 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">الموكل *</Label>
-                <Select value={form.clientId} onValueChange={v => update('clientId', v)}>
-                  <SelectTrigger className="text-sm"><SelectValue placeholder="اختر" /></SelectTrigger>
-                  <SelectContent>
-                    {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  options={clients.map(c => ({ value: c.id, label: c.full_name, sublabel: c.phone || c.email || undefined }))}
+                  value={form.clientId}
+                  onValueChange={v => update('clientId', v)}
+                  placeholder="اختر"
+                  searchPlaceholder="ابحث باسم الموكل..."
+                  triggerClassName="text-sm"
+                />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">الترويسة</Label>
-                <Select value={form.letterheadId} onValueChange={v => update('letterheadId', v)}>
-                  <SelectTrigger className="text-sm"><SelectValue placeholder="اختر" /></SelectTrigger>
-                  <SelectContent>
-                    {letterheads.map(l => <SelectItem key={l.id} value={l.id}>{l.lawyer_name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  options={letterheads.map(l => ({ value: l.id, label: l.lawyer_name }))}
+                  value={form.letterheadId}
+                  onValueChange={v => update('letterheadId', v)}
+                  placeholder="اختر"
+                  searchPlaceholder="ابحث باسم المحامي..."
+                  triggerClassName="text-sm"
+                />
               </div>
             </div>
 
@@ -601,16 +606,20 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
             <div className="space-y-2">
               <Label className="text-xs font-semibold">الملفات * (يجب أن تحتوي على رقم ملف)</Label>
               <div className="flex gap-2">
-                <Select value={caseSelectValue} onValueChange={addCase}>
-                  <SelectTrigger className="text-sm flex-1"><SelectValue placeholder="اختر ملفاً لإضافته" /></SelectTrigger>
-                  <SelectContent>
-                    {availableCases.map(c => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.title} {c.case_number ? `(${c.case_number})` : '⚠️ بدون رقم'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex-1">
+                  <SearchableSelect
+                    options={availableCases.map(c => ({
+                      value: c.id,
+                      label: c.title,
+                      sublabel: c.case_number ? c.case_number : '⚠️ بدون رقم',
+                    }))}
+                    value={caseSelectValue}
+                    onValueChange={addCase}
+                    placeholder="اختر ملفاً لإضافته"
+                    searchPlaceholder="ابحث بعنوان الملف أو رقمه..."
+                    triggerClassName="text-sm"
+                  />
+                </div>
                 <Button type="button" variant="outline" size="sm" className="shrink-0 gap-1 text-xs" onClick={() => setShowNewCase(v => !v)}>
                   <Plus className="h-3.5 w-3.5" /> ملف جديد
                 </Button>
