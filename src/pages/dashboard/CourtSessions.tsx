@@ -459,7 +459,7 @@ const CourtSessions = () => {
     ${courtSections}
   </div>
   <div class="doc-footer">
-    <span>جدول الجلسات — ${periodLabel}</span>
+    <span>${docTitle} — ${periodLabel}</span></span>
     <span class="gen-date">تم الإنشاء: ${new Date().toLocaleDateString('ar-MA', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
   </div>
 </body>
