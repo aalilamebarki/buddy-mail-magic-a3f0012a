@@ -180,6 +180,13 @@ const Billing = () => {
             <BookOpen className="h-4 w-4" />
             السجل المحاسبي
           </TabsTrigger>
+          <TabsTrigger value="client-ledger" className="gap-1.5 flex-1 sm:flex-none">
+            <Users className="h-4 w-4" />
+            حسابات الموكلين
+            {ledgerStats.clientsWithDebt > 0 && (
+              <Badge variant="destructive" className="mr-1 text-[10px]">{ledgerStats.clientsWithDebt}</Badge>
+            )}
+          </TabsTrigger>
         </TabsList>
 
         {/* Search — for invoices & fee statements tabs */}
