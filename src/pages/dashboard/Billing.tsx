@@ -516,10 +516,6 @@ const Billing = () => {
           </div>
         </TabsContent>
 
-        {/* Client Ledger Tab */}
-        <TabsContent value="client-ledger">
-          <ClientLedgerTab entries={clientEntries} globalStats={ledgerStats} />
-        </TabsContent>
       </Tabs>
 
       {/* Dialogs */}
