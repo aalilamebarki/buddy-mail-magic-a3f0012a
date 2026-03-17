@@ -100,7 +100,7 @@ const App = () => (
                     <Route path="court-sessions" element={<CourtSessions />} />
                     <Route path="clients" element={<Clients />} />
                     <Route path="articles" element={<Articles />} />
-                    <Route path="finance" element={<Finance />} />
+                    
                     <Route path="analytics" element={<Analytics />} />
                     <Route path="settings" element={<SettingsPage />} />
                     <Route path="profile" element={<Profile />} />
