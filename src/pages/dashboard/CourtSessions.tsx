@@ -448,7 +448,7 @@ const CourtSessions = () => {
 </head>
 <body>
   <div class="doc-header">
-    <h1>جدول الجلسات</h1>
+    <h1>${docTitle}</h1>
     <p class="period">${periodLabel}</p>
     <div class="stats">
       <div class="stat-box"><span class="num">${totalSessions}</span><span class="label">جلسة</span></div>
