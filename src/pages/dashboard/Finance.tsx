@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DollarSign, TrendingUp, Receipt, FileText, BookOpen, Loader2 } from 'lucide-react';
+import { DollarSign, TrendingUp, Receipt, FileText, BookOpen, Loader2, Download } from 'lucide-react';
 import { useAccountingEntries } from '@/hooks/useAccounting';
 import { formatDateShort } from '@/lib/formatters';
+import { exportAccountingExcel, exportAccountingPDF } from '@/lib/export-accounting';
 
 const ENTRY_TYPE_LABELS: Record<string, { label: string; color: string }> = {
   invoice: { label: 'وصل أداء', color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200' },
@@ -44,16 +46,36 @@ const Finance = () => {
           </h1>
           <p className="text-muted-foreground text-xs mt-1">سجل محاسبي مرقم حسب القانون — السنة المالية {year}</p>
         </div>
-        <Select value={String(year)} onValueChange={v => setYear(Number(v))}>
-          <SelectTrigger className="w-32">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {years.map(y => (
-              <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs"
+            onClick={() => exportAccountingExcel(entries, year)}
+            disabled={entries.length === 0}
+          >
+            <Download className="h-3.5 w-3.5" /> Excel
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs"
+            onClick={() => exportAccountingPDF(entries, year)}
+            disabled={entries.length === 0}
+          >
+            <Download className="h-3.5 w-3.5" /> PDF
+          </Button>
+          <Select value={String(year)} onValueChange={v => setYear(Number(v))}>
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {years.map(y => (
+                <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Stats */}
