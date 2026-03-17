@@ -186,16 +186,20 @@ const CourtSessions = () => {
     let dateEnd: string;
     let periodLabel: string;
 
+    let docTitle: string;
+
     if (mode === 'day') {
       dateStart = format(exportDate, 'yyyy-MM-dd');
       dateEnd = dateStart;
       periodLabel = new Date(exportDate).toLocaleDateString('ar-MA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      docTitle = `جلسة يوم ${periodLabel}`;
     } else {
       const ws = startOfWeek(exportDate, { weekStartsOn: 1 });
       const we = endOfWeek(exportDate, { weekStartsOn: 1 });
       dateStart = format(ws, 'yyyy-MM-dd');
       dateEnd = format(we, 'yyyy-MM-dd');
       periodLabel = `من ${new Date(ws).toLocaleDateString('ar-MA', { day: 'numeric', month: 'long', year: 'numeric' })} إلى ${new Date(we).toLocaleDateString('ar-MA', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+      docTitle = 'جدول الجلسات لهذا الأسبوع';
     }
 
     const filtered = sessions.filter(s => s.session_date >= dateStart && s.session_date <= dateEnd);
