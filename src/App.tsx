@@ -114,8 +114,7 @@ const App = () => (
                     <Route path="document-generator" element={<DocumentGenerator />} />
                     <Route path="letterheads" element={<Letterheads />} />
                     
-                    <Route path="invoices" element={<Invoices />} />
-                    <Route path="fee-statements" element={<FeeStatements />} />
+                    <Route path="billing" element={<Billing />} />
                   </Route>
 
                   <Route path="*" element={<NotFound />} />
