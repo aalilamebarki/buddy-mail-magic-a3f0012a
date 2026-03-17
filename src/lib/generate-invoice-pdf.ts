@@ -38,6 +38,11 @@ const PAYMENT_METHODS: Record<string, string> = {
   card: 'بطاقة بنكية',
 };
 
+const NAVY: [number, number, number] = [15, 45, 80];
+const GOLD: [number, number, number] = [180, 150, 80];
+const LIGHT_BG: [number, number, number] = [248, 249, 252];
+const BORDER: [number, number, number] = [220, 225, 235];
+
 const drawRoundedRect = (doc: jsPDF, x: number, y: number, w: number, h: number, r: number, fillColor: [number, number, number]) => {
   doc.setFillColor(...fillColor);
   doc.roundedRect(x, y, w, h, r, r, 'F');
@@ -50,7 +55,7 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
   doc.addFileToVFS('Amiri-Regular.ttf', fontBase64);
   doc.addFont('Amiri-Regular.ttf', 'Amiri', 'normal');
   doc.setFont('Amiri');
-  doc.setR2L(true);
+  // DO NOT call setR2L(true) — it double-reverses Arabic text
 
   const pw = 210;
   const m = 25;
@@ -61,14 +66,14 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
   const qrDataUrl = await QRCode.toDataURL(verificationUrl, { width: 200, margin: 1 });
 
   // ── Decorative top bar ──
-  doc.setFillColor(15, 45, 80);
+  doc.setFillColor(...NAVY);
   doc.rect(0, 0, pw, 8, 'F');
-  doc.setFillColor(180, 150, 80);
+  doc.setFillColor(...GOLD);
   doc.rect(0, 8, pw, 1.5, 'F');
 
   // ── Lawyer name ──
   doc.setFontSize(20);
-  doc.setTextColor(15, 45, 80);
+  doc.setTextColor(...NAVY);
   doc.text(data.lawyerName, pw / 2, 22, { align: 'center' });
 
   doc.setFontSize(10);
@@ -76,12 +81,12 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
   doc.text('محامٍ لدى محاكم المملكة المغربية', pw / 2, 29, { align: 'center' });
 
   // ── Gold divider ──
-  doc.setDrawColor(180, 150, 80);
+  doc.setDrawColor(...GOLD);
   doc.setLineWidth(0.6);
   doc.line(m + 20, 34, pw - m - 20, 34);
 
   // ── Title ──
-  drawRoundedRect(doc, pw / 2 - 35, 39, 70, 14, 3, [15, 45, 80]);
+  drawRoundedRect(doc, pw / 2 - 35, 39, 70, 14, 3, NAVY);
   doc.setFontSize(18);
   doc.setTextColor(255, 255, 255);
   doc.text('وصل أداء أتعاب', pw / 2, 49, { align: 'center' });
@@ -98,8 +103,8 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
   const rowH = 11;
 
   // Card background
-  drawRoundedRect(doc, m, y, cw, rowH * 6 + cardPad * 2, 4, [248, 249, 252]);
-  doc.setDrawColor(220, 225, 235);
+  drawRoundedRect(doc, m, y, cw, rowH * 6 + cardPad * 2, 4, LIGHT_BG);
+  doc.setDrawColor(...BORDER);
   doc.setLineWidth(0.3);
   doc.roundedRect(m, y, cw, rowH * 6 + cardPad * 2, 4, 4, 'S');
 
@@ -128,18 +133,18 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
 
   // ── Amount Box ──
   y += 16;
-  drawRoundedRect(doc, m + 15, y, cw - 30, 22, 5, [15, 45, 80]);
+  drawRoundedRect(doc, m + 15, y, cw - 30, 22, 5, NAVY);
   // Gold inner border
-  doc.setDrawColor(180, 150, 80);
+  doc.setDrawColor(...GOLD);
   doc.setLineWidth(0.5);
   doc.roundedRect(m + 16, y + 1, cw - 32, 20, 4, 4, 'S');
-  
+
   doc.setFontSize(12);
-  doc.setTextColor(180, 150, 80);
+  doc.setTextColor(...GOLD);
   doc.text('المبلغ المؤدى', pw / 2, y + 8, { align: 'center' });
   doc.setFontSize(20);
   doc.setTextColor(255, 255, 255);
-  doc.text(`${data.amount.toLocaleString('ar-u-nu-latn')} درهم`, pw / 2, y + 18, { align: 'center' });
+  doc.text(`${data.amount.toLocaleString('fr-MA')} درهم`, pw / 2, y + 18, { align: 'center' });
 
   // ── QR + Signature ──
   y += 35;
@@ -151,17 +156,17 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
 
   // Signature section
   doc.setFontSize(11);
-  doc.setTextColor(15, 45, 80);
+  doc.setTextColor(...NAVY);
   doc.text('توقيع المحامي', pw - m - 25, y + 5, { align: 'center' });
-  doc.setDrawColor(180, 150, 80);
+  doc.setDrawColor(...GOLD);
   doc.setLineWidth(0.4);
   doc.line(pw - m - 50, y + 25, pw - m, y + 25);
 
   // ── Footer ──
   const footerY = 278;
-  doc.setFillColor(15, 45, 80);
+  doc.setFillColor(...NAVY);
   doc.rect(0, footerY, pw, 20, 'F');
-  doc.setFillColor(180, 150, 80);
+  doc.setFillColor(...GOLD);
   doc.rect(0, footerY, pw, 1, 'F');
   doc.setFontSize(8);
   doc.setTextColor(200, 210, 220);

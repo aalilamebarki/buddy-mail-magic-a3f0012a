@@ -15,6 +15,7 @@ export interface CaseDetailData {
   lawyerFees: number;
   expensesTotal: number;
   subtotal: number;
+  taxRate: number;
   taxAmount: number;
   totalAmount: number;
 }
@@ -53,7 +54,38 @@ const loadAmiriFont = async (): Promise<string> => {
   return amiriFontBase64;
 };
 
-const fmtNum = (n: number) => n.toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtNum = (n: number) =>
+  n.toLocaleString('fr-MA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/* ── helpers ── */
+const NAVY: [number, number, number] = [15, 45, 80];
+const GOLD: [number, number, number] = [180, 150, 80];
+const LIGHT_BG: [number, number, number] = [248, 249, 252];
+const BORDER: [number, number, number] = [220, 225, 235];
+
+const drawLine = (doc: jsPDF, x1: number, y: number, x2: number, color: [number, number, number] = BORDER, w = 0.3) => {
+  doc.setDrawColor(...color);
+  doc.setLineWidth(w);
+  doc.line(x1, y, x2, y);
+};
+
+const textRight = (doc: jsPDF, text: string, x: number, y: number, size = 10, color: [number, number, number] = [30, 30, 50]) => {
+  doc.setFontSize(size);
+  doc.setTextColor(...color);
+  doc.text(text, x, y, { align: 'right' });
+};
+
+const textCenter = (doc: jsPDF, text: string, x: number, y: number, size = 10, color: [number, number, number] = [30, 30, 50]) => {
+  doc.setFontSize(size);
+  doc.setTextColor(...color);
+  doc.text(text, x, y, { align: 'center' });
+};
+
+const textLeft = (doc: jsPDF, text: string, x: number, y: number, size = 10, color: [number, number, number] = [30, 30, 50]) => {
+  doc.setFontSize(size);
+  doc.setTextColor(...color);
+  doc.text(text, x, y, { align: 'left' });
+};
 
 export const generateFeeStatementPDF = async (data: FeeStatementData): Promise<Blob> => {
   const fontBase64 = await loadAmiriFont();
@@ -62,7 +94,7 @@ export const generateFeeStatementPDF = async (data: FeeStatementData): Promise<B
   doc.addFileToVFS('Amiri-Regular.ttf', fontBase64);
   doc.addFont('Amiri-Regular.ttf', 'Amiri', 'normal');
   doc.setFont('Amiri');
-  doc.setR2L(true);
+  // DO NOT call setR2L(true) — it double-reverses Arabic text
 
   const pw = 210;
   const m = 20;
@@ -71,86 +103,77 @@ export const generateFeeStatementPDF = async (data: FeeStatementData): Promise<B
   const verificationUrl = `${window.location.origin}/verify/${data.signatureUuid}`;
   const qrDataUrl = await QRCode.toDataURL(verificationUrl, { width: 200, margin: 1 });
 
-  // ── Top bar ──
-  doc.setFillColor(15, 45, 80);
-  doc.rect(0, 0, pw, 7, 'F');
-  doc.setFillColor(180, 150, 80);
-  doc.rect(0, 7, pw, 1.2, 'F');
+  /* ═══════════════════════════════════════
+     HEADER
+     ═══════════════════════════════════════ */
+  // Top accent bar
+  doc.setFillColor(...NAVY);
+  doc.rect(0, 0, pw, 6, 'F');
+  doc.setFillColor(...GOLD);
+  doc.rect(0, 6, pw, 1, 'F');
 
-  // ── Lawyer name ──
-  doc.setFontSize(18);
-  doc.setTextColor(15, 45, 80);
-  doc.text(data.lawyerName, pw / 2, 18, { align: 'center' });
+  // Lawyer name
+  textCenter(doc, data.lawyerName, pw / 2, 17, 18, NAVY);
+  textCenter(doc, 'محامٍ لدى محاكم المملكة المغربية', pw / 2, 23, 9, [120, 120, 120]);
 
-  doc.setFontSize(9);
-  doc.setTextColor(120, 120, 120);
-  doc.text('محامٍ لدى محاكم المملكة المغربية', pw / 2, 24, { align: 'center' });
+  // Gold divider
+  drawLine(doc, m + 40, 27, pw - m - 40, GOLD, 0.5);
 
-  // ── Gold divider ──
-  doc.setDrawColor(180, 150, 80);
-  doc.setLineWidth(0.5);
-  doc.line(m + 30, 28, pw - m - 30, 28);
+  // Title badge
+  doc.setFillColor(...NAVY);
+  doc.roundedRect(pw / 2 - 35, 30, 70, 11, 3, 3, 'F');
+  textCenter(doc, 'بيان الأتعاب والمصاريف', pw / 2, 38, 14, [255, 255, 255]);
 
-  // ── Title ──
-  doc.setFillColor(15, 45, 80);
-  doc.roundedRect(pw / 2 - 38, 31, 76, 12, 3, 3, 'F');
-  doc.setFontSize(16);
-  doc.setTextColor(255, 255, 255);
-  doc.text('بيان الأتعاب والمصاريف', pw / 2, 40, { align: 'center' });
+  // Number & date
+  textRight(doc, `رقم: ${data.statementNumber}`, pw - m, 50, 9, [100, 100, 100]);
+  textLeft(doc, `التاريخ: ${data.date}`, m, 50, 9, [100, 100, 100]);
 
-  // ── Number & Date ──
-  doc.setFontSize(9);
-  doc.setTextColor(100, 100, 100);
-  doc.text(`رقم: ${data.statementNumber}`, pw - m, 52, { align: 'right' });
-  doc.text(`التاريخ: ${data.date}`, m, 52, { align: 'left' });
-
-  // ── Client Info Card ──
-  let y = 57;
-  const cardHeight = 16 + (data.powerOfAttorneyDate ? 0 : -6);
-  doc.setFillColor(248, 249, 252);
-  doc.roundedRect(m, y, cw, Math.max(cardHeight, 14), 3, 3, 'F');
-  doc.setDrawColor(220, 225, 235);
+  /* ═══════════════════════════════════════
+     CLIENT INFO
+     ═══════════════════════════════════════ */
+  let y = 55;
+  const clientCardH = data.powerOfAttorneyDate ? 16 : 12;
+  doc.setFillColor(...LIGHT_BG);
+  doc.roundedRect(m, y, cw, clientCardH, 3, 3, 'F');
+  doc.setDrawColor(...BORDER);
   doc.setLineWidth(0.3);
-  doc.roundedRect(m, y, cw, Math.max(cardHeight, 14), 3, 3, 'S');
+  doc.roundedRect(m, y, cw, clientCardH, 3, 3, 'S');
 
   y += 7;
-  doc.setFontSize(9);
-  doc.setTextColor(100, 110, 130);
-  doc.text('الموكل:', pw - m - 6, y, { align: 'right' });
-  doc.setTextColor(20, 30, 50);
-  doc.setFontSize(10);
-  doc.text(data.clientName, pw - m - 30, y, { align: 'right' });
+  textRight(doc, 'الموكل:', pw - m - 6, y, 9, [100, 110, 130]);
+  textRight(doc, data.clientName, pw - m - 25, y, 11, NAVY);
 
   if (data.powerOfAttorneyDate) {
-    doc.setFontSize(9);
-    doc.setTextColor(100, 110, 130);
-    doc.text('تاريخ التوكيل:', pw / 2 - 4, y, { align: 'right' });
-    doc.setTextColor(20, 30, 50);
-    doc.text(data.powerOfAttorneyDate, pw / 2 - 38, y, { align: 'right' });
+    textRight(doc, 'تاريخ التوكيل:', pw / 2, y, 9, [100, 110, 130]);
+    textRight(doc, data.powerOfAttorneyDate, pw / 2 - 32, y, 10, [30, 30, 50]);
   }
 
-  y += 14;
+  y = 55 + clientCardH + 6;
 
-  // ── Per-Case Sections ──
+  /* ═══════════════════════════════════════
+     PER-CASE SECTIONS
+     ═══════════════════════════════════════ */
   for (let ci = 0; ci < data.caseDetails.length; ci++) {
     const cd = data.caseDetails[ci];
 
-    // Check if we need a new page
+    // Page break check
     if (y > 230) {
       doc.addPage();
       y = 15;
     }
 
-    // Case header
+    // Case header bar
     doc.setFillColor(235, 240, 248);
     doc.roundedRect(m, y, cw, 10, 2, 2, 'F');
-    doc.setFontSize(10);
-    doc.setTextColor(15, 45, 80);
-    const caseLabel = `ملف ${ci + 1}: ${cd.caseTitle} — رقم: ${cd.caseNumber}${cd.court ? ' — ' + cd.court : ''}`;
-    doc.text(caseLabel, pw - m - 4, y + 7, { align: 'right' });
+    doc.setDrawColor(...NAVY);
+    doc.setLineWidth(0.2);
+    doc.roundedRect(m, y, cw, 10, 2, 2, 'S');
+
+    const caseLabel = `ملف ${ci + 1}: ${cd.caseNumber} — ${cd.caseTitle}`;
+    textRight(doc, caseLabel, pw - m - 4, y + 7, 10, NAVY);
     y += 14;
 
-    // Expenses table for this case
+    // Expenses table
     if (cd.items.length > 0) {
       const tableBody = cd.items.map((item, i) => [
         fmtNum(item.amount) + ' درهم',
@@ -160,24 +183,24 @@ export const generateFeeStatementPDF = async (data: FeeStatementData): Promise<B
 
       autoTable(doc, {
         startY: y,
-        head: [['المبلغ (درهم)', 'البيان', 'الرقم']],
+        head: [['المبلغ', 'البيان', 'رقم']],
         body: tableBody,
         styles: {
           font: 'Amiri',
           fontSize: 9,
           halign: 'right',
-          cellPadding: 2.5,
+          cellPadding: 3,
           textColor: [30, 30, 30],
-          lineColor: [220, 225, 235],
+          lineColor: [...BORDER],
           lineWidth: 0.2,
         },
         headStyles: {
-          fillColor: [15, 45, 80],
+          fillColor: [...NAVY],
           textColor: [255, 255, 255],
           fontSize: 9,
           halign: 'center',
         },
-        alternateRowStyles: { fillColor: [248, 249, 252] },
+        alternateRowStyles: { fillColor: [...LIGHT_BG] },
         columnStyles: {
           0: { cellWidth: 35, halign: 'center' },
           1: { cellWidth: 'auto' },
@@ -187,104 +210,96 @@ export const generateFeeStatementPDF = async (data: FeeStatementData): Promise<B
         tableWidth: cw,
       });
 
-      y = (doc as any).lastAutoTable.finalY + 3;
+      y = (doc as any).lastAutoTable.finalY + 4;
     }
 
-    // Case totals
-    const rX = pw - m;
-    const vX = m + 40;
-    const rH = 6;
+    // Case summary rows
+    const labelX = pw - m - 4;
+    const valX = m + 10;
+    const rowGap = 6;
 
-    doc.setFontSize(9);
-    doc.setTextColor(80, 90, 100);
-    doc.text('مجموع المصاريف', rX, y, { align: 'right' });
-    doc.setTextColor(30, 30, 50);
-    doc.text(fmtNum(cd.expensesTotal) + ' درهم', vX, y, { align: 'left' });
-    y += rH;
+    textRight(doc, 'مجموع المصاريف', labelX, y, 9, [100, 110, 130]);
+    textLeft(doc, fmtNum(cd.expensesTotal) + ' درهم', valX, y, 9, [30, 30, 50]);
+    y += rowGap;
 
-    doc.setTextColor(80, 90, 100);
-    doc.text('أتعاب المحامي', rX, y, { align: 'right' });
-    doc.setTextColor(30, 30, 50);
-    doc.text(fmtNum(cd.lawyerFees) + ' درهم', vX, y, { align: 'left' });
-    y += rH;
+    textRight(doc, 'أتعاب المحامي', labelX, y, 9, [100, 110, 130]);
+    textLeft(doc, fmtNum(cd.lawyerFees) + ' درهم', valX, y, 9, [30, 30, 50]);
+    y += rowGap;
 
-    doc.setTextColor(80, 90, 100);
-    doc.text(`الضريبة (${data.taxRate}%)`, rX, y, { align: 'right' });
-    doc.setTextColor(30, 30, 50);
-    doc.text(fmtNum(cd.taxAmount) + ' درهم', vX, y, { align: 'left' });
-    y += rH;
+    const caseTaxRate = cd.taxRate ?? data.taxRate;
+    textRight(doc, `الضريبة (%${caseTaxRate})`, labelX, y, 9, [100, 110, 130]);
+    textLeft(doc, fmtNum(cd.taxAmount) + ' درهم', valX, y, 9, [30, 30, 50]);
+    y += rowGap + 2;
 
-    // Case total box
-    doc.setFillColor(240, 243, 248);
-    doc.roundedRect(m + 20, y, cw - 40, 10, 2, 2, 'F');
-    doc.setFontSize(10);
-    doc.setTextColor(15, 45, 80);
-    doc.text(`مجموع الملف: ${fmtNum(cd.totalAmount)} درهم`, pw / 2, y + 7, { align: 'center' });
+    // Case total pill
+    doc.setFillColor(235, 240, 248);
+    doc.roundedRect(m + 25, y - 2, cw - 50, 10, 3, 3, 'F');
+    textCenter(doc, `مجموع الملف: ${fmtNum(cd.totalAmount)} درهم`, pw / 2, y + 5, 10, NAVY);
     y += 16;
   }
 
-  // ── Grand Total Box ──
+  /* ═══════════════════════════════════════
+     GRAND TOTAL
+     ═══════════════════════════════════════ */
   if (y > 240) {
     doc.addPage();
     y = 15;
   }
 
-  doc.setFillColor(15, 45, 80);
-  doc.roundedRect(m + 10, y, cw - 20, 22, 4, 4, 'F');
-  doc.setDrawColor(180, 150, 80);
-  doc.setLineWidth(0.5);
-  doc.roundedRect(m + 11, y + 1, cw - 22, 20, 3, 3, 'S');
+  // Grand total box
+  doc.setFillColor(...NAVY);
+  doc.roundedRect(m + 15, y, cw - 30, 24, 4, 4, 'F');
+  doc.setDrawColor(...GOLD);
+  doc.setLineWidth(0.6);
+  doc.roundedRect(m + 16, y + 1, cw - 32, 22, 3, 3, 'S');
 
-  doc.setFontSize(9);
-  doc.setTextColor(180, 150, 80);
-  doc.text(`HT: ${fmtNum(data.grandSubtotal)} — TVA: ${fmtNum(data.grandTaxAmount)}`, pw / 2, y + 7, { align: 'center' });
+  textCenter(doc, `HT: ${fmtNum(data.grandSubtotal)} — TVA: ${fmtNum(data.grandTaxAmount)}`, pw / 2, y + 8, 9, GOLD);
+  textCenter(doc, `المبلغ الإجمالي ${fmtNum(data.grandTotal)} درهم`, pw / 2, y + 18, 15, [255, 255, 255]);
 
-  doc.setFontSize(14);
-  doc.setTextColor(255, 255, 255);
-  doc.text('المبلغ الإجمالي: ' + fmtNum(data.grandTotal) + ' درهم', pw / 2, y + 17, { align: 'center' });
+  y += 30;
 
-  y += 28;
-
-  // ── Notes ──
+  /* ═══════════════════════════════════════
+     NOTES
+     ═══════════════════════════════════════ */
   if (data.notes) {
     if (y > 250) { doc.addPage(); y = 15; }
+    textRight(doc, 'ملاحظات:', pw - m, y, 9, [100, 110, 130]);
     doc.setFontSize(9);
-    doc.setTextColor(100, 110, 130);
-    doc.text('ملاحظات:', pw - m, y, { align: 'right' });
     doc.setTextColor(50, 50, 50);
     const lines = doc.splitTextToSize(data.notes, cw - 20);
-    doc.text(lines, pw - m - 25, y, { align: 'right' });
-    y += lines.length * 5;
+    doc.text(lines, pw - m - 22, y, { align: 'right' });
+    y += lines.length * 5 + 5;
   }
 
-  // ── QR + Signature ──
-  y = Math.max(y + 10, 230);
-  if (y > 260) { doc.addPage(); y = 15; }
-  doc.addImage(qrDataUrl, 'PNG', m + 5, y, 25, 25);
-  doc.setFontSize(7);
-  doc.setTextColor(150, 150, 150);
-  doc.text('رمز التحقق', m + 17, y + 28, { align: 'center' });
+  /* ═══════════════════════════════════════
+     QR + SIGNATURE
+     ═══════════════════════════════════════ */
+  y = Math.max(y + 5, 230);
+  if (y > 255) { doc.addPage(); y = 15; }
 
-  doc.setFontSize(11);
-  doc.setTextColor(15, 45, 80);
-  doc.text('توقيع المحامي', pw - m - 25, y + 5, { align: 'center' });
-  doc.setDrawColor(180, 150, 80);
-  doc.setLineWidth(0.4);
-  doc.line(pw - m - 50, y + 22, pw - m, y + 22);
+  // QR code (left side)
+  doc.addImage(qrDataUrl, 'PNG', m + 3, y, 24, 24);
+  textCenter(doc, 'رمز التحقق الإلكتروني', m + 15, y + 27, 7, [150, 150, 150]);
 
-  // ── Footer ──
+  // Signature (right side)
+  textCenter(doc, 'توقيع المحامي', pw - m - 25, y + 5, 11, NAVY);
+  drawLine(doc, pw - m - 50, y + 20, pw - m, GOLD, 0.4);
+
+  /* ═══════════════════════════════════════
+     FOOTER (all pages)
+     ═══════════════════════════════════════ */
   const pageCount = doc.getNumberOfPages();
   for (let p = 1; p <= pageCount; p++) {
     doc.setPage(p);
     const pageH = doc.internal.pageSize.getHeight();
-    doc.setFillColor(15, 45, 80);
+
+    doc.setFillColor(...NAVY);
     doc.rect(0, pageH - 12, pw, 12, 'F');
-    doc.setFillColor(180, 150, 80);
-    doc.rect(0, pageH - 12, pw, 1, 'F');
+    doc.setFillColor(...GOLD);
+    doc.rect(0, pageH - 12, pw, 0.8, 'F');
+
     doc.setFont('Amiri');
-    doc.setFontSize(8);
-    doc.setTextColor(200, 210, 220);
-    doc.text('بيان أتعاب ومصاريف — وثيقة موقعة إلكترونياً', pw / 2, pageH - 5, { align: 'center' });
+    textCenter(doc, 'بيان أتعاب ومصاريف — وثيقة موقعة إلكترونياً', pw / 2, pageH - 5, 8, [200, 210, 220]);
   }
 
   return doc.output('blob');
