@@ -29,6 +29,7 @@ const CourtSessions = () => {
   const [casePopoverOpen, setCasePopoverOpen] = useState(false);
   const [caseSearch, setCaseSearch] = useState('');
   const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
+  const [caseNumber, setCaseNumber] = useState('');
 
   // Form state
   const [selectedCaseId, setSelectedCaseId] = useState('');
@@ -82,28 +83,40 @@ const CourtSessions = () => {
   }, [displayedSessions]);
 
   const selectedCase = cases.find(c => c.id === selectedCaseId);
-
+  const needsCaseNumber = selectedCase && !selectedCase.case_number;
   const handleSave = async () => {
     if (!selectedCaseId || !sessionDate || !user) {
       toast.error('يرجى اختيار الملف وتاريخ الجلسة');
       return;
     }
+    // Validate case_number
+    const finalCaseNumber = selectedCase?.case_number || caseNumber.trim();
+    if (!finalCaseNumber) {
+      toast.error('رقم الملف مطلوب');
+      return;
+    }
     setSaving(true);
-    const { error } = await supabase.from('court_sessions').insert({
-      case_id: selectedCaseId,
-      session_date: format(sessionDate, 'yyyy-MM-dd'),
-      notes: notes || null,
-      user_id: user.id,
-    });
-    if (error) {
-      toast.error('خطأ في حفظ الجلسة');
-    } else {
+    try {
+      // Update case_number if it was missing
+      if (needsCaseNumber && caseNumber.trim()) {
+        await supabase.from('cases').update({ case_number: caseNumber.trim() }).eq('id', selectedCaseId);
+      }
+      const { error } = await supabase.from('court_sessions').insert({
+        case_id: selectedCaseId,
+        session_date: format(sessionDate, 'yyyy-MM-dd'),
+        notes: notes || null,
+        user_id: user.id,
+      });
+      if (error) throw error;
       toast.success('تمت إضافة الجلسة');
       setDialogOpen(false);
       setSelectedCaseId('');
       setSessionDate(undefined);
       setNotes('');
+      setCaseNumber('');
       fetchData();
+    } catch {
+      toast.error('خطأ في حفظ الجلسة');
     }
     setSaving(false);
   };
@@ -261,6 +274,20 @@ const CourtSessions = () => {
               </Popover>
             </div>
 
+            {/* Case number - show if missing */}
+            {needsCaseNumber && (
+              <div className="space-y-2">
+                <Label>رقم الملف *</Label>
+                <Input
+                  value={caseNumber}
+                  onChange={e => setCaseNumber(e.target.value)}
+                  placeholder="مثال: 123/1234/2025"
+                  className="font-mono"
+                  dir="ltr"
+                />
+                <p className="text-xs text-muted-foreground">هذا الملف لا يحتوي على رقم بعد. أدخل الرقم الكامل (رقم/رمز/سنة)</p>
+              </div>
+            )}
             {/* Date picker */}
             <div className="space-y-2">
               <Label>تاريخ الجلسة *</Label>

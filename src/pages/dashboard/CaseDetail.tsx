@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
@@ -29,6 +30,7 @@ const CaseDetail = () => {
   const [sessionDialogOpen, setSessionDialogOpen] = useState(false);
   const [sessionDate, setSessionDate] = useState<Date | undefined>(undefined);
   const [sessionNotes, setSessionNotes] = useState('');
+  const [caseNumberInput, setCaseNumberInput] = useState('');
   const [saving, setSaving] = useState(false);
 
   const fetchData = async () => {
@@ -53,26 +55,38 @@ const CaseDetail = () => {
 
   useEffect(() => { fetchData(); }, [id, navigate]);
 
+  const needsCaseNumber = caseData && !caseData.case_number;
+
   const handleAddSession = async () => {
     if (!sessionDate || !user || !id) {
       toast.error('يرجى اختيار تاريخ الجلسة');
       return;
     }
+    const finalCaseNumber = caseData?.case_number || caseNumberInput.trim();
+    if (!finalCaseNumber) {
+      toast.error('رقم الملف مطلوب');
+      return;
+    }
     setSaving(true);
-    const { error } = await supabase.from('court_sessions').insert({
-      case_id: id,
-      session_date: format(sessionDate, 'yyyy-MM-dd'),
-      notes: sessionNotes || null,
-      user_id: user.id,
-    });
-    if (error) {
-      toast.error('خطأ في حفظ الجلسة');
-    } else {
+    try {
+      if (needsCaseNumber && caseNumberInput.trim()) {
+        await supabase.from('cases').update({ case_number: caseNumberInput.trim() }).eq('id', id);
+      }
+      const { error } = await supabase.from('court_sessions').insert({
+        case_id: id,
+        session_date: format(sessionDate, 'yyyy-MM-dd'),
+        notes: sessionNotes || null,
+        user_id: user.id,
+      });
+      if (error) throw error;
       toast.success('تمت إضافة الجلسة');
       setSessionDialogOpen(false);
       setSessionDate(undefined);
       setSessionNotes('');
+      setCaseNumberInput('');
       fetchData();
+    } catch {
+      toast.error('خطأ في حفظ الجلسة');
     }
     setSaving(false);
   };
@@ -244,6 +258,19 @@ const CaseDetail = () => {
             <DialogTitle>إضافة جلسة جديدة</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {needsCaseNumber && (
+              <div className="space-y-2">
+                <Label>رقم الملف *</Label>
+                <Input
+                  value={caseNumberInput}
+                  onChange={e => setCaseNumberInput(e.target.value)}
+                  placeholder="مثال: 123/1234/2025"
+                  className="font-mono"
+                  dir="ltr"
+                />
+                <p className="text-xs text-muted-foreground">هذا الملف لا يحتوي على رقم بعد. أدخل الرقم الكامل (رقم/رمز/سنة)</p>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>تاريخ الجلسة *</Label>
               <Popover>
