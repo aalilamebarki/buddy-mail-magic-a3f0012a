@@ -184,7 +184,7 @@ const Finance = () => {
                     const typeInfo = ENTRY_TYPE_LABELS[entry.entry_type] || { label: entry.entry_type, sublabel: '', color: '' };
                     return (
                       <TableRow key={entry.id}>
-                        <TableCell className="font-mono text-xs font-bold" dir="ltr">{entry.entry_number}</TableCell>
+                        <TableCell className="text-xs font-bold" dir="ltr">{entry.entry_number}</TableCell>
                         <TableCell>
                           <div className="flex flex-col items-start gap-0.5">
                             <Badge className={`text-[10px] ${typeInfo.color}`} variant="outline">

@@ -494,7 +494,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
                 <Card key={block.caseId} className="border-primary/20">
                   <div className="px-3 py-2 bg-muted/30 rounded-t-lg flex items-center gap-2">
                     <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary">ملف {blockIdx + 1}</Badge>
-                    <span className="text-xs font-semibold">{caseInfo?.title} — {caseInfo?.case_number}</span>
+                    <span className="text-xs font-semibold">{caseInfo?.title} — <span dir="ltr">{caseInfo?.case_number}</span></span>
                     {caseInfo?.court && <span className="text-[10px] text-muted-foreground mr-auto">({caseInfo.court})</span>}
                   </div>
                   <CardContent className="pt-3 space-y-2">
@@ -627,7 +627,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
                     options={availableCases.map(c => ({
                       value: c.id,
                       label: c.title,
-                      sublabel: c.case_number ? c.case_number : '⚠️ بدون رقم',
+                      sublabel: c.case_number ? `ملف: ${c.case_number}` : '⚠️ بدون رقم',
                     }))}
                     value={caseSelectValue}
                     onValueChange={addCase}
@@ -668,7 +668,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
                         ملف {blockIdx + 1}
                       </Badge>
                       <span className="text-xs font-semibold truncate">
-                        {caseInfo?.title} — {caseInfo?.case_number}
+                        {caseInfo?.title} — <span dir="ltr">{caseInfo?.case_number}</span>
                       </span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">

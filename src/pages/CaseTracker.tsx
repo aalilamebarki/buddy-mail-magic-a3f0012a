@@ -139,7 +139,7 @@ const CaseTracker = () => {
                     <div className="flex items-start justify-between gap-3">
                       <div className="space-y-1 min-w-0">
                         <p className="font-bold text-foreground truncate">{c.title}</p>
-                        <p className="text-xs text-muted-foreground">رقم الملف: <span dir="ltr" className="font-mono">{c.case_number}</span></p>
+                        <p className="text-xs text-muted-foreground">رقم الملف: <span dir="ltr">{c.case_number}</span></p>
                       </div>
                       <Badge className={`shrink-0 text-[10px] rounded-full px-3 border-0 ${
                         statusConfig[c.status]?.bg || 'bg-muted'

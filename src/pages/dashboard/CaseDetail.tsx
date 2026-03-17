@@ -210,7 +210,7 @@ const CaseDetail = () => {
                   <Input
                     value={caseNumberEdit}
                     onChange={e => setCaseNumberEdit(e.target.value)}
-                    className="h-7 w-40 font-mono text-sm"
+                    className="h-7 w-40 text-sm"
                     dir="ltr"
                     placeholder="رقم/رمز/سنة"
                     autoFocus
@@ -242,7 +242,7 @@ const CaseDetail = () => {
                 </div>
               ) : (
                 <div className="flex items-center gap-1">
-                  <span className="font-mono" dir="ltr">{caseData.case_number || '—'}</span>
+                  <span dir="ltr">{caseData.case_number || '—'}</span>
                   <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setCaseNumberEdit(caseData.case_number || ''); setEditingCaseNumber(true); }}>
                     <Pencil className="h-3 w-3" />
                   </Button>
@@ -356,7 +356,7 @@ const CaseDetail = () => {
                   value={caseNumberInput}
                   onChange={e => setCaseNumberInput(e.target.value)}
                   placeholder="مثال: 123/1234/2025"
-                  className="font-mono"
+                  className=""
                   dir="ltr"
                 />
                 <p className="text-xs text-muted-foreground">هذا الملف لا يحتوي على رقم بعد. أدخل الرقم الكامل (رقم/رمز/سنة)</p>

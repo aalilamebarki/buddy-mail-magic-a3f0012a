@@ -243,7 +243,7 @@ const Billing = () => {
                     <TableBody>
                       {filteredInvoices.map(inv => (
                         <TableRow key={inv.id}>
-                          <TableCell className="font-mono text-xs" dir="ltr">{inv.invoice_number}</TableCell>
+                          <TableCell className="text-xs" dir="ltr">{inv.invoice_number}</TableCell>
                           <TableCell>{inv.clients?.full_name || '—'}</TableCell>
                           <TableCell className="text-xs">{inv.cases?.title || '—'}</TableCell>
                           <TableCell className="font-bold">{Number(inv.amount).toLocaleString('ar-u-nu-latn')} د</TableCell>
@@ -476,7 +476,7 @@ const Billing = () => {
                           const typeInfo = ENTRY_TYPE_LABELS[entry.entry_type] || { label: entry.entry_type, sublabel: '', color: '' };
                           return (
                             <TableRow key={entry.id}>
-                              <TableCell className="font-mono text-xs font-bold" dir="ltr">{entry.entry_number}</TableCell>
+                              <TableCell className="text-xs font-bold" dir="ltr">{entry.entry_number}</TableCell>
                               <TableCell>
                                 <div className="flex flex-col items-start gap-0.5">
                                   <Badge className={`text-[10px] ${typeInfo.color}`} variant="outline">

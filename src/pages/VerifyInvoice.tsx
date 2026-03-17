@@ -82,7 +82,7 @@ const VerifyInvoice = () => {
               <Row label="طريقة الأداء" value={PAYMENT_LABELS[invoice.payment_method] || invoice.payment_method} />
               <Row label="الموكل" value={invoice.clients?.full_name} />
               <Row label="الملف" value={invoice.cases?.title} />
-              {invoice.cases?.case_number && <Row label="رقم الملف" value={invoice.cases.case_number} />}
+              {invoice.cases?.case_number && <Row label="رقم الملف" value={invoice.cases.case_number} ltr />}
               <Row label="التاريخ" value={formatDateShort(invoice.created_at)} />
               {invoice.description && <Row label="البيان" value={invoice.description} />}
             </div>
@@ -108,12 +108,12 @@ const VerifyInvoice = () => {
   );
 };
 
-const Row = ({ label, value, mono, bold }: { label: string; value?: string | null; mono?: boolean; bold?: boolean }) => {
+const Row = ({ label, value, mono, bold, ltr }: { label: string; value?: string | null; mono?: boolean; bold?: boolean; ltr?: boolean }) => {
   if (!value) return null;
   return (
     <div className="flex justify-between items-center text-sm py-2.5 border-b border-border/40 last:border-b-0">
       <span className="text-muted-foreground text-xs">{label}</span>
-      <span className={`${mono ? 'font-mono text-xs tracking-wider' : ''} ${bold ? 'font-bold text-base text-primary' : 'text-foreground font-medium'}`}>
+      <span dir={ltr ? 'ltr' : undefined} className={`${mono ? 'text-xs tracking-wider' : ''} ${bold ? 'font-bold text-base text-primary' : 'text-foreground font-medium'}`}>
         {value}
       </span>
     </div>
