@@ -74,12 +74,14 @@ const Cases = () => {
   const [courtSearchTerm, setCourtSearchTerm] = useState('');
 
   const fetchData = async () => {
-    const [casesRes, clientsRes] = await Promise.all([
+    const [casesRes, clientsRes, courtsRes] = await Promise.all([
       supabase.from('cases').select('*, clients(full_name)').order('created_at', { ascending: false }),
       supabase.from('clients').select('id, full_name').order('full_name'),
+      supabase.from('courts').select('*').order('name'),
     ]);
     if (casesRes.data) setCases(casesRes.data);
     if (clientsRes.data) setClients(clientsRes.data);
+    if (courtsRes.data) setCourtsDb(courtsRes.data);
     setLoading(false);
   };
 
