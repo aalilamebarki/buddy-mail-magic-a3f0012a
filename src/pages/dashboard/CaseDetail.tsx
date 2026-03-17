@@ -32,6 +32,8 @@ const CaseDetail = () => {
   const [sessionDate, setSessionDate] = useState<Date | undefined>(undefined);
   const [sessionNotes, setSessionNotes] = useState('');
   const [caseNumberInput, setCaseNumberInput] = useState('');
+  const [editingCaseNumber, setEditingCaseNumber] = useState(false);
+  const [caseNumberEdit, setCaseNumberEdit] = useState('');
   const [saving, setSaving] = useState(false);
 
   const fetchData = async () => {
