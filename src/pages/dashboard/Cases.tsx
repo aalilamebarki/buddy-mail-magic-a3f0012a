@@ -122,9 +122,13 @@ const Cases = () => {
     if (data && data.length > 0) {
       const opps = data.filter((o: any) => o.party_type !== 'presence');
       const pres = data.filter((o: any) => o.party_type === 'presence');
-      setOpponents(opps.length > 0 ? opps.map((o: any) => ({ name: o.name, address: o.address || '', phone: o.phone || '' })) : [{ ...emptyOpponent }]);
+      // Check if "كل من له المصلحة" mode
+      const isAllInterested = opps.length === 1 && opps[0].name === 'كل من له المصلحة';
+      setAgainstAllInterested(isAllInterested);
+      setOpponents(isAllInterested ? [{ ...emptyOpponent }] : opps.length > 0 ? opps.map((o: any) => ({ name: o.name, address: o.address || '', phone: o.phone || '' })) : [{ ...emptyOpponent }]);
       setPresenceParties(pres.map((o: any) => ({ name: o.name, address: o.address || '', phone: o.phone || '' })));
     } else {
+      setAgainstAllInterested(false);
       setOpponents([{
         name: c.opposing_party || '',
         address: c.opposing_party_address || '',
