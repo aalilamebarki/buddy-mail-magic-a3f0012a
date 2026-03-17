@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Receipt, FileText, Plus, Download, Loader2, QrCode, Search, Pencil, DollarSign, BookOpen, TrendingUp } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useInvoices } from '@/hooks/useInvoices';
@@ -113,12 +114,28 @@ const Billing = () => {
 
   const loading = invLoading || fsLoading;
 
-  if (loading || accLoading) {
-    return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+  const BillingSkeleton = () => (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="space-y-2">
+          <Skeleton className="h-7 w-48" />
+          <Skeleton className="h-4 w-64" />
+        </div>
+        <Skeleton className="h-10 w-32" />
       </div>
-    );
+      <Skeleton className="h-10 w-full sm:w-96" />
+      <Skeleton className="h-9 w-full max-w-sm" />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Card key={i}><CardContent className="pt-4 pb-3 space-y-2"><Skeleton className="h-3 w-20" /><Skeleton className="h-6 w-16" /></CardContent></Card>
+        ))}
+      </div>
+      <Card><CardContent className="p-4 space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</CardContent></Card>
+    </div>
+  );
+
+  if (loading || accLoading) {
+    return <BillingSkeleton />;
   }
 
   return (
