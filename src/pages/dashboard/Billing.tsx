@@ -8,14 +8,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Receipt, FileText, Plus, Download, Loader2, QrCode, Search, Pencil, DollarSign, BookOpen, TrendingUp } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { useInvoices } from '@/hooks/useInvoices';
+import { useInvoices, type InvoiceRecord } from '@/hooks/useInvoices';
 import { useFeeStatements, type FeeStatementRecord } from '@/hooks/useFeeStatements';
 import { useAccountingEntries } from '@/hooks/useAccounting';
-
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { formatDateShort } from '@/lib/formatters';
 import { exportAccountingExcel, exportAccountingPDF } from '@/lib/export-accounting';
+import { downloadInvoicePdf, downloadFeeStatementPdf } from '@/lib/dynamic-pdf-downloads';
 import CreateInvoiceDialog from '@/components/invoices/CreateInvoiceDialog';
 import CreateFeeStatementDialog from '@/components/invoices/CreateFeeStatementDialog';
 
@@ -55,7 +54,6 @@ const Billing = () => {
   const [search, setSearch] = useState('');
   const [downloading, setDownloading] = useState<string | null>(null);
 
-  // Accounting
   const [accYear, setAccYear] = useState(currentYear);
   const { entries, loading: accLoading, stats } = useAccountingEntries(accYear);
 
@@ -76,21 +74,21 @@ const Billing = () => {
   const totalInvoices = filteredInvoices.reduce((sum, inv) => sum + Number(inv.amount), 0);
   const totalStatements = filteredStatements.reduce((sum, s) => sum + Number(s.total_amount), 0);
 
-  const downloadPdf = async (id: string, pdfPath: string | null, fileName: string) => {
-    if (!pdfPath) {
-      toast({ title: 'لا يوجد ملف PDF', variant: 'destructive' });
-      return;
-    }
-    setDownloading(id);
+  const downloadInvoice = async (invoice: InvoiceRecord) => {
+    setDownloading(invoice.id);
     try {
-      const { data, error } = await supabase.storage.from('invoices').download(pdfPath);
-      if (error) throw error;
-      const url = URL.createObjectURL(data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${fileName}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
+      await downloadInvoicePdf(invoice);
+    } catch (e: any) {
+      toast({ title: 'خطأ في التحميل', description: e.message, variant: 'destructive' });
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  const downloadStatement = async (statement: FeeStatementRecord) => {
+    setDownloading(statement.id);
+    try {
+      await downloadFeeStatementPdf(statement);
     } catch (e: any) {
       toast({ title: 'خطأ في التحميل', description: e.message, variant: 'destructive' });
     } finally {
@@ -141,7 +139,6 @@ const Billing = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
@@ -161,7 +158,6 @@ const Billing = () => {
         )}
       </div>
 
-      {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} dir="rtl">
         <TabsList className="w-full sm:w-auto">
           <TabsTrigger value="invoices" className="gap-1.5 flex-1 sm:flex-none">
@@ -180,7 +176,6 @@ const Billing = () => {
           </TabsTrigger>
         </TabsList>
 
-        {/* Search — for invoices & fee statements tabs */}
         {(activeTab === 'invoices' || activeTab === 'fee-statements') && (
           <div className="relative max-w-sm mt-4">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -193,7 +188,6 @@ const Billing = () => {
           </div>
         )}
 
-        {/* Summary Cards — for invoices & fee statements */}
         {(activeTab === 'invoices' || activeTab === 'fee-statements') && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
             <Card>
@@ -223,7 +217,6 @@ const Billing = () => {
           </div>
         )}
 
-        {/* Invoices Tab */}
         <TabsContent value="invoices">
           <Card>
             <CardContent className="p-0">
@@ -268,7 +261,7 @@ const Billing = () => {
                               variant="ghost"
                               size="sm"
                               className="h-7 w-7 p-0"
-                              onClick={() => downloadPdf(inv.id, inv.pdf_path, inv.invoice_number)}
+                              onClick={() => downloadInvoice(inv)}
                               disabled={downloading === inv.id}
                             >
                               {downloading === inv.id
@@ -286,7 +279,6 @@ const Billing = () => {
           </Card>
         </TabsContent>
 
-        {/* Fee Statements Tab */}
         <TabsContent value="fee-statements">
           <Card>
             <CardContent className="p-0">
@@ -328,7 +320,7 @@ const Billing = () => {
                                   size="sm"
                                   className="h-7 w-7 p-0"
                                   title="تحميل PDF"
-                                  onClick={() => downloadPdf(s.id, s.pdf_path, s.statement_number)}
+                                  onClick={() => downloadStatement(s)}
                                   disabled={downloading === s.id}
                                 >
                                   {downloading === s.id
@@ -348,10 +340,8 @@ const Billing = () => {
           </Card>
         </TabsContent>
 
-        {/* Accounting Ledger Tab */}
         <TabsContent value="accounting">
           <div className="space-y-4">
-            {/* Year selector + export */}
             <div className="flex items-center gap-2 justify-end">
               <Button
                 variant="outline"
@@ -383,7 +373,6 @@ const Billing = () => {
               </Select>
             </div>
 
-            {/* Accounting Stats */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <Card>
                 <CardContent className="pt-4 pb-3">
@@ -431,7 +420,6 @@ const Billing = () => {
               </Card>
             </div>
 
-            {/* Breakdown */}
             <div className="grid grid-cols-2 gap-3">
               <Card>
                 <CardContent className="pt-4 pb-3 flex items-center gap-3">
@@ -457,7 +445,6 @@ const Billing = () => {
               </Card>
             </div>
 
-            {/* Ledger Table */}
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">دفتر القيود المحاسبية — {accYear}</CardTitle>
@@ -518,10 +505,8 @@ const Billing = () => {
             </Card>
           </div>
         </TabsContent>
-
       </Tabs>
 
-      {/* Dialogs */}
       <CreateInvoiceDialog open={invDialogOpen} onOpenChange={setInvDialogOpen} onCreated={refetchInv} />
       <CreateFeeStatementDialog
         open={fsDialogOpen}
