@@ -181,14 +181,19 @@ const Finance = () => {
                 </TableHeader>
                 <TableBody>
                   {entries.map(entry => {
-                    const typeInfo = ENTRY_TYPE_LABELS[entry.entry_type] || { label: entry.entry_type, color: '' };
+                    const typeInfo = ENTRY_TYPE_LABELS[entry.entry_type] || { label: entry.entry_type, sublabel: '', color: '' };
                     return (
                       <TableRow key={entry.id}>
                         <TableCell className="font-mono text-xs font-bold" dir="ltr">{entry.entry_number}</TableCell>
                         <TableCell>
-                          <Badge className={`text-[10px] ${typeInfo.color}`} variant="outline">
-                            {typeInfo.label}
-                          </Badge>
+                          <div className="flex flex-col items-start gap-0.5">
+                            <Badge className={`text-[10px] ${typeInfo.color}`} variant="outline">
+                              {typeInfo.label}
+                            </Badge>
+                            {typeInfo.sublabel && (
+                              <span className="text-[9px] text-muted-foreground">{typeInfo.sublabel}</span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="text-sm">{entry.clients?.full_name || '—'}</TableCell>
                         <TableCell className="text-xs max-w-32 truncate">{entry.description || '—'}</TableCell>
