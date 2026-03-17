@@ -180,40 +180,16 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
     setCaseBlocks(prev => prev.map(b => b.caseId === caseId ? { ...b, collapsed: !b.collapsed } : b));
   };
 
-  const handleCreateCase = async () => {
-    if (!user || !newCase.title.trim() || !newCase.case_number.trim()) return;
-    setCreatingCase(true);
-    try {
-      const { data, error } = await supabase
-        .from('cases')
-        .insert({
-          title: newCase.title.trim(),
-          case_number: newCase.case_number.trim(),
-          court: newCase.court.trim() || null,
-          case_type: newCase.case_type || null,
-          client_id: form.clientId || null,
-          assigned_to: user.id,
-        })
-        .select('id')
-        .single();
-      if (error) throw error;
-      const newCaseId = data.id;
-      await refetchCases();
-      setCaseBlocks(prev => [...prev, {
-        caseId: newCaseId,
-        lawyerFees: '',
-        taxRate: DEFAULT_TAX_RATE,
-        items: [{ description: '', amount: '' }],
-        collapsed: false,
-      }]);
-      setNewCase({ title: '', case_number: '', court: '', case_type: '' });
-      setShowNewCase(false);
-      toast({ title: 'تم إنشاء الملف وإضافته ✅' });
-    } catch (e: any) {
-      toast({ title: 'خطأ في إنشاء الملف', description: e.message, variant: 'destructive' });
-    } finally {
-      setCreatingCase(false);
-    }
+  const handleCaseCreatedFromDialog = async (caseId: string) => {
+    await refetchCases();
+    setCaseBlocks(prev => [...prev, {
+      caseId,
+      lawyerFees: '',
+      taxRate: DEFAULT_TAX_RATE,
+      items: [{ description: '', amount: '' }],
+      collapsed: false,
+    }]);
+    setShowNewCase(false);
   };
 
   const filteredCases = form.clientId ? cases.filter(c => c.client_id === form.clientId) : cases;
