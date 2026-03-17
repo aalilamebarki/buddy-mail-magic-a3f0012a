@@ -29,6 +29,7 @@ const CourtSessions = () => {
   const [casePopoverOpen, setCasePopoverOpen] = useState(false);
   const [caseSearch, setCaseSearch] = useState('');
   const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
+  const [caseNumber, setCaseNumber] = useState('');
 
   // Form state
   const [selectedCaseId, setSelectedCaseId] = useState('');
