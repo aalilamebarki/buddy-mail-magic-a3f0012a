@@ -404,7 +404,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
         powerOfAttorneyDate: form.powerOfAttorneyDate
           ? formatDateArabic(form.powerOfAttorneyDate, { year: 'numeric', month: 'long', day: 'numeric' })
           : undefined,
-        taxRate: TAX_RATE,
+        taxRate: caseCalcs[0]?.taxRate || 10,
         grandSubtotal: grandTotal.subtotal,
         grandTaxAmount: grandTotal.taxAmount,
         grandTotal: grandTotal.totalAmount,
