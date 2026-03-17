@@ -26,9 +26,9 @@ const PAYMENT_LABELS: Record<string, string> = {
   card: 'بطاقة بنكية',
 };
 
-const ENTRY_TYPE_LABELS: Record<string, { label: string; color: string }> = {
-  invoice: { label: 'وصل أداء', color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200' },
-  fee_statement: { label: 'بيان أتعاب', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
+const ENTRY_TYPE_LABELS: Record<string, { label: string; sublabel: string; color: string }> = {
+  invoice: { label: 'وصل أداء', sublabel: 'تحصيل', color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200' },
+  fee_statement: { label: 'بيان أتعاب', sublabel: 'أتعاب فقط', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
 };
 
 const buildStatementLabel = (s: FeeStatementRecord) => {
