@@ -128,7 +128,12 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated }: Props) => {
     setSaving(true);
     try {
       const now = new Date();
-      const statementNumber = `FEE-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
+
+      // Get sequential number from DB
+      const { data: seqNumber, error: seqError } = await supabase
+        .rpc('next_accounting_number', { _user_id: user.id, _type: 'fee_statement' });
+      if (seqError) throw seqError;
+      const statementNumber = seqNumber as string;
 
       const client = clients.find(c => c.id === form.clientId);
       const letterhead = letterheads.find(l => l.id === form.letterheadId);
