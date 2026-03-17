@@ -35,6 +35,7 @@ const emptyForm: CaseForm = { title: '', case_type: '', description: '', client_
 const emptyOpponent: Opponent = { name: '', address: '', phone: '' };
 
 const NIYABA = 'النيابة العامة';
+const HIDDEN_ADDRESS_PARTIES = [NIYABA, 'قاضي التوثيق'];
 
 interface PresenceParty {
   name: string;
