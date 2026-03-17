@@ -91,7 +91,7 @@ const CreateInvoiceDialog = ({ open, onOpenChange, onCreated }: Props) => {
   const amount = parseFloat(form.amount) || 0;
   const paymentLabel = PAYMENT_METHODS.find(m => m.value === form.paymentMethod)?.label || form.paymentMethod;
 
-  const canSubmit = form.clientId && form.amount && amount > 0;
+  const canSubmit = form.clientId && form.letterheadId && form.amount && amount > 0;
 
   const clientOptions = clients.map(c => ({
     value: c.id,
@@ -426,7 +426,7 @@ const CreateInvoiceDialog = ({ open, onOpenChange, onCreated }: Props) => {
             </div>
 
             <div className="space-y-2">
-              <Label>الترويسة</Label>
+              <Label>الترويسة *</Label>
               <SearchableSelect
                 options={letterheadOptions}
                 value={form.letterheadId}
