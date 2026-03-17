@@ -678,6 +678,51 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          case_id: string
+          created_at: string
+          id: string
+          is_read: boolean
+          message: string
+          session_id: string
+          user_id: string
+        }
+        Insert: {
+          case_id: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message: string
+          session_id: string
+          user_id: string
+        }
+        Update: {
+          case_id?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string
+          session_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "court_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
