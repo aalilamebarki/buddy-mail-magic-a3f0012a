@@ -213,7 +213,7 @@ const Cases = () => {
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     {c.case_type && <Badge variant="secondary" className="text-xs">{c.case_type}</Badge>}
-                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => openEdit(c)}>
+                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={(e) => { e.stopPropagation(); openEdit(c); }}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
                     <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => openDelete(c)}>
