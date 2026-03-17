@@ -390,6 +390,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
           lawyerFees: calc.lawyerFees,
           expensesTotal: calc.expensesTotal,
           subtotal: calc.subtotal,
+          taxRate: calc.taxRate,
           taxAmount: calc.taxAmount,
           totalAmount: calc.totalAmount,
         };
