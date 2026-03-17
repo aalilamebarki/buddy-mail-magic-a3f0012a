@@ -159,6 +159,24 @@ const Cases = () => {
 
   const updateField = (field: keyof CaseForm, value: string) => setForm(prev => ({ ...prev, [field]: value }));
 
+  const filteredClients = useMemo(() => {
+    if (!clientSearch) return clients;
+    return clients.filter(c => c.full_name.includes(clientSearch));
+  }, [clients, clientSearch]);
+
+  const selectedClientLabel = form.client_id ? clients.find(c => c.id === form.client_id)?.full_name : '';
+
+  const handleAddQuickClient = async () => {
+    if (!newClientName.trim()) { toast.error('اسم الموكل مطلوب'); return; }
+    const { data, error } = await supabase.from('clients').insert({ full_name: newClientName.trim() }).select('id, full_name').single();
+    if (error) { toast.error('خطأ في إضافة الموكل'); return; }
+    setClients(prev => [...prev, data].sort((a, b) => a.full_name.localeCompare(b.full_name)));
+    updateField('client_id', data.id);
+    setNewClientName('');
+    setAddClientDialogOpen(false);
+    toast.success('تم إضافة الموكل');
+  };
+
   const selectedClientName = filterClientId ? clients.find(c => c.id === filterClientId)?.full_name : null;
 
   return (
