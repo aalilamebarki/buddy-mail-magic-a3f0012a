@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -22,8 +22,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
+  const lastRoleFetchId = useRef<string | null>(null);
 
-  const fetchUserRole = async (userId: string) => {
+  const fetchUserRole = useCallback(async (userId: string) => {
+    // Skip if we already fetched for this user
+    if (lastRoleFetchId.current === userId) return;
+    lastRoleFetchId.current = userId;
     try {
       const { data, error } = await (supabase as any)
         .from('user_roles')
@@ -36,53 +40,65 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setRole(null);
         return;
       }
-
       setRole(data?.role as AppRole || null);
     } catch (err) {
       console.error('Error in fetchUserRole:', err);
       setRole(null);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    // Set up auth state listener BEFORE checking session
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+      async (event, newSession) => {
+        // Only update state if something actually changed
+        setSession(prev => {
+          if (prev?.access_token === newSession?.access_token) return prev;
+          return newSession;
+        });
+        
+        const newUser = newSession?.user ?? null;
+        setUser(prev => {
+          if (prev?.id === newUser?.id) return prev;
+          return newUser;
+        });
 
-        if (session?.user) {
-          // Use setTimeout to avoid Supabase client deadlock
-          setTimeout(() => fetchUserRole(session.user.id), 0);
+        if (newSession?.user) {
+          // fetchUserRole already deduplicates by userId
+          setTimeout(() => fetchUserRole(newSession.user.id), 0);
         } else {
+          lastRoleFetchId.current = null;
           setRole(null);
         }
 
         if (event === 'INITIAL_SESSION') {
           setLoading(false);
         }
+
+        // If user signs out, reset
+        if (event === 'SIGNED_OUT') {
+          lastRoleFetchId.current = null;
+          setRole(null);
+          setLoading(false);
+        }
       }
     );
 
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchUserRole(session.user.id);
-      }
-      setLoading(false);
-    });
+    // Fallback: ensure loading is false after timeout
+    const timeout = setTimeout(() => setLoading(false), 3000);
 
-    return () => subscription.unsubscribe();
-  }, []);
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
+  }, [fetchUserRole]);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
+    lastRoleFetchId.current = null; // Allow re-fetch on new sign-in
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error: error as Error | null };
-  };
+  }, []);
 
-  const signUp = async (email: string, password: string, fullName: string) => {
+  const signUp = useCallback(async (email: string, password: string, fullName: string) => {
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -92,25 +108,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       },
     });
     return { error: error as Error | null };
-  };
+  }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     await supabase.auth.signOut();
+    lastRoleFetchId.current = null;
     setSession(null);
     setUser(null);
     setRole(null);
-  };
+  }, []);
 
-  const hasRole = (roles: AppRole | AppRole[]) => {
+  const hasRole = useCallback((roles: AppRole | AppRole[]) => {
     if (!role) return false;
     if (Array.isArray(roles)) return roles.includes(role);
     return role === roles;
-  };
+  }, [role]);
+
+  const value = useMemo(() => ({
+    session, user, role, loading, signIn, signUp, signOut, hasRole,
+  }), [session, user, role, loading, signIn, signUp, signOut, hasRole]);
 
   return (
-    <AuthContext.Provider
-      value={{ session, user, role, loading, signIn, signUp, signOut, hasRole }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
