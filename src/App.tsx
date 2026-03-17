@@ -25,6 +25,7 @@ const AIConsultation = lazy(() => import("./pages/AIConsultation"));
 const About = lazy(() => import("./pages/About"));
 const DocumentCenter = lazy(() => import("./pages/DocumentCenter"));
 const DocumentDetail = lazy(() => import("./pages/DocumentDetail"));
+const VerifyInvoice = lazy(() => import("./pages/VerifyInvoice"));
 
 // Dashboard (lazy)
 const Dashboard = lazy(() => import("./pages/Dashboard"));
