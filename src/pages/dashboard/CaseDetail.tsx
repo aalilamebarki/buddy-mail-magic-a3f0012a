@@ -107,11 +107,11 @@ const CaseDetail = () => {
         </Card>
       </div>
 
-      {/* Documents */}
+      {/* سجل الإجراءات */}
       <Card>
         <CardHeader className="pb-3 flex flex-row items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2">
-            <FileText className="h-4 w-4" /> المستندات ({documents.length})
+            <ClipboardList className="h-4 w-4" /> سجل الإجراءات ({documents.length})
           </CardTitle>
           <Button size="sm" onClick={() => navigate(`/dashboard/document-generator?case_id=${caseData.id}`)}>
             إنشاء مستند
@@ -119,18 +119,31 @@ const CaseDetail = () => {
         </CardHeader>
         <CardContent>
           {documents.length === 0 ? (
-            <p className="text-center text-sm text-muted-foreground py-6">لا توجد مستندات بعد</p>
+            <p className="text-center text-sm text-muted-foreground py-6">لا توجد إجراءات بعد</p>
           ) : (
-            <div className="space-y-2">
-              {documents.map(doc => (
-                <div key={doc.id} className="flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => navigate(`/dashboard/document-generator?doc_id=${doc.id}`)}>
-                  <div>
-                    <p className="text-sm font-medium">{doc.title}</p>
-                    <p className="text-xs text-muted-foreground">{doc.doc_type} • {new Date(doc.created_at).toLocaleDateString('ar-MA')}</p>
-                  </div>
-                  <Badge variant="secondary" className="text-xs">{doc.status}</Badge>
-                </div>
-              ))}
+            <div className="overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-right">التاريخ</TableHead>
+                    <TableHead className="text-right">نوع الإجراء</TableHead>
+                    <TableHead className="text-right">العنوان</TableHead>
+                    <TableHead className="text-right">الجلسة المقبلة</TableHead>
+                    <TableHead className="text-right">الحالة</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {documents.map(doc => (
+                    <TableRow key={doc.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/dashboard/document-generator?doc_id=${doc.id}`)}>
+                      <TableCell className="text-sm whitespace-nowrap">{new Date(doc.created_at).toLocaleDateString('ar-MA')}</TableCell>
+                      <TableCell><Badge variant="outline" className="text-xs">{doc.doc_type}</Badge></TableCell>
+                      <TableCell className="text-sm font-medium">{doc.title}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{doc.next_court || '—'}</TableCell>
+                      <TableCell><Badge variant="secondary" className="text-xs">{doc.status}</Badge></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           )}
         </CardContent>
