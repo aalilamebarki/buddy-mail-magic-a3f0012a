@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Loader2, FileText, Plus, Trash2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, FileText, Plus, Trash2, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -47,13 +48,14 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated }: Props) => {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     clientId: '',
-    caseId: '',
     letterheadId: '',
     powerOfAttorneyDate: '',
     lawyerFees: '',
     taxRate: '10',
     notes: '',
   });
+  const [selectedCaseIds, setSelectedCaseIds] = useState<string[]>([]);
+  const [caseSelectValue, setCaseSelectValue] = useState('');
   const [items, setItems] = useState<ExpenseItem[]>([{ description: '', amount: '' }]);
 
   const update = (field: string, value: string) => setForm(prev => ({ ...prev, [field]: value }));
@@ -78,9 +80,27 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated }: Props) => {
     }
   };
 
+  const addCase = (caseId: string) => {
+    if (!caseId || selectedCaseIds.includes(caseId)) return;
+    const caseItem = cases.find(c => c.id === caseId);
+    if (!caseItem?.case_number) {
+      toast({ title: 'هذا الملف لا يحتوي على رقم ملف', variant: 'destructive' });
+      return;
+    }
+    setSelectedCaseIds(prev => [...prev, caseId]);
+    setCaseSelectValue('');
+  };
+
+  const removeCase = (caseId: string) => {
+    setSelectedCaseIds(prev => prev.filter(id => id !== caseId));
+  };
+
   const filteredCases = form.clientId
     ? cases.filter(c => c.client_id === form.clientId)
     : cases;
+
+  const availableCases = filteredCases.filter(c => !selectedCaseIds.includes(c.id));
+  const selectedCases = cases.filter(c => selectedCaseIds.includes(c.id));
 
   const expensesTotal = items.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
   const lawyerFees = parseFloat(form.lawyerFees) || 0;
@@ -89,10 +109,19 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated }: Props) => {
   const taxAmount = subtotal * taxRate / 100;
   const totalAmount = subtotal + taxAmount;
 
+  const canSubmit = form.clientId && selectedCaseIds.length > 0 && !saving;
+
   const handleSubmit = async () => {
-    if (!user || !form.clientId) return;
+    if (!user || !canSubmit) return;
     if (items.every(i => !i.description && !i.amount) && !form.lawyerFees) {
       toast({ title: 'يرجى إضافة مصاريف أو أتعاب', variant: 'destructive' });
+      return;
+    }
+
+    // Validate all cases have case_number
+    const missingNumber = selectedCases.find(c => !c.case_number);
+    if (missingNumber) {
+      toast({ title: `الملف "${missingNumber.title}" لا يحتوي على رقم ملف`, variant: 'destructive' });
       return;
     }
 
@@ -102,15 +131,15 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated }: Props) => {
       const statementNumber = `FEE-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
 
       const client = clients.find(c => c.id === form.clientId);
-      const caseItem = cases.find(c => c.id === form.caseId);
       const letterhead = letterheads.find(l => l.id === form.letterheadId);
 
+      // Use first case as primary case_id for backward compat
       const { data: stmt, error } = await supabase
         .from('fee_statements')
         .insert({
           user_id: user.id,
           client_id: form.clientId || null,
-          case_id: form.caseId || null,
+          case_id: selectedCaseIds[0] || null,
           letterhead_id: form.letterheadId || null,
           statement_number: statementNumber,
           power_of_attorney_date: form.powerOfAttorneyDate || null,
@@ -125,6 +154,17 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated }: Props) => {
         .single();
 
       if (error) throw error;
+
+      // Insert junction cases
+      if (selectedCaseIds.length > 0) {
+        const { error: casesError } = await supabase
+          .from('fee_statement_cases')
+          .insert(selectedCaseIds.map(caseId => ({
+            fee_statement_id: stmt.id,
+            case_id: caseId,
+          })));
+        if (casesError) throw casesError;
+      }
 
       // Insert items
       const validItems = items.filter(i => i.description && parseFloat(i.amount) > 0);
@@ -147,9 +187,11 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated }: Props) => {
         clientName: client?.full_name || '—',
         clientCin: client?.cin || undefined,
         clientPhone: client?.phone || undefined,
-        caseName: caseItem?.title,
-        caseNumber: caseItem?.case_number || undefined,
-        court: caseItem?.court || undefined,
+        cases: selectedCases.map(c => ({
+          title: c.title,
+          caseNumber: c.case_number || '',
+          court: c.court || undefined,
+        })),
         powerOfAttorneyDate: form.powerOfAttorneyDate
           ? formatDateArabic(form.powerOfAttorneyDate, { year: 'numeric', month: 'long', day: 'numeric' })
           : undefined,
@@ -174,7 +216,8 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated }: Props) => {
       await supabase.from('fee_statements').update({ pdf_path: pdfPath }).eq('id', stmt.id);
 
       toast({ title: 'تم إنشاء بيان الأتعاب بنجاح ✅' });
-      setForm({ clientId: '', caseId: '', letterheadId: '', powerOfAttorneyDate: '', lawyerFees: '', taxRate: '10', notes: '' });
+      setForm({ clientId: '', letterheadId: '', powerOfAttorneyDate: '', lawyerFees: '', taxRate: '10', notes: '' });
+      setSelectedCaseIds([]);
       setItems([{ description: '', amount: '' }]);
       onOpenChange(false);
       onCreated();
@@ -196,7 +239,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated }: Props) => {
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Client & Case */}
+          {/* Client & Letterhead */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">الموكل *</Label>
@@ -208,18 +251,6 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated }: Props) => {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">الملف</Label>
-              <Select value={form.caseId} onValueChange={v => update('caseId', v)}>
-                <SelectTrigger className="text-sm"><SelectValue placeholder="ربط بملف" /></SelectTrigger>
-                <SelectContent>
-                  {filteredCases.map(c => <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
               <Label className="text-xs">الترويسة</Label>
               <Select value={form.letterheadId} onValueChange={v => update('letterheadId', v)}>
                 <SelectTrigger className="text-sm"><SelectValue placeholder="اختر" /></SelectTrigger>
@@ -228,15 +259,48 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated }: Props) => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">تاريخ التوكيل</Label>
-              <Input
-                type="date"
-                value={form.powerOfAttorneyDate}
-                onChange={e => update('powerOfAttorneyDate', e.target.value)}
-                className="text-sm"
-              />
-            </div>
+          </div>
+
+          {/* Cases - Multiple Selection */}
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold">الملفات * (يجب أن تحتوي على رقم ملف)</Label>
+            <Select value={caseSelectValue} onValueChange={addCase}>
+              <SelectTrigger className="text-sm"><SelectValue placeholder="اختر ملفاً لإضافته" /></SelectTrigger>
+              <SelectContent>
+                {availableCases.map(c => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.title} {c.case_number ? `(${c.case_number})` : '⚠️ بدون رقم'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {selectedCases.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {selectedCases.map(c => (
+                  <Badge key={c.id} variant="secondary" className="text-xs gap-1 pr-1">
+                    {c.title} — {c.case_number}
+                    <button onClick={() => removeCase(c.id)} className="hover:text-destructive">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
+            {selectedCaseIds.length === 0 && (
+              <p className="text-[10px] text-destructive">يرجى اختيار ملف واحد على الأقل</p>
+            )}
+          </div>
+
+          {/* Power of Attorney Date */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">تاريخ التوكيل</Label>
+            <Input
+              type="date"
+              value={form.powerOfAttorneyDate}
+              onChange={e => update('powerOfAttorneyDate', e.target.value)}
+              className="text-sm"
+            />
           </div>
 
           {/* Expense Items */}
@@ -248,7 +312,6 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated }: Props) => {
               </Button>
             </div>
 
-            {/* Quick add buttons */}
             <div className="flex flex-wrap gap-1">
               {COMMON_EXPENSES.map(exp => (
                 <Button
@@ -346,7 +409,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated }: Props) => {
             />
           </div>
 
-          <Button onClick={handleSubmit} disabled={saving || !form.clientId} className="w-full gap-2">
+          <Button onClick={handleSubmit} disabled={!canSubmit} className="w-full gap-2">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
             {saving ? 'جاري الإنشاء...' : 'إنشاء البيان وتحميل PDF'}
           </Button>
