@@ -242,7 +242,7 @@ const CaseDetail = () => {
                 </div>
               ) : (
                 <div className="flex items-center gap-1">
-                  <span className="font-mono" dir="ltr">{caseData.case_number || '—'}</span>
+                  <span dir="ltr">{caseData.case_number || '—'}</span>
                   <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setCaseNumberEdit(caseData.case_number || ''); setEditingCaseNumber(true); }}>
                     <Pencil className="h-3 w-3" />
                   </Button>

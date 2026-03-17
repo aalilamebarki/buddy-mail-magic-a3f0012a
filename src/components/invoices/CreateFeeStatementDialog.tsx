@@ -668,7 +668,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
                         ملف {blockIdx + 1}
                       </Badge>
                       <span className="text-xs font-semibold truncate">
-                        {caseInfo?.title} — {caseInfo?.case_number}
+                        {caseInfo?.title} — <span dir="ltr">{caseInfo?.case_number}</span>
                       </span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">

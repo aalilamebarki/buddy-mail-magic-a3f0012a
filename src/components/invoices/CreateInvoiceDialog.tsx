@@ -278,7 +278,7 @@ const CreateInvoiceDialog = ({ open, onOpenChange, onCreated }: Props) => {
               {caseItem && (
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">الملف</span>
-                  <span>{caseItem.title} {caseItem.case_number ? `(${caseItem.case_number})` : ''}</span>
+                  <span>{caseItem.title} {caseItem.case_number ? <span dir="ltr">({caseItem.case_number})</span> : ''}</span>
                 </div>
               )}
               {selectedStatementInfo && (
