@@ -443,53 +443,70 @@ const Cases = () => {
             {/* Opponents Section */}
             <div className="space-y-3">
               <Label className="text-sm font-medium">المدعى عليهم (الخصوم) *</Label>
-              {opponents.map((opp, index) => (
-                <div key={index} className="relative border rounded-lg p-3 space-y-2 bg-muted/30">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground font-medium">خصم {index + 1}</span>
-                    {opponents.length > 1 && (
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => removeOpponent(index)}>
-                        <X className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                  <div>
-                    <Label className="text-xs">الخصم (ضد) *</Label>
-                    <Input
-                      value={opp.name}
-                      onChange={e => updateOpponent(index, 'name', e.target.value)}
-                      placeholder="اسم الطرف المقابل"
-                    />
-                  </div>
-                  {!isNiyaba(opp.name) && (
+              {opponents.map((opp, index) => {
+                const niyaba = isNiyaba(opp.name);
+                return (
+                  <div key={index} className="relative border rounded-lg p-3 space-y-2 bg-muted/30">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground font-medium">خصم {index + 1}</span>
+                      {opponents.length > 1 && (
+                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => removeOpponent(index)}>
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
                     <div>
-                      <Label className="text-xs">عنوان الخصم *</Label>
+                      <Label className="text-xs">الخصم (ضد) *</Label>
                       <Input
-                        value={opp.address}
-                        onChange={e => updateOpponent(index, 'address', e.target.value)}
-                        placeholder="عنوان الطرف المقابل"
+                        value={opp.name}
+                        onChange={e => updateOpponent(index, 'name', e.target.value)}
+                        placeholder="اسم الطرف المقابل"
                       />
                     </div>
-                  )}
-                  <div>
-                    <Label className="text-xs">هاتف الخصم</Label>
-                    <Input
-                      value={opp.phone}
-                      onChange={e => updateOpponent(index, 'phone', e.target.value)}
-                      placeholder="اختياري"
-                    />
+                    {!niyaba && (
+                      <>
+                        <div>
+                          <Label className="text-xs">عنوان الخصم *</Label>
+                          <Input
+                            value={opp.address}
+                            onChange={e => updateOpponent(index, 'address', e.target.value)}
+                            placeholder="عنوان الطرف المقابل"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">هاتف الخصم</Label>
+                          <Input
+                            value={opp.phone}
+                            onChange={e => updateOpponent(index, 'phone', e.target.value)}
+                            placeholder="اختياري"
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
-                </div>
-              ))}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-full gap-2 border-dashed"
-                onClick={addOpponent}
-              >
-                <UserRoundPlus className="h-4 w-4" /> إضافة مدعى عليه آخر
-              </Button>
+                );
+              })}
+              <Input
+                placeholder="أضف مدعى عليه آخر..."
+                className="border-dashed"
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const val = (e.target as HTMLInputElement).value.trim();
+                    if (val) {
+                      setOpponents(prev => [...prev, { name: val, address: '', phone: '' }]);
+                      (e.target as HTMLInputElement).value = '';
+                    }
+                  }
+                }}
+                onBlur={e => {
+                  const val = e.target.value.trim();
+                  if (val) {
+                    setOpponents(prev => [...prev, { name: val, address: '', phone: '' }]);
+                    e.target.value = '';
+                  }
+                }}
+              />
             </div>
 
             <div>
