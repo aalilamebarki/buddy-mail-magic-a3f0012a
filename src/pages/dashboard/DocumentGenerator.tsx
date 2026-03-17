@@ -1587,7 +1587,7 @@ const DocumentGenerator = () => {
                             <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{caseFile.court_level}</Badge>
                             {caseFile.court && <span>{caseFile.court}</span>}
                             {caseFile.case_type && <span>• {caseFile.case_type}</span>}
-                            {caseFile.case_number && <span>• ملف: {caseFile.case_number}</span>}
+                            {caseFile.case_number && <span>• ملف: <span dir="ltr">{caseFile.case_number}</span></span>}
                           </div>
                         </div>
                         <Button size="sm" variant="outline" className="gap-1 shrink-0 text-xs h-7">

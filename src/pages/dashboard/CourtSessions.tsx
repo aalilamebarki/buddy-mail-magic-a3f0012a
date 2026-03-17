@@ -592,7 +592,7 @@ const CourtSessions = () => {
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium truncate">{c.clients?.full_name || c.title}</p>
                               <p className="text-xs text-muted-foreground">
-                                {c.case_number && `${c.case_number} • `}{c.court || ''}
+                                {c.case_number && <span dir="ltr">{`${c.case_number} • `}</span>}{c.court || ''}
                               </p>
                             </div>
                           </CommandItem>

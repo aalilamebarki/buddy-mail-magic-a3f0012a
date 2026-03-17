@@ -550,7 +550,7 @@ const Cases = () => {
                       <TableCell>{getOpposingLabel(c)}</TableCell>
                       <TableCell>{c.case_type || '—'}</TableCell>
                       <TableCell>{c.court || '—'}</TableCell>
-                      <TableCell className="font-mono">{c.case_number || '—'}</TableCell>
+                      <TableCell className="font-mono" dir="ltr">{c.case_number || '—'}</TableCell>
                       <TableCell><Badge variant="secondary">{c.status}</Badge></TableCell>
                       <TableCell>{new Date(c.created_at).toLocaleDateString('ar-MA')}</TableCell>
                       <TableCell>
