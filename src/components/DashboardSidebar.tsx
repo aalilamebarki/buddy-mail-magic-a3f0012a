@@ -128,7 +128,7 @@ const DashboardSidebar = () => {
   return (
     <>
       {/* Mobile: hamburger + sheet */}
-      <div className="lg:hidden fixed top-0 right-0 left-0 z-40 bg-background/80 backdrop-blur-md border-b border-border flex items-center h-14 px-4">
+      <div className="lg:hidden fixed top-0 right-0 left-0 z-40 bg-background/80 backdrop-blur-md border-b border-border flex items-center h-14 px-4" dir="rtl">
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" className="shrink-0">
@@ -146,7 +146,7 @@ const DashboardSidebar = () => {
       </div>
 
       {/* Desktop: fixed sidebar */}
-      <aside className="hidden lg:flex w-64 bg-card border-r border-border flex-col h-screen sticky top-0 shrink-0">
+      <aside className="hidden lg:flex w-64 bg-card border-l border-border flex-col h-screen sticky top-0 shrink-0">
         <SidebarContent />
       </aside>
     </>

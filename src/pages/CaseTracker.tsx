@@ -58,7 +58,7 @@ const CaseTracker = () => {
         <meta name="description" content="تتبع حالة قضيتك برقم الملف" />
       </Helmet>
 
-      <div className="min-h-screen bg-background relative overflow-hidden">
+      <div className="min-h-screen bg-background relative overflow-hidden" dir="rtl">
         <div className="absolute inset-0">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-legal-gold/[0.03] blur-[100px]" />
           <div className="absolute bottom-0 right-0 w-[400px] h-[400px] rounded-full bg-primary/[0.03] blur-[80px]" />

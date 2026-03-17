@@ -595,7 +595,7 @@ const AIConsultation = () => {
         <meta name="description" content="استشارة قانونية ذكية مبنية على القانون المغربي" />
       </Helmet>
 
-      <div className="min-h-screen bg-background flex flex-col relative overflow-hidden">
+      <div className="min-h-screen bg-background flex flex-col relative overflow-hidden" dir="rtl">
         {/* Background */}
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[700px] rounded-full bg-primary/[0.03] blur-[120px]" />

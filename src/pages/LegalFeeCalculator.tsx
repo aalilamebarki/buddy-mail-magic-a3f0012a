@@ -63,7 +63,7 @@ const LegalFeeCalculator = () => {
         <meta name="description" content="احسب الرسوم القضائية المغربية حسب نوع القضية والمحكمة" />
       </Helmet>
 
-      <div className="min-h-screen bg-background relative overflow-hidden">
+      <div className="min-h-screen bg-background relative overflow-hidden" dir="rtl">
         {/* Background */}
         <div className="absolute inset-0">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-legal-emerald/[0.03] blur-[100px]" />

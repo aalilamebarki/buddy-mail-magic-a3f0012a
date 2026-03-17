@@ -54,7 +54,7 @@ const About = () => {
         <meta name="description" content="تعرّف على فريق محاماة ذكية ورسالتنا في تبسيط القانون المغربي وجعل المعرفة القانونية في متناول الجميع." />
       </Helmet>
 
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background" dir="rtl">
         {/* Nav */}
         <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrolled ? 'bg-background/90 backdrop-blur-xl border-b border-border shadow-sm' : 'bg-transparent'}`}>
           <div className="container mx-auto px-4 flex items-center justify-between h-16 md:h-20">
@@ -115,7 +115,7 @@ const About = () => {
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.15 }}
-                  className={`relative flex items-start gap-6 mb-12 ${i % 2 === 0 ? 'md:flex-row-reverse md:text-left' : ''}`}
+                  className={`relative flex items-start gap-6 mb-12 ${i % 2 === 0 ? 'md:flex-row-reverse md:text-left' : 'md:text-right'}`}
                 >
                   <div className="absolute right-[18px] md:right-1/2 md:-translate-x-1/2 w-5 h-5 rounded-full bg-card border-[3px] border-primary shadow-lg shadow-primary/20 z-10" />
                   <div className="mr-14 md:mr-0 md:w-[calc(50%-2rem)] bg-card rounded-2xl border border-border/30 p-6 shadow-sm hover:shadow-md transition-shadow">

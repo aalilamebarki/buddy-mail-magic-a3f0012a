@@ -54,7 +54,7 @@ const Auth = () => {
   return (
     <>
       <Helmet><title>تسجيل الدخول - محاماة ذكية</title></Helmet>
-      <div className="min-h-screen flex items-center justify-center relative overflow-hidden px-4 py-12">
+      <div className="min-h-screen flex items-center justify-center relative overflow-hidden px-4 py-12" dir="rtl">
         {/* Background */}
         <div className="absolute inset-0 bg-gradient-to-br from-legal-navy/[0.03] via-background to-background" />
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-primary/[0.04] blur-[120px]" />
