@@ -739,7 +739,7 @@ const Cases = () => {
                       <Input
                         value={party.name}
                         onChange={e => updatePresenceParty(index, 'name', e.target.value)}
-                        placeholder="مثال: النيابة العامة، المحافظ..."
+                        placeholder="مثال: النيابة العامة، قاضي التوثيق، المحافظ..."
                       />
                     </div>
                     {!niyaba && (
