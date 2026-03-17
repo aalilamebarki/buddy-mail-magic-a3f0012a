@@ -10,7 +10,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowRight, FileText, User, Scale, MapPin, ClipboardList, CalendarDays, Plus, Pencil, Trash2 } from 'lucide-react';
+import { ArrowRight, FileText, User, Scale, MapPin, ClipboardList, CalendarDays, Plus, Pencil, Trash2, Check, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -32,6 +32,8 @@ const CaseDetail = () => {
   const [sessionDate, setSessionDate] = useState<Date | undefined>(undefined);
   const [sessionNotes, setSessionNotes] = useState('');
   const [caseNumberInput, setCaseNumberInput] = useState('');
+  const [editingCaseNumber, setEditingCaseNumber] = useState(false);
+  const [caseNumberEdit, setCaseNumberEdit] = useState('');
   const [saving, setSaving] = useState(false);
 
   const fetchData = async () => {
@@ -201,7 +203,52 @@ const CaseDetail = () => {
           <CardContent className="space-y-2 text-sm">
             {caseData.title && <div className="flex justify-between"><span className="text-muted-foreground">العنوان:</span><span>{caseData.title}</span></div>}
             <div className="flex justify-between"><span className="text-muted-foreground">المحكمة:</span><span>{caseData.court || '—'}</span></div>
-            {caseData.case_number && <div className="flex justify-between"><span className="text-muted-foreground">رقم الملف:</span><span className="font-mono">{caseData.case_number}</span></div>}
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">رقم الملف:</span>
+              {editingCaseNumber ? (
+                <div className="flex items-center gap-1">
+                  <Input
+                    value={caseNumberEdit}
+                    onChange={e => setCaseNumberEdit(e.target.value)}
+                    className="h-7 w-40 font-mono text-sm"
+                    dir="ltr"
+                    placeholder="رقم/رمز/سنة"
+                    autoFocus
+                    onKeyDown={async e => {
+                      if (e.key === 'Enter') {
+                        const val = caseNumberEdit.trim();
+                        if (!val) { toast.error('رقم الملف مطلوب'); return; }
+                        await supabase.from('cases').update({ case_number: val }).eq('id', id);
+                        toast.success('تم تحديث رقم الملف');
+                        setEditingCaseNumber(false);
+                        fetchData();
+                      }
+                      if (e.key === 'Escape') setEditingCaseNumber(false);
+                    }}
+                  />
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={async () => {
+                    const val = caseNumberEdit.trim();
+                    if (!val) { toast.error('رقم الملف مطلوب'); return; }
+                    await supabase.from('cases').update({ case_number: val }).eq('id', id);
+                    toast.success('تم تحديث رقم الملف');
+                    setEditingCaseNumber(false);
+                    fetchData();
+                  }}>
+                    <Check className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingCaseNumber(false)}>
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <span className="font-mono">{caseData.case_number || '—'}</span>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setCaseNumberEdit(caseData.case_number || ''); setEditingCaseNumber(true); }}>
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+            </div>
             <div className="flex justify-between"><span className="text-muted-foreground">التاريخ:</span><span>{new Date(caseData.created_at).toLocaleDateString('ar-MA')}</span></div>
             {caseData.description && <div className="pt-2 border-t"><p className="text-muted-foreground">{caseData.description}</p></div>}
           </CardContent>
