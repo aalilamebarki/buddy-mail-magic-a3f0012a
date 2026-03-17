@@ -60,12 +60,13 @@ const SidebarContent = ({ onNavigate }: { onNavigate?: () => void }) => {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Logo */}
-      <div className="p-4 border-b border-border">
+      {/* Logo + Notifications */}
+      <div className="p-4 border-b border-border flex items-center justify-between">
         <Link to="/dashboard" className="flex items-center gap-2" onClick={onNavigate}>
           <Scale className="h-6 w-6 text-primary" />
           <span className="font-bold text-foreground">محاماة ذكية</span>
         </Link>
+        <NotificationBell />
       </div>
 
       {/* User info */}
