@@ -155,6 +155,7 @@ const CreateInvoiceDialog = ({ open, onOpenChange, onCreated }: Props) => {
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md" dir="rtl">
         <DialogHeader>
