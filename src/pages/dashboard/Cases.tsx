@@ -162,6 +162,14 @@ const Cases = () => {
       }
     }
 
+    const validPresenceCheck = presenceParties.filter(p => p.name.trim());
+    for (const p of validPresenceCheck) {
+      if (!isNiyaba(p.name) && !p.address.trim()) {
+        toast.error(`عنوان الطرف بحضور "${p.name}" مطلوب`);
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       // Build opposing_party summary for the cases table
