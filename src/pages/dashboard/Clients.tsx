@@ -184,6 +184,9 @@ const Clients = () => {
                     {c.email && <p className="text-xs text-muted-foreground" dir="ltr">{c.email}</p>}
                   </div>
                   <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setExpandedClient(expandedClient === c.id ? null : c.id)} title="الحساب المالي">
+                      <DollarSign className="h-3.5 w-3.5" />
+                    </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(`/dashboard/cases?client_id=${c.id}`)}>
                       <FolderOpen className="h-3.5 w-3.5" />
                     </Button>
@@ -202,6 +205,11 @@ const Clients = () => {
                   </div>
                   <span>{new Date(c.created_at).toLocaleDateString('ar-MA')}</span>
                 </div>
+                {expandedClient === c.id && (
+                  <div className="pt-2 border-t border-border">
+                    <ClientFinanceSection clientId={c.id} invoices={invoices} statements={statements} />
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))
