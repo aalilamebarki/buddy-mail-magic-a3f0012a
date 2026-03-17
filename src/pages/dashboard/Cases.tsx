@@ -193,14 +193,25 @@ const Cases = () => {
       }
 
       // Insert opponents
+      const validPresence = presenceParties.filter(p => p.name.trim());
       const opponentsPayload = validOpponents.map((o, i) => ({
         case_id: caseId,
         name: o.name.trim(),
         address: o.address.trim() || null,
         phone: o.phone.trim() || null,
         sort_order: i,
+        party_type: 'opponent',
       }));
-      const { error: oppError } = await supabase.from('case_opponents').insert(opponentsPayload);
+      const presencePayload = validPresence.map((p, i) => ({
+        case_id: caseId,
+        name: p.name.trim(),
+        address: p.address.trim() || null,
+        phone: p.phone.trim() || null,
+        sort_order: i,
+        party_type: 'presence',
+      }));
+      const allParties = [...opponentsPayload, ...presencePayload];
+      const { error: oppError } = await supabase.from('case_opponents').insert(allParties);
       if (oppError) throw oppError;
 
       toast.success(editingCase ? 'تم تحديث الملف' : 'تم إنشاء الملف بنجاح');
