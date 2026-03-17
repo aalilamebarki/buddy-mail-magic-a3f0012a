@@ -467,7 +467,7 @@ const BlogArticle = () => {
 
   /* LOADING */
   if (loading) return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background" dir="rtl">
       <motion.div className="h-[3px] bg-gradient-to-l from-legal-gold to-legal-navy fixed top-0 left-0 right-0 z-[60]">
         <motion.div className="h-full bg-legal-navy" animate={{ width: ['0%', '60%', '30%', '80%'] }} transition={{ duration: 2, repeat: Infinity }} />
       </motion.div>
