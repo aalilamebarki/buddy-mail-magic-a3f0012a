@@ -82,7 +82,7 @@ const VerifyInvoice = () => {
               <Row label="طريقة الأداء" value={PAYMENT_LABELS[invoice.payment_method] || invoice.payment_method} />
               <Row label="الموكل" value={invoice.clients?.full_name} />
               <Row label="الملف" value={invoice.cases?.title} />
-              {invoice.cases?.case_number && <Row label="رقم الملف" value={<span dir="ltr">{invoice.cases.case_number}</span>} />}
+              {invoice.cases?.case_number && <Row label="رقم الملف" value={invoice.cases.case_number} />}
               <Row label="التاريخ" value={formatDateShort(invoice.created_at)} />
               {invoice.description && <Row label="البيان" value={invoice.description} />}
             </div>
