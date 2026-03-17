@@ -1,1 +1,4 @@
 project_id = "kebtjgedbwqrdqdjoqze"
+
+[functions.check-pending-sessions]
+verify_jwt = false
