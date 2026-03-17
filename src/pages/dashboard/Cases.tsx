@@ -255,7 +255,7 @@ const Cases = () => {
                   <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">لا توجد ملفات</TableCell></TableRow>
                 ) : (
                   filtered.map((c) => (
-                    <TableRow key={c.id}>
+                    <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/dashboard/cases/${c.id}`)}>
                       <TableCell className="font-medium">{c.title}</TableCell>
                       <TableCell>لفائدة: {getClientName(c)}</TableCell>
                       <TableCell>{c.case_type || '—'}</TableCell>
