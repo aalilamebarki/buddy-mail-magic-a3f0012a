@@ -65,8 +65,6 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
   const [caseBlocks, setCaseBlocks] = useState<CaseBlock[]>([]);
   const [caseSelectValue, setCaseSelectValue] = useState('');
   const [showNewCase, setShowNewCase] = useState(false);
-  const [creatingCase, setCreatingCase] = useState(false);
-  const [newCase, setNewCase] = useState({ title: '', case_number: '', court: '', case_type: '' });
 
   const isEdit = !!editData;
 
