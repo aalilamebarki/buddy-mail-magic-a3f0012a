@@ -108,6 +108,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
     } else if (!open) {
       setForm({ clientId: '', letterheadId: '', powerOfAttorneyDate: '', notes: '' });
       setCaseBlocks([]);
+      setStep('form');
     }
   }, [editData, open]);
 
