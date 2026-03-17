@@ -25,7 +25,9 @@ interface ClientForm {
 const emptyForm: ClientForm = { full_name: '', email: '', phone: '', cin: '', address: '', notes: '' };
 
 const Clients = () => {
+  const navigate = useNavigate();
   const [clients, setClients] = useState<any[]>([]);
+  const [caseCounts, setCaseCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -36,8 +38,18 @@ const Clients = () => {
   const [saving, setSaving] = useState(false);
 
   const fetchClients = async () => {
-    const { data } = await supabase.from('clients').select('*').order('created_at', { ascending: false });
-    if (data) setClients(data);
+    const [clientsRes, casesRes] = await Promise.all([
+      supabase.from('clients').select('*').order('created_at', { ascending: false }),
+      supabase.from('cases').select('client_id'),
+    ]);
+    if (clientsRes.data) setClients(clientsRes.data);
+    if (casesRes.data) {
+      const counts: Record<string, number> = {};
+      casesRes.data.forEach((c: any) => {
+        if (c.client_id) counts[c.client_id] = (counts[c.client_id] || 0) + 1;
+      });
+      setCaseCounts(counts);
+    }
     setLoading(false);
   };
 
