@@ -235,21 +235,17 @@ const CourtSessions = () => {
       }).join('');
 
       return `
-        <div class="court-section">
-          <div class="court-header">
-            <div class="court-icon">⚖</div>
-            <h2>${court}</h2>
-            <span class="court-count">${items.length} جلسة</span>
-          </div>
+        <div class="court-block">
+          <div class="court-title">⚖ ${court} — ${items.length} جلسة</div>
           <table>
             <thead>
               <tr>
-                <th class="num-col">#</th>
+                <th style="width:28px;text-align:center">#</th>
                 <th>الموكل</th>
-                <th class="case-col">رقم الملف</th>
+                <th style="width:120px">رقم الملف</th>
                 <th>المدعى عليه</th>
-                <th class="date-col">تاريخ الجلسة</th>
-                <th class="date-col">الجلسة المقبلة</th>
+                <th style="width:140px">تاريخ الجلسة</th>
+                <th style="width:140px">الجلسة المقبلة</th>
               </tr>
             </thead>
             <tbody>${rows}</tbody>
@@ -261,69 +257,56 @@ const CourtSessions = () => {
     const totalSessions = Object.values(byCourt).reduce((s, a) => s + a.length, 0);
     const totalCourts = Object.keys(byCourt).length;
 
-    // Content is built directly as DOM elements below
-
     const container = document.createElement('div');
-    container.style.position = 'absolute';
-    container.style.left = '-9999px';
-    container.style.top = '0';
-    container.style.width = '297mm';
+    container.style.cssText = 'position:absolute;left:-9999px;top:0;width:297mm;';
     document.body.appendChild(container);
 
-    // Build content div with inline styles (html2pdf can't handle full HTML docs)
     const wrapper = document.createElement('div');
     wrapper.setAttribute('dir', 'rtl');
     wrapper.setAttribute('lang', 'ar');
-    wrapper.style.cssText = `font-family: 'IBM Plex Sans Arabic', 'Traditional Arabic', sans-serif; font-size: 13px; color: #000; direction: rtl; background: #fff; padding: 20px 36px;`;
+    wrapper.style.cssText = `font-family:'IBM Plex Sans Arabic','Traditional Arabic',sans-serif;font-size:12px;color:#000;direction:rtl;background:#fff;padding:30px 40px;`;
 
-    // Add styles via a <style> tag inside the wrapper
     const styleEl = document.createElement('style');
     styleEl.textContent = `
-      .doc-header { border-bottom: 3px double #000; padding: 22px 0 16px; position: relative; }
-      .doc-header h1 { font-size: 24px; font-weight: 700; color: #000; margin-bottom: 3px; }
-      .doc-header .period { font-size: 13px; color: #333; }
-      .doc-header .stats { position: absolute; left: 0; top: 50%; transform: translateY(-50%); display: flex; gap: 14px; }
-      .stat-box { text-align: center; border: 1.5px solid #000; border-radius: 6px; padding: 7px 14px; min-width: 65px; }
-      .stat-box .num { font-size: 20px; font-weight: 700; display: block; line-height: 1.2; color: #000; }
-      .stat-box .label { font-size: 10px; color: #444; }
-      .court-section { margin-bottom: 22px; }
-      .court-header { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-bottom: 2px solid #000; margin-bottom: 0; }
-      .court-icon { font-size: 15px; width: 26px; height: 26px; border: 1.5px solid #000; border-radius: 5px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-      .court-header h2 { font-size: 14px; font-weight: 700; color: #000; flex: 1; }
-      .court-count { font-size: 10px; border: 1px solid #000; padding: 2px 8px; border-radius: 12px; font-weight: 600; }
-      table { width: 100%; border-collapse: collapse; border: 1.5px solid #000; }
-      th { font-weight: 700; font-size: 11px; color: #000; padding: 8px 10px; text-align: right; border: 1px solid #000; border-bottom: 2px solid #000; white-space: nowrap; }
-      td { padding: 7px 10px; font-size: 12px; border: 1px solid #777; color: #000; }
-      .num-col { width: 32px; text-align: center; }
-      .num-cell { text-align: center; font-weight: 600; color: #444; font-size: 11px; }
-      .name-cell { font-weight: 500; }
-      .case-num-cell { font-family: monospace; font-size: 12px; font-weight: 500; }
-      .case-col { width: 130px; }
-      .date-col { width: 150px; }
-      .date-cell { font-size: 11.5px; color: #111; white-space: nowrap; }
-      .doc-footer { margin-top: 24px; padding: 10px 0; border-top: 2px solid #000; display: flex; justify-content: space-between; font-size: 10px; color: #444; }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      .header { text-align: center; margin-bottom: 28px; padding-bottom: 18px; border-bottom: 1px solid #000; }
+      .header h1 { font-size: 22px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 6px; }
+      .header .subtitle { font-size: 12px; color: #333; margin-bottom: 12px; }
+      .header .stats-row { display: flex; justify-content: center; gap: 30px; margin-top: 10px; }
+      .header .stat { font-size: 12px; color: #222; }
+      .header .stat strong { font-size: 16px; margin-left: 4px; }
+      .court-block { margin-bottom: 20px; break-inside: avoid; }
+      .court-title { font-size: 13px; font-weight: 700; padding: 6px 10px; background: #000; color: #fff; margin-bottom: 0; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 0; }
+      th { font-size: 10px; font-weight: 700; padding: 6px 8px; text-align: right; background: #eee; border: 1px solid #999; text-transform: uppercase; letter-spacing: 0.3px; }
+      td { font-size: 11px; padding: 5px 8px; border: 1px solid #bbb; }
+      tr:nth-child(even) td { background: #f7f7f7; }
+      .num-cell { text-align: center; width: 28px; color: #555; font-size: 10px; }
+      .case-num-cell { direction: ltr; text-align: center; font-family: 'Courier New', monospace; font-size: 11px; }
+      .date-cell { white-space: nowrap; font-size: 10.5px; }
+      .footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #000; display: flex; justify-content: space-between; font-size: 9px; color: #555; }
     `;
     wrapper.appendChild(styleEl);
 
-    wrapper.innerHTML += `
-      <div class="doc-header">
+    const contentDiv = document.createElement('div');
+    contentDiv.innerHTML = `
+      <div class="header">
         <h1>${docTitle}</h1>
-        <p class="period">${periodLabel}</p>
-        <div class="stats">
-          <div class="stat-box"><span class="num">${totalSessions}</span><span class="label">جلسة</span></div>
-          <div class="stat-box"><span class="num">${totalCourts}</span><span class="label">محكمة</span></div>
+        <div class="subtitle">${periodLabel}</div>
+        <div class="stats-row">
+          <span class="stat"><strong>${totalSessions}</strong>جلسة</span>
+          <span class="stat"><strong>${totalCourts}</strong>محكمة</span>
         </div>
       </div>
-      <div class="content">${courtSections}</div>
-      <div class="doc-footer">
-        <span>${docTitle} — ${periodLabel}</span>
-        <span>تم الإنشاء: ${new Date().toLocaleDateString('ar-MA', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+      ${courtSections}
+      <div class="footer">
+        <span>${docTitle}</span>
+        <span>${new Date().toLocaleDateString('ar-MA', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
       </div>
     `;
-
+    wrapper.appendChild(contentDiv);
     container.appendChild(wrapper);
 
-    // Wait for fonts to load
     await new Promise(resolve => setTimeout(resolve, 500));
 
     const { default: html2pdf } = await import('html2pdf.js');
@@ -333,7 +316,7 @@ const CourtSessions = () => {
 
     // @ts-ignore
     html2pdf().set({
-      margin: [10, 10, 10, 10],
+      margin: [8, 8, 8, 8],
       filename: fileName,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2, useCORS: true, scrollY: 0, width: wrapper.scrollWidth, windowWidth: wrapper.scrollWidth },
