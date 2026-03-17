@@ -281,7 +281,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
             letterhead_id: form.letterheadId || null,
             power_of_attorney_date: form.powerOfAttorneyDate || null,
             lawyer_fees: grandTotal.lawyerFees,
-            tax_rate: TAX_RATE,
+            tax_rate: caseCalcs[0]?.taxRate || 10,
             tax_amount: grandTotal.taxAmount,
             subtotal: grandTotal.subtotal,
             total_amount: grandTotal.totalAmount,
