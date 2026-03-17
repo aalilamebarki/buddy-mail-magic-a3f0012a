@@ -429,7 +429,7 @@ const Cases = () => {
 
   const handleAddQuickClient = async () => {
     if (!newClientName.trim()) { toast.error('اسم الموكل مطلوب'); return; }
-    const { data, error } = await supabase.from('clients').insert({ full_name: newClientName.trim() }).select('id, full_name').single();
+    const { data, error } = await supabase.from('clients').insert({ full_name: newClientName.trim() }).select('*').single();
     if (error) { toast.error('خطأ في إضافة الموكل'); return; }
     setClients(prev => [...prev, data].sort((a, b) => a.full_name.localeCompare(b.full_name)));
     updateField('client_id', data.id);
