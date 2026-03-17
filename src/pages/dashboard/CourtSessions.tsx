@@ -264,6 +264,7 @@ const CourtSessions = () => {
     const wrapper = document.createElement('div');
     wrapper.setAttribute('dir', 'rtl');
     wrapper.setAttribute('lang', 'ar');
+    wrapper.className = 'pdf-export';
     wrapper.style.cssText = `font-family:'IBM Plex Sans Arabic','Traditional Arabic',sans-serif;font-size:12px;color:#000;direction:rtl;background:#fff;padding:30px 40px;`;
 
     const styleEl = document.createElement('style');
