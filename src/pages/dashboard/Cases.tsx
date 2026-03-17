@@ -252,7 +252,17 @@ const Cases = () => {
     setOpponents(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Fuzzy search: match if all characters of the query appear in order in the name
+  const updatePresenceParty = (index: number, field: keyof PresenceParty, value: string) => {
+    setPresenceParties(prev => prev.map((p, i) => i === index ? { ...p, [field]: value } : p));
+  };
+
+  const addPresenceParty = () => {
+    setPresenceParties(prev => [...prev, { name: '', address: '', phone: '' }]);
+  };
+
+  const removePresenceParty = (index: number) => {
+    setPresenceParties(prev => prev.filter((_, i) => i !== index));
+  };
   const fuzzyMatch = (name: string, query: string): boolean => {
     const n = name.toLowerCase();
     const q = query.toLowerCase();
