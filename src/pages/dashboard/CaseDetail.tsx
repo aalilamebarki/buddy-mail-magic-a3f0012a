@@ -24,6 +24,14 @@ const CaseDetail = () => {
   const [caseData, setCaseData] = useState<any>(null);
   const [documents, setDocuments] = useState<any[]>([]);
   const [sessions, setSessions] = useState<any[]>([]);
+  const [opponents, setOpponents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [caseData, setCaseData] = useState<any>(null);
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [sessionDialogOpen, setSessionDialogOpen] = useState(false);
   const [sessionDate, setSessionDate] = useState<Date | undefined>(undefined);
