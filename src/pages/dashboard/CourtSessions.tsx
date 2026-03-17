@@ -265,7 +265,7 @@ const CourtSessions = () => {
 <html dir="rtl" lang="ar">
 <head>
 <meta charset="utf-8">
-<title>جدول الجلسات</title>
+<title>${docTitle}</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap');
   @page { size: A4 landscape; margin: 12mm 15mm; }
