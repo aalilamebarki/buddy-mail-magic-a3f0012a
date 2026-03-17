@@ -213,6 +213,13 @@ const Cases = () => {
   const updateField = (field: keyof CaseForm, value: string) => setForm(prev => ({ ...prev, [field]: value }));
 
   const updateOpponent = (index: number, field: keyof Opponent, value: string) => {
+    if (field === 'name' && value.trim()) {
+      const isDuplicate = opponents.some((o, i) => i !== index && o.name.trim() === value.trim());
+      if (isDuplicate) {
+        toast.error('لقد سبق إدخال هذا المدعى عليه');
+        return;
+      }
+    }
     setOpponents(prev => prev.map((o, i) => i === index ? { ...o, [field]: value } : o));
   };
 
