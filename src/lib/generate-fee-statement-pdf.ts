@@ -85,57 +85,125 @@ export const generateFeeStatementPDF = async (data: FeeStatementData): Promise<B
   doc.setFont('Amiri');
 
   const pw = 210;
-  const m = 20;
+  const m = 18;
   const cw = pw - m * 2;
   const rightX = pw - m;
 
   const lh = data.letterhead;
   const lawyerName = lh?.lawyerName || data.lawyerName;
+  const nameFr = lh?.nameFr || '';
+  const titleAr = lh?.titleAr || '';
+  const titleFr = lh?.titleFr || '';
+  const barNameAr = lh?.barNameAr || '';
+  const barNameFr = lh?.barNameFr || '';
+  const city = lh?.city || '';
+  const address = lh?.address || '';
+  const phone = lh?.phone || '';
+  const email = lh?.email || '';
 
   const verificationUrl = `${window.location.origin}/verify/${data.signatureUuid}`;
   const qrDataUrl = await QRCode.toDataURL(verificationUrl, { width: 200, margin: 1 });
 
-  let y = 20;
+  let y = 16;
 
-  // ── Lawyer header ──
-  doc.setFontSize(16);
+  /* ═══════════════════════════════════════
+     BILINGUAL HEADER
+     Right side: Arabic | Left side: French
+     ═══════════════════════════════════════ */
+
+  // Right side - Arabic name
+  doc.setFontSize(18);
   doc.setTextColor(...BLACK);
   doc.text(`الأستاذ ${lawyerName}`, rightX, y, { align: 'right' });
-  y += 7;
 
-  if (lh?.titleAr || lh?.barNameAr) {
+  // Left side - French name
+  if (nameFr) {
+    doc.setFontSize(12);
+    doc.setTextColor(...BLACK);
+    doc.text(`Maître ${nameFr}`, m, y, { align: 'left' });
+  }
+
+  y += 8;
+
+  // Arabic title & bar
+  if (titleAr || barNameAr) {
     doc.setFontSize(10);
     doc.setTextColor(...GRAY);
-    doc.text([lh?.titleAr, lh?.barNameAr].filter(Boolean).join(' — '), rightX, y, { align: 'right' });
-    y += 6;
+    const arTitle = [titleAr, barNameAr ? `هيئة ${barNameAr}` : ''].filter(Boolean).join(' ');
+    doc.text(arTitle, rightX, y, { align: 'right' });
   }
 
-  const contactParts = [lh?.address, lh?.city, lh?.phone, lh?.email].filter(Boolean);
-  if (contactParts.length) {
+  // French title & bar
+  if (titleFr || barNameFr) {
+    doc.setFontSize(9);
+    doc.setTextColor(...GRAY);
+    const frTitle = [titleFr, barNameFr ? `au Barreau de ${barNameFr}` : ''].filter(Boolean).join(' ');
+    doc.text(frTitle, m, y, { align: 'left' });
+  }
+
+  y += 6;
+
+  // Phone on the left
+  if (phone) {
     doc.setFontSize(8);
     doc.setTextColor(...GRAY);
-    doc.text(contactParts.join(' • '), rightX, y, { align: 'right' });
-    y += 6;
+    doc.text(`Tél: ${phone}`, m, y, { align: 'left' });
+    y += 4;
   }
 
-  // Separator
+  // Separator lines
   y += 2;
-  doc.setDrawColor(...BORDER);
-  doc.setLineWidth(0.3);
+  doc.setDrawColor(...BLACK);
+  doc.setLineWidth(0.5);
   doc.line(m, y, rightX, y);
+  y += 1;
+  doc.setLineWidth(0.3);
+  doc.line(m + 20, y + 1, rightX - 20, y + 1);
+  y += 5;
+
+  // Address (centered)
+  if (address) {
+    doc.setFontSize(9);
+    doc.setTextColor(...BLACK);
+    const fullAddr = [address, city ? `-${city}` : ''].filter(Boolean).join(' ');
+    doc.text(fullAddr, pw / 2, y, { align: 'center' });
+    y += 5;
+  }
+
+  // Email (centered)
+  if (email) {
+    doc.setFontSize(8);
+    doc.setTextColor(...GRAY);
+    doc.text(`E-mail : ${email}`, pw / 2, y, { align: 'center' });
+    y += 5;
+  }
+
+  // City & Date
+  y += 3;
+  doc.setFontSize(11);
+  doc.setTextColor(...BLACK);
+  if (city) {
+    doc.text(`${city} في: ${data.date}`, rightX, y, { align: 'right' });
+  } else {
+    doc.text(data.date, rightX, y, { align: 'right' });
+  }
   y += 12;
 
   // ── Title ──
-  doc.setFontSize(18);
+  doc.setFontSize(20);
   doc.setTextColor(...BLACK);
   doc.text('بيان أتعاب ومصاريف', pw / 2, y, { align: 'center' });
-  y += 10;
+  y += 4;
+  doc.setDrawColor(...BLACK);
+  doc.setLineWidth(0.5);
+  const titleW = 55;
+  doc.line(pw / 2 - titleW / 2, y, pw / 2 + titleW / 2, y);
+  y += 8;
 
-  // Ref & date
-  doc.setFontSize(9);
+  // Ref number
+  doc.setFontSize(10);
   doc.setTextColor(...GRAY);
-  doc.text(`رقم: ${data.statementNumber}`, rightX, y, { align: 'right' });
-  doc.text(data.date, m, y, { align: 'left' });
+  doc.text(`رقم المرجع: ${data.statementNumber}`, pw / 2, y, { align: 'center' });
   y += 10;
 
   // ── Client info ──
