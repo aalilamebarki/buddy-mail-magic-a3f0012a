@@ -329,14 +329,14 @@ const CourtSessions = () => {
       ? 'جدول_الجلسات_الأسبوع.pdf'
       : `جلسة_يوم_${format(exportDate, 'yyyy-MM-dd')}.pdf`;
 
+    // @ts-ignore
     html2pdf().set({
       margin: 0,
       filename: fileName,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
-      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
-    }).from(container.firstElementChild).save().then(() => {
+    }).from(container.firstElementChild as HTMLElement).save().then(() => {
       document.body.removeChild(container);
     });
     setExportMode(null);
