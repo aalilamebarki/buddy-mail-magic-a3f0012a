@@ -32,6 +32,7 @@ const CourtSessions = () => {
   const [caseNumber, setCaseNumber] = useState('');
 
   // Form state
+  const [editingSession, setEditingSession] = useState<any>(null);
   const [selectedCaseId, setSelectedCaseId] = useState('');
   const [sessionDate, setSessionDate] = useState<Date | undefined>(undefined);
   const [notes, setNotes] = useState('');
