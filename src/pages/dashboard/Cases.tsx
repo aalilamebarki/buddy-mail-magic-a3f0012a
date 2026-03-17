@@ -86,6 +86,10 @@ const Cases = () => {
       case_type: c.case_type || '',
       description: c.description || '',
       client_id: c.client_id || '',
+      opposing_party: c.opposing_party || '',
+      opposing_party_address: c.opposing_party_address || '',
+      opposing_party_phone: c.opposing_party_phone || '',
+      court: c.court || '',
     });
     setDialogOpen(true);
   };
