@@ -181,7 +181,7 @@ const CourtSessions = () => {
     return future.length > 0 ? future[0].session_date : null;
   }, [sessions]);
 
-  const handleExportPDF = useCallback((mode: 'day' | 'week') => {
+  const handleExportPDF = useCallback(async (mode: 'day' | 'week') => {
     let dateStart: string;
     let dateEnd: string;
     let periodLabel: string;
