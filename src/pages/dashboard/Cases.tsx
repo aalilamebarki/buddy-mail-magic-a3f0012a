@@ -620,7 +620,7 @@ const Cases = () => {
                     {!niyaba && (
                       <>
                         <div>
-                          <Label className="text-xs">العنوان</Label>
+                          <Label className="text-xs">العنوان *</Label>
                           <Input
                             value={party.address}
                             onChange={e => updatePresenceParty(index, 'address', e.target.value)}
