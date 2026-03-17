@@ -54,7 +54,6 @@ const Billing = () => {
   const [search, setSearch] = useState('');
   const [downloading, setDownloading] = useState<string | null>(null);
 
-  // Accounting
   const [accYear, setAccYear] = useState(currentYear);
   const { entries, loading: accLoading, stats } = useAccountingEntries(accYear);
 
@@ -90,85 +89,6 @@ const Billing = () => {
     setDownloading(statement.id);
     try {
       await downloadFeeStatementPdf(statement);
-    } catch (e: any) {
-      toast({ title: 'خطأ في التحميل', description: e.message, variant: 'destructive' });
-    } finally {
-      setDownloading(null);
-    }
-  };
-
-const PAYMENT_LABELS: Record<string, string> = {
-  cash: 'نقداً',
-  check: 'شيك',
-  transfer: 'تحويل بنكي',
-  card: 'بطاقة بنكية',
-};
-
-const ENTRY_TYPE_LABELS: Record<string, { label: string; sublabel: string; color: string }> = {
-  invoice: { label: 'وصل أداء', sublabel: 'تحصيل', color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200' },
-  fee_statement: { label: 'بيان أتعاب', sublabel: 'أتعاب فقط', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
-};
-
-const buildStatementLabel = (s: FeeStatementRecord) => {
-  const clientName = s.clients?.full_name || '—';
-  const caseNumbers = (s.fee_statement_cases && s.fee_statement_cases.length > 0)
-    ? s.fee_statement_cases.map(fc => fc.cases?.case_number).filter(Boolean).join(' / ')
-    : s.cases?.case_number || '—';
-  const date = formatDateShort(s.created_at);
-  return `بيان الأتعاب للسيد ${clientName} ملف عدد ${caseNumbers} ${date} ${s.statement_number}`;
-};
-
-const currentYear = new Date().getFullYear();
-const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
-
-const Billing = () => {
-  const { invoices, loading: invLoading, refetch: refetchInv } = useInvoices();
-  const { statements, loading: fsLoading, refetch: refetchFs } = useFeeStatements();
-  const { toast } = useToast();
-
-  const [activeTab, setActiveTab] = useState('invoices');
-  const [invDialogOpen, setInvDialogOpen] = useState(false);
-  const [fsDialogOpen, setFsDialogOpen] = useState(false);
-  const [editStatement, setEditStatement] = useState<FeeStatementRecord | null>(null);
-  const [search, setSearch] = useState('');
-  const [downloading, setDownloading] = useState<string | null>(null);
-
-  // Accounting
-  const [accYear, setAccYear] = useState(currentYear);
-  const { entries, loading: accLoading, stats } = useAccountingEntries(accYear);
-
-  const filteredInvoices = invoices.filter(inv =>
-    !search ||
-    inv.invoice_number.toLowerCase().includes(search.toLowerCase()) ||
-    inv.clients?.full_name?.includes(search) ||
-    inv.cases?.title?.includes(search)
-  );
-
-  const filteredStatements = statements.filter(s =>
-    !search ||
-    s.statement_number.toLowerCase().includes(search.toLowerCase()) ||
-    s.clients?.full_name?.includes(search) ||
-    s.cases?.title?.includes(search)
-  );
-
-  const totalInvoices = filteredInvoices.reduce((sum, inv) => sum + Number(inv.amount), 0);
-  const totalStatements = filteredStatements.reduce((sum, s) => sum + Number(s.total_amount), 0);
-
-  const downloadPdf = async (id: string, pdfPath: string | null, fileName: string) => {
-    if (!pdfPath) {
-      toast({ title: 'لا يوجد ملف PDF', variant: 'destructive' });
-      return;
-    }
-    setDownloading(id);
-    try {
-      const { data, error } = await supabase.storage.from('invoices').download(pdfPath);
-      if (error) throw error;
-      const url = URL.createObjectURL(data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${fileName}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
     } catch (e: any) {
       toast({ title: 'خطأ في التحميل', description: e.message, variant: 'destructive' });
     } finally {
@@ -219,7 +139,6 @@ const Billing = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
@@ -239,7 +158,6 @@ const Billing = () => {
         )}
       </div>
 
-      {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} dir="rtl">
         <TabsList className="w-full sm:w-auto">
           <TabsTrigger value="invoices" className="gap-1.5 flex-1 sm:flex-none">
@@ -258,7 +176,6 @@ const Billing = () => {
           </TabsTrigger>
         </TabsList>
 
-        {/* Search — for invoices & fee statements tabs */}
         {(activeTab === 'invoices' || activeTab === 'fee-statements') && (
           <div className="relative max-w-sm mt-4">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -271,7 +188,6 @@ const Billing = () => {
           </div>
         )}
 
-        {/* Summary Cards — for invoices & fee statements */}
         {(activeTab === 'invoices' || activeTab === 'fee-statements') && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
             <Card>
@@ -301,7 +217,6 @@ const Billing = () => {
           </div>
         )}
 
-        {/* Invoices Tab */}
         <TabsContent value="invoices">
           <Card>
             <CardContent className="p-0">
@@ -346,7 +261,7 @@ const Billing = () => {
                               variant="ghost"
                               size="sm"
                               className="h-7 w-7 p-0"
-                              onClick={() => downloadPdf(inv.id, inv.pdf_path, inv.invoice_number)}
+                              onClick={() => downloadInvoice(inv)}
                               disabled={downloading === inv.id}
                             >
                               {downloading === inv.id
@@ -364,7 +279,6 @@ const Billing = () => {
           </Card>
         </TabsContent>
 
-        {/* Fee Statements Tab */}
         <TabsContent value="fee-statements">
           <Card>
             <CardContent className="p-0">
@@ -406,7 +320,7 @@ const Billing = () => {
                                   size="sm"
                                   className="h-7 w-7 p-0"
                                   title="تحميل PDF"
-                                  onClick={() => downloadPdf(s.id, s.pdf_path, s.statement_number)}
+                                  onClick={() => downloadStatement(s)}
                                   disabled={downloading === s.id}
                                 >
                                   {downloading === s.id
@@ -426,10 +340,8 @@ const Billing = () => {
           </Card>
         </TabsContent>
 
-        {/* Accounting Ledger Tab */}
         <TabsContent value="accounting">
           <div className="space-y-4">
-            {/* Year selector + export */}
             <div className="flex items-center gap-2 justify-end">
               <Button
                 variant="outline"
@@ -461,7 +373,6 @@ const Billing = () => {
               </Select>
             </div>
 
-            {/* Accounting Stats */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <Card>
                 <CardContent className="pt-4 pb-3">
@@ -509,7 +420,6 @@ const Billing = () => {
               </Card>
             </div>
 
-            {/* Breakdown */}
             <div className="grid grid-cols-2 gap-3">
               <Card>
                 <CardContent className="pt-4 pb-3 flex items-center gap-3">
@@ -535,7 +445,6 @@ const Billing = () => {
               </Card>
             </div>
 
-            {/* Ledger Table */}
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">دفتر القيود المحاسبية — {accYear}</CardTitle>
@@ -596,10 +505,8 @@ const Billing = () => {
             </Card>
           </div>
         </TabsContent>
-
       </Tabs>
 
-      {/* Dialogs */}
       <CreateInvoiceDialog open={invDialogOpen} onOpenChange={setInvDialogOpen} onCreated={refetchInv} />
       <CreateFeeStatementDialog
         open={fsDialogOpen}
