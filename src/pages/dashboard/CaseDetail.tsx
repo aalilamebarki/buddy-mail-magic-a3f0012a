@@ -257,6 +257,19 @@ const CaseDetail = () => {
             <DialogTitle>إضافة جلسة جديدة</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {needsCaseNumber && (
+              <div className="space-y-2">
+                <Label>رقم الملف *</Label>
+                <Input
+                  value={caseNumberInput}
+                  onChange={e => setCaseNumberInput(e.target.value)}
+                  placeholder="مثال: 123/1234/2025"
+                  className="font-mono"
+                  dir="ltr"
+                />
+                <p className="text-xs text-muted-foreground">هذا الملف لا يحتوي على رقم بعد. أدخل الرقم الكامل (رقم/رمز/سنة)</p>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>تاريخ الجلسة *</Label>
               <Popover>
