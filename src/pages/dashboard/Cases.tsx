@@ -206,10 +206,9 @@ const Cases = () => {
               <CardContent className="pt-4 pb-4 space-y-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-foreground text-sm truncate">{c.title}</p>
-                    <p className="text-xs text-muted-foreground">لفائدة: {getClientName(c)}</p>
+                    <p className="font-semibold text-foreground text-sm truncate">لفائدة: {getClientName(c)}</p>
                     <p className="text-xs text-muted-foreground">ضد: {c.opposing_party || '—'}</p>
-                    {c.case_number && <p className="text-xs text-muted-foreground font-mono">{c.case_number}</p>}
+                    {c.title && <p className="text-xs text-muted-foreground">{c.title}</p>}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     {c.case_type && <Badge variant="secondary" className="text-xs">{c.case_type}</Badge>}
