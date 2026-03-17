@@ -522,6 +522,79 @@ export type Database = {
           },
         ]
       }
+      invoices: {
+        Row: {
+          amount: number
+          case_id: string | null
+          client_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          invoice_number: string
+          letterhead_id: string | null
+          payment_method: string | null
+          pdf_path: string | null
+          signature_uuid: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          case_id?: string | null
+          client_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          invoice_number: string
+          letterhead_id?: string | null
+          payment_method?: string | null
+          pdf_path?: string | null
+          signature_uuid?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          case_id?: string | null
+          client_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          invoice_number?: string
+          letterhead_id?: string | null
+          payment_method?: string | null
+          pdf_path?: string | null
+          signature_uuid?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_letterhead_id_fkey"
+            columns: ["letterhead_id"]
+            isOneToOne: false
+            referencedRelation: "letterheads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       legal_documents: {
         Row: {
           ai_classification: Json | null
