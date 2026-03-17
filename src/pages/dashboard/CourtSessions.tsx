@@ -235,21 +235,17 @@ const CourtSessions = () => {
       }).join('');
 
       return `
-        <div class="court-section">
-          <div class="court-header">
-            <div class="court-icon">⚖</div>
-            <h2>${court}</h2>
-            <span class="court-count">${items.length} جلسة</span>
-          </div>
+        <div class="court-block">
+          <div class="court-title">⚖ ${court} — ${items.length} جلسة</div>
           <table>
             <thead>
               <tr>
-                <th class="num-col">#</th>
+                <th style="width:28px;text-align:center">#</th>
                 <th>الموكل</th>
-                <th class="case-col">رقم الملف</th>
+                <th style="width:120px">رقم الملف</th>
                 <th>المدعى عليه</th>
-                <th class="date-col">تاريخ الجلسة</th>
-                <th class="date-col">الجلسة المقبلة</th>
+                <th style="width:140px">تاريخ الجلسة</th>
+                <th style="width:140px">الجلسة المقبلة</th>
               </tr>
             </thead>
             <tbody>${rows}</tbody>
