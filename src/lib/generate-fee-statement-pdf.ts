@@ -1,10 +1,16 @@
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import QRCode from 'qrcode';
 
 export interface FeeStatementItem {
   description: string;
   amount: number;
+}
+
+export interface FeeStatementCaseInfo {
+  title: string;
+  caseNumber: string;
+  court?: string;
 }
 
 export interface FeeStatementData {
@@ -13,9 +19,7 @@ export interface FeeStatementData {
   clientName: string;
   clientCin?: string;
   clientPhone?: string;
-  caseName?: string;
-  caseNumber?: string;
-  court?: string;
+  cases: FeeStatementCaseInfo[];
   powerOfAttorneyDate?: string;
   items: FeeStatementItem[];
   lawyerFees: number;
@@ -96,38 +100,51 @@ export const generateFeeStatementPDF = async (data: FeeStatementData): Promise<B
   doc.text(`رقم: ${data.statementNumber}`, pw - m, 52, { align: 'right' });
   doc.text(`التاريخ: ${data.date}`, m, 52, { align: 'left' });
 
-  // ── Client & Case Info Card ──
+  // ── Client & Cases Info Card ──
   let y = 57;
+  const casesCount = data.cases.length;
+  const cardHeight = 22 + casesCount * 8;
   doc.setFillColor(248, 249, 252);
-  doc.roundedRect(m, y, cw, 36, 3, 3, 'F');
+  doc.roundedRect(m, y, cw, cardHeight, 3, 3, 'F');
   doc.setDrawColor(220, 225, 235);
   doc.setLineWidth(0.3);
-  doc.roundedRect(m, y, cw, 36, 3, 3, 'S');
+  doc.roundedRect(m, y, cw, cardHeight, 3, 3, 'S');
 
-  const infoCol1X = pw - m - 6;
-  const infoCol2X = pw / 2 - 4;
   y += 7;
 
-  const drawInfo = (label: string, value: string, x: number, yPos: number) => {
+  // Client info
+  doc.setFontSize(9);
+  doc.setTextColor(100, 110, 130);
+  doc.text('الموكل:', pw - m - 6, y, { align: 'right' });
+  doc.setTextColor(20, 30, 50);
+  doc.setFontSize(10);
+  doc.text(data.clientName, pw - m - 30, y, { align: 'right' });
+
+  if (data.powerOfAttorneyDate) {
     doc.setFontSize(9);
     doc.setTextColor(100, 110, 130);
-    doc.text(label, x, yPos, { align: 'right' });
+    doc.text('تاريخ التوكيل:', pw / 2 - 4, y, { align: 'right' });
     doc.setTextColor(20, 30, 50);
-    doc.setFontSize(10);
-    doc.text(value, x - 30, yPos, { align: 'right' });
-  };
+    doc.text(data.powerOfAttorneyDate, pw / 2 - 38, y, { align: 'right' });
+  }
 
-  drawInfo('الموكل:', data.clientName, infoCol1X, y);
-  drawInfo('رقم الملف:', data.caseNumber || '—', infoCol2X, y);
-  y += 9;
-  drawInfo('الملف:', data.caseName || '—', infoCol1X, y);
-  drawInfo('المحكمة:', data.court || '—', infoCol2X, y);
-  y += 9;
-  drawInfo('تاريخ التوكيل:', data.powerOfAttorneyDate || '—', infoCol1X, y);
-  if (data.clientCin) drawInfo('ب.ت.و:', data.clientCin, infoCol2X, y);
+  y += 8;
+
+  // Cases list
+  doc.setFontSize(9);
+  doc.setTextColor(100, 110, 130);
+  doc.text('الملفات:', pw - m - 6, y, { align: 'right' });
+
+  data.cases.forEach((c, idx) => {
+    doc.setFontSize(9);
+    doc.setTextColor(20, 30, 50);
+    const caseText = `${idx + 1}. ${c.title} — رقم: ${c.caseNumber}${c.court ? ' — ' + c.court : ''}`;
+    doc.text(caseText, pw - m - 30, y, { align: 'right' });
+    y += 7;
+  });
 
   // ── Expenses Table ──
-  y = 100;
+  y += 4;
   doc.setFontSize(11);
   doc.setTextColor(15, 45, 80);
   doc.text('تفصيل المصاريف القضائية', pw - m, y, { align: 'right' });
@@ -139,7 +156,7 @@ export const generateFeeStatementPDF = async (data: FeeStatementData): Promise<B
     String(i + 1),
   ]);
 
-  (doc as any).autoTable({
+  autoTable(doc, {
     startY: y,
     head: [['المبلغ (درهم)', 'البيان', 'الرقم']],
     body: tableBody,
