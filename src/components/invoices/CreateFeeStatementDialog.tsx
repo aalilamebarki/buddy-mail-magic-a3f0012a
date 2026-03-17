@@ -537,7 +537,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
                       <span className="font-semibold">{calc.subtotal.toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د</span>
                     </div>
                     <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">TVA ({TAX_RATE}%)</span>
+                      <span className="text-muted-foreground">TVA ({calc.taxRate}%)</span>
                       <span className="font-semibold text-destructive">{calc.taxAmount.toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د</span>
                     </div>
                     <div className="flex justify-between text-sm font-bold text-primary">
