@@ -106,6 +106,44 @@ export type Database = {
         }
         Relationships: []
       }
+      case_opponents: {
+        Row: {
+          address: string | null
+          case_id: string
+          created_at: string
+          id: string
+          name: string
+          phone: string | null
+          sort_order: number
+        }
+        Insert: {
+          address?: string | null
+          case_id: string
+          created_at?: string
+          id?: string
+          name: string
+          phone?: string | null
+          sort_order?: number
+        }
+        Update: {
+          address?: string | null
+          case_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          phone?: string | null
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_opponents_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cases: {
         Row: {
           assigned_to: string | null

@@ -12,27 +12,31 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, Search, Trash2, Pencil, FolderOpen, User, ChevronsUpDown, Check, UserPlus } from 'lucide-react';
+import { Plus, Search, Trash2, Pencil, FolderOpen, User, ChevronsUpDown, Check, UserPlus, X, UserRoundPlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+
+interface Opponent {
+  name: string;
+  address: string;
+  phone: string;
+}
 
 interface CaseForm {
   title: string;
   case_type: string;
   description: string;
   client_id: string;
-  opposing_party: string;
-  opposing_party_address: string;
-  opposing_party_phone: string;
   court: string;
 }
 
-const emptyForm: CaseForm = { title: '', case_type: '', description: '', client_id: '', opposing_party: '', opposing_party_address: '', opposing_party_phone: '', court: '' };
+const emptyForm: CaseForm = { title: '', case_type: '', description: '', client_id: '', court: '' };
+const emptyOpponent: Opponent = { name: '', address: '', phone: '' };
 
-const caseTypes = [
-  'مدني', 'جنائي', 'تجاري', 'إداري', 'عقاري', 'أسري', 'شغل', 'آخر'
-];
+const NIYABA = 'النيابة العامة';
+
+const caseTypes = ['مدني', 'جنائي', 'تجاري', 'إداري', 'عقاري', 'أسري', 'شغل', 'آخر'];
 
 const Cases = () => {
   const [searchParams] = useSearchParams();
@@ -48,6 +52,7 @@ const Cases = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingCase, setDeletingCase] = useState<any>(null);
   const [form, setForm] = useState<CaseForm>(emptyForm);
+  const [opponents, setOpponents] = useState<Opponent[]>([{ ...emptyOpponent }]);
   const [saving, setSaving] = useState(false);
   const [filterClientId, setFilterClientId] = useState<string>(preselectedClientId || '');
   const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
@@ -68,12 +73,17 @@ const Cases = () => {
   useEffect(() => { fetchData(); }, []);
 
   useEffect(() => {
-    if (preselectedClientId) {
-      setFilterClientId(preselectedClientId);
-    }
+    if (preselectedClientId) setFilterClientId(preselectedClientId);
   }, [preselectedClientId]);
 
   const getClientName = (c: any) => c.clients?.full_name || '—';
+
+  const getOpposingLabel = (c: any) => {
+    const name = c.opposing_party || '—';
+    // Check if there are additional opponents (stored as comma-hint in opposing_party)
+    if (name.includes(' ومن معه')) return name;
+    return name;
+  };
 
   const filtered = cases.filter(c => {
     const matchesSearch = !search || c.title?.includes(search) || c.case_number?.includes(search) || getClientName(c).includes(search);
@@ -84,21 +94,31 @@ const Cases = () => {
   const openNew = () => {
     setEditingCase(null);
     setForm({ ...emptyForm, client_id: filterClientId || '' });
+    setOpponents([{ ...emptyOpponent }]);
     setDialogOpen(true);
   };
 
-  const openEdit = (c: any) => {
+  const openEdit = async (c: any) => {
     setEditingCase(c);
     setForm({
       title: c.title || '',
       case_type: c.case_type || '',
       description: c.description || '',
       client_id: c.client_id || '',
-      opposing_party: c.opposing_party || '',
-      opposing_party_address: c.opposing_party_address || '',
-      opposing_party_phone: c.opposing_party_phone || '',
       court: c.court || '',
     });
+    // Fetch opponents
+    const { data } = await supabase.from('case_opponents').select('*').eq('case_id', c.id).order('sort_order');
+    if (data && data.length > 0) {
+      setOpponents(data.map((o: any) => ({ name: o.name, address: o.address || '', phone: o.phone || '' })));
+    } else {
+      // Fallback to legacy fields
+      setOpponents([{
+        name: c.opposing_party || '',
+        address: c.opposing_party_address || '',
+        phone: c.opposing_party_phone || '',
+      }]);
+    }
     setDialogOpen(true);
   };
 
@@ -107,34 +127,67 @@ const Cases = () => {
     setDeleteDialogOpen(true);
   };
 
+  const isNiyaba = (name: string) => name.trim() === NIYABA;
+
   const handleSave = async () => {
     if (!form.title.trim()) { toast.error('عنوان الملف مطلوب'); return; }
     if (!form.client_id) { toast.error('يجب اختيار الموكل'); return; }
-    if (!form.opposing_party.trim()) { toast.error('اسم الخصم مطلوب'); return; }
-    if (!form.opposing_party_address.trim()) { toast.error('عنوان الخصم مطلوب'); return; }
     if (!form.court.trim()) { toast.error('المحكمة مطلوبة'); return; }
     if (!form.case_type) { toast.error('نوع الملف مطلوب'); return; }
+
+    // Validate opponents
+    const validOpponents = opponents.filter(o => o.name.trim());
+    if (validOpponents.length === 0) { toast.error('يجب إضافة خصم واحد على الأقل'); return; }
+
+    for (const opp of validOpponents) {
+      if (!isNiyaba(opp.name) && !opp.address.trim()) {
+        toast.error(`عنوان الخصم "${opp.name}" مطلوب`);
+        return;
+      }
+    }
+
     setSaving(true);
     try {
+      // Build opposing_party summary for the cases table
+      const firstOpponent = validOpponents[0].name.trim();
+      const opposingSummary = validOpponents.length > 1 ? `${firstOpponent} ومن معه` : firstOpponent;
+
       const payload = {
         title: form.title.trim(),
         case_type: form.case_type,
         description: form.description.trim() || null,
         client_id: form.client_id,
-        opposing_party: form.opposing_party.trim(),
-        opposing_party_address: form.opposing_party_address.trim(),
-        opposing_party_phone: form.opposing_party_phone.trim() || null,
+        opposing_party: opposingSummary,
+        opposing_party_address: validOpponents[0].address.trim() || null,
+        opposing_party_phone: validOpponents[0].phone.trim() || null,
         court: form.court.trim(),
       };
+
+      let caseId: string;
       if (editingCase) {
         const { error } = await supabase.from('cases').update(payload).eq('id', editingCase.id);
         if (error) throw error;
-        toast.success('تم تحديث الملف');
+        caseId = editingCase.id;
+        // Delete old opponents
+        await supabase.from('case_opponents').delete().eq('case_id', caseId);
       } else {
-        const { error } = await supabase.from('cases').insert(payload);
+        const { data, error } = await supabase.from('cases').insert(payload).select('id').single();
         if (error) throw error;
-        toast.success('تم إنشاء الملف بنجاح');
+        caseId = data.id;
       }
+
+      // Insert opponents
+      const opponentsPayload = validOpponents.map((o, i) => ({
+        case_id: caseId,
+        name: o.name.trim(),
+        address: o.address.trim() || null,
+        phone: o.phone.trim() || null,
+        sort_order: i,
+      }));
+      const { error: oppError } = await supabase.from('case_opponents').insert(opponentsPayload);
+      if (oppError) throw oppError;
+
+      toast.success(editingCase ? 'تم تحديث الملف' : 'تم إنشاء الملف بنجاح');
       setDialogOpen(false);
       fetchData();
     } catch (err: any) {
@@ -158,6 +211,19 @@ const Cases = () => {
   };
 
   const updateField = (field: keyof CaseForm, value: string) => setForm(prev => ({ ...prev, [field]: value }));
+
+  const updateOpponent = (index: number, field: keyof Opponent, value: string) => {
+    setOpponents(prev => prev.map((o, i) => i === index ? { ...o, [field]: value } : o));
+  };
+
+  const addOpponent = () => {
+    setOpponents(prev => [...prev, { ...emptyOpponent }]);
+  };
+
+  const removeOpponent = (index: number) => {
+    if (opponents.length <= 1) return;
+    setOpponents(prev => prev.filter((_, i) => i !== index));
+  };
 
   const filteredClients = useMemo(() => {
     if (!clientSearch) return clients;
@@ -233,7 +299,7 @@ const Cases = () => {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold text-foreground text-sm truncate">لفائدة: {getClientName(c)}</p>
-                    <p className="text-xs text-muted-foreground">ضد: {c.opposing_party || '—'}</p>
+                    <p className="text-xs text-muted-foreground">ضد: {getOpposingLabel(c)}</p>
                     {c.title && <p className="text-xs text-muted-foreground">{c.title}</p>}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
@@ -265,6 +331,7 @@ const Cases = () => {
                 <TableRow>
                   <TableHead>العنوان</TableHead>
                   <TableHead>لفائدة</TableHead>
+                  <TableHead>ضد</TableHead>
                   <TableHead>النوع</TableHead>
                   <TableHead>المحكمة</TableHead>
                   <TableHead>رقم الملف</TableHead>
@@ -275,14 +342,15 @@ const Cases = () => {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={8} className="text-center py-8">جاري التحميل...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="text-center py-8">جاري التحميل...</TableCell></TableRow>
                 ) : filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">لا توجد ملفات</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">لا توجد ملفات</TableCell></TableRow>
                 ) : (
                   filtered.map((c) => (
                     <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/dashboard/cases/${c.id}`)}>
                       <TableCell className="font-medium">{c.title}</TableCell>
-                      <TableCell>لفائدة: {getClientName(c)}</TableCell>
+                      <TableCell>{getClientName(c)}</TableCell>
+                      <TableCell>{getOpposingLabel(c)}</TableCell>
                       <TableCell>{c.case_type || '—'}</TableCell>
                       <TableCell>{c.court || '—'}</TableCell>
                       <TableCell className="font-mono">{c.case_number || '—'}</TableCell>
@@ -371,18 +439,59 @@ const Cases = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label>الخصم (ضد) *</Label>
-              <Input value={form.opposing_party} onChange={e => updateField('opposing_party', e.target.value)} placeholder="اسم الطرف المقابل" />
+
+            {/* Opponents Section */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">المدعى عليهم (الخصوم) *</Label>
+              {opponents.map((opp, index) => (
+                <div key={index} className="relative border rounded-lg p-3 space-y-2 bg-muted/30">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground font-medium">خصم {index + 1}</span>
+                    {opponents.length > 1 && (
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => removeOpponent(index)}>
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                  <div>
+                    <Label className="text-xs">الخصم (ضد) *</Label>
+                    <Input
+                      value={opp.name}
+                      onChange={e => updateOpponent(index, 'name', e.target.value)}
+                      placeholder="اسم الطرف المقابل"
+                    />
+                  </div>
+                  {!isNiyaba(opp.name) && (
+                    <div>
+                      <Label className="text-xs">عنوان الخصم *</Label>
+                      <Input
+                        value={opp.address}
+                        onChange={e => updateOpponent(index, 'address', e.target.value)}
+                        placeholder="عنوان الطرف المقابل"
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <Label className="text-xs">هاتف الخصم</Label>
+                    <Input
+                      value={opp.phone}
+                      onChange={e => updateOpponent(index, 'phone', e.target.value)}
+                      placeholder="اختياري"
+                    />
+                  </div>
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full gap-2 border-dashed"
+                onClick={addOpponent}
+              >
+                <UserRoundPlus className="h-4 w-4" /> إضافة مدعى عليه آخر
+              </Button>
             </div>
-            <div>
-              <Label>عنوان الخصم *</Label>
-              <Input value={form.opposing_party_address} onChange={e => updateField('opposing_party_address', e.target.value)} placeholder="عنوان الطرف المقابل" />
-            </div>
-            <div>
-              <Label>هاتف الخصم</Label>
-              <Input value={form.opposing_party_phone} onChange={e => updateField('opposing_party_phone', e.target.value)} placeholder="اختياري" />
-            </div>
+
             <div>
               <Label>المحكمة *</Label>
               <Input value={form.court} onChange={e => updateField('court', e.target.value)} placeholder="مثال: المحكمة الابتدائية بالدار البيضاء" />
