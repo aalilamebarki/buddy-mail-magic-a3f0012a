@@ -14,6 +14,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Plus, Search, Trash2, Pencil, FolderOpen, User, ChevronsUpDown, Check, UserPlus, X, UserRoundPlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useCases } from '@/hooks/useCases';
+import { useClients } from '@/hooks/useClients';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -50,9 +52,10 @@ const Cases = () => {
   const navigate = useNavigate();
   const preselectedClientId = searchParams.get('client_id');
 
-  const [cases, setCases] = useState<any[]>([]);
-  const [clients, setClients] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { cases, setCases, loading: casesLoading, refetch: refetchCases } = useCases();
+  const { clients, setClients, loading: clientsLoading, refetch: refetchClients } = useClients();
+  const loading = casesLoading || clientsLoading;
+
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCase, setEditingCase] = useState<any>(null);
@@ -74,19 +77,14 @@ const Cases = () => {
   const [courtPopoverOpen, setCourtPopoverOpen] = useState(false);
   const [courtSearchTerm, setCourtSearchTerm] = useState('');
 
-  const fetchData = async () => {
-    const [casesRes, clientsRes, courtsRes] = await Promise.all([
-      supabase.from('cases').select('*, clients(full_name)').order('created_at', { ascending: false }),
-      supabase.from('clients').select('id, full_name').order('full_name'),
-      supabase.from('courts').select('*').order('name'),
-    ]);
-    if (casesRes.data) setCases(casesRes.data);
-    if (clientsRes.data) setClients(clientsRes.data);
-    if (courtsRes.data) setCourtsDb(courtsRes.data);
-    setLoading(false);
-  };
+  // Fetch courts (specific to this page)
+  useEffect(() => {
+    supabase.from('courts').select('*').order('name').then(({ data }) => {
+      if (data) setCourtsDb(data);
+    });
+  }, []);
 
-  useEffect(() => { fetchData(); }, []);
+  const fetchData = () => { refetchCases(); refetchClients(); };
 
   useEffect(() => {
     if (preselectedClientId) setFilterClientId(preselectedClientId);

@@ -161,12 +161,6 @@ const CourtSessions = () => {
   };
 
   // ---- PDF Export Logic ----
-  const getNextSession = useCallback((caseId: string, afterDate: string): string | null => {
-    const future = sessions
-      .filter(s => s.case_id === caseId && s.session_date > afterDate)
-      .sort((a, b) => a.session_date.localeCompare(b.session_date));
-    return future.length > 0 ? future[0].session_date : null;
-  }, [sessions]);
 
   const handleExportPDF = useCallback(async (mode: 'day' | 'week') => {
     let dateStart: string;
