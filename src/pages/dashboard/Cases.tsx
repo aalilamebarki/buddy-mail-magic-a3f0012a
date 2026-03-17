@@ -35,7 +35,7 @@ const emptyForm: CaseForm = { title: '', case_type: '', description: '', client_
 const emptyOpponent: Opponent = { name: '', address: '', phone: '' };
 
 const NIYABA = 'النيابة العامة';
-const HIDDEN_ADDRESS_PARTIES = [NIYABA, 'قاضي التوثيق'];
+const HIDDEN_ADDRESS_PARTIES = [NIYABA, 'قاضي التوثيق', 'قاضي شؤون القاصرين'];
 
 interface PresenceParty {
   name: string;
@@ -739,7 +739,7 @@ const Cases = () => {
                       <Input
                         value={party.name}
                         onChange={e => updatePresenceParty(index, 'name', e.target.value)}
-                        placeholder="مثال: النيابة العامة، قاضي التوثيق، المحافظ..."
+                        placeholder="مثال: النيابة العامة، قاضي التوثيق، قاضي شؤون القاصرين..."
                       />
                     </div>
                     {!niyaba && (
