@@ -574,7 +574,7 @@ const CourtSessions = () => {
                   <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
                     {selectedCase ? (
                       <span className="truncate">
-                        {selectedCase.clients?.full_name || selectedCase.title} {selectedCase.case_number ? `- ${selectedCase.case_number}` : ''}
+                        {selectedCase.clients?.full_name || selectedCase.title} {selectedCase.case_number ? <span dir="ltr">{`- ${selectedCase.case_number}`}</span> : ''}
                       </span>
                     ) : 'اختر الملف...'}
                     <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
