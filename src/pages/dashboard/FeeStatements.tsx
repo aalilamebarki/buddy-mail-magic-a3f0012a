@@ -6,10 +6,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { FileText, Plus, Download, Loader2, Search, Pencil } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useFeeStatements, type FeeStatementRecord } from '@/hooks/useFeeStatements';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { formatDateShort } from '@/lib/formatters';
 import CreateFeeStatementDialog from '@/components/invoices/CreateFeeStatementDialog';
+import { downloadFeeStatementPdf } from '@/lib/dynamic-pdf-downloads';
 
 /** بيان الأتعاب للسيد X ملف عدد Y — تاريخ — رقم */
 const buildStatementLabel = (s: FeeStatementRecord) => {
@@ -38,21 +38,10 @@ const FeeStatements = () => {
 
   const totalAmount = filtered.reduce((sum, s) => sum + Number(s.total_amount), 0);
 
-  const downloadPdf = async (id: string, pdfPath: string | null, number: string) => {
-    if (!pdfPath) {
-      toast({ title: 'لا يوجد ملف PDF', variant: 'destructive' });
-      return;
-    }
-    setDownloading(id);
+  const downloadPdf = async (statement: FeeStatementRecord) => {
+    setDownloading(statement.id);
     try {
-      const { data, error } = await supabase.storage.from('invoices').download(pdfPath);
-      if (error) throw error;
-      const url = URL.createObjectURL(data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${number}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
+      await downloadFeeStatementPdf(statement);
     } catch (e: any) {
       toast({ title: 'خطأ في التحميل', description: e.message, variant: 'destructive' });
     } finally {
@@ -180,7 +169,7 @@ const FeeStatements = () => {
                               size="sm"
                               className="h-7 w-7 p-0"
                               title="تحميل PDF"
-                              onClick={() => downloadPdf(s.id, s.pdf_path, s.statement_number)}
+                              onClick={() => downloadPdf(s)}
                               disabled={downloading === s.id}
                             >
                               {downloading === s.id

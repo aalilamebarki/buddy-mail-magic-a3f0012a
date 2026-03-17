@@ -5,11 +5,11 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Receipt, Plus, Download, Loader2, QrCode, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { useInvoices } from '@/hooks/useInvoices';
-import { supabase } from '@/integrations/supabase/client';
+import { useInvoices, type InvoiceRecord } from '@/hooks/useInvoices';
 import { useToast } from '@/hooks/use-toast';
 import { formatDateShort } from '@/lib/formatters';
 import CreateInvoiceDialog from '@/components/invoices/CreateInvoiceDialog';
+import { downloadInvoicePdf } from '@/lib/dynamic-pdf-downloads';
 
 const PAYMENT_LABELS: Record<string, string> = {
   cash: 'نقداً',
@@ -34,21 +34,10 @@ const Invoices = () => {
 
   const totalAmount = filtered.reduce((sum, inv) => sum + Number(inv.amount), 0);
 
-  const downloadPdf = async (invoiceId: string, pdfPath: string | null, invoiceNumber: string) => {
-    if (!pdfPath) {
-      toast({ title: 'لا يوجد ملف PDF', variant: 'destructive' });
-      return;
-    }
-    setDownloading(invoiceId);
+  const downloadPdf = async (invoice: InvoiceRecord) => {
+    setDownloading(invoice.id);
     try {
-      const { data, error } = await supabase.storage.from('invoices').download(pdfPath);
-      if (error) throw error;
-      const url = URL.createObjectURL(data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${invoiceNumber}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
+      await downloadInvoicePdf(invoice);
     } catch (e: any) {
       toast({ title: 'خطأ في التحميل', description: e.message, variant: 'destructive' });
     } finally {
@@ -158,7 +147,7 @@ const Invoices = () => {
                           variant="ghost"
                           size="sm"
                           className="h-7 w-7 p-0"
-                          onClick={() => downloadPdf(inv.id, inv.pdf_path, inv.invoice_number)}
+                          onClick={() => downloadPdf(inv)}
                           disabled={downloading === inv.id}
                         >
                           {downloading === inv.id
