@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Receipt, Eye, ArrowRight } from 'lucide-react';
+import { Loader2, Receipt, Eye, ArrowRight, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -15,6 +15,7 @@ import { useCases } from '@/hooks/useCases';
 import { useLetterheadOptions } from '@/hooks/useInvoices';
 import { generateInvoicePDF } from '@/lib/generate-invoice-pdf';
 import { formatDateArabic } from '@/lib/formatters';
+import CreateCaseDialog from '@/components/cases/CreateCaseDialog';
 
 interface Props {
   open: boolean;
@@ -33,8 +34,9 @@ const CreateInvoiceDialog = ({ open, onOpenChange, onCreated }: Props) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { clients } = useClients();
-  const { cases } = useCases({ withClients: false });
+  const { cases, refetch: refetchCases } = useCases({ withClients: false });
   const letterheads = useLetterheadOptions();
+  const [showCaseDialog, setShowCaseDialog] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [step, setStep] = useState<'form' | 'preview'>('form');
@@ -153,6 +155,7 @@ const CreateInvoiceDialog = ({ open, onOpenChange, onCreated }: Props) => {
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md" dir="rtl">
         <DialogHeader>
@@ -227,14 +230,19 @@ const CreateInvoiceDialog = ({ open, onOpenChange, onCreated }: Props) => {
 
             <div className="space-y-2">
               <Label>الملف (اختياري)</Label>
-              <Select value={form.caseId} onValueChange={v => update('caseId', v)}>
-                <SelectTrigger><SelectValue placeholder="ربط بملف" /></SelectTrigger>
-                <SelectContent>
-                  {filteredCases.map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex gap-2">
+                <Select value={form.caseId} onValueChange={v => update('caseId', v)}>
+                  <SelectTrigger className="flex-1"><SelectValue placeholder="ربط بملف" /></SelectTrigger>
+                  <SelectContent>
+                    {filteredCases.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button type="button" variant="outline" size="icon" className="shrink-0" onClick={() => setShowCaseDialog(true)} title="ملف جديد">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -291,6 +299,16 @@ const CreateInvoiceDialog = ({ open, onOpenChange, onCreated }: Props) => {
         )}
       </DialogContent>
     </Dialog>
+    <CreateCaseDialog
+      open={showCaseDialog}
+      onOpenChange={setShowCaseDialog}
+      onCreated={(caseId) => {
+        refetchCases();
+        update('caseId', caseId);
+      }}
+      preselectedClientId={form.clientId || undefined}
+    />
+    </>
   );
 };
 
