@@ -189,6 +189,7 @@ const CourtSessions = () => {
                   <TableHead className="text-right">المحكمة</TableHead>
                   <TableHead className="text-right">ملاحظات</TableHead>
                   <TableHead className="text-right">الحالة</TableHead>
+                  <TableHead className="text-right w-[80px]">إجراءات</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -203,6 +204,16 @@ const CourtSessions = () => {
                     <TableCell className="text-sm">{s.cases?.court || '—'}</TableCell>
                     <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{s.notes || '—'}</TableCell>
                     <TableCell>{getSessionBadge(s.session_date)}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-1" onClick={e => e.stopPropagation()}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditSession(s)}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={(e) => handleDeleteSession(s.id, e)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
