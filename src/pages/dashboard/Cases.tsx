@@ -60,7 +60,7 @@ const Cases = () => {
   const [form, setForm] = useState<CaseForm>(emptyForm);
   const [opponents, setOpponents] = useState<Opponent[]>([{ ...emptyOpponent }]);
   const [presenceParties, setPresenceParties] = useState<PresenceParty[]>([]);
-  const [saving, setSaving] = useState(false);
+  const [againstAllInterested, setAgainstAllInterested] = useState(false);
   const [filterClientId, setFilterClientId] = useState<string>(preselectedClientId || '');
   const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
   const [clientSearch, setClientSearch] = useState('');
