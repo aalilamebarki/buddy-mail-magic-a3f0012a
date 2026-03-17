@@ -119,6 +119,7 @@ export type Database = {
           id: string
           opposing_party: string | null
           opposing_party_address: string | null
+          opposing_party_phone: string | null
           status: string
           title: string
           updated_at: string
@@ -135,6 +136,7 @@ export type Database = {
           id?: string
           opposing_party?: string | null
           opposing_party_address?: string | null
+          opposing_party_phone?: string | null
           status?: string
           title: string
           updated_at?: string
@@ -151,6 +153,7 @@ export type Database = {
           id?: string
           opposing_party?: string | null
           opposing_party_address?: string | null
+          opposing_party_phone?: string | null
           status?: string
           title?: string
           updated_at?: string
