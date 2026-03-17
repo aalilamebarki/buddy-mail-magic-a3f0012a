@@ -222,8 +222,8 @@ const CourtSessions = () => {
       const rows = items.map((s, i) => {
         rowCounter++;
         const nextDate = getNextSession(s.case_id, s.session_date);
-        const formattedDate = new Date(s.session_date + 'T00:00:00').toLocaleDateString('ar-MA', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-        const formattedNext = nextDate ? new Date(nextDate + 'T00:00:00').toLocaleDateString('ar-MA', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+        const formattedDate = new Date(s.session_date + 'T00:00:00').toLocaleDateString('ar-u-nu-latn', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+        const formattedNext = nextDate ? new Date(nextDate + 'T00:00:00').toLocaleDateString('ar-u-nu-latn', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : '—';
         return `<tr>
           <td class="num-cell">${i + 1}</td>
           <td class="name-cell">${s.cases?.clients?.full_name || '—'}</td>
