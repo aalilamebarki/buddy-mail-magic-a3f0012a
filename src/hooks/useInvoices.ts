@@ -42,14 +42,28 @@ export const useInvoices = () => {
   return { invoices, loading, refetch: fetchInvoices };
 };
 
+export interface LetterheadOption {
+  id: string;
+  lawyer_name: string;
+  name_fr?: string | null;
+  title_ar?: string | null;
+  title_fr?: string | null;
+  bar_name_ar?: string | null;
+  bar_name_fr?: string | null;
+  address?: string | null;
+  city?: string | null;
+  phone?: string | null;
+  email?: string | null;
+}
+
 export const useLetterheadOptions = () => {
-  const [letterheads, setLetterheads] = useState<{ id: string; lawyer_name: string }[]>([]);
+  const [letterheads, setLetterheads] = useState<LetterheadOption[]>([]);
 
   useEffect(() => {
     const fetch = async () => {
       const { data } = await supabase
         .from('letterheads')
-        .select('id, lawyer_name')
+        .select('id, lawyer_name, name_fr, title_ar, title_fr, bar_name_ar, bar_name_fr, address, city, phone, email')
         .order('created_at', { ascending: false });
       if (data) setLetterheads(data);
     };

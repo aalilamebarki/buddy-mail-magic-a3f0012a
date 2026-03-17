@@ -363,6 +363,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
           caseTitle: caseInfo?.title || '',
           caseNumber: caseInfo?.case_number || '',
           court: caseInfo?.court || undefined,
+          caseType: caseInfo?.case_type || undefined,
           items: block.items
             .filter(i => i.description && parseFloat(i.amount) > 0)
             .map(i => ({ description: i.description, amount: parseFloat(i.amount) })),
@@ -392,6 +393,18 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
         notes: form.notes || undefined,
         date: formatDateArabic(now, { year: 'numeric', month: 'long', day: 'numeric' }),
         lawyerName: letterhead?.lawyer_name || 'مكتب المحاماة',
+        letterhead: letterhead ? {
+          lawyerName: letterhead.lawyer_name,
+          nameFr: letterhead.name_fr || undefined,
+          titleAr: letterhead.title_ar || undefined,
+          titleFr: letterhead.title_fr || undefined,
+          barNameAr: letterhead.bar_name_ar || undefined,
+          barNameFr: letterhead.bar_name_fr || undefined,
+          address: letterhead.address || undefined,
+          city: letterhead.city || undefined,
+          phone: letterhead.phone || undefined,
+          email: letterhead.email || undefined,
+        } : undefined,
       });
 
       // Upload PDF
