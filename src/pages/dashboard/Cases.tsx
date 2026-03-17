@@ -465,6 +465,12 @@ const Cases = () => {
                       <Input
                         value={opp.name}
                         onChange={e => updateOpponent(index, 'name', e.target.value)}
+                        onBlur={() => {
+                          const name = opp.name.trim();
+                          if (name && opponents.some((o, i) => i !== index && o.name.trim() === name)) {
+                            toast.error('لقد سبق إدخال هذا المدعى عليه');
+                          }
+                        }}
                         placeholder="اسم الطرف المقابل"
                       />
                     </div>
