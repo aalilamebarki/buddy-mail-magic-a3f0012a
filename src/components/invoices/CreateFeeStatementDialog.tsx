@@ -823,7 +823,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
                   <span className="font-bold">{grandTotal.subtotal.toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د</span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">مجموع TVA ({TAX_RATE}%)</span>
+                  <span className="text-muted-foreground">مجموع TVA</span>
                   <span className="font-bold text-destructive">{grandTotal.taxAmount.toLocaleString('ar-u-nu-latn', { minimumFractionDigits: 2 })} د</span>
                 </div>
                 <div className="flex justify-between text-sm border-t pt-1.5">
