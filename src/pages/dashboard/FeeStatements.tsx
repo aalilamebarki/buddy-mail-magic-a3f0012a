@@ -4,13 +4,14 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { FileText, Plus, Download, Loader2, Search, Pencil, Eye } from 'lucide-react';
+import { FileText, Plus, Download, Loader2, Search, Pencil, Eye, FileDown } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useFeeStatements, type FeeStatementRecord } from '@/hooks/useFeeStatements';
 import { useToast } from '@/hooks/use-toast';
 import { formatDateShort } from '@/lib/formatters';
 import CreateFeeStatementDialog from '@/components/invoices/CreateFeeStatementDialog';
 import { downloadFeeStatementPdf } from '@/lib/dynamic-pdf-downloads';
+import { exportFeeStatementDocx } from '@/lib/export-fee-statement-docx';
 
 /** بيان الأتعاب للسيد X ملف عدد Y — تاريخ — رقم */
 const buildStatementLabel = (s: FeeStatementRecord) => {
