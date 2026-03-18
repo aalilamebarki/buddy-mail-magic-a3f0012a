@@ -25,6 +25,7 @@ const buildStatementLabel = (s: FeeStatementRecord) => {
 const FeeStatements = () => {
   const { statements, loading, refetch } = useFeeStatements();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editStatement, setEditStatement] = useState<FeeStatementRecord | null>(null);
   const [search, setSearch] = useState('');
