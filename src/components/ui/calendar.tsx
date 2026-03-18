@@ -23,7 +23,7 @@ function Calendar({
   const initialMonth = React.useMemo(() => month ?? props.defaultMonth ?? new Date(), [month, props.defaultMonth]);
   const [internalMonth, setInternalMonth] = React.useState<Date>(initialMonth);
   const touchStartRef = React.useRef<{ x: number; y: number; time: number } | null>(null);
-  const [slideDir, setSlideDir] = React.useState<"left" | "right" | null>(null);
+  
   const [translateX, setTranslateX] = React.useState(0);
   const [isSwiping, setIsSwiping] = React.useState(false);
   const activeMonthRef = React.useRef<Date>(initialMonth);
@@ -49,15 +49,9 @@ function Calendar({
 
   const animateAndChange = React.useCallback(
     (direction: 1 | -1) => {
-      const dir = direction > 0 ? "left" : "right";
-      setSlideDir(dir);
       setTranslateX(0);
       setIsSwiping(false);
-
-      setTimeout(() => {
-        handleMonthChange(addMonths(activeMonthRef.current, direction));
-        setSlideDir(null);
-      }, 200);
+      handleMonthChange(addMonths(activeMonthRef.current, direction));
     },
     [handleMonthChange],
   );
@@ -123,16 +117,10 @@ function Calendar({
       className="touch-pan-y overflow-hidden relative"
     >
       <div
-        className={cn(
-          "transition-transform will-change-transform",
-          slideDir === "left" && "animate-slide-out-left",
-          slideDir === "right" && "animate-slide-out-right",
-          !slideDir && !isSwiping && "duration-200 ease-out",
-        )}
         style={
-          !slideDir
-            ? { transform: `translateX(${translateX}px)`, opacity: isSwiping ? 1 - Math.abs(translateX) / 200 : 1 }
-            : undefined
+          isSwiping
+            ? { transform: `translateX(${translateX}px)`, opacity: 1 - Math.abs(translateX) / 300, transition: 'none' }
+            : { transform: 'translateX(0)', opacity: 1, transition: 'transform 0.15s ease-out, opacity 0.15s ease-out' }
         }
       >
         <DayPicker
