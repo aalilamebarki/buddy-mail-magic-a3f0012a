@@ -26,6 +26,7 @@ function Calendar({
   const [slideDir, setSlideDir] = React.useState<"left" | "right" | null>(null);
   const [translateX, setTranslateX] = React.useState(0);
   const [isSwiping, setIsSwiping] = React.useState(false);
+  const activeMonthRef = React.useRef<Date>(initialMonth);
 
   React.useEffect(() => {
     if (month) {
