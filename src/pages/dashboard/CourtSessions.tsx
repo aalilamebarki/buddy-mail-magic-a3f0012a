@@ -161,6 +161,12 @@ const CourtSessions = () => {
         if (error) throw error;
         toast.success('تمت إضافة الجلسة');
       }
+      // Auto-save custom action if not in options
+      const trimmedAction = requiredAction.trim();
+      if (trimmedAction && !actionOptions.includes(trimmedAction) && user) {
+        await supabase.from('required_actions').insert({ label: trimmedAction, user_id: user.id }).single();
+        fetchActions();
+      }
       setDialogOpen(false);
       setEditingSession(null);
       setSelectedCaseId('');
