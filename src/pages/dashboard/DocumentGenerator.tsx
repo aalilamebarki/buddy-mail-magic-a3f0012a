@@ -642,7 +642,7 @@ const DocumentGenerator = () => {
 
         const blob = await injectIntoTemplate(fileData, {
           content,
-          clientName: selectedCase?.client_name || '',
+          clientName: selectedClient?.full_name || '',
           caseName: title,
           court: selectedCase?.court || '',
           caseNumber: selectedCase?.case_number || '',
