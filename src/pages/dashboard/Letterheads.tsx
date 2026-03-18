@@ -6,24 +6,58 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Trash2, FileText, Loader2, Stamp, Edit2, Save, X, Upload, Eye } from 'lucide-react';
+import { Plus, Trash2, FileText, Loader2, Stamp, Edit2, Save, X, Upload, Eye, Phone, Mail, MapPin, Building2, User } from 'lucide-react';
 import mammoth from 'mammoth';
 
 interface Letterhead {
   id: string;
   lawyer_name: string;
+  name_fr: string | null;
+  title_ar: string | null;
+  title_fr: string | null;
+  bar_name_ar: string | null;
+  bar_name_fr: string | null;
+  address: string | null;
+  city: string | null;
+  phone: string | null;
+  email: string | null;
   template_path: string | null;
   created_at: string;
 }
 
-interface DraftState {
+interface LetterheadFormFields {
   lawyerName: string;
+  nameFr: string;
+  titleAr: string;
+  titleFr: string;
+  barNameAr: string;
+  barNameFr: string;
+  address: string;
+  city: string;
+  phone: string;
+  email: string;
+}
+
+const emptyFields: LetterheadFormFields = {
+  lawyerName: '',
+  nameFr: '',
+  titleAr: '',
+  titleFr: '',
+  barNameAr: '',
+  barNameFr: '',
+  address: '',
+  city: '',
+  phone: '',
+  email: '',
+};
+
+interface DraftState extends LetterheadFormFields {
   pendingTemplatePath: string | null;
   pendingTemplateName: string | null;
   showForm: boolean;
 }
 
-const DRAFT_STORAGE_KEY = 'letterhead-draft-v1';
+const DRAFT_STORAGE_KEY = 'letterhead-draft-v2';
 
 const hasDraftData = (draft: DraftState) => Boolean(
   draft.showForm || draft.lawyerName || draft.pendingTemplatePath || draft.pendingTemplateName
@@ -31,21 +65,17 @@ const hasDraftData = (draft: DraftState) => Boolean(
 
 const readStoredDraft = (): DraftState | null => {
   if (typeof window === 'undefined') return null;
-
   const rawDraft = window.sessionStorage.getItem(DRAFT_STORAGE_KEY);
   if (!rawDraft) return null;
-
   return JSON.parse(rawDraft) as DraftState;
 };
 
 const writeStoredDraft = (draft: DraftState | null) => {
   if (typeof window === 'undefined') return;
-
   if (!draft || !hasDraftData(draft)) {
     window.sessionStorage.removeItem(DRAFT_STORAGE_KEY);
     return;
   }
-
   window.sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
 };
 
@@ -67,7 +97,7 @@ const Letterheads = () => {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingTemplate, setUploadingTemplate] = useState(false);
-  const [lawyerName, setLawyerName] = useState('');
+  const [fields, setFields] = useState<LetterheadFormFields>(emptyFields);
   const [templateFile, setTemplateFile] = useState<File | null>(null);
   const [pendingTemplatePath, setPendingTemplatePath] = useState<string | null>(null);
   const [pendingTemplateName, setPendingTemplateName] = useState<string | null>(null);
@@ -77,6 +107,9 @@ const Letterheads = () => {
   const [draftRestored, setDraftRestored] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const setField = (key: keyof LetterheadFormFields, value: string) =>
+    setFields(prev => ({ ...prev, [key]: value }));
+
   useEffect(() => {
     if (!user) return;
     loadLetterheads();
@@ -84,15 +117,21 @@ const Letterheads = () => {
 
   useEffect(() => {
     if (draftRestored) return;
-
     try {
       const draft = readStoredDraft();
-      if (!draft) {
-        setDraftRestored(true);
-        return;
-      }
-
-      setLawyerName(draft.lawyerName || '');
+      if (!draft) { setDraftRestored(true); return; }
+      setFields({
+        lawyerName: draft.lawyerName || '',
+        nameFr: draft.nameFr || '',
+        titleAr: draft.titleAr || '',
+        titleFr: draft.titleFr || '',
+        barNameAr: draft.barNameAr || '',
+        barNameFr: draft.barNameFr || '',
+        address: draft.address || '',
+        city: draft.city || '',
+        phone: draft.phone || '',
+        email: draft.email || '',
+      });
       setPendingTemplatePath(draft.pendingTemplatePath || null);
       setPendingTemplateName(draft.pendingTemplateName || null);
       setShowForm(Boolean(draft.showForm));
@@ -106,20 +145,19 @@ const Letterheads = () => {
 
   useEffect(() => {
     if (!draftRestored) return;
-
     writeStoredDraft({
-      lawyerName,
+      ...fields,
       pendingTemplatePath,
       pendingTemplateName,
       showForm,
     });
-  }, [draftRestored, lawyerName, pendingTemplatePath, pendingTemplateName, showForm]);
+  }, [draftRestored, fields, pendingTemplatePath, pendingTemplateName, showForm]);
 
   const loadLetterheads = async () => {
     const { data } = await supabase
       .from('letterheads')
-      .select('id, lawyer_name, template_path, created_at')
-      .order('created_at', { ascending: false }) as any;
+      .select('id, lawyer_name, name_fr, title_ar, title_fr, bar_name_ar, bar_name_fr, address, city, phone, email, template_path, created_at')
+      .order('created_at', { ascending: false });
 
     if (data) setLetterheads(data);
     setLoading(false);
@@ -127,12 +165,10 @@ const Letterheads = () => {
 
   const buildPreviewHtml = async (fileName: string, arrayBuffer: ArrayBuffer) => {
     const ext = getFileExtension(fileName);
-
     if (ext === 'docx') {
       const result = await mammoth.convertToHtml({ arrayBuffer });
       return result.value || '<p style="color:gray;text-align:center;">الملف فارغ</p>';
     }
-
     return '<p style="color:gray;text-align:center;">صيغة غير مدعومة</p>';
   };
 
@@ -152,12 +188,10 @@ const Letterheads = () => {
 
   const previewPendingTemplate = async () => {
     if (!pendingTemplatePath) return;
-
     setPreviewLoading(true);
     try {
       const { data, error } = await supabase.storage.from('letterhead-templates').download(pendingTemplatePath);
       if (error || !data) throw error;
-
       const fileName = pendingTemplateName || pendingTemplatePath.split('/').pop() || 'template.docx';
       const html = await buildPreviewHtml(fileName, await data.arrayBuffer());
       setPreviewHtml(html);
@@ -170,12 +204,10 @@ const Letterheads = () => {
 
   const previewExisting = async (lh: Letterhead) => {
     if (!lh.template_path) return;
-
     setPreviewLoading(true);
     try {
       const { data, error } = await supabase.storage.from('letterhead-templates').download(lh.template_path);
       if (error || !data) throw error;
-
       const html = await buildPreviewHtml(lh.template_path.split('/').pop() || lh.lawyer_name, await data.arrayBuffer());
       setPreviewHtml(html);
     } catch {
@@ -193,29 +225,17 @@ const Letterheads = () => {
   const handleTemplateChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     event.preventDefault();
     event.stopPropagation();
-
     const nextFile = event.currentTarget.files?.[0] ?? null;
     event.currentTarget.value = '';
-
     if (!nextFile || !user) return;
 
     const ext = getFileExtension(nextFile.name);
     if (ext !== 'docx') {
-      toast({
-        title: 'صيغة غير مدعومة',
-        description: 'يرجى اختيار ملف بصيغة .docx فقط (احفظ ملف .doc كـ .docx من Word)',
-        variant: 'destructive',
-      });
+      toast({ title: 'صيغة غير مدعومة', description: 'يرجى اختيار ملف بصيغة .docx فقط', variant: 'destructive' });
       return;
     }
 
-    const draftBeforeUpload: DraftState = {
-      lawyerName,
-      pendingTemplatePath,
-      pendingTemplateName,
-      showForm: true,
-    };
-
+    const draftBeforeUpload: DraftState = { ...fields, pendingTemplatePath, pendingTemplateName, showForm: true };
     writeStoredDraft(draftBeforeUpload);
     setUploadingTemplate(true);
     setTemplateFile(nextFile);
@@ -224,28 +244,16 @@ const Letterheads = () => {
 
     try {
       const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
-      const { error } = await supabase.storage.from('letterhead-templates').upload(path, nextFile, {
-        upsert: false,
-      });
-
+      const { error } = await supabase.storage.from('letterhead-templates').upload(path, nextFile, { upsert: false });
       if (error) throw error;
 
       const oldPendingPath = pendingTemplatePath;
-      const nextDraft: DraftState = {
-        lawyerName,
-        pendingTemplatePath: path,
-        pendingTemplateName: nextFile.name,
-        showForm: true,
-      };
-
-      writeStoredDraft(nextDraft);
+      writeStoredDraft({ ...fields, pendingTemplatePath: path, pendingTemplateName: nextFile.name, showForm: true });
       setPendingTemplatePath(path);
       setPendingTemplateName(nextFile.name);
       toast({ title: 'تم تجهيز ملف الترويسة ✅' });
 
-      if (oldPendingPath && oldPendingPath !== path) {
-        cleanupPendingUpload(oldPendingPath);
-      }
+      if (oldPendingPath && oldPendingPath !== path) cleanupPendingUpload(oldPendingPath);
     } catch (error: any) {
       writeStoredDraft(draftBeforeUpload);
       setTemplateFile(null);
@@ -258,7 +266,7 @@ const Letterheads = () => {
   };
 
   const save = async () => {
-    if (!user || !lawyerName.trim()) return;
+    if (!user || !fields.lawyerName.trim()) return;
 
     const finalTemplatePath = pendingTemplatePath;
     if (!editingId && !finalTemplatePath) {
@@ -268,18 +276,27 @@ const Letterheads = () => {
 
     setSaving(true);
     try {
-      const payload: any = {
+      const payload: Record<string, any> = {
         user_id: user.id,
-        lawyer_name: lawyerName.trim(),
+        lawyer_name: fields.lawyerName.trim(),
+        name_fr: fields.nameFr.trim() || null,
+        title_ar: fields.titleAr.trim() || null,
+        title_fr: fields.titleFr.trim() || null,
+        bar_name_ar: fields.barNameAr.trim() || null,
+        bar_name_fr: fields.barNameFr.trim() || null,
+        address: fields.address.trim() || null,
+        city: fields.city.trim() || null,
+        phone: fields.phone.trim() || null,
+        email: fields.email.trim() || null,
         ...(finalTemplatePath && { template_path: finalTemplatePath }),
       };
 
       if (editingId) {
-        const { error } = await supabase.from('letterheads').update(payload).eq('id', editingId) as any;
+        const { error } = await supabase.from('letterheads').update(payload).eq('id', editingId);
         if (error) throw error;
         toast({ title: 'تم تعديل الترويسة ✅' });
       } else {
-        const { error } = await supabase.from('letterheads').insert(payload) as any;
+        const { error } = await supabase.from('letterheads').insert(payload);
         if (error) throw error;
         toast({ title: 'تم إضافة الترويسة ✅' });
       }
@@ -296,18 +313,23 @@ const Letterheads = () => {
 
   const startEdit = (lh: Letterhead) => {
     setEditingId(lh.id);
-    setLawyerName(lh.lawyer_name);
+    setFields({
+      lawyerName: lh.lawyer_name,
+      nameFr: lh.name_fr || '',
+      titleAr: lh.title_ar || '',
+      titleFr: lh.title_fr || '',
+      barNameAr: lh.bar_name_ar || '',
+      barNameFr: lh.bar_name_fr || '',
+      address: lh.address || '',
+      city: lh.city || '',
+      phone: lh.phone || '',
+      email: lh.email || '',
+    });
     setTemplateFile(null);
     setPendingTemplatePath(lh.template_path);
     setPendingTemplateName(lh.template_path?.split('/').pop() || null);
     setPreviewHtml(null);
     setShowForm(true);
-    writeStoredDraft({
-      lawyerName: lh.lawyer_name,
-      pendingTemplatePath: lh.template_path,
-      pendingTemplateName: lh.template_path?.split('/').pop() || null,
-      showForm: true,
-    });
   };
 
   const deleteLetterhead = async (lh: Letterhead) => {
@@ -315,10 +337,8 @@ const Letterheads = () => {
       if (lh.template_path) {
         await supabase.storage.from('letterhead-templates').remove([lh.template_path]);
       }
-
-      const { error } = await supabase.from('letterheads').delete().eq('id', lh.id) as any;
+      const { error } = await supabase.from('letterheads').delete().eq('id', lh.id);
       if (error) throw error;
-
       setLetterheads((prev) => prev.filter((x) => x.id !== lh.id));
       toast({ title: 'تم حذف الترويسة' });
     } catch (e: any) {
@@ -328,10 +348,9 @@ const Letterheads = () => {
 
   const resetForm = (removePending = true) => {
     const pathToCleanup = removePending ? pendingTemplatePath : null;
-
     setShowForm(false);
     setEditingId(null);
-    setLawyerName('');
+    setFields(emptyFields);
     setTemplateFile(null);
     setPendingTemplatePath(null);
     setPendingTemplateName(null);
@@ -339,10 +358,7 @@ const Letterheads = () => {
     setPreviewLoading(false);
     setUploadingTemplate(false);
     writeStoredDraft(null);
-
-    if (pathToCleanup) {
-      cleanupPendingUpload(pathToCleanup);
-    }
+    if (pathToCleanup) cleanupPendingUpload(pathToCleanup);
   };
 
   const selectedTemplateLabel = useMemo(() => {
@@ -355,13 +371,10 @@ const Letterheads = () => {
     return <div className="flex items-center justify-center h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
-  const triggerFilePicker = () => {
-    fileInputRef.current?.click();
-  };
+  const triggerFilePicker = () => fileInputRef.current?.click();
 
   return (
     <div className="space-y-6">
-      {/* Hidden file input - always mounted to survive mobile browser re-renders */}
       <input
         ref={fileInputRef}
         type="file"
@@ -378,7 +391,7 @@ const Letterheads = () => {
             <Stamp className="h-5 w-5 text-primary" />
             الترويسات
           </h1>
-          <p className="text-muted-foreground text-xs mt-1">اختر ملف Word كقالب، وسيتم حفظه مؤقتاً فوراً حتى لا يضيع إذا أعادت الصفحة التهيئة</p>
+          <p className="text-muted-foreground text-xs mt-1">أدخل بيانات المحامي وارفع ملف Word كقالب</p>
         </div>
         <Button type="button" onClick={() => { resetForm(); setShowForm(true); }} className="gap-1.5">
           <Plus className="h-4 w-4" /> ترويسة جديدة
@@ -387,17 +400,118 @@ const Letterheads = () => {
 
       {showForm && (
         <Card className="border-primary/20">
-          <CardContent className="pt-5 space-y-3">
+          <CardContent className="pt-5 space-y-4">
             <h3 className="text-sm font-bold text-foreground">{editingId ? 'تعديل الترويسة' : 'ترويسة جديدة'}</h3>
 
-            <Input
-              placeholder="اسم المحامي / اسم الترويسة *"
-              value={lawyerName}
-              onChange={(e) => setLawyerName(e.target.value)}
-              className="text-sm"
-              dir="rtl"
-            />
+            {/* ── الاسم ── */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                <User className="h-3.5 w-3.5" /> الاسم
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Input
+                  placeholder="اسم المحامي بالعربية *"
+                  value={fields.lawyerName}
+                  onChange={(e) => setField('lawyerName', e.target.value)}
+                  className="text-sm"
+                  dir="rtl"
+                />
+                <Input
+                  placeholder="Nom en français (optionnel)"
+                  value={fields.nameFr}
+                  onChange={(e) => setField('nameFr', e.target.value)}
+                  className="text-sm"
+                  dir="ltr"
+                />
+              </div>
+            </div>
 
+            {/* ── اللقب المهني ── */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                <Building2 className="h-3.5 w-3.5" /> اللقب المهني والهيئة
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Input
+                  placeholder="اللقب بالعربية (مثال: محام)"
+                  value={fields.titleAr}
+                  onChange={(e) => setField('titleAr', e.target.value)}
+                  className="text-sm"
+                  dir="rtl"
+                />
+                <Input
+                  placeholder="Titre en français (ex: Avocat)"
+                  value={fields.titleFr}
+                  onChange={(e) => setField('titleFr', e.target.value)}
+                  className="text-sm"
+                  dir="ltr"
+                />
+                <Input
+                  placeholder="اسم الهيئة بالعربية (مثال: هيئة المحامين بالرباط)"
+                  value={fields.barNameAr}
+                  onChange={(e) => setField('barNameAr', e.target.value)}
+                  className="text-sm"
+                  dir="rtl"
+                />
+                <Input
+                  placeholder="Barreau (ex: Barreau de Rabat)"
+                  value={fields.barNameFr}
+                  onChange={(e) => setField('barNameFr', e.target.value)}
+                  className="text-sm"
+                  dir="ltr"
+                />
+              </div>
+            </div>
+
+            {/* ── العنوان ── */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5" /> العنوان
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Input
+                  placeholder="العنوان (شارع، رقم ...)"
+                  value={fields.address}
+                  onChange={(e) => setField('address', e.target.value)}
+                  className="text-sm"
+                  dir="rtl"
+                />
+                <Input
+                  placeholder="المدينة"
+                  value={fields.city}
+                  onChange={(e) => setField('city', e.target.value)}
+                  className="text-sm"
+                  dir="rtl"
+                />
+              </div>
+            </div>
+
+            {/* ── التواصل ── */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                <Phone className="h-3.5 w-3.5" /> التواصل
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Input
+                  placeholder="رقم الهاتف"
+                  value={fields.phone}
+                  onChange={(e) => setField('phone', e.target.value)}
+                  className="text-sm"
+                  dir="ltr"
+                  type="tel"
+                />
+                <Input
+                  placeholder="البريد الإلكتروني"
+                  value={fields.email}
+                  onChange={(e) => setField('email', e.target.value)}
+                  className="text-sm"
+                  dir="ltr"
+                  type="email"
+                />
+              </div>
+            </div>
+
+            {/* ── ملف القالب ── */}
             <div className="space-y-3 rounded-lg border border-border p-4">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Upload className="h-4 w-4" />
@@ -495,7 +609,7 @@ const Letterheads = () => {
               <Button
                 type="button"
                 onClick={save}
-                disabled={!lawyerName.trim() || saving || uploadingTemplate || (!editingId && !pendingTemplatePath)}
+                disabled={!fields.lawyerName.trim() || saving || uploadingTemplate || (!editingId && !pendingTemplatePath)}
                 className="gap-1.5"
               >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -550,7 +664,7 @@ const Letterheads = () => {
                     <div className="min-w-0">
                       <h3 className="font-bold text-foreground text-sm truncate">{lh.lawyer_name}</h3>
                       <p className="text-[10px] text-muted-foreground truncate">
-                        {lh.template_path ? '📎 ملف مرفق' : 'بدون ملف'}
+                        {[lh.name_fr, lh.city, lh.phone].filter(Boolean).join(' · ') || (lh.template_path ? '📎 ملف مرفق' : 'بدون تفاصيل')}
                         {' • '}{new Date(lh.created_at).toLocaleDateString('ar-MA')}
                       </p>
                     </div>
