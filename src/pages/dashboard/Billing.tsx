@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Receipt, FileText, Plus, Download, Loader2, QrCode, Search, Pencil, DollarSign, BookOpen, TrendingUp, Eye } from 'lucide-react';
+import { Receipt, FileText, Plus, Download, Loader2, QrCode, Search, Pencil, DollarSign, BookOpen, TrendingUp, Eye, FileDown } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useInvoices, type InvoiceRecord } from '@/hooks/useInvoices';
 import { useFeeStatements, type FeeStatementRecord } from '@/hooks/useFeeStatements';
@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { formatDateShort } from '@/lib/formatters';
 import { exportAccountingExcel, exportAccountingPDF } from '@/lib/export-accounting';
 import { downloadInvoicePdf, downloadFeeStatementPdf, previewInvoicePdf, previewFeeStatementPdf } from '@/lib/dynamic-pdf-downloads';
+import { exportFeeStatementDocx } from '@/lib/export-fee-statement-docx';
 import CreateInvoiceDialog from '@/components/invoices/CreateInvoiceDialog';
 import CreateFeeStatementDialog from '@/components/invoices/CreateFeeStatementDialog';
 
@@ -90,6 +91,17 @@ const Billing = () => {
     setDownloading(statement.id);
     try {
       await downloadFeeStatementPdf(statement);
+    } catch (e: any) {
+      toast({ title: 'خطأ في التحميل', description: e.message, variant: 'destructive' });
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  const downloadStatementDocx = async (statement: FeeStatementRecord) => {
+    setDownloading(`docx-${statement.id}`);
+    try {
+      await exportFeeStatementDocx(statement);
     } catch (e: any) {
       toast({ title: 'خطأ في التحميل', description: e.message, variant: 'destructive' });
     } finally {
@@ -376,6 +388,18 @@ const Billing = () => {
                                   {downloading === s.id
                                     ? <Loader2 className="h-4 w-4 animate-spin" />
                                     : <Download className="h-4 w-4" />}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0"
+                                  title="تحميل Word"
+                                  onClick={() => downloadStatementDocx(s)}
+                                  disabled={downloading === `docx-${s.id}`}
+                                >
+                                  {downloading === `docx-${s.id}`
+                                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                                    : <FileDown className="h-4 w-4" />}
                                 </Button>
                               </div>
                             </TableCell>
