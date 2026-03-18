@@ -23,7 +23,7 @@ function Calendar({
   const initialMonth = React.useMemo(() => month ?? props.defaultMonth ?? new Date(), [month, props.defaultMonth]);
   const [internalMonth, setInternalMonth] = React.useState<Date>(initialMonth);
   const touchStartRef = React.useRef<{ x: number; y: number; time: number } | null>(null);
-  const [slideDir, setSlideDir] = React.useState<"left" | "right" | null>(null);
+  
   const [translateX, setTranslateX] = React.useState(0);
   const [isSwiping, setIsSwiping] = React.useState(false);
   const activeMonthRef = React.useRef<Date>(initialMonth);
