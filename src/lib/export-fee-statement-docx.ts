@@ -82,16 +82,17 @@ const centerText = (
   });
 
 const emptyPara = (spacing = 80) =>
-  new Paragraph({ spacing: { before: spacing, after: 0 }, children: [] });
+  new Paragraph({ spacing: { before: spacing, after: 0 }, bidirectional: true, children: [] });
 
 /* ── Gold ornament line ───────────────────────────────────────────── */
 
 const ornamentLine = () =>
   new Paragraph({
     alignment: AlignmentType.CENTER,
+    bidirectional: true,
     spacing: { before: 60, after: 60 },
     children: [
-      new TextRun({ text: '━━━━━  ◆  ━━━━━', color: GOLD, font: FONT, size: 16 }),
+      new TextRun({ text: '━━━━━  ◆  ━━━━━', color: GOLD, font: FONT, size: 16, rightToLeft: true }),
     ],
   });
 
@@ -140,12 +141,14 @@ function buildHeader(lh: FeeStatementRecord['letterheads']): Paragraph[] {
   paras.push(
     new Paragraph({
       alignment: AlignmentType.CENTER,
+      bidirectional: true,
       spacing: { before: 80, after: 0 },
       border: { bottom: { style: BorderStyle.SINGLE, size: 2, color: NAVY } },
       children: [],
     }),
     new Paragraph({
       alignment: AlignmentType.CENTER,
+      bidirectional: true,
       spacing: { before: 2, after: 0 },
       border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: GOLD } },
       children: [],
@@ -325,6 +328,7 @@ function buildServicesTable(
           children: [
             new Paragraph({
               alignment: AlignmentType.LEFT,
+              bidirectional: true,
               spacing: { after: 0 },
               children: [
                 new TextRun({ text: fmt(item.amount), font: FONT_BODY, size: 20, color: TEXT_GRAY }),
@@ -390,6 +394,7 @@ function buildServicesTable(
           children: [
             new Paragraph({
               alignment: AlignmentType.LEFT,
+              bidirectional: true,
               spacing: { after: 0 },
               children: [
                 new TextRun({
@@ -462,6 +467,7 @@ function buildGrandTotal(totalAmount: number): (Paragraph | Table)[] {
             children: [
               new Paragraph({
                 alignment: AlignmentType.LEFT,
+                bidirectional: true,
                 spacing: { after: 0 },
                 children: [
                   new TextRun({ text: `${fmt(totalAmount)} MAD`, font: FONT, size: 36, bold: true, color: 'FFFFFF' }),
@@ -617,6 +623,7 @@ export const exportFeeStatementDocx = async (statement: FeeStatementRecord) => {
   children.push(
     new Paragraph({
       alignment: AlignmentType.CENTER,
+      bidirectional: true,
       spacing: { before: 200, after: 0 },
       border: { top: { style: BorderStyle.SINGLE, size: 1, color: GOLD } },
       children: [
@@ -625,6 +632,7 @@ export const exportFeeStatementDocx = async (statement: FeeStatementRecord) => {
           font: FONT,
           size: 13,
           color: TEXT_LIGHT,
+          rightToLeft: true,
         }),
       ],
     }),
