@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Trash2, FileText, Loader2, Stamp, Edit2, Save, X, Upload, Eye, Phone, Mail, MapPin, Building2, User } from 'lucide-react';
 import mammoth from 'mammoth';
+import { extractLetterheadInfo } from '@/lib/extract-letterhead-info';
 
 interface Letterhead {
   id: string;
@@ -251,7 +252,31 @@ const Letterheads = () => {
       writeStoredDraft({ ...fields, pendingTemplatePath: path, pendingTemplateName: nextFile.name, showForm: true });
       setPendingTemplatePath(path);
       setPendingTemplateName(nextFile.name);
-      toast({ title: 'تم تجهيز ملف الترويسة ✅' });
+
+      // Auto-extract letterhead info from the uploaded Word file
+      try {
+        const extracted = await extractLetterheadInfo(nextFile);
+        const newFields = { ...fields };
+        let filled = 0;
+        if (extracted.lawyerName && !fields.lawyerName) { newFields.lawyerName = extracted.lawyerName; filled++; }
+        if (extracted.nameFr && !fields.nameFr) { newFields.nameFr = extracted.nameFr; filled++; }
+        if (extracted.titleAr && !fields.titleAr) { newFields.titleAr = extracted.titleAr; filled++; }
+        if (extracted.titleFr && !fields.titleFr) { newFields.titleFr = extracted.titleFr; filled++; }
+        if (extracted.barNameAr && !fields.barNameAr) { newFields.barNameAr = extracted.barNameAr; filled++; }
+        if (extracted.barNameFr && !fields.barNameFr) { newFields.barNameFr = extracted.barNameFr; filled++; }
+        if (extracted.address && !fields.address) { newFields.address = extracted.address; filled++; }
+        if (extracted.city && !fields.city) { newFields.city = extracted.city; filled++; }
+        if (extracted.phone && !fields.phone) { newFields.phone = extracted.phone; filled++; }
+        if (extracted.email && !fields.email) { newFields.email = extracted.email; filled++; }
+        setFields(newFields);
+        if (filled > 0) {
+          toast({ title: `تم استخراج ${filled} حقول من الترويسة تلقائياً ✅`, description: 'راجع البيانات وأكمل ما يلزم' });
+        } else {
+          toast({ title: 'تم تجهيز ملف الترويسة ✅' });
+        }
+      } catch {
+        toast({ title: 'تم تجهيز ملف الترويسة ✅' });
+      }
 
       if (oldPendingPath && oldPendingPath !== path) cleanupPendingUpload(oldPendingPath);
     } catch (error: any) {
