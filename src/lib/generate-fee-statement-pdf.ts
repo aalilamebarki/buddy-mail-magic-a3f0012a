@@ -52,13 +52,12 @@ export interface FeeStatementData {
 
 type RgbColor = [number, number, number];
 
-let amiriFontLoaded = false;
-let amiriFontBase64 = '';
+const fontCache: Record<string, string> = {};
 
-const loadAmiriFont = async (): Promise<string> => {
-  if (amiriFontLoaded) return amiriFontBase64;
+const loadFont = async (path: string): Promise<string> => {
+  if (fontCache[path]) return fontCache[path];
 
-  const response = await fetch('/fonts/Amiri-Regular.ttf');
+  const response = await fetch(path);
   const buffer = await response.arrayBuffer();
   const bytes = new Uint8Array(buffer);
   let binary = '';
@@ -67,9 +66,9 @@ const loadAmiriFont = async (): Promise<string> => {
     binary += String.fromCharCode(bytes[i]);
   }
 
-  amiriFontBase64 = btoa(binary);
-  amiriFontLoaded = true;
-  return amiriFontBase64;
+  const base64 = btoa(binary);
+  fontCache[path] = base64;
+  return base64;
 };
 
 const NAVY: RgbColor = [30, 47, 78];
@@ -216,6 +215,7 @@ const renderHeader = (
 
   let y = 17;
 
+  doc.setFont('Amiri');
   doc.setFontSize(16);
   doc.setTextColor(...NAVY);
   doc.text('مكتب الأستاذ', centerX, y, { align: 'center' });
@@ -228,12 +228,14 @@ const renderHeader = (
   y += nameLines.length * 9;
 
   if (title) {
+    doc.setFont('IBMPlex');
     doc.setFontSize(14);
     doc.setTextColor(...GOLD);
     doc.text(title, centerX, y, { align: 'center' });
     y += 9;
   }
 
+  doc.setFont('IBMPlex');
   doc.setFontSize(11);
   doc.setTextColor(...TEXT_DARK);
   doc.text('المقر الاجتماعي', centerX, y, { align: 'center' });
@@ -265,6 +267,7 @@ const renderHeader = (
   drawRule(doc, y, margin + 8, rightX - 8);
   y += 18;
 
+  doc.setFont('Amiri');
   doc.setFontSize(30);
   doc.setTextColor(...NAVY);
   doc.text('بيان أتعاب', centerX, y, { align: 'center' });
@@ -275,6 +278,7 @@ const renderHeader = (
   doc.line(centerX - 28, y, centerX + 28, y);
   y += 7;
 
+  doc.setFont('IBMPlex');
   doc.setFontSize(10.5);
   doc.setTextColor(...TEXT_LIGHT);
   doc.text(`رقم المرجع: ${data.statementNumber}`, centerX, y, { align: 'center' });
@@ -348,12 +352,20 @@ const buildStatementRows = (caseDetails: CaseDetailData[]): StatementRow[] => {
 };
 
 export const generateFeeStatementPDF = async (data: FeeStatementData): Promise<Blob> => {
-  const fontBase64 = await loadAmiriFont();
+  const [amiriBase64, plexBase64] = await Promise.all([
+    loadFont('/fonts/Amiri-Regular.ttf'),
+    loadFont('/fonts/IBMPlexSansArabic-Regular.ttf'),
+  ]);
+
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-  doc.addFileToVFS('Amiri-Regular.ttf', fontBase64);
+  doc.addFileToVFS('Amiri-Regular.ttf', amiriBase64);
   doc.addFont('Amiri-Regular.ttf', 'Amiri', 'normal');
-  doc.setFont('Amiri');
+
+  doc.addFileToVFS('IBMPlexSansArabic-Regular.ttf', plexBase64);
+  doc.addFont('IBMPlexSansArabic-Regular.ttf', 'IBMPlex', 'normal');
+
+  doc.setFont('IBMPlex');
 
   const pageWidth = 210;
   const margin = 22;

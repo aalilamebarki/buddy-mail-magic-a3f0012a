@@ -29,21 +29,20 @@ interface InvoiceData {
   letterhead?: LetterheadInfo;
 }
 
-let amiriFontLoaded = false;
-let amiriFontBase64 = '';
+const fontCache: Record<string, string> = {};
 
-const loadAmiriFont = async (): Promise<string> => {
-  if (amiriFontLoaded) return amiriFontBase64;
-  const response = await fetch('/fonts/Amiri-Regular.ttf');
+const loadFont = async (path: string): Promise<string> => {
+  if (fontCache[path]) return fontCache[path];
+  const response = await fetch(path);
   const buffer = await response.arrayBuffer();
   const bytes = new Uint8Array(buffer);
   let binary = '';
   for (let i = 0; i < bytes.length; i++) {
     binary += String.fromCharCode(bytes[i]);
   }
-  amiriFontBase64 = btoa(binary);
-  amiriFontLoaded = true;
-  return amiriFontBase64;
+  const base64 = btoa(binary);
+  fontCache[path] = base64;
+  return base64;
 };
 
 const PAYMENT_METHODS: Record<string, string> = {
@@ -114,12 +113,19 @@ const numberToArabicWords = (num: number): string => {
 };
 
 export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
-  const fontBase64 = await loadAmiriFont();
+  const [amiriBase64, plexBase64] = await Promise.all([
+    loadFont('/fonts/Amiri-Regular.ttf'),
+    loadFont('/fonts/IBMPlexSansArabic-Regular.ttf'),
+  ]);
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-  doc.addFileToVFS('Amiri-Regular.ttf', fontBase64);
+  doc.addFileToVFS('Amiri-Regular.ttf', amiriBase64);
   doc.addFont('Amiri-Regular.ttf', 'Amiri', 'normal');
-  doc.setFont('Amiri');
+
+  doc.addFileToVFS('IBMPlexSansArabic-Regular.ttf', plexBase64);
+  doc.addFont('IBMPlexSansArabic-Regular.ttf', 'IBMPlex', 'normal');
+
+  doc.setFont('IBMPlex');
 
   const pw = 210;
   const m = 22;       // generous margins like the design
@@ -152,6 +158,7 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
      2. CENTERED HEADER — Lawyer info
      ═══════════════════════════════════════ */
   // "مكتب الأستاذ"
+  doc.setFont('Amiri');
   doc.setFontSize(16);
   doc.setTextColor(...TEXT_DARK);
   doc.text('مكتب الأستاذ', cx, y, { align: 'center' });
@@ -162,6 +169,7 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
   doc.setTextColor(...TEXT_DARK);
   doc.text(lawyerName, cx, y, { align: 'center' });
   y += 9;
+  doc.setFont('IBMPlex');
 
   // Title (e.g. محام لدى المجلس)
   if (titleAr) {
@@ -214,10 +222,12 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
   /* ═══════════════════════════════════════
      3. TITLE — "وصل أداء" (very large, centered)
      ═══════════════════════════════════════ */
+  doc.setFont('Amiri');
   doc.setFontSize(30);
   doc.setTextColor(...TEXT_DARK);
   doc.text('وصل أداء', cx, y, { align: 'center' });
   y += 5;
+  doc.setFont('IBMPlex');
 
   // Underline
   doc.setDrawColor(...TEXT_DARK);
