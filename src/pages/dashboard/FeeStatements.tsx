@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { FileText, Plus, Download, Loader2, Search, Pencil, Eye, FileDown } from 'lucide-react';
+import DocxPreview, { type DocxPreviewHandle } from '@/components/DocxPreview';
 import { Input } from '@/components/ui/input';
 import { useFeeStatements, type FeeStatementRecord } from '@/hooks/useFeeStatements';
 import { useToast } from '@/hooks/use-toast';
