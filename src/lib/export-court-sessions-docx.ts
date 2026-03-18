@@ -110,7 +110,7 @@ const buildCourtSection = (
   const title = new Paragraph({
     alignment: AlignmentType.CENTER,
     bidirectional: true,
-    spacing: { before: 200, after: 80 },
+    spacing: { before: 100, after: 40 },
     children: [
       new TextRun({
         text: courtName,
