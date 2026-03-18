@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Trash2, FileText, Loader2, Stamp, Edit2, Save, X, Upload, Eye, Phone, Mail, MapPin, Building2, User, RefreshCw } from 'lucide-react';
 import { extractLetterheadInfo } from '@/lib/extract-letterhead-info';
+import { parseLetterheadStructure } from '@/lib/parse-letterhead-structure';
 import DocxPreview, { type DocxPreviewHandle } from '@/components/DocxPreview';
 
 interface Letterhead {
@@ -102,6 +103,7 @@ const Letterheads = () => {
   const [pendingTemplatePath, setPendingTemplatePath] = useState<string | null>(null);
   const [pendingTemplateName, setPendingTemplateName] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [parsedStructure, setParsedStructure] = useState<any>(null);
   const [draftRestored, setDraftRestored] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<DocxPreviewHandle>(null);
@@ -211,9 +213,14 @@ const Letterheads = () => {
       setPendingTemplatePath(path);
       setPendingTemplateName(nextFile.name);
 
-      // Auto-extract letterhead info from the uploaded Word file
+      // Auto-extract letterhead info AND parse structure
       try {
-        const extracted = await extractLetterheadInfo(nextFile);
+        const [extracted, structure] = await Promise.all([
+          extractLetterheadInfo(nextFile),
+          parseLetterheadStructure(nextFile),
+        ]);
+        setParsedStructure(structure);
+
         const newFields = { ...fields };
         let filled = 0;
         if (extracted.lawyerName && !fields.lawyerName) { newFields.lawyerName = extracted.lawyerName; filled++; }
@@ -227,10 +234,14 @@ const Letterheads = () => {
         if (extracted.phone && !fields.phone) { newFields.phone = extracted.phone; filled++; }
         if (extracted.email && !fields.email) { newFields.email = extracted.email; filled++; }
         setFields(newFields);
+
+        const structInfo = structure.headerParagraphs.length > 0
+          ? ` + ${structure.headerParagraphs.length} فقرات ترويسة`
+          : '';
         if (filled > 0) {
-          toast({ title: `تم استخراج ${filled} حقول من الترويسة تلقائياً ✅`, description: 'راجع البيانات وأكمل ما يلزم' });
+          toast({ title: `تم استخراج ${filled} حقول${structInfo} ✅`, description: 'راجع البيانات وأكمل ما يلزم' });
         } else {
-          toast({ title: 'تم تجهيز ملف الترويسة ✅' });
+          toast({ title: `تم تجهيز ملف الترويسة${structInfo} ✅` });
         }
       } catch {
         toast({ title: 'تم تجهيز ملف الترويسة ✅' });
@@ -272,6 +283,7 @@ const Letterheads = () => {
         phone: fields.phone.trim() || null,
         email: fields.email.trim() || null,
         ...(finalTemplatePath && { template_path: finalTemplatePath }),
+        ...(parsedStructure && { header_data: parsedStructure }),
       };
 
       if (editingId) {
@@ -328,11 +340,15 @@ const Letterheads = () => {
       const { data, error } = await supabase.storage.from('letterhead-templates').download(path);
       if (error || !data) throw error || new Error('تعذر تحميل القالب');
 
-      const extracted = await extractLetterheadInfo(data);
+      const [extracted, structure] = await Promise.all([
+        extractLetterheadInfo(data),
+        parseLetterheadStructure(data),
+      ]);
+      setParsedStructure(structure);
+
       const newFields = { ...fields };
       let filled = 0;
 
-      // Overwrite empty fields with extracted values
       if (extracted.lawyerName && !fields.lawyerName) { newFields.lawyerName = extracted.lawyerName; filled++; }
       if (extracted.nameFr) { newFields.nameFr = extracted.nameFr; filled++; }
       if (extracted.titleAr) { newFields.titleAr = extracted.titleAr; filled++; }
@@ -345,10 +361,13 @@ const Letterheads = () => {
       if (extracted.email) { newFields.email = extracted.email; filled++; }
 
       setFields(newFields);
+      const structInfo = structure.headerParagraphs.length > 0
+        ? ` + بنية الترويسة (${structure.headerParagraphs.length} فقرات)`
+        : '';
       if (filled > 0) {
-        toast({ title: `تم استخراج ${filled} حقول من القالب ✅`, description: 'راجع البيانات ثم اضغط حفظ' });
+        toast({ title: `تم استخراج ${filled} حقول${structInfo} ✅`, description: 'راجع البيانات ثم اضغط حفظ' });
       } else {
-        toast({ title: 'لم يتم العثور على بيانات إضافية في القالب', variant: 'destructive' });
+        toast({ title: `لم يتم العثور على بيانات إضافية${structInfo}`, variant: filled === 0 && !structInfo ? 'destructive' : 'default' });
       }
     } catch (e: any) {
       toast({ title: 'خطأ في استخراج البيانات', description: e.message, variant: 'destructive' });
@@ -379,6 +398,7 @@ const Letterheads = () => {
     setTemplateFile(null);
     setPendingTemplatePath(null);
     setPendingTemplateName(null);
+    setParsedStructure(null);
     previewRef.current?.clear();
     setUploadingTemplate(false);
     writeStoredDraft(null);

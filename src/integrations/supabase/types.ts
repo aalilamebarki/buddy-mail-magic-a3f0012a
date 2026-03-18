@@ -959,6 +959,7 @@ export type Database = {
           created_at: string
           email: string | null
           footer_image_path: string | null
+          header_data: Json | null
           header_image_path: string | null
           id: string
           lawyer_name: string
@@ -978,6 +979,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           footer_image_path?: string | null
+          header_data?: Json | null
           header_image_path?: string | null
           id?: string
           lawyer_name: string
@@ -997,6 +999,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           footer_image_path?: string | null
+          header_data?: Json | null
           header_image_path?: string | null
           id?: string
           lawyer_name?: string
