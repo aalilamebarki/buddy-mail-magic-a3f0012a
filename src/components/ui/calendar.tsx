@@ -49,19 +49,17 @@ function Calendar({
 
   const animateAndChange = React.useCallback(
     (direction: 1 | -1) => {
-      // Slide out in the swipe direction
       const dir = direction > 0 ? "left" : "right";
       setSlideDir(dir);
       setTranslateX(0);
       setIsSwiping(false);
 
-      // After animation, change month and reset
       setTimeout(() => {
-        handleMonthChange(addMonths(activeMonth, direction));
+        handleMonthChange(addMonths(activeMonthRef.current, direction));
         setSlideDir(null);
       }, 200);
     },
-    [activeMonth, handleMonthChange],
+    [handleMonthChange],
   );
 
   const handleTouchStart: React.TouchEventHandler<HTMLDivElement> = (event) => {
