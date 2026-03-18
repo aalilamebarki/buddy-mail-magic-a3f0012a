@@ -99,7 +99,6 @@ const COLS = [
 
 const buildCourtSection = (
   courtName: string,
-  sessionDate: string,
   rows: Array<{
     clientName: string;
     caseNumber: string;
@@ -109,14 +108,22 @@ const buildCourtSection = (
     notes: string;
   }>,
 ): Array<Paragraph | Table> => {
-  // Court title centered above the table
+  // Court name only — centered above the table
   const title = new Paragraph({
     alignment: AlignmentType.CENTER,
     bidirectional: true,
-    spacing: { before: 300, after: 120 },
+    spacing: { before: 300, after: 100 },
     children: [
       new TextRun({
-        text: `${courtName}  ●  ${sessionDate}`,
+        text: courtName,
+        font: FONT,
+        size: 28,
+        bold: true,
+        color: NAVY,
+        rightToLeft: true,
+      }),
+    ],
+  });
         font: FONT,
         size: 30,
         bold: true,
