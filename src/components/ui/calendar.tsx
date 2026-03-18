@@ -35,6 +35,7 @@ function Calendar({
   }, [month]);
 
   const activeMonth = month ?? internalMonth;
+  activeMonthRef.current = activeMonth;
 
   const handleMonthChange = React.useCallback(
     (nextMonth: Date) => {
