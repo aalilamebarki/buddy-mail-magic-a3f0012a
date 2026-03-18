@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Trash2, FileText, Loader2, Stamp, Edit2, Save, X, Upload, Eye, Phone, Mail, MapPin, Building2, User, RefreshCw } from 'lucide-react';
 import { extractLetterheadInfo } from '@/lib/extract-letterhead-info';
+import { parseLetterheadStructure } from '@/lib/parse-letterhead-structure';
 import DocxPreview, { type DocxPreviewHandle } from '@/components/DocxPreview';
 
 interface Letterhead {
