@@ -81,6 +81,7 @@ const CourtSessions = () => {
     setEditingSession(session);
     setSelectedCaseId(session.case_id);
     setSessionDate(new Date(session.session_date + 'T00:00:00'));
+    setRequiredAction(session.required_action || '');
     setNotes(session.notes || '');
     setCaseNumber('');
     setDialogOpen(true);
