@@ -17,9 +17,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { useSessions } from '@/hooks/useSessions';
 import { useCases } from '@/hooks/useCases';
 import { toast } from 'sonner';
-import { format, startOfWeek, endOfWeek, addDays } from 'date-fns';
+import { format, startOfWeek, endOfWeek } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { exportCourtSessionsWord } from '@/lib/export-court-sessions-docx';
 
 const CourtSessions = () => {
   const navigate = useNavigate();
@@ -160,223 +161,22 @@ const CourtSessions = () => {
     return <Badge variant="secondary">منتهية</Badge>;
   };
 
-  // ---- PDF Export Logic ----
+  // ---- Word Export Logic ----
 
-  const handleExportPDF = useCallback(async (mode: 'day' | 'week') => {
-    let dateStart: string;
-    let dateEnd: string;
-    let periodLabel: string;
-
-    let docTitle: string;
-
-    if (mode === 'day') {
-      dateStart = format(exportDate, 'yyyy-MM-dd');
-      dateEnd = dateStart;
-      periodLabel = new Date(exportDate).toLocaleDateString('ar-u-nu-latn', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-      docTitle = `جلسة يوم ${periodLabel}`;
-    } else {
-      const ws = startOfWeek(exportDate, { weekStartsOn: 1 });
-      const we = endOfWeek(exportDate, { weekStartsOn: 1 });
-      dateStart = format(ws, 'yyyy-MM-dd');
-      dateEnd = format(we, 'yyyy-MM-dd');
-      periodLabel = `من ${new Date(ws).toLocaleDateString('ar-u-nu-latn', { day: 'numeric', month: 'long', year: 'numeric' })} إلى ${new Date(we).toLocaleDateString('ar-u-nu-latn', { day: 'numeric', month: 'long', year: 'numeric' })}`;
-      docTitle = 'جدول الجلسات لهذا الأسبوع';
-    }
-
-    const filtered = sessions.filter(s => s.session_date >= dateStart && s.session_date <= dateEnd);
-    if (filtered.length === 0) {
-      toast.error('لا توجد جلسات في هذه الفترة');
-      return;
-    }
-
-    // Group by court
-    const byCourt: Record<string, any[]> = {};
-    for (const s of filtered) {
-      const court = s.cases?.court || 'غير محددة';
-      if (!byCourt[court]) byCourt[court] = [];
-      byCourt[court].push(s);
-    }
-
-    // Build print HTML
-    let rowCounter = 0;
-    const courtSections = Object.entries(byCourt).map(([court, items], courtIdx) => {
-      const rows = items.map((s, i) => {
-        rowCounter++;
-        const nextDate = getNextSession(s.case_id, s.session_date);
-        const formattedDate = new Date(s.session_date + 'T00:00:00').toLocaleDateString('ar-u-nu-latn', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-        const formattedNext = nextDate ? new Date(nextDate + 'T00:00:00').toLocaleDateString('ar-u-nu-latn', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : '—';
-        return `<tr>
-          <td class="num-cell">${i + 1}</td>
-          <td class="name-cell">${s.cases?.clients?.full_name || '—'}</td>
-          <td class="case-num-cell" style="direction:ltr;text-align:center">${s.cases?.case_number || '—'}</td>
-          <td class="name-cell">${s.cases?.opposing_party || '—'}</td>
-          <td class="date-cell">${formattedDate}</td>
-          <td class="date-cell">${formattedNext}</td>
-        </tr>`;
-      }).join('');
-
-      return `
-        <div class="court-block">
-          <div class="court-title">⚖ ${court} — ${items.length} جلسة</div>
-          <table>
-            <thead>
-              <tr>
-                <th style="width:28px;text-align:center">#</th>
-                <th>الموكل</th>
-                <th style="width:120px">رقم الملف</th>
-                <th>المدعى عليه</th>
-                <th style="width:140px">تاريخ الجلسة</th>
-                <th style="width:140px">الجلسة المقبلة</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>
-      `;
-    }).join('');
-
-    const totalSessions = Object.values(byCourt).reduce((s, a) => s + a.length, 0);
-    const totalCourts = Object.keys(byCourt).length;
-
-    // --- Generate PDF using jsPDF with Arabic font ---
-    toast.info('جاري إنشاء PDF...');
-
-    const { default: jsPDF } = await import('jspdf');
-    const autoTableModule = await import('jspdf-autotable');
-    // jspdf-autotable adds itself to jsPDF prototype via side effect
-
-    // Fetch Amiri Arabic font (local file)
-    const fontUrl = '/fonts/Amiri-Regular.ttf';
-    const fontResponse = await fetch(fontUrl);
-    if (!fontResponse.ok) {
-      toast.error('خطأ في تحميل الخط العربي');
-      return;
-    }
-    const fontBuffer = await fontResponse.arrayBuffer();
-    const uint8Array = new Uint8Array(fontBuffer);
-    let binary = '';
-    const chunkSize = 8192;
-    for (let i = 0; i < uint8Array.length; i += chunkSize) {
-      const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
-      binary += String.fromCharCode.apply(null, Array.from(chunk));
-    }
-    const fontBase64 = btoa(binary);
-
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-    doc.addFileToVFS('Amiri-Regular.ttf', fontBase64);
-    doc.addFont('Amiri-Regular.ttf', 'Amiri', 'normal', 'Identity-H');
-    doc.setFont('Amiri');
-    doc.setLanguage('ar');
-    doc.setR2L(true);
-
-    const pageW = doc.internal.pageSize.getWidth();
-    const pageH = doc.internal.pageSize.getHeight();
-
-    // Title
-    doc.setFontSize(20);
-    doc.text(docTitle, pageW / 2, 18, { align: 'center' } as any);
-    doc.setFontSize(11);
-    doc.setTextColor(80);
-    doc.text(periodLabel, pageW / 2, 26, { align: 'center' } as any);
-
-    // Stats line
-    doc.setFontSize(10);
-    doc.setTextColor(0);
-    const statsText = `${totalSessions} جلسة  |  ${totalCourts} محكمة`;
-    doc.text(statsText, pageW / 2, 33, { align: 'center' } as any);
-
-    // Separator line
-    doc.setDrawColor(0);
-    doc.setLineWidth(0.5);
-    doc.line(15, 36, pageW - 15, 36);
-
-    let currentY = 42;
-
-    // Court sections
-    for (const [court, items] of Object.entries(byCourt)) {
-      if (currentY + 20 > pageH - 15) {
-        doc.addPage();
-        currentY = 15;
-      }
-
-      // Court header bar
-      doc.setFillColor(0, 0, 0);
-      doc.rect(15, currentY, pageW - 30, 8, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(11);
-      doc.text(`${court} — ${(items as any[]).length} جلسة`, pageW - 20, currentY + 5.5, { align: 'right' });
-      doc.setTextColor(0);
-      currentY += 10;
-
-      // Table data
-      const tableHead = [['#', 'الموكل', 'رقم الملف', 'المدعى عليه', 'تاريخ الجلسة', 'الجلسة المقبلة']];
-      const tableBody = (items as any[]).map((s: any, i: number) => {
-        const nextDate = getNextSession(s.case_id, s.session_date);
-        const fmtDate = new Date(s.session_date + 'T00:00:00').toLocaleDateString('ar-u-nu-latn', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-        const fmtNext = nextDate ? new Date(nextDate + 'T00:00:00').toLocaleDateString('ar-u-nu-latn', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : '—';
-        return [
-          String(i + 1),
-          s.cases?.clients?.full_name || '—',
-          s.cases?.case_number || '—',
-          s.cases?.opposing_party || '—',
-          fmtDate,
-          fmtNext,
-        ];
+  const handleExportWord = useCallback(async (mode: 'day' | 'week') => {
+    try {
+      await exportCourtSessionsWord({
+        exportDate,
+        getNextSession,
+        mode,
+        sessions,
       });
-
-      autoTableModule.default(doc, {
-        head: tableHead,
-        body: tableBody,
-        startY: currentY,
-        margin: { left: 15, right: 15 },
-        styles: {
-          font: 'Amiri',
-          fontStyle: 'normal',
-          fontSize: 9,
-          halign: 'right',
-          cellPadding: 2.5,
-          lineColor: [150, 150, 150],
-          lineWidth: 0.2,
-          textColor: [0, 0, 0],
-        },
-        headStyles: {
-          fillColor: [230, 230, 230],
-          textColor: [0, 0, 0],
-          fontStyle: 'normal',
-          fontSize: 9,
-          halign: 'right',
-          lineColor: [100, 100, 100],
-          lineWidth: 0.3,
-        },
-        alternateRowStyles: { fillColor: [248, 248, 248] },
-        columnStyles: {
-          0: { halign: 'center', cellWidth: 10 },
-          2: { halign: 'center', cellWidth: 35 },
-          4: { cellWidth: 45 },
-          5: { cellWidth: 45 },
-        },
-      });
-
-      currentY = (doc as any).lastAutoTable.finalY + 8;
+      toast.success('تم تحميل ملف Word بنجاح');
+      setExportMode(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'تعذر إنشاء ملف Word';
+      toast.error(message);
     }
-
-    // Footer
-    const footerY = pageH - 8;
-    doc.setFontSize(8);
-    doc.setTextColor(120);
-    doc.setLineWidth(0.3);
-    doc.line(15, footerY - 3, pageW - 15, footerY - 3);
-    doc.text(docTitle, pageW - 15, footerY, { align: 'right' });
-    const genDate = new Date().toLocaleDateString('ar-u-nu-latn', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    doc.text(genDate, 15, footerY, { align: 'left' });
-
-    const fileName = mode === 'week'
-      ? 'جدول_الجلسات_الأسبوع.pdf'
-      : `جلسة_يوم_${format(exportDate, 'yyyy-MM-dd')}.pdf`;
-
-    doc.save(fileName);
-    toast.success('تم تحميل PDF بنجاح');
-    setExportMode(null);
   }, [sessions, exportDate, getNextSession]);
 
   const renderSessionTable = (items: any[], title: string) => (
@@ -445,16 +245,16 @@ const CourtSessions = () => {
           <p className="text-sm text-muted-foreground">إدارة مواعيد الجلسات لجميع الملفات</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {/* Export PDF */}
+          {/* Export Word */}
           <Popover open={exportMode !== null} onOpenChange={(open) => { if (!open) setExportMode(null); }}>
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm" className="gap-1" onClick={() => setExportMode('day')}>
-                <FileDown className="h-4 w-4" /> تحميل PDF
+                <FileDown className="h-4 w-4" /> تحميل Word
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-72 p-4 pointer-events-auto" align="end">
               <div className="space-y-3">
-                <p className="text-sm font-medium text-foreground">تحميل جدول الجلسات</p>
+                <p className="text-sm font-medium text-foreground">تصدير جدول الجلسات إلى Word</p>
                 <div className="flex gap-2">
                   <Button
                     variant={exportMode === 'day' ? 'default' : 'outline'}
@@ -484,8 +284,8 @@ const CourtSessions = () => {
                     الأسبوع: {format(startOfWeek(exportDate, { weekStartsOn: 1 }), 'dd/MM')} — {format(endOfWeek(exportDate, { weekStartsOn: 1 }), 'dd/MM/yyyy')}
                   </p>
                 )}
-                <Button className="w-full gap-1" size="sm" onClick={() => handleExportPDF(exportMode || 'day')}>
-                  <FileDown className="h-4 w-4" /> تحميل
+                <Button className="w-full gap-1" size="sm" onClick={() => handleExportWord(exportMode || 'day')}>
+                  <FileDown className="h-4 w-4" /> تحميل ملف Word
                 </Button>
               </div>
             </PopoverContent>
