@@ -53,6 +53,7 @@ const Billing = () => {
   const [editStatement, setEditStatement] = useState<FeeStatementRecord | null>(null);
   const [search, setSearch] = useState('');
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [previewing, setPreviewing] = useState<string | null>(null);
 
   const [accYear, setAccYear] = useState(currentYear);
   const { entries, loading: accLoading, stats } = useAccountingEntries(accYear);
