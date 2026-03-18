@@ -681,27 +681,26 @@ const Letterheads = () => {
               </div>
             )}
 
-            {previewUrl && !previewLoading && (
-              <div className="border border-border rounded-lg overflow-hidden">
-                <div className="bg-muted/50 px-3 py-1.5 flex items-center justify-between border-b border-border">
-                  <div className="flex items-center gap-1.5">
-                    <Eye className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-xs font-medium text-muted-foreground">معاينة حية للملف</span>
-                  </div>
-                  <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setPreviewUrl(null)}>
-                    <X className="h-3 w-3" />
-                  </Button>
+            {/* docx-preview container - always mounted for ref */}
+            <div
+              ref={previewContainerRef}
+              className={`border border-border rounded-lg overflow-auto bg-white ${previewReady ? 'h-[450px]' : 'hidden'}`}
+              style={{ direction: 'ltr' }}
+            />
+
+            {previewReady && !previewLoading && (
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-1.5">
+                  <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium text-muted-foreground">معاينة حية للملف</span>
                 </div>
-                <iframe
-                  src={previewUrl}
-                  className="w-full h-[450px] bg-white"
-                  title="معاينة القالب"
-                  sandbox="allow-scripts allow-same-origin allow-popups"
-                />
+                <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => { setPreviewReady(false); if (previewContainerRef.current) previewContainerRef.current.innerHTML = ''; }}>
+                  <X className="h-3 w-3" />
+                </Button>
               </div>
             )}
 
-            {previewHtml && !previewUrl && !previewLoading && (
+            {previewHtml && !previewReady && !previewLoading && (
               <div className="border border-border rounded-lg overflow-hidden">
                 <div className="bg-muted/50 px-3 py-1.5 flex items-center gap-1.5 border-b border-border">
                   <Eye className="h-3.5 w-3.5 text-muted-foreground" />
