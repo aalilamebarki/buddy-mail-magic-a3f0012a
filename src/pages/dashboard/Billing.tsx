@@ -122,10 +122,11 @@ const Billing = () => {
     }
   };
 
-  const previewStatement = async (statement: FeeStatementRecord) => {
+  const previewStatementDocx = async (statement: FeeStatementRecord) => {
     setPreviewing(statement.id);
     try {
-      await previewFeeStatementPdf(statement);
+      const blob = await generateFeeStatementDocxBlob(statement);
+      await docxPreviewRef.current?.previewBlob(blob);
     } catch (e: any) {
       toast({ title: 'خطأ في المعاينة', description: e.message, variant: 'destructive' });
     } finally {
