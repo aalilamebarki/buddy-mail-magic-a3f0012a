@@ -1,9 +1,10 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { FileText, Plus, Download, Loader2, Search, Pencil } from 'lucide-react';
+import { FileText, Plus, Download, Loader2, Search, Pencil, Eye } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useFeeStatements, type FeeStatementRecord } from '@/hooks/useFeeStatements';
 import { useToast } from '@/hooks/use-toast';
@@ -24,6 +25,7 @@ const buildStatementLabel = (s: FeeStatementRecord) => {
 const FeeStatements = () => {
   const { statements, loading, refetch } = useFeeStatements();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editStatement, setEditStatement] = useState<FeeStatementRecord | null>(null);
   const [search, setSearch] = useState('');
@@ -155,6 +157,15 @@ const FeeStatements = () => {
                         <TableCell className="font-bold">{Number(s.total_amount).toLocaleString('ar-u-nu-latn')} د</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0"
+                              title="معاينة"
+                              onClick={() => navigate(`/fee-statement-preview/${s.id}`)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="sm"

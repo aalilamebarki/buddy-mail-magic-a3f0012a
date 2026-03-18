@@ -28,6 +28,7 @@ const About = lazy(() => import("./pages/About"));
 const DocumentCenter = lazy(() => import("./pages/DocumentCenter"));
 const DocumentDetail = lazy(() => import("./pages/DocumentDetail"));
 const VerifyInvoice = lazy(() => import("./pages/VerifyInvoice"));
+const FeeStatementPreview = lazy(() => import("./pages/FeeStatementPreview"));
 
 // Dashboard (lazy)
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -95,6 +96,7 @@ const App = () => (
                   <Route path="/documents" element={<DocumentCenter />} />
                   <Route path="/documents/:id" element={<DocumentDetail />} />
                   <Route path="/verify/:uuid" element={<VerifyInvoice />} />
+                  <Route path="/fee-statement-preview/:id" element={<FeeStatementPreview />} />
 
                   {/* Dashboard routes */}
                   <Route
