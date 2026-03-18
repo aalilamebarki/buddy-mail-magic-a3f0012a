@@ -141,12 +141,14 @@ function buildHeader(lh: FeeStatementRecord['letterheads']): Paragraph[] {
   paras.push(
     new Paragraph({
       alignment: AlignmentType.CENTER,
+      bidirectional: true,
       spacing: { before: 80, after: 0 },
       border: { bottom: { style: BorderStyle.SINGLE, size: 2, color: NAVY } },
       children: [],
     }),
     new Paragraph({
       alignment: AlignmentType.CENTER,
+      bidirectional: true,
       spacing: { before: 2, after: 0 },
       border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: GOLD } },
       children: [],
