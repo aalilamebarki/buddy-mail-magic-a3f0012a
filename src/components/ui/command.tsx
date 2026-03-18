@@ -58,14 +58,42 @@ CommandInput.displayName = CommandPrimitive.Input.displayName;
 const CommandList = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.List>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.List>
->(({ className, style, ...props }, ref) => (
-  <CommandPrimitive.List
-    ref={ref}
-    className={cn("max-h-[300px] overflow-y-auto overflow-x-hidden overscroll-contain pointer-events-auto touch-pan-y [scrollbar-gutter:stable]", className)}
-    style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y', ...style } as React.CSSProperties}
-    {...props}
-  />
-));
+>(({ className, style, ...props }, ref) => {
+  const listRef = React.useRef<HTMLDivElement | null>(null);
+
+  // Ensure touch events pass through on mobile
+  React.useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    
+    const handleTouchStart = (e: TouchEvent) => {
+      // Allow scrolling within the list
+      if (el.scrollHeight > el.clientHeight) {
+        e.stopPropagation();
+      }
+    };
+    
+    el.addEventListener('touchstart', handleTouchStart, { passive: true });
+    el.addEventListener('touchmove', (e: TouchEvent) => e.stopPropagation(), { passive: true });
+    
+    return () => {
+      el.removeEventListener('touchstart', handleTouchStart);
+    };
+  }, []);
+
+  return (
+    <CommandPrimitive.List
+      ref={(node) => {
+        listRef.current = node;
+        if (typeof ref === 'function') ref(node);
+        else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
+      }}
+      className={cn("max-h-[300px] overflow-y-auto overflow-x-hidden overscroll-contain pointer-events-auto [scrollbar-gutter:stable]", className)}
+      style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y', overscrollBehavior: 'contain', ...style } as React.CSSProperties}
+      {...props}
+    />
+  );
+});
 
 CommandList.displayName = CommandPrimitive.List.displayName;
 
