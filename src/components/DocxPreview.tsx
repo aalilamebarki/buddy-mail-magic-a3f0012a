@@ -1,8 +1,7 @@
 import { useRef, useState, useCallback, useImperativeHandle, forwardRef } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Eye, X, Loader2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Eye, Loader2 } from 'lucide-react';
 import { renderAsync } from 'docx-preview';
 import mammoth from 'mammoth';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,7 +14,7 @@ export interface DocxPreviewHandle {
 }
 
 interface DocxPreviewProps {
-  /** Optional title shown in the preview card */
+  /** Optional title shown in the preview dialog */
   title?: string;
 }
 
@@ -36,10 +35,12 @@ const DocxPreview = forwardRef<DocxPreviewHandle, DocxPreviewProps>(({ title = '
     setLoading(true);
     setPreviewHtml(null);
     setPreviewReady(false);
+
     try {
-      await new Promise(r => setTimeout(r, 50));
+      await new Promise(resolve => setTimeout(resolve, 50));
       const container = containerRef.current;
       if (!container) throw new Error('Preview container not found');
+
       container.innerHTML = '';
       await renderAsync(blob, container, undefined, {
         className: 'docx-preview',
@@ -50,6 +51,7 @@ const DocxPreview = forwardRef<DocxPreviewHandle, DocxPreviewProps>(({ title = '
         renderFooters: true,
         renderFootnotes: true,
       });
+
       setPreviewReady(true);
     } catch (err) {
       console.error('docx-preview error:', err);
@@ -83,48 +85,44 @@ const DocxPreview = forwardRef<DocxPreviewHandle, DocxPreviewProps>(({ title = '
     isLoading: loading,
   }), [renderBlob, previewFromStorage, clear, loading]);
 
-  const isVisible = previewReady || previewHtml || loading;
-
-  if (!isVisible) {
-    // Keep containerRef mounted but hidden so renderAsync can paint into it
-    return <div ref={containerRef} className="hidden" />;
-  }
+  const isOpen = previewReady || !!previewHtml || loading;
 
   return (
-    <Card>
-      <CardContent className="pt-4 space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) clear(); }}>
+      <DialogContent className="w-[96vw] max-w-6xl max-h-[92vh] overflow-hidden p-0 gap-0" dir="rtl">
+        <DialogHeader className="border-b px-4 py-3">
+          <DialogTitle className="flex items-center gap-2 text-sm font-bold text-foreground">
             <Eye className="h-4 w-4 text-primary" />
-            <span className="text-sm font-bold text-foreground">{title}</span>
-          </div>
-          <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={clear}>
-            <X className="h-3.5 w-3.5" />
-          </Button>
+            {title}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="p-4">
+          {loading && (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              <span className="text-sm text-muted-foreground mr-2">جاري تحميل المعاينة...</span>
+            </div>
+          )}
+
+          <div
+            ref={containerRef}
+            className={previewReady ? 'h-[70vh] overflow-auto rounded-lg border border-border bg-white' : 'hidden'}
+            style={{ direction: 'ltr' }}
+          />
+
+          {previewHtml && !previewReady && !loading && (
+            <ScrollArea className="h-[70vh] rounded-lg border border-border">
+              <div
+                className="prose prose-sm max-w-none p-4 text-foreground dark:prose-invert"
+                dir="auto"
+                dangerouslySetInnerHTML={{ __html: previewHtml }}
+              />
+            </ScrollArea>
+          )}
         </div>
-        {loading && (
-          <div className="flex items-center justify-center py-6">
-            <Loader2 className="h-5 w-5 animate-spin text-primary" />
-            <span className="text-sm text-muted-foreground mr-2">جاري تحميل المعاينة...</span>
-          </div>
-        )}
-        {/* docx-preview renders here */}
-        <div
-          ref={containerRef}
-          className={`border border-border rounded-lg overflow-auto bg-white ${previewReady ? 'h-[450px]' : 'hidden'}`}
-          style={{ direction: 'ltr' }}
-        />
-        {previewHtml && !previewReady && !loading && (
-          <ScrollArea className="h-[300px] border border-border rounded-lg">
-            <div
-              className="p-4 prose prose-sm max-w-none dark:prose-invert text-foreground"
-              dir="auto"
-              dangerouslySetInnerHTML={{ __html: previewHtml }}
-            />
-          </ScrollArea>
-        )}
-      </CardContent>
-    </Card>
+      </DialogContent>
+    </Dialog>
   );
 });
 
