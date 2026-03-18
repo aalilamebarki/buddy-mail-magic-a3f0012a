@@ -580,7 +580,9 @@ const Billing = () => {
                 )}
               </CardContent>
             </Card>
-          </div>
+
+      <DocxPreview ref={docxPreviewRef} title="معاينة بيان الأتعاب" />
+    </div>
         </TabsContent>
       </Tabs>
 

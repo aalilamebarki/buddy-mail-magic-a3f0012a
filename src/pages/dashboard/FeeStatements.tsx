@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { formatDateShort } from '@/lib/formatters';
 import CreateFeeStatementDialog from '@/components/invoices/CreateFeeStatementDialog';
 import { downloadFeeStatementPdf } from '@/lib/dynamic-pdf-downloads';
-import { exportFeeStatementDocx } from '@/lib/export-fee-statement-docx';
+import { exportFeeStatementDocx, generateFeeStatementDocxBlob } from '@/lib/export-fee-statement-docx';
 
 /** بيان الأتعاب للسيد X ملف عدد Y — تاريخ — رقم */
 const buildStatementLabel = (s: FeeStatementRecord) => {
