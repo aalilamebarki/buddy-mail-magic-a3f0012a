@@ -117,16 +117,10 @@ function Calendar({
       className="touch-pan-y overflow-hidden relative"
     >
       <div
-        className={cn(
-          "transition-transform will-change-transform",
-          slideDir === "left" && "animate-slide-out-left",
-          slideDir === "right" && "animate-slide-out-right",
-          !slideDir && !isSwiping && "duration-200 ease-out",
-        )}
         style={
-          !slideDir
-            ? { transform: `translateX(${translateX}px)`, opacity: isSwiping ? 1 - Math.abs(translateX) / 200 : 1 }
-            : undefined
+          isSwiping
+            ? { transform: `translateX(${translateX}px)`, opacity: 1 - Math.abs(translateX) / 300, transition: 'none' }
+            : { transform: 'translateX(0)', opacity: 1, transition: 'transform 0.15s ease-out, opacity 0.15s ease-out' }
         }
       >
         <DayPicker
