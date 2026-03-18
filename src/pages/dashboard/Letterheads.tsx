@@ -26,6 +26,7 @@ interface Letterhead {
   phone: string | null;
   email: string | null;
   template_path: string | null;
+  header_data: any;
   created_at: string;
 }
 
