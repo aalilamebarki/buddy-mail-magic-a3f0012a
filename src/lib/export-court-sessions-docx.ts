@@ -64,7 +64,7 @@ const makeCell = (
     verticalAlign: VerticalAlign.CENTER,
     width: { size: width, type: WidthType.PERCENTAGE },
     shading: opts?.fill ? { fill: opts.fill } : undefined,
-    margins: { top: 60, bottom: 60, left: 100, right: 100 },
+    margins: { top: 30, bottom: 30, left: 80, right: 80 },
     children: [
       new Paragraph({
         alignment: opts?.alignment ?? AlignmentType.RIGHT,
@@ -87,19 +87,18 @@ const makeCell = (
 /* ── Column config (RTL order: right to left) ──────────────────────── */
 
 const COLS = [
-  { label: 'الموكل', width: 22 },
-  { label: 'رقم الملف', width: 16 },
-  { label: 'الخصم', width: 22 },
-  { label: 'تاريخ الجلسة', width: 14 },
-  { label: 'الجلسة المقبلة', width: 14 },
-  { label: 'ملاحظات', width: 12 },
+  { label: 'الموكل', width: 18 },
+  { label: 'رقم الملف', width: 14 },
+  { label: 'الخصم', width: 18 },
+  { label: 'تاريخ الجلسة', width: 12 },
+  { label: 'الجلسة المقبلة', width: 12 },
+  { label: 'ملاحظات', width: 26 },
 ];
 
 /* ── Build one court section ───────────────────────────────────────── */
 
 const buildCourtSection = (
   courtName: string,
-  sessionDate: string,
   rows: Array<{
     clientName: string;
     caseNumber: string;
@@ -109,16 +108,16 @@ const buildCourtSection = (
     notes: string;
   }>,
 ): Array<Paragraph | Table> => {
-  // Court title centered above the table
+  // Court name only — centered above the table
   const title = new Paragraph({
     alignment: AlignmentType.CENTER,
     bidirectional: true,
-    spacing: { before: 300, after: 120 },
+    spacing: { before: 300, after: 100 },
     children: [
       new TextRun({
-        text: `${courtName}  ●  ${sessionDate}`,
+        text: courtName,
         font: FONT,
-        size: 30,
+        size: 28,
         bold: true,
         color: NAVY,
         rightToLeft: true,
@@ -237,11 +236,6 @@ export const exportCourtSessionsWord = async ({
   // Build court sections
   sortedCourts.forEach(([courtName, courtSessions]) => {
     // Determine a representative date for the court header
-    const dates = [...new Set(courtSessions.map(s => s.session_date))].sort();
-    const dateLabel = dates.length === 1
-      ? formatArabicDate(new Date(`${dates[0]}T00:00:00`), true)
-      : dates.map(d => formatArabicDate(new Date(`${d}T00:00:00`))).join(' / ');
-
     const rows = courtSessions.map(s => {
       const next = getNextSession(s.case_id, s.session_date);
       return {
@@ -254,7 +248,7 @@ export const exportCourtSessionsWord = async ({
       };
     });
 
-    children.push(...buildCourtSection(courtName, dateLabel, rows));
+    children.push(...buildCourtSection(courtName, rows));
   });
 
   // Footer
