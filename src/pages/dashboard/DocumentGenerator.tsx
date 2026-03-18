@@ -643,10 +643,13 @@ const DocumentGenerator = () => {
         const blob = await injectIntoTemplate(fileData, {
           content,
           clientName: selectedClient?.full_name || '',
+          clientAddress: selectedClient?.address || '',
           caseName: title,
           court: selectedCase?.court || '',
           caseNumber: selectedCase?.case_number || '',
           lawyerName: lh.lawyer_name,
+          opposingParty: selectedCase?.opposing_party || '',
+          opposingPartyAddress: selectedCase?.opposing_party_address || '',
         });
 
         saveAs(blob, `${title}_${new Date().toISOString().slice(0, 10)}.docx`);
