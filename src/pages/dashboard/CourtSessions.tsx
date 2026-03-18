@@ -145,6 +145,7 @@ const CourtSessions = () => {
       setEditingSession(null);
       setSelectedCaseId('');
       setSessionDate(undefined);
+      setRequiredAction('');
       setNotes('');
       setCaseNumber('');
       fetchData();
