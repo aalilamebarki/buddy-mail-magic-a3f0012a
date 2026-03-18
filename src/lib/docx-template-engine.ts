@@ -4,11 +4,7 @@
  * Injects content into Word templates while preserving the template's formatting.
  * Supports multiple placeholders: {{CONTENT}}, {{DATE}}, {{CLIENT}}, {{CASE}}, {{COURT}}, {{CASE_NUMBER}}, {{LAWYER}}
  * 
- * How it works:
- * 1. Inline placeholders ({{DATE}}, {{CLIENT}}, etc.) are replaced within the same run,
- *    inheriting the exact formatting (font, size, bold, color) of the placeholder text.
- * 2. The {{CONTENT}} placeholder is replaced with multiple paragraphs, each inheriting
- *    the paragraph and run properties of the placeholder paragraph.
+ * A4 Print-optimized: proper line spacing (1.5x), balanced spacing after paragraphs.
  */
 
 import JSZip from 'jszip';
@@ -43,34 +39,24 @@ export const escapeXml = (str: string): string =>
 
 // ─── Formatting Extraction ─────────────────────────────────────────────
 
-/**
- * Extracts <w:rPr> (run properties) from the paragraph containing a placeholder.
- * This captures: font family, font size, bold, italic, underline, color, etc.
- */
 function extractRunPropsFromPlaceholder(docXml: string, placeholder: string): ExtractedRunProps {
-  // Find the paragraph containing the placeholder
   const escapedPh = placeholder.replace(/[{}]/g, '\\$&');
   const pRegex = new RegExp(`<w:p[^>]*>([\\s\\S]*?${escapedPh}[\\s\\S]*?)</w:p>`, 'i');
   const pMatch = docXml.match(pRegex);
 
   let font = 'Traditional Arabic';
-  let fontSize = '24';
+  let fontSize = '28';                    // 14pt — comfortable reading size for legal docs
   let rPrXml = '';
 
   if (pMatch) {
     const pContent = pMatch[1];
-    // Find <w:rPr>...</w:rPr> in the run containing the placeholder
     const rPrMatch = pContent.match(/<w:rPr>([\s\S]*?)<\/w:rPr>/);
     if (rPrMatch) {
       rPrXml = rPrMatch[0];
-
-      // Extract font
       const fontMatch = rPrXml.match(/<w:rFonts[^>]*w:cs="([^"]+)"/);
       if (fontMatch) font = fontMatch[1];
       const fontAscii = rPrXml.match(/<w:rFonts[^>]*w:ascii="([^"]+)"/);
       if (fontAscii && !fontMatch) font = fontAscii[1];
-
-      // Extract size
       const sizeMatch = rPrXml.match(/<w:szCs\s+w:val="(\d+)"/);
       if (sizeMatch) fontSize = sizeMatch[1];
       const szMatch = rPrXml.match(/<w:sz\s+w:val="(\d+)"/);
@@ -81,10 +67,6 @@ function extractRunPropsFromPlaceholder(docXml: string, placeholder: string): Ex
   return { xml: rPrXml, font, fontSize };
 }
 
-/**
- * Extracts <w:pPr> (paragraph properties) from the paragraph containing {{CONTENT}}.
- * This captures: alignment, spacing, bidi, indentation, etc.
- */
 function extractParagraphProps(docXml: string, placeholder: string): string {
   const escapedPh = placeholder.replace(/[{}]/g, '\\$&');
   const pRegex = new RegExp(`<w:p[^>]*>([\\s\\S]*?${escapedPh}[\\s\\S]*?)</w:p>`, 'i');
@@ -94,20 +76,19 @@ function extractParagraphProps(docXml: string, placeholder: string): string {
     const pContent = pMatch[1];
     const pPrMatch = pContent.match(/<w:pPr>[\s\S]*?<\/w:pPr>/);
     if (pPrMatch) {
-      // Remove any rPr inside pPr (paragraph-level run props) - we'll use the run's own
       return pPrMatch[0].replace(/<w:rPr>[\s\S]*?<\/w:rPr>/, '');
     }
   }
 
-  // Default RTL paragraph props
-  return '<w:pPr><w:bidi/><w:jc w:val="right"/></w:pPr>';
+  // Default RTL paragraph props with A4-optimized spacing
+  return '<w:pPr><w:bidi/><w:jc w:val="right"/><w:spacing w:after="160" w:line="360" w:lineRule="auto"/></w:pPr>';
 }
 
 // ─── Fallback: Extract from styles.xml ──────────────────────────────────
 
 export function extractFontFromStyles(stylesXml: string | undefined): { font: string; fontSize: string } {
   let font = 'Traditional Arabic';
-  let fontSize = '24';
+  let fontSize = '28';
 
   if (stylesXml) {
     const csFontMatch = stylesXml.match(/<w:rFonts[^>]*w:cs="([^"]+)"/);
@@ -132,12 +113,8 @@ export function classifyLine(line: string): string {
   return 'normal';
 }
 
-// ─── Content Paragraphs Builder ─────────────────────────────────────────
+// ─── Content Paragraphs Builder — A4 Print-Optimized ────────────────────
 
-/**
- * Builds XML paragraphs for the document content, applying contextual formatting
- * on top of the inherited template properties.
- */
 function buildContentParagraphs(
   content: string,
   baseRunProps: ExtractedRunProps,
@@ -153,33 +130,54 @@ function buildContentParagraphs(
     let alignment = 'right';
     let isBold = false;
     let lineFontSize = fontSize;
-    let spacingAfter = '200';
-    let spacingLine = '360';
+    let spacingAfter = '180';             // ~9pt after — comfortable for body text
+    let spacingBefore = '0';
+    let spacingLine = '360';              // 1.5x line spacing — optimal for Arabic legal text
     let isUnderline = false;
 
     switch (type) {
       case 'basmala':
-        alignment = 'center'; isBold = true; lineFontSize = boldSize; spacingAfter = '400';
+        alignment = 'center';
+        isBold = true;
+        lineFontSize = boldSize;
+        spacingAfter = '360';             // Extra space after basmala
+        spacingLine = '360';
         break;
       case 'heading':
-        isBold = true; lineFontSize = boldSize; spacingAfter = '120'; isUnderline = true;
+        isBold = true;
+        lineFontSize = boldSize;
+        spacingBefore = '120';
+        spacingAfter = '120';
+        isUnderline = true;
+        spacingLine = '360';
         break;
       case 'party_label':
-        isBold = true; spacingAfter = '60';
+        isBold = true;
+        spacingBefore = '60';
+        spacingAfter = '40';
+        spacingLine = '312';              // Tighter for label/value pairs
         break;
       case 'party_value':
-        spacingAfter = '60'; spacingLine = '280';
+        spacingAfter = '40';
+        spacingLine = '312';
         break;
       case 'section_title':
-        isBold = true; lineFontSize = boldSize; isUnderline = true; spacingAfter = '240';
+        isBold = true;
+        lineFontSize = boldSize;
+        isUnderline = true;
+        spacingBefore = '240';            // Clear separation before sections
+        spacingAfter = '180';
+        spacingLine = '360';
         break;
       case 'signature':
-        alignment = 'center'; spacingAfter = '60';
+        alignment = 'center';
+        spacingBefore = '200';
+        spacingAfter = '40';
+        spacingLine = '312';
         break;
     }
 
-    // Build paragraph properties: use base but override alignment/spacing per line type
-    const pPr = `<w:pPr><w:bidi/><w:jc w:val="${alignment}"/><w:spacing w:after="${spacingAfter}" w:line="${spacingLine}" w:lineRule="auto"/></w:pPr>`;
+    const pPr = `<w:pPr><w:bidi/><w:jc w:val="${alignment}"/><w:spacing w:before="${spacingBefore}" w:after="${spacingAfter}" w:line="${spacingLine}" w:lineRule="auto"/></w:pPr>`;
 
     const rPr = `<w:rPr>
       <w:rFonts w:ascii="${font}" w:hAnsi="${font}" w:cs="${font}"/>
@@ -193,10 +191,6 @@ function buildContentParagraphs(
 
 // ─── Inline Placeholder Replacement ─────────────────────────────────────
 
-/**
- * Replaces simple inline placeholders ({{DATE}}, {{CLIENT}}, etc.)
- * while preserving the run's formatting exactly.
- */
 function replaceInlinePlaceholders(docXml: string, ctx: TemplateContext): string {
   const today = ctx.date || new Date().toLocaleDateString('ar-MA', {
     year: 'numeric', month: 'long', day: 'numeric',
@@ -215,9 +209,6 @@ function replaceInlinePlaceholders(docXml: string, ctx: TemplateContext): string
 
   for (const [placeholder, value] of Object.entries(inlineMap)) {
     if (!value) continue;
-
-    // Handle case where placeholder might be split across multiple runs by Word
-    // First try simple text replacement within <w:t> tags
     const escapedPh = placeholder.replace(/[{}]/g, '\\$&');
     result = result.replace(new RegExp(escapedPh, 'g'), escapeXml(value));
   }
@@ -227,10 +218,6 @@ function replaceInlinePlaceholders(docXml: string, ctx: TemplateContext): string
 
 // ─── Main Engine ────────────────────────────────────────────────────────
 
-/**
- * Injects content into a .docx template blob, preserving all formatting.
- * Returns a new Blob with the injected content.
- */
 export async function injectIntoTemplate(
   templateBlob: Blob,
   ctx: TemplateContext
