@@ -147,6 +147,16 @@ const FeeStatementPreview = () => {
                 <Printer className="h-4 w-4" /> طباعة
               </Button>
               <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadDocx}
+                disabled={downloadingDocx}
+                className="gap-2 border-white/20 text-white hover:bg-white/10 hover:text-white"
+              >
+                {downloadingDocx ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+                Word
+              </Button>
+              <Button
                 size="sm"
                 onClick={handleDownload}
                 disabled={downloading}
@@ -154,7 +164,7 @@ const FeeStatementPreview = () => {
                 style={{ backgroundColor: '#c5a059', color: '#1a2a44' }}
               >
                 {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                تحميل PDF
+                PDF
               </Button>
             </div>
           </div>
