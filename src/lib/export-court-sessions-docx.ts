@@ -25,7 +25,6 @@ import type { SessionRecord } from '@/hooks/useSessions';
 
 interface ExportParams {
   exportDate: Date;
-  getNextSession: (caseId: string, afterDate: string) => string | null;
   mode: 'day' | 'week';
   sessions: SessionRecord[];
 }
