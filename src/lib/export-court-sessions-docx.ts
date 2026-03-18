@@ -1,8 +1,5 @@
 /**
- * Court Sessions Word Export — Professional RTL Table Layout
- * 
- * Generates a clean, well-structured .docx with proper Arabic table formatting.
- * Uses EMU-based column widths for precise control and proper RTL bidi settings.
+ * Court Sessions Word Export — Clean RTL Table per Court
  */
 
 import {
@@ -24,7 +21,7 @@ import { saveAs } from 'file-saver';
 import { endOfWeek, format, startOfWeek } from 'date-fns';
 import type { SessionRecord } from '@/hooks/useSessions';
 
-/* ── Config ────────────────────────────────────────────────────────── */
+/* ── Types ─────────────────────────────────────────────────────────── */
 
 interface ExportParams {
   exportDate: Date;
@@ -33,23 +30,14 @@ interface ExportParams {
   sessions: SessionRecord[];
 }
 
-const FONT = 'Traditional Arabic';
-const TITLE_SIZE = 40;     // 20pt
-const SUBTITLE_SIZE = 28;  // 14pt
-const HEADER_SIZE = 26;    // 13pt
-const BODY_SIZE = 24;      // 12pt
-const SMALL_SIZE = 20;     // 10pt
+/* ── Config ────────────────────────────────────────────────────────── */
 
-const NAVY = '1a2a44';
-const DARK_GRAY = '333333';
-const MID_GRAY = '666666';
-const LIGHT_BG = 'F2F4F7';
-const WHITE = 'FFFFFF';
-const ROW_ALT = 'F8F9FB';
+const FONT = 'Traditional Arabic';
+const NAVY = '1B3A5C';
+const BORDER_COLOR = '999999';
+const HEADER_BG = 'D6E4F0';
 
 /* ── Helpers ───────────────────────────────────────────────────────── */
-
-const forceLtr = (v: string) => `\u200E${v}\u200E`;
 
 const formatArabicDate = (date: Date, withWeekday = false) =>
   date.toLocaleDateString('ar-u-nu-latn', {
@@ -59,170 +47,121 @@ const formatArabicDate = (date: Date, withWeekday = false) =>
     year: 'numeric',
   });
 
-const thinBorder = (color = 'BBBBBB') => ({
-  top:    { style: BorderStyle.SINGLE, size: 1, color },
-  right:  { style: BorderStyle.SINGLE, size: 1, color },
-  bottom: { style: BorderStyle.SINGLE, size: 1, color },
-  left:   { style: BorderStyle.SINGLE, size: 1, color },
+const border = () => ({
+  top: { style: BorderStyle.SINGLE, size: 1, color: BORDER_COLOR },
+  right: { style: BorderStyle.SINGLE, size: 1, color: BORDER_COLOR },
+  bottom: { style: BorderStyle.SINGLE, size: 1, color: BORDER_COLOR },
+  left: { style: BorderStyle.SINGLE, size: 1, color: BORDER_COLOR },
 });
 
-const noBorder = () => ({
-  top:    { style: BorderStyle.NONE, size: 0, color: WHITE },
-  right:  { style: BorderStyle.NONE, size: 0, color: WHITE },
-  bottom: { style: BorderStyle.NONE, size: 0, color: WHITE },
-  left:   { style: BorderStyle.NONE, size: 0, color: WHITE },
-});
-
-/* ── Text Builders ─────────────────────────────────────────────────── */
-
-const txt = (
-  text: string,
-  opts?: {
-    alignment?: (typeof AlignmentType)[keyof typeof AlignmentType];
-    bold?: boolean;
-    color?: string;
-    ltr?: boolean;
-    size?: number;
-  },
-) =>
-  new Paragraph({
-    alignment: opts?.alignment ?? AlignmentType.RIGHT,
-    bidirectional: true,
-    spacing: { before: 0, after: 0, line: 276 },
-    children: [
-      new TextRun({
-        text: opts?.ltr ? forceLtr(text) : text,
-        font: FONT,
-        size: opts?.size ?? BODY_SIZE,
-        bold: opts?.bold ?? false,
-        color: opts?.color ?? DARK_GRAY,
-        rightToLeft: !opts?.ltr,
-      }),
-    ],
-  });
-
-/* ── Cell Builder ──────────────────────────────────────────────────── */
-
-const cell = (
+const makeCell = (
   text: string,
   width: number,
-  opts?: {
-    alignment?: (typeof AlignmentType)[keyof typeof AlignmentType];
-    bold?: boolean;
-    fill?: string;
-    ltr?: boolean;
-    size?: number;
-    textColor?: string;
-    borderColor?: string;
-  },
+  opts?: { bold?: boolean; fill?: string; color?: string; size?: number; alignment?: (typeof AlignmentType)[keyof typeof AlignmentType] },
 ) =>
   new TableCell({
-    borders: thinBorder(opts?.borderColor ?? (opts?.fill === NAVY ? NAVY : 'CCCCCC')),
+    borders: border(),
     verticalAlign: VerticalAlign.CENTER,
     width: { size: width, type: WidthType.PERCENTAGE },
     shading: opts?.fill ? { fill: opts.fill } : undefined,
-    margins: { top: 100, bottom: 100, left: 120, right: 120 },
+    margins: { top: 60, bottom: 60, left: 100, right: 100 },
     children: [
       new Paragraph({
-        alignment: opts?.alignment ?? AlignmentType.CENTER,
+        alignment: opts?.alignment ?? AlignmentType.RIGHT,
         bidirectional: true,
-        spacing: { before: 0, after: 0, line: 260 },
+        spacing: { before: 0, after: 0 },
         children: [
           new TextRun({
-            text: opts?.ltr ? forceLtr(text) : text,
+            text,
             font: FONT,
-            size: opts?.size ?? BODY_SIZE,
+            size: opts?.size ?? 24,
             bold: opts?.bold ?? false,
-            color: opts?.textColor ?? DARK_GRAY,
-            rightToLeft: !opts?.ltr,
+            color: opts?.color ?? '000000',
+            rightToLeft: true,
           }),
         ],
       }),
     ],
   });
 
-/* ── Column Definition ─────────────────────────────────────────────── */
+/* ── Column config (RTL order: right to left) ──────────────────────── */
 
-const COLUMNS = [
-  { label: '#',             width: 5,  align: AlignmentType.CENTER },
-  { label: 'الموكل',        width: 20, align: AlignmentType.RIGHT },
-  { label: 'رقم الملف',     width: 15, align: AlignmentType.CENTER },
-  { label: 'الخصم',         width: 20, align: AlignmentType.RIGHT },
-  { label: 'تاريخ الجلسة',  width: 15, align: AlignmentType.CENTER },
-  { label: 'الجلسة المقبلة', width: 15, align: AlignmentType.CENTER },
-  { label: 'ملاحظات',       width: 10, align: AlignmentType.RIGHT },
-] as const;
+const COLS = [
+  { label: 'الموكل', width: 22 },
+  { label: 'رقم الملف', width: 16 },
+  { label: 'الخصم', width: 22 },
+  { label: 'تاريخ الجلسة', width: 14 },
+  { label: 'الجلسة المقبلة', width: 14 },
+  { label: 'ملاحظات', width: 12 },
+];
 
-/* ── Court Title Banner ────────────────────────────────────────────── */
+/* ── Build one court section ───────────────────────────────────────── */
 
-const courtBanner = (court: string, count: number) =>
-  new Table({
-    layout: TableLayoutType.FIXED,
-    width: { size: 100, type: WidthType.PERCENTAGE },
-    rows: [
-      new TableRow({
-        children: [
-          cell(`${court}  —  ${count} جلسة`, 100, {
-            alignment: AlignmentType.RIGHT,
-            bold: true,
-            fill: NAVY,
-            textColor: WHITE,
-            size: HEADER_SIZE,
-            borderColor: NAVY,
-          }),
-        ],
-      }),
-    ],
-  });
-
-/* ── Sessions Table ────────────────────────────────────────────────── */
-
-const sessionsTable = (
+const buildCourtSection = (
+  courtName: string,
+  sessionDate: string,
   rows: Array<{
     clientName: string;
     caseNumber: string;
-    nextSession: string;
     opponentName: string;
     sessionDate: string;
+    nextSession: string;
     notes: string;
   }>,
-) => {
+): Array<Paragraph | Table> => {
+  // Court title centered above the table
+  const title = new Paragraph({
+    alignment: AlignmentType.CENTER,
+    bidirectional: true,
+    spacing: { before: 300, after: 120 },
+    children: [
+      new TextRun({
+        text: `${courtName}  ●  ${sessionDate}`,
+        font: FONT,
+        size: 30,
+        bold: true,
+        color: NAVY,
+        rightToLeft: true,
+      }),
+    ],
+  });
+
   // Header row
   const headerRow = new TableRow({
     tableHeader: true,
-    children: COLUMNS.map(col =>
-      cell(col.label, col.width, {
-        alignment: AlignmentType.CENTER,
+    children: COLS.map(col =>
+      makeCell(col.label, col.width, {
         bold: true,
-        fill: LIGHT_BG,
-        textColor: NAVY,
-        size: HEADER_SIZE,
-        borderColor: 'BBBBBB',
+        fill: HEADER_BG,
+        color: NAVY,
+        size: 24,
+        alignment: AlignmentType.CENTER,
       }),
     ),
   });
 
-  // Data rows with alternating backgrounds
-  const dataRows = rows.map((row, i) => {
-    const bg = i % 2 === 1 ? ROW_ALT : undefined;
-    return new TableRow({
+  // Data rows
+  const dataRows = rows.map(row =>
+    new TableRow({
       children: [
-        cell(String(i + 1), COLUMNS[0].width, { alignment: AlignmentType.CENTER, fill: bg, size: SMALL_SIZE }),
-        cell(row.clientName, COLUMNS[1].width, { alignment: AlignmentType.RIGHT, fill: bg }),
-        cell(row.caseNumber, COLUMNS[2].width, { alignment: AlignmentType.CENTER, ltr: true, fill: bg }),
-        cell(row.opponentName, COLUMNS[3].width, { alignment: AlignmentType.RIGHT, fill: bg }),
-        cell(row.sessionDate, COLUMNS[4].width, { alignment: AlignmentType.CENTER, fill: bg }),
-        cell(row.nextSession, COLUMNS[5].width, { alignment: AlignmentType.CENTER, fill: bg }),
-        cell(row.notes, COLUMNS[6].width, { alignment: AlignmentType.RIGHT, fill: bg, size: SMALL_SIZE }),
+        makeCell(row.clientName, COLS[0].width),
+        makeCell(row.caseNumber, COLS[1].width, { alignment: AlignmentType.CENTER }),
+        makeCell(row.opponentName, COLS[2].width),
+        makeCell(row.sessionDate, COLS[3].width, { alignment: AlignmentType.CENTER }),
+        makeCell(row.nextSession, COLS[4].width, { alignment: AlignmentType.CENTER }),
+        makeCell(row.notes, COLS[5].width, { size: 20 }),
       ],
-    });
-  });
+    }),
+  );
 
-  return new Table({
+  const table = new Table({
     layout: TableLayoutType.FIXED,
     width: { size: 100, type: WidthType.PERCENTAGE },
+    visuallyRightToLeft: true,
     rows: [headerRow, ...dataRows],
   });
+
+  return [title, table];
 };
 
 /* ── Main Export ────────────────────────────────────────────────────── */
@@ -233,22 +172,21 @@ export const exportCourtSessionsWord = async ({
   mode,
   sessions,
 }: ExportParams) => {
-  // Determine date range & labels
-  let dateStart: string, dateEnd: string, fileName: string, periodLabel: string, title: string;
+  let dateStart: string, dateEnd: string, fileName: string, periodLabel: string, mainTitle: string;
 
   if (mode === 'day') {
     dateStart = dateEnd = format(exportDate, 'yyyy-MM-dd');
-    title = 'جدول جلسات يومية';
+    mainTitle = 'يومية الجلسات';
     periodLabel = formatArabicDate(exportDate, true);
-    fileName = `جلسة_يوم_${dateStart}.docx`;
+    fileName = `جلسات_${dateStart}.docx`;
   } else {
     const ws = startOfWeek(exportDate, { weekStartsOn: 1 });
     const we = endOfWeek(exportDate, { weekStartsOn: 1 });
     dateStart = format(ws, 'yyyy-MM-dd');
     dateEnd = format(we, 'yyyy-MM-dd');
-    title = 'جدول الجلسات الأسبوعي';
+    mainTitle = 'يومية الجلسات الأسبوعية';
     periodLabel = `من ${formatArabicDate(ws)} إلى ${formatArabicDate(we)}`;
-    fileName = 'جدول_الجلسات_الأسبوع.docx';
+    fileName = 'جلسات_الأسبوع.docx';
   }
 
   const filtered = sessions.filter(s => s.session_date >= dateStart && s.session_date <= dateEnd);
@@ -263,66 +201,90 @@ export const exportCourtSessionsWord = async ({
 
   const sortedCourts = Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b, 'ar'));
 
-  // Build document children
+  // Document header
   const children: Array<Paragraph | Table> = [
-    // Title
-    txt(title, { alignment: AlignmentType.CENTER, bold: true, size: TITLE_SIZE, color: NAVY }),
-    new Paragraph({ spacing: { after: 60 } }),
-    // Period
-    txt(periodLabel, { alignment: AlignmentType.CENTER, size: SUBTITLE_SIZE, color: MID_GRAY }),
-    new Paragraph({ spacing: { after: 40 } }),
-    // Stats
-    txt(`عدد الجلسات: ${filtered.length}  |  عدد المحاكم: ${sortedCourts.length}`, {
+    new Paragraph({
       alignment: AlignmentType.CENTER,
-      size: SMALL_SIZE,
-      color: MID_GRAY,
+      bidirectional: true,
+      spacing: { after: 80 },
+      children: [
+        new TextRun({
+          text: mainTitle,
+          font: FONT,
+          size: 40,
+          bold: true,
+          color: NAVY,
+          rightToLeft: true,
+        }),
+      ],
     }),
-    new Paragraph({ spacing: { after: 300 } }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      bidirectional: true,
+      spacing: { after: 200 },
+      children: [
+        new TextRun({
+          text: periodLabel,
+          font: FONT,
+          size: 26,
+          color: '444444',
+          rightToLeft: true,
+        }),
+      ],
+    }),
   ];
 
-  sortedCourts.forEach(([courtName, courtSessions], idx) => {
+  // Build court sections
+  sortedCourts.forEach(([courtName, courtSessions]) => {
+    // Determine a representative date for the court header
+    const dates = [...new Set(courtSessions.map(s => s.session_date))].sort();
+    const dateLabel = dates.length === 1
+      ? formatArabicDate(new Date(`${dates[0]}T00:00:00`), true)
+      : dates.map(d => formatArabicDate(new Date(`${d}T00:00:00`))).join(' / ');
+
     const rows = courtSessions.map(s => {
       const next = getNextSession(s.case_id, s.session_date);
       return {
-        caseNumber: s.cases?.case_number || '—',
         clientName: s.cases?.clients?.full_name || '—',
-        nextSession: next ? formatArabicDate(new Date(`${next}T00:00:00`)) : '—',
+        caseNumber: s.cases?.case_number || '—',
         opponentName: s.cases?.opposing_party || '—',
         sessionDate: formatArabicDate(new Date(`${s.session_date}T00:00:00`)),
+        nextSession: next ? formatArabicDate(new Date(`${next}T00:00:00`)) : '—',
         notes: s.notes || '',
       };
     });
 
-    children.push(courtBanner(courtName, courtSessions.length));
-    children.push(sessionsTable(rows));
-
-    if (idx < sortedCourts.length - 1) {
-      children.push(new Paragraph({ spacing: { after: 300 } }));
-    }
+    children.push(...buildCourtSection(courtName, dateLabel, rows));
   });
 
   // Footer
   children.push(
-    new Paragraph({ spacing: { before: 500 } }),
-    txt(`تم إنشاء الملف بتاريخ ${formatArabicDate(new Date())}`, {
+    new Paragraph({ spacing: { before: 400 } }),
+    new Paragraph({
       alignment: AlignmentType.CENTER,
-      color: 'AAAAAA',
-      size: 18,
+      bidirectional: true,
+      children: [
+        new TextRun({
+          text: `تم الإنشاء بتاريخ ${formatArabicDate(new Date())}`,
+          font: FONT,
+          size: 18,
+          color: 'AAAAAA',
+          rightToLeft: true,
+        }),
+      ],
     }),
   );
 
   const doc = new Document({
-    sections: [
-      {
-        children,
-        properties: {
-          page: {
-            margin: { top: 850, bottom: 850, left: 1000, right: 850 },
-            size: { orientation: PageOrientation.LANDSCAPE },
-          },
+    sections: [{
+      children,
+      properties: {
+        page: {
+          margin: { top: 700, bottom: 700, left: 800, right: 800 },
+          size: { orientation: PageOrientation.LANDSCAPE },
         },
       },
-    ],
+    }],
   });
 
   const blob = await Packer.toBlob(doc);
