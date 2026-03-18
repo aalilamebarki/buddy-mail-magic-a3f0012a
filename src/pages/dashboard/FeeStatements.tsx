@@ -246,6 +246,8 @@ const FeeStatements = () => {
         onCreated={refetch}
         editData={editStatement}
       />
+
+      <DocxPreview ref={docxPreviewRef} title="معاينة بيان الأتعاب" />
     </div>
   );
 };
