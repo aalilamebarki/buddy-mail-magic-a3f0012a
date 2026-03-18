@@ -398,6 +398,7 @@ const Letterheads = () => {
     setTemplateFile(null);
     setPendingTemplatePath(null);
     setPendingTemplateName(null);
+    setParsedStructure(null);
     previewRef.current?.clear();
     setUploadingTemplate(false);
     writeStoredDraft(null);
