@@ -332,6 +332,16 @@ const Letterheads = () => {
   };
 
   const [extracting, setExtracting] = useState(false);
+  const [structurePreview, setStructurePreview] = useState<{ name: string; data: LetterheadStructure } | null>(null);
+
+  const showStructure = (lh: Letterhead) => {
+    const hd = lh.header_data as LetterheadStructure | null;
+    if (!hd || !hd.version) {
+      toast({ title: 'لا توجد بنية مستخرجة لهذه الترويسة', description: 'اضغط تعديل ثم إعادة الاستخراج', variant: 'destructive' });
+      return;
+    }
+    setStructurePreview({ name: lh.lawyer_name, data: hd });
+  };
 
   const reExtractFromTemplate = async () => {
     const path = pendingTemplatePath;
