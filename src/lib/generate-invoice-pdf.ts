@@ -158,6 +158,7 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
      2. CENTERED HEADER — Lawyer info
      ═══════════════════════════════════════ */
   // "مكتب الأستاذ"
+  doc.setFont('Amiri');
   doc.setFontSize(16);
   doc.setTextColor(...TEXT_DARK);
   doc.text('مكتب الأستاذ', cx, y, { align: 'center' });
@@ -168,6 +169,7 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
   doc.setTextColor(...TEXT_DARK);
   doc.text(lawyerName, cx, y, { align: 'center' });
   y += 9;
+  doc.setFont('IBMPlex');
 
   // Title (e.g. محام لدى المجلس)
   if (titleAr) {
