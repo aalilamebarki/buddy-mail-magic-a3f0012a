@@ -48,23 +48,29 @@ const mapLetterhead = (letterhead?: {
   };
 };
 
-export const downloadInvoicePdf = async (invoice: InvoiceRecord) => {
-  const pdfBlob = await generateInvoicePDF({
-    invoiceNumber: invoice.invoice_number,
-    signatureUuid: invoice.signature_uuid,
-    clientName: invoice.clients?.full_name || 'غير محدد',
-    caseName: invoice.cases?.title || undefined,
-    caseNumber: invoice.cases?.case_number || undefined,
-    caseType: invoice.cases?.case_type || undefined,
-    amount: Number(invoice.amount || 0),
-    description: invoice.description || undefined,
-    paymentMethod: invoice.payment_method || 'cash',
-    date: formatDateArabic(invoice.created_at, { year: 'numeric', month: 'long', day: 'numeric' }),
-    lawyerName: invoice.letterheads?.lawyer_name || 'مكتب المحاماة',
-    letterhead: mapLetterhead(invoice.letterheads),
-  });
+const buildInvoiceData = (invoice: InvoiceRecord) => ({
+  invoiceNumber: invoice.invoice_number,
+  signatureUuid: invoice.signature_uuid,
+  clientName: invoice.clients?.full_name || 'غير محدد',
+  caseName: invoice.cases?.title || undefined,
+  caseNumber: invoice.cases?.case_number || undefined,
+  caseType: invoice.cases?.case_type || undefined,
+  amount: Number(invoice.amount || 0),
+  description: invoice.description || undefined,
+  paymentMethod: invoice.payment_method || 'cash',
+  date: formatDateArabic(invoice.created_at, { year: 'numeric', month: 'long', day: 'numeric' }),
+  lawyerName: invoice.letterheads?.lawyer_name || 'مكتب المحاماة',
+  letterhead: mapLetterhead(invoice.letterheads),
+});
 
+export const downloadInvoicePdf = async (invoice: InvoiceRecord) => {
+  const pdfBlob = await generateInvoicePDF(buildInvoiceData(invoice));
   downloadBlob(pdfBlob, `${invoice.invoice_number}.pdf`);
+};
+
+export const previewInvoicePdf = async (invoice: InvoiceRecord) => {
+  const pdfBlob = await generateInvoicePDF(buildInvoiceData(invoice));
+  previewBlob(pdfBlob);
 };
 
 const getStatementItemsForCase = (
