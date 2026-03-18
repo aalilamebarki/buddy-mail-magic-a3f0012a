@@ -101,7 +101,7 @@ const buildCourtSection = (
     clientName: string;
     caseNumber: string;
     opponentName: string;
-    nextSession: string;
+    requiredAction: string;
     notes: string;
   }>,
 ): Array<Paragraph | Table> => {
