@@ -245,16 +245,16 @@ const CourtSessions = () => {
           <p className="text-sm text-muted-foreground">إدارة مواعيد الجلسات لجميع الملفات</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {/* Export PDF */}
+          {/* Export Word */}
           <Popover open={exportMode !== null} onOpenChange={(open) => { if (!open) setExportMode(null); }}>
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm" className="gap-1" onClick={() => setExportMode('day')}>
-                <FileDown className="h-4 w-4" /> تحميل PDF
+                <FileDown className="h-4 w-4" /> تحميل Word
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-72 p-4 pointer-events-auto" align="end">
               <div className="space-y-3">
-                <p className="text-sm font-medium text-foreground">تحميل جدول الجلسات</p>
+                <p className="text-sm font-medium text-foreground">تصدير جدول الجلسات إلى Word</p>
                 <div className="flex gap-2">
                   <Button
                     variant={exportMode === 'day' ? 'default' : 'outline'}
@@ -284,8 +284,8 @@ const CourtSessions = () => {
                     الأسبوع: {format(startOfWeek(exportDate, { weekStartsOn: 1 }), 'dd/MM')} — {format(endOfWeek(exportDate, { weekStartsOn: 1 }), 'dd/MM/yyyy')}
                   </p>
                 )}
-                <Button className="w-full gap-1" size="sm" onClick={() => handleExportPDF(exportMode || 'day')}>
-                  <FileDown className="h-4 w-4" /> تحميل
+                <Button className="w-full gap-1" size="sm" onClick={() => handleExportWord(exportMode || 'day')}>
+                  <FileDown className="h-4 w-4" /> تحميل ملف Word
                 </Button>
               </div>
             </PopoverContent>
