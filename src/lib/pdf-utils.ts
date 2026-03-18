@@ -12,11 +12,13 @@ export type RGB = [number, number, number];
 /* ── Design Tokens ── */
 export const NAVY: RGB     = [26, 42, 68];        // #1a2a44
 export const GOLD: RGB     = [197, 160, 89];       // #c5a059
+export const GOLD_LIGHT: RGB = [225, 205, 150];    // lighter gold for subtle accents
 export const TEXT: RGB      = [30, 30, 30];
 export const TEXT2: RGB     = [100, 100, 100];
 export const TEXT3: RGB     = [150, 150, 150];
-export const BORDER: RGB    = [200, 200, 200];
-export const BG: RGB        = [248, 248, 248];
+export const BORDER: RGB    = [210, 210, 210];
+export const BG: RGB        = [250, 250, 252];
+export const BG_ALT: RGB    = [245, 245, 248];
 export const WHITE: RGB     = [255, 255, 255];
 
 /* ── Font loader with cache ── */
@@ -57,6 +59,20 @@ export const hline = (doc: jsPDF, y: number, x1: number, x2: number, color: RGB 
   doc.setDrawColor(...color);
   doc.setLineWidth(w);
   doc.line(x1, y, x2, y);
+};
+
+/* ── Gradient-like horizontal line (multi-segment) ── */
+export const gradientLine = (doc: jsPDF, y: number, x1: number, x2: number, color: RGB = GOLD, w = 0.4) => {
+  const mid = (x1 + x2) / 2;
+  const totalW = x2 - x1;
+  // Center segment — full opacity
+  doc.setDrawColor(...color);
+  doc.setLineWidth(w);
+  doc.line(mid - totalW * 0.3, y, mid + totalW * 0.3, y);
+  // Fade segments
+  doc.setLineWidth(w * 0.5);
+  doc.line(x1, y, mid - totalW * 0.3, y);
+  doc.line(mid + totalW * 0.3, y, x2, y);
 };
 
 /* ── Dotted rectangle (for signature area) ── */
@@ -118,10 +134,10 @@ export const CW = PW - MARGIN * 2;        // Content width (170mm)
 export const CX = PW / 2;                 // Center X
 
 /* ── Safe zones ── */
-const FRAME_OUTER = 11;                   // Outer frame inset
-const FRAME_INNER = 13;                   // Inner frame inset
+const FRAME_OUTER = 10;                   // Outer frame inset
+const FRAME_INNER = 12;                   // Inner frame inset
 const FOOTER_Y = 284;                     // Footer text Y position
-const MAX_CONTENT_Y = 275;                // Max Y before forced page break (leaves room for footer + frame)
+const MAX_CONTENT_Y = 272;                // Max Y before forced page break
 
 /* ── Letterhead info type ── */
 export interface LetterheadInfo {
@@ -139,13 +155,13 @@ export interface LetterheadInfo {
 
 /* ── Draw double-line frame on page ── */
 export const drawPageFrame = (doc: jsPDF) => {
-  // Outer frame
+  // Outer frame — navy
   doc.setDrawColor(...NAVY);
-  doc.setLineWidth(0.8);
+  doc.setLineWidth(0.6);
   doc.rect(FRAME_OUTER, FRAME_OUTER, PW - FRAME_OUTER * 2, PH - FRAME_OUTER * 2);
-  // Inner frame
+  // Inner frame — gold, thinner
   doc.setDrawColor(...GOLD);
-  doc.setLineWidth(0.3);
+  doc.setLineWidth(0.25);
   doc.rect(FRAME_INNER, FRAME_INNER, PW - FRAME_INNER * 2, PH - FRAME_INNER * 2);
 };
 
@@ -154,6 +170,31 @@ export const goldLine = (doc: jsPDF, y: number, x1: number, x2: number) => {
   doc.setDrawColor(...GOLD);
   doc.setLineWidth(0.5);
   doc.line(x1, y, x2, y);
+};
+
+/* ── Diamond ornament ── */
+export const drawDiamond = (doc: jsPDF, x: number, y: number, size = 2) => {
+  doc.setDrawColor(...GOLD);
+  doc.setLineWidth(0.3);
+  doc.setFillColor(...GOLD);
+  // Draw a small diamond shape
+  doc.line(x, y - size, x + size, y);
+  doc.line(x + size, y, x, y + size);
+  doc.line(x, y + size, x - size, y);
+  doc.line(x - size, y, x, y - size);
+};
+
+/* ── Gold ornament separator (lines + diamond) ── */
+export const drawOrnament = (doc: jsPDF, y: number, width = 70) => {
+  const halfW = width / 2;
+  // Left line
+  doc.setDrawColor(...GOLD);
+  doc.setLineWidth(0.3);
+  doc.line(CX - halfW, y, CX - 4, y);
+  // Diamond
+  drawDiamond(doc, CX, y, 1.8);
+  // Right line
+  doc.line(CX + 4, y, CX + halfW, y);
 };
 
 /* ── Draw unified bilingual header ──
@@ -168,27 +209,27 @@ export const drawHeader = (
   const lh = letterhead;
   let y = startY;
 
-  // "الأستاذ" label (NOT "مكتب الأستاذ")
+  // "الأستاذ" label with flanking lines
   doc.setFont('IBMPlex', 'normal');
-  doc.setFontSize(10);
+  doc.setFontSize(9);
   doc.setTextColor(...GOLD);
   doc.text('الأستاذ', CX, y, { align: 'center' });
 
   // French equivalent
   if (lh?.nameFr) {
-    doc.setFontSize(8);
-    doc.setTextColor(...TEXT2);
-    doc.text('Maître', CX, y + 4, { align: 'center' });
-    y += 4;
+    doc.setFontSize(7);
+    doc.setTextColor(...TEXT3);
+    doc.text('Maître', CX, y + 3.5, { align: 'center' });
+    y += 3.5;
   }
-  y += 7;
+  y += 6;
 
   // Lawyer name (Arabic) — prominent
   doc.setFont('Amiri', 'normal');
   doc.setFontSize(22);
   doc.setTextColor(...NAVY);
   doc.text(lawyerName, CX, y, { align: 'center' });
-  y += 4;
+  y += 3;
 
   // Lawyer name (French)
   if (lh?.nameFr) {
@@ -196,12 +237,12 @@ export const drawHeader = (
     doc.setFontSize(10);
     doc.setTextColor(...TEXT2);
     doc.text(lh.nameFr, CX, y + 4, { align: 'center' });
-    y += 7;
+    y += 6;
   }
   y += 3;
 
-  // Gold decorative line
-  goldLine(doc, y, CX - 35, CX + 35);
+  // Ornament separator
+  drawOrnament(doc, y);
   y += 5;
 
   // Professional title (Arabic)
@@ -210,10 +251,10 @@ export const drawHeader = (
   const titleLine = [titleAr, barAr].filter(Boolean).join(' ');
   if (titleLine) {
     doc.setFont('IBMPlex', 'normal');
-    doc.setFontSize(9.5);
+    doc.setFontSize(9);
     doc.setTextColor(...TEXT);
     doc.text(titleLine, CX, y, { align: 'center' });
-    y += 4.5;
+    y += 4;
   }
 
   // Professional title (French)
@@ -222,54 +263,57 @@ export const drawHeader = (
   const titleLineFr = [titleFr, barFr].filter(Boolean).join(' ');
   if (titleLineFr) {
     doc.setFont('IBMPlex', 'normal');
-    doc.setFontSize(7.5);
+    doc.setFontSize(7);
     doc.setTextColor(...TEXT3);
     doc.text(titleLineFr, CX, y, { align: 'center' });
-    y += 4.5;
+    y += 4;
   }
 
   // Address line
   if (lh?.address) {
     doc.setFont('IBMPlex', 'normal');
-    doc.setFontSize(7.5);
+    doc.setFontSize(7);
     doc.setTextColor(...TEXT2);
     const addr = lh.city ? `${lh.address}، ${lh.city}` : lh.address;
     doc.text(addr, CX, y, { align: 'center' });
-    y += 4;
+    y += 3.5;
   }
 
   // Contact info — phone & email on same line
   const contactParts: string[] = [];
-  if (lh?.phone) contactParts.push(lh.phone);
+  if (lh?.phone) contactParts.push(`هاتف: ${lh.phone}`);
   if (lh?.email) contactParts.push(lh.email);
 
   if (contactParts.length > 0) {
     doc.setFont('IBMPlex', 'normal');
-    doc.setFontSize(7);
+    doc.setFontSize(6.5);
     doc.setTextColor(...TEXT3);
     doc.text(contactParts.join('  ·  '), CX, y, { align: 'center' });
-    y += 4;
+    y += 3.5;
   }
 
   y += 2;
   // Navy separator after header
-  hline(doc, y, MARGIN, RX, NAVY, 0.6);
-  y += 1;
-  hline(doc, y + 0.8, MARGIN, RX, GOLD, 0.2);
+  hline(doc, y, MARGIN, RX, NAVY, 0.5);
+  hline(doc, y + 1, MARGIN, RX, GOLD, 0.2);
 
   return y + 5;
 };
 
 /* ── Draw footer on current page ── */
-export const drawFooter = (doc: jsPDF) => {
+export const drawFooter = (doc: jsPDF, pageNum?: number, totalPages?: number) => {
   doc.setFont('IBMPlex', 'normal');
-  doc.setFontSize(6);
+  doc.setFontSize(5.5);
   doc.setTextColor(...TEXT3);
   doc.text('وثيقة صادرة إلكترونياً — Document généré électroniquement', CX, FOOTER_Y, { align: 'center' });
+  
+  if (pageNum && totalPages && totalPages > 1) {
+    doc.text(`${pageNum} / ${totalPages}`, MARGIN + 5, FOOTER_Y, { align: 'left' });
+  }
 };
 
 /* ── Draw navy top bar ── */
-export const drawTopBar = (doc: jsPDF) => {
+export const drawTopBar = (_doc: jsPDF) => {
   // No top bar in Moroccan professional style, replaced by frame
 };
 
@@ -286,9 +330,9 @@ export const ensureSpace = (doc: jsPDF, y: number, needed: number): number => {
 
 /* ── Draw date + signature + seal area ── */
 export const drawDateAndSignature = (doc: jsPDF, y: number, date: string, city: string): number => {
-  // Date on right
+  // Date on right side
   doc.setFont('IBMPlex', 'normal');
-  doc.setFontSize(9);
+  doc.setFontSize(8.5);
   doc.setTextColor(...TEXT2);
   doc.text(`حرر ب${city || '...'} في:`, RX - 4, y, { align: 'right' });
   y += 5;
@@ -300,23 +344,72 @@ export const drawDateAndSignature = (doc: jsPDF, y: number, date: string, city: 
   y += 12;
 
   // Signature label
-  doc.setFont('IBMPlex', 'normal');
-  doc.setFontSize(9.5);
+  doc.setFont('IBMPlex', 'bold');
+  doc.setFontSize(9);
   doc.setTextColor(...NAVY);
   doc.text('التوقيع والختم', CX, y, { align: 'center' });
-  doc.setFontSize(6.5);
+  doc.setFont('IBMPlex', 'normal');
+  doc.setFontSize(6);
   doc.setTextColor(...TEXT3);
-  doc.text('Signature et cachet', CX, y + 4, { align: 'center' });
-  y += 8;
+  doc.text('Signature et cachet', CX, y + 3.5, { align: 'center' });
+  y += 7;
 
-  // Signature box with gold border
-  const sealW = 50, sealH = 22;
+  // Signature box with gold border and subtle background
+  const sealW = 52, sealH = 24;
   const sealX = CX - sealW / 2;
   doc.setFillColor(...BG);
-  doc.rect(sealX, y, sealW, sealH, 'F');
+  doc.roundedRect(sealX, y, sealW, sealH, 1.5, 1.5, 'F');
   doc.setDrawColor(...GOLD);
-  doc.setLineWidth(0.4);
-  doc.rect(sealX, y, sealW, sealH, 'S');
+  doc.setLineWidth(0.35);
+  doc.roundedRect(sealX, y, sealW, sealH, 1.5, 1.5, 'S');
 
   return y + sealH;
+};
+
+/* ── Draw a professional info card row ── */
+export const drawInfoRow = (
+  doc: jsPDF,
+  y: number,
+  labelAr: string,
+  labelFr: string,
+  value: string,
+  isEven: boolean,
+  isLast: boolean,
+): number => {
+  const rowH = 8.5;
+  
+  // Alternating background
+  if (isEven) {
+    doc.setFillColor(...BG);
+    doc.rect(MARGIN, y, CW, rowH, 'F');
+  }
+
+  // Gold accent bar on right
+  doc.setFillColor(...GOLD);
+  doc.rect(RX - 1.8, y, 1.8, rowH, 'F');
+
+  // Arabic label
+  doc.setFont('IBMPlex', 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor(...NAVY);
+  doc.text(labelAr, RX - 5, y + 3.5, { align: 'right' });
+
+  // French label
+  doc.setFont('IBMPlex', 'normal');
+  doc.setFontSize(5.5);
+  doc.setTextColor(...TEXT3);
+  doc.text(labelFr, RX - 5, y + 6.5, { align: 'right' });
+
+  // Value
+  doc.setFont('Amiri', 'normal');
+  doc.setFontSize(10.5);
+  doc.setTextColor(...TEXT);
+  doc.text(value, RX - 48, y + 5.5, { align: 'right' });
+
+  // Separator
+  if (!isLast) {
+    hline(doc, y + rowH, MARGIN + 3, RX - 3, [230, 230, 235] as RGB, 0.1);
+  }
+
+  return y + rowH;
 };
