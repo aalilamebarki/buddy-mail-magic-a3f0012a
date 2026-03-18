@@ -369,18 +369,6 @@ const Billing = () => {
                                   variant="ghost"
                                   size="sm"
                                   className="h-7 w-7 p-0"
-                                  title="مشاهدة"
-                                  onClick={() => previewStatement(s)}
-                                  disabled={previewing === s.id}
-                                >
-                                  {previewing === s.id
-                                    ? <Loader2 className="h-4 w-4 animate-spin" />
-                                    : <Eye className="h-4 w-4" />}
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 w-7 p-0"
                                   title="تحميل PDF"
                                   onClick={() => downloadStatement(s)}
                                   disabled={downloading === s.id}
