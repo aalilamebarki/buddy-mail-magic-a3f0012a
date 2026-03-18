@@ -575,7 +575,7 @@ const Letterheads = () => {
                       if (editingId) {
                         setTemplateFile(null);
                         setPendingTemplateName(null);
-                        setPreviewHtml(null);
+                        previewRef.current?.clear();
                         return;
                       }
                       resetForm();
