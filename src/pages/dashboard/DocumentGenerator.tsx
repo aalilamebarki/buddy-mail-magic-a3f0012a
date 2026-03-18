@@ -74,6 +74,7 @@ interface Letterhead {
   id: string;
   lawyer_name: string;
   template_path: string | null;
+  header_data: any;
 }
 
 interface ReferenceDocument {
@@ -198,7 +199,7 @@ const DocumentGenerator = () => {
         supabase.from('generated_documents')
           .select('id, doc_type, content, opponent_memo, step_number, status, created_at, thread_id, title, client_name, client_id, opposing_party, court, case_number, case_id')
           .order('created_at', { ascending: true }),
-        supabase.from('letterheads').select('id, lawyer_name, template_path') as any,
+        supabase.from('letterheads').select('id, lawyer_name, template_path, header_data') as any,
         supabase.from('reference_documents').select('*').order('created_at', { ascending: false }) as any,
       ]);
       if (clientsRes.data) setClients(clientsRes.data as ClientInfo[]);
@@ -624,38 +625,88 @@ const DocumentGenerator = () => {
       return;
     }
 
-    if (!lh.template_path) {
-      toast({ title: 'لا يوجد ملف قالب مرفق بهذه الترويسة', variant: 'destructive' });
-      return;
-    }
-
     try {
-      const { data: fileData, error: dlErr } = await supabase.storage
-        .from('letterhead-templates')
-        .download(lh.template_path);
-      if (dlErr || !fileData) throw dlErr || new Error('تعذر تحميل القالب');
+      // Strategy 1: Use the original template file if available
+      if (lh.template_path) {
+        const { data: fileData, error: dlErr } = await supabase.storage
+          .from('letterhead-templates')
+          .download(lh.template_path);
+        if (dlErr || !fileData) throw dlErr || new Error('تعذر تحميل القالب');
 
-      const ext = lh.template_path.split('.').pop()?.toLowerCase();
+        const ext = lh.template_path.split('.').pop()?.toLowerCase();
 
-      if (ext === 'docx') {
-        const { injectIntoTemplate } = await import('@/lib/docx-template-engine');
+        if (ext === 'docx') {
+          const { injectIntoTemplate } = await import('@/lib/docx-template-engine');
 
-        const blob = await injectIntoTemplate(fileData, {
-          content,
-          clientName: selectedClient?.full_name || '',
-          clientAddress: selectedClient?.address || '',
-          caseName: title,
-          court: selectedCase?.court || '',
-          caseNumber: selectedCase?.case_number || '',
-          lawyerName: lh.lawyer_name,
-          opposingParty: selectedCase?.opposing_party || '',
-          opposingPartyAddress: selectedCase?.opposing_party_address || '',
-        });
+          const blob = await injectIntoTemplate(fileData, {
+            content,
+            clientName: selectedClient?.full_name || '',
+            clientAddress: selectedClient?.address || '',
+            caseName: title,
+            court: selectedCase?.court || '',
+            caseNumber: selectedCase?.case_number || '',
+            lawyerName: lh.lawyer_name,
+            opposingParty: selectedCase?.opposing_party || '',
+            opposingPartyAddress: selectedCase?.opposing_party_address || '',
+          });
 
-        saveAs(blob, `${title}_${new Date().toISOString().slice(0, 10)}.docx`);
-      } else {
-        toast({ title: 'صيغة غير مدعومة. يرجى استخدام ملف .docx', variant: 'destructive' });
+          saveAs(blob, `${title}_${new Date().toISOString().slice(0, 10)}.docx`);
+        } else {
+          toast({ title: 'صيغة غير مدعومة. يرجى استخدام ملف .docx', variant: 'destructive' });
+        }
+        return;
       }
+
+      // Strategy 2: Use stored header_data (reconstructed letterhead) if available
+      const headerData = lh.header_data as any;
+      const hasStoredStructure = headerData && headerData.version &&
+        (headerData.headerParagraphs?.length > 0 || headerData.images?.length > 0);
+
+      if (hasStoredStructure) {
+        const { buildHeader: buildLhHeader, buildFooter: buildLhFooter, getPageMargins: getLhMargins, getDefaultFont: getLhFont } = await import('@/lib/reconstruct-letterhead');
+        const { Document, Packer, Paragraph, TextRun, AlignmentType } = await import('docx');
+
+        const defaultFont = getLhFont(headerData);
+        const contentParagraphs = content.split('\n').filter(Boolean).map(line =>
+          new Paragraph({
+            alignment: AlignmentType.RIGHT,
+            bidirectional: true,
+            spacing: { before: 80, after: 80, line: 360 },
+            children: [
+              new TextRun({
+                text: line.trim(),
+                font: defaultFont.font,
+                size: defaultFont.size,
+                rightToLeft: true,
+              }),
+            ],
+          })
+        );
+
+        const margins = getLhMargins(headerData) || { top: 1134, bottom: 1134, left: 1134, right: 1134 };
+        const sectionProps: any = {
+          children: contentParagraphs,
+          properties: {
+            page: {
+              margin: margins,
+              size: { width: 11906, height: 16838 },
+            },
+          },
+          headers: { default: buildLhHeader(headerData) },
+        };
+
+        if (headerData.footerParagraphs?.length > 0 || headerData.images?.some((img: any) => img.section === 'footer')) {
+          sectionProps.footers = { default: buildLhFooter(headerData) };
+        }
+
+        const doc = new Document({ sections: [sectionProps] });
+        const blob = await Packer.toBlob(doc);
+        saveAs(blob, `${title}_${new Date().toISOString().slice(0, 10)}.docx`);
+        return;
+      }
+
+      // No template and no stored structure
+      toast({ title: 'لا يوجد ملف قالب أو بنية مخزنة لهذه الترويسة', variant: 'destructive' });
     } catch (e: any) {
       console.error('Export error:', e);
       toast({ title: 'خطأ في التصدير', description: e.message, variant: 'destructive' });
