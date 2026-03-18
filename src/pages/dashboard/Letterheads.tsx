@@ -681,12 +681,7 @@ const Letterheads = () => {
               </div>
             )}
 
-            {/* docx-preview container - always mounted for ref */}
-            <div
-              ref={previewContainerRef}
-              className={`border border-border rounded-lg overflow-auto bg-white ${previewReady ? 'h-[450px]' : 'hidden'}`}
-              style={{ direction: 'ltr' }}
-            />
+            {/* docx-preview rendered in external container */}
 
             {previewReady && !previewLoading && (
               <div className="flex items-center justify-between px-1">
