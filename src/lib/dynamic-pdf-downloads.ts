@@ -88,9 +88,19 @@ const getStatementItemsForCase = (
 };
 
 const buildStatementData = (statement: FeeStatementRecord) => {
+  const allItems = statement.fee_statement_items || [];
+  const assignedOrphanIds = new Set<string>();
+
   const caseDetails = statement.fee_statement_cases && statement.fee_statement_cases.length > 0
-    ? statement.fee_statement_cases.map(statementCase => {
-        const caseItems = getStatementItemsForCase(statement.fee_statement_items, statementCase.case_id);
+    ? statement.fee_statement_cases.map((statementCase, idx) => {
+        // Items explicitly linked to this case
+        const linkedItems = allItems.filter(item => item.case_id === statementCase.case_id);
+        // Orphan items (no case_id) go to the first case only
+        const orphanItems = idx === 0
+          ? allItems.filter(item => !item.case_id && !assignedOrphanIds.has(item.id))
+          : [];
+        orphanItems.forEach(item => assignedOrphanIds.add(item.id));
+        const caseItems = [...linkedItems, ...orphanItems];
         const normalizedItems = caseItems.map(item => ({
           description: item.description,
           amount: Number(item.amount || 0),
@@ -115,15 +125,12 @@ const buildStatementData = (statement: FeeStatementRecord) => {
         caseNumber: statement.cases?.case_number || '',
         court: statement.cases?.court || undefined,
         caseType: statement.cases?.case_type || undefined,
-        items: getStatementItemsForCase(statement.fee_statement_items, statement.case_id, true).map(item => ({
+        items: allItems.map(item => ({
           description: item.description,
           amount: Number(item.amount || 0),
         })),
         lawyerFees: Number(statement.lawyer_fees || 0),
-        expensesTotal: getStatementItemsForCase(statement.fee_statement_items, statement.case_id, true).reduce(
-          (sum, item) => sum + Number(item.amount || 0),
-          0,
-        ),
+        expensesTotal: allItems.reduce((sum, item) => sum + Number(item.amount || 0), 0),
         subtotal: Number(statement.subtotal || 0),
         taxRate: Number(statement.tax_rate || 0),
         taxAmount: Number(statement.tax_amount || 0),
