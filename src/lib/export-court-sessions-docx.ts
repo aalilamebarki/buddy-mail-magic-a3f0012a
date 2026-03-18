@@ -87,12 +87,12 @@ const makeCell = (
 /* ── Column config (RTL order: right to left) ──────────────────────── */
 
 const COLS = [
-  { label: 'الموكل', width: 22 },
-  { label: 'رقم الملف', width: 16 },
-  { label: 'الخصم', width: 22 },
-  { label: 'تاريخ الجلسة', width: 14 },
-  { label: 'الجلسة المقبلة', width: 14 },
-  { label: 'ملاحظات', width: 12 },
+  { label: 'الموكل', width: 18 },
+  { label: 'رقم الملف', width: 14 },
+  { label: 'الخصم', width: 18 },
+  { label: 'تاريخ الجلسة', width: 12 },
+  { label: 'الجلسة المقبلة', width: 12 },
+  { label: 'ملاحظات', width: 26 },
 ];
 
 /* ── Build one court section ───────────────────────────────────────── */
