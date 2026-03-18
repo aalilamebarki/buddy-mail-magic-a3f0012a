@@ -53,6 +53,7 @@ export interface FeeStatementRecord {
     city?: string | null;
     phone?: string | null;
     email?: string | null;
+    header_data?: any | null;
   } | null;
   fee_statement_items?: FeeStatementItemRecord[];
   fee_statement_cases?: FeeStatementCaseRecord[];
