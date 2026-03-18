@@ -167,7 +167,6 @@ const CourtSessions = () => {
     try {
       await exportCourtSessionsWord({
         exportDate,
-        getNextSession,
         mode,
         sessions,
       });
@@ -177,7 +176,7 @@ const CourtSessions = () => {
       const message = error instanceof Error ? error.message : 'تعذر إنشاء ملف Word';
       toast.error(message);
     }
-  }, [sessions, exportDate, getNextSession]);
+  }, [sessions, exportDate]);
 
   const renderSessionTable = (items: any[], title: string) => (
     items.length > 0 && (

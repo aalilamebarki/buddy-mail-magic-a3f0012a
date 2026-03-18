@@ -263,16 +263,13 @@ export const exportCourtSessionsWord = async ({
     const sortedCourts = Object.entries(courtGroups).sort(([a], [b]) => a.localeCompare(b, 'ar'));
 
     sortedCourts.forEach(([courtName, courtSessions]) => {
-      const rows = courtSessions.map(s => {
-        const next = getNextSession(s.case_id, s.session_date);
-        return {
-          clientName: s.cases?.clients?.full_name || '—',
-          caseNumber: s.cases?.case_number || '—',
-          opponentName: s.cases?.opposing_party || '—',
-          nextSession: next ? formatArabicDate(new Date(`${next}T00:00:00`)) : '—',
-          notes: s.notes || '',
-        };
-      });
+      const rows = courtSessions.map(s => ({
+        clientName: s.cases?.clients?.full_name || '—',
+        caseNumber: s.cases?.case_number || '—',
+        opponentName: s.cases?.opposing_party || '—',
+        requiredAction: s.required_action || '—',
+        notes: s.notes || '',
+      }));
 
       children.push(...buildCourtSection(courtName, rows));
     });
