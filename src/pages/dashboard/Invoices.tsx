@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { formatDateShort } from '@/lib/formatters';
 import CreateInvoiceDialog from '@/components/invoices/CreateInvoiceDialog';
 import { downloadInvoicePdf } from '@/lib/dynamic-pdf-downloads';
+import { exportInvoiceDocx } from '@/lib/generate-invoice-docx';
 
 const PAYMENT_LABELS: Record<string, string> = {
   cash: 'نقداً',
