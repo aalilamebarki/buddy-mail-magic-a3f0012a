@@ -41,7 +41,7 @@ function mapAlignment(alignment?: string): (typeof AlignmentType)[keyof typeof A
 // ─── Run Builder ────────────────────────────────────────────────────────
 
 function buildTextRun(run: LetterheadRun, defaults: LetterheadStructure): TextRun {
-  const opts: IRunOptions = {
+  const opts: any = {
     text: run.text,
     font: run.font || run.fontCs || defaults.defaultFontCs || defaults.defaultFont,
     size: run.sizeCs || run.size || defaults.defaultSize,
@@ -52,7 +52,7 @@ function buildTextRun(run: LetterheadRun, defaults: LetterheadStructure): TextRu
   };
 
   if (run.underline) {
-    opts.underline = { type: 'single' as any };
+    opts.underline = { type: 'single' };
   }
 
   return new TextRun(opts);
