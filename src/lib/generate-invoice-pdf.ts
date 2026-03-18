@@ -222,10 +222,12 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
   /* ═══════════════════════════════════════
      3. TITLE — "وصل أداء" (very large, centered)
      ═══════════════════════════════════════ */
+  doc.setFont('Amiri');
   doc.setFontSize(30);
   doc.setTextColor(...TEXT_DARK);
   doc.text('وصل أداء', cx, y, { align: 'center' });
   y += 5;
+  doc.setFont('IBMPlex');
 
   // Underline
   doc.setDrawColor(...TEXT_DARK);
