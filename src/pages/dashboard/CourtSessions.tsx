@@ -44,8 +44,28 @@ const CourtSessions = () => {
   const [selectedCaseId, setSelectedCaseId] = useState('');
   const [sessionDate, setSessionDate] = useState<Date | undefined>(undefined);
   const [requiredAction, setRequiredAction] = useState('');
+  const [actionPopoverOpen, setActionPopoverOpen] = useState(false);
+  const [actionSearch, setActionSearch] = useState('');
+  const [actionOptions, setActionOptions] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Fetch required actions from DB
+  const fetchActions = useCallback(async () => {
+    const { data } = await supabase
+      .from('required_actions')
+      .select('label')
+      .order('label');
+    if (data) setActionOptions(data.map(d => d.label));
+  }, []);
+
+  useEffect(() => { fetchActions(); }, [fetchActions]);
+
+  const filteredActions = useMemo(() => {
+    if (!actionSearch) return actionOptions;
+    const q = actionSearch.toLowerCase();
+    return actionOptions.filter(a => a.toLowerCase().includes(q));
+  }, [actionOptions, actionSearch]);
 
   const filteredCases = useMemo(() => {
     if (!caseSearch) return cases;
