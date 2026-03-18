@@ -3,13 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Receipt, Plus, Download, Loader2, QrCode, Search } from 'lucide-react';
+import { Receipt, Plus, Download, Loader2, QrCode, Search, FileText } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useInvoices, type InvoiceRecord } from '@/hooks/useInvoices';
 import { useToast } from '@/hooks/use-toast';
 import { formatDateShort } from '@/lib/formatters';
 import CreateInvoiceDialog from '@/components/invoices/CreateInvoiceDialog';
 import { downloadInvoicePdf } from '@/lib/dynamic-pdf-downloads';
+import { exportInvoiceDocx } from '@/lib/generate-invoice-docx';
 
 const PAYMENT_LABELS: Record<string, string> = {
   cash: 'نقداً',
@@ -24,6 +25,7 @@ const Invoices = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [downloadingDocx, setDownloadingDocx] = useState<string | null>(null);
 
   const filtered = invoices.filter(inv =>
     !search ||
@@ -42,6 +44,17 @@ const Invoices = () => {
       toast({ title: 'خطأ في التحميل', description: e.message, variant: 'destructive' });
     } finally {
       setDownloading(null);
+    }
+  };
+
+  const downloadDocx = async (invoice: InvoiceRecord) => {
+    setDownloadingDocx(invoice.id);
+    try {
+      await exportInvoiceDocx(invoice);
+    } catch (e: any) {
+      toast({ title: 'خطأ في التحميل', description: e.message, variant: 'destructive' });
+    } finally {
+      setDownloadingDocx(null);
     }
   };
 
@@ -123,7 +136,8 @@ const Invoices = () => {
                     <TableHead className="text-right">الأداء</TableHead>
                     <TableHead className="text-right">التاريخ</TableHead>
                     <TableHead className="text-right">التحقق</TableHead>
-                    <TableHead className="text-right">PDF</TableHead>
+                     <TableHead className="text-right">PDF</TableHead>
+                     <TableHead className="text-right">Word</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -153,7 +167,20 @@ const Invoices = () => {
                           {downloading === inv.id
                             ? <Loader2 className="h-4 w-4 animate-spin" />
                             : <Download className="h-4 w-4" />}
-                        </Button>
+                       </Button>
+                     </TableCell>
+                     <TableCell>
+                       <Button
+                         variant="ghost"
+                         size="sm"
+                         className="h-7 w-7 p-0"
+                         onClick={() => downloadDocx(inv)}
+                         disabled={downloadingDocx === inv.id}
+                       >
+                         {downloadingDocx === inv.id
+                           ? <Loader2 className="h-4 w-4 animate-spin" />
+                           : <FileText className="h-4 w-4" />}
+                       </Button>
                       </TableCell>
                     </TableRow>
                   ))}
