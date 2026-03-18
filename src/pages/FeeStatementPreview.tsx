@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, ArrowRight, Download, Printer, FileText } from 'lucide-react';
+import { Loader2, ArrowRight, Download, Printer, FileText, FileDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDateArabic } from '@/lib/formatters';
 import type { FeeStatementRecord } from '@/hooks/useFeeStatements';
 import { downloadFeeStatementPdf } from '@/lib/dynamic-pdf-downloads';
+import { exportFeeStatementDocx } from '@/lib/export-fee-statement-docx';
 import { numberToArabicWords } from '@/lib/pdf-utils';
 
 const fmt = (n: number) =>
@@ -31,6 +32,8 @@ const FeeStatementPreview = () => {
     load();
   }, [id]);
 
+  const [downloadingDocx, setDownloadingDocx] = useState(false);
+
   const handleDownload = async () => {
     if (!statement) return;
     setDownloading(true);
@@ -38,6 +41,16 @@ const FeeStatementPreview = () => {
       await downloadFeeStatementPdf(statement);
     } finally {
       setDownloading(false);
+    }
+  };
+
+  const handleDownloadDocx = async () => {
+    if (!statement) return;
+    setDownloadingDocx(true);
+    try {
+      await exportFeeStatementDocx(statement);
+    } finally {
+      setDownloadingDocx(false);
     }
   };
 
@@ -134,6 +147,16 @@ const FeeStatementPreview = () => {
                 <Printer className="h-4 w-4" /> طباعة
               </Button>
               <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadDocx}
+                disabled={downloadingDocx}
+                className="gap-2 border-white/20 text-white hover:bg-white/10 hover:text-white"
+              >
+                {downloadingDocx ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+                Word
+              </Button>
+              <Button
                 size="sm"
                 onClick={handleDownload}
                 disabled={downloading}
@@ -141,7 +164,7 @@ const FeeStatementPreview = () => {
                 style={{ backgroundColor: '#c5a059', color: '#1a2a44' }}
               >
                 {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                تحميل PDF
+                PDF
               </Button>
             </div>
           </div>
