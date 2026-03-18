@@ -394,6 +394,7 @@ function buildServicesTable(
           children: [
             new Paragraph({
               alignment: AlignmentType.LEFT,
+              bidirectional: true,
               spacing: { after: 0 },
               children: [
                 new TextRun({
