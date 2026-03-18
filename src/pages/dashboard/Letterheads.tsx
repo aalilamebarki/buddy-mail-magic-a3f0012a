@@ -435,7 +435,8 @@ const Letterheads = () => {
     setPendingTemplatePath(null);
     setPendingTemplateName(null);
     setPreviewHtml(null);
-    setPreviewUrl(null);
+    setPreviewReady(false);
+    if (previewContainerRef.current) previewContainerRef.current.innerHTML = '';
     setPreviewLoading(false);
     setUploadingTemplate(false);
     writeStoredDraft(null);
