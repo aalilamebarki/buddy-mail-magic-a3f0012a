@@ -169,7 +169,7 @@ const FeeStatementPreview = () => {
                 {/* Office label */}
                 <div className="flex items-center justify-center gap-3 mb-1">
                   <span className="block" style={{ width: 30, height: '0.5px', background: '#c5a059' }} />
-                  <span className="text-[9px] tracking-[3px] uppercase" style={{ color: '#c5a059' }}>مكتب الأستاذ</span>
+                  <span className="text-[9px] tracking-[3px] uppercase" style={{ color: '#c5a059' }}>الأستاذ</span>
                   <span className="block" style={{ width: 30, height: '0.5px', background: '#c5a059' }} />
                 </div>
                 {lh?.name_fr && (
