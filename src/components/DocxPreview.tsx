@@ -19,6 +19,9 @@ interface DocxPreviewProps {
   title?: string;
 }
 
+const EMPTY_PREVIEW_HTML = '<p class="docx-preview-state">الملف فارغ</p>';
+const ERROR_PREVIEW_HTML = '<p class="docx-preview-state">تعذر عرض معاينة هذا الملف</p>';
+
 const DocxPreview = forwardRef<DocxPreviewHandle, DocxPreviewProps>(({ title = 'معاينة القالب' }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
@@ -30,7 +33,10 @@ const DocxPreview = forwardRef<DocxPreviewHandle, DocxPreviewProps>(({ title = '
     setPreviewHtml(null);
     setPreviewReady(false);
     setLoading(false);
-    if (containerRef.current) containerRef.current.innerHTML = '';
+
+    if (containerRef.current) {
+      containerRef.current.innerHTML = '';
+    }
   }, []);
 
   const renderBlob = useCallback(async (blob: Blob) => {
@@ -39,16 +45,20 @@ const DocxPreview = forwardRef<DocxPreviewHandle, DocxPreviewProps>(({ title = '
     setPreviewReady(false);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
       const container = containerRef.current;
-      if (!container) throw new Error('Preview container not found');
+
+      if (!container) {
+        throw new Error('Preview container not found');
+      }
 
       container.innerHTML = '';
+
       await renderAsync(blob, container, undefined, {
         className: 'docx-preview',
         inWrapper: true,
-        ignoreWidth: false,
-        ignoreHeight: false,
+        ignoreWidth: isMobile,
+        ignoreHeight: isMobile,
         renderHeaders: true,
         renderFooters: true,
         renderFootnotes: true,
@@ -57,25 +67,37 @@ const DocxPreview = forwardRef<DocxPreviewHandle, DocxPreviewProps>(({ title = '
       setPreviewReady(true);
     } catch (err) {
       console.error('docx-preview error:', err);
+
+      if (containerRef.current) {
+        containerRef.current.innerHTML = '';
+      }
+
       try {
         const result = await mammoth.convertToHtml({ arrayBuffer: await blob.arrayBuffer() });
-        setPreviewHtml(result.value || '<p style="color:gray;text-align:center;">الملف فارغ</p>');
+        setPreviewHtml(result.value || EMPTY_PREVIEW_HTML);
       } catch {
-        setPreviewHtml('<p style="color:gray;text-align:center;">تعذر عرض معاينة هذا الملف</p>');
+        setPreviewHtml(ERROR_PREVIEW_HTML);
       }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isMobile]);
 
   const previewFromStorage = useCallback(async (bucket: string, path: string) => {
     setLoading(true);
+
     try {
       const { data, error } = await supabase.storage.from(bucket).download(path);
       if (error || !data) throw error;
+
       await renderBlob(data);
     } catch {
-      setPreviewHtml('<p style="color:gray;text-align:center;">تعذر عرض معاينة هذا الملف</p>');
+      if (containerRef.current) {
+        containerRef.current.innerHTML = '';
+      }
+
+      setPreviewReady(false);
+      setPreviewHtml(ERROR_PREVIEW_HTML);
       setLoading(false);
     }
   }, [renderBlob]);
@@ -97,37 +119,38 @@ const DocxPreview = forwardRef<DocxPreviewHandle, DocxPreviewProps>(({ title = '
   );
 
   const bodyContent = (
-    <div className="p-3 sm:p-4">
+    <div className="flex min-h-0 flex-1 flex-col p-3 sm:p-4">
       {loading && (
-        <div className="flex items-center justify-center py-10">
+        <div className="flex items-center justify-center gap-2 border-b border-dashed border-border/70 pb-3 text-sm text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin text-primary" />
-          <span className="text-sm text-muted-foreground mr-2">جاري تحميل المعاينة...</span>
+          <span>جاري تحميل المعاينة...</span>
         </div>
       )}
 
-      <div
-        ref={containerRef}
-        className={previewReady ? 'h-[50vh] sm:h-[65vh] md:h-[70vh] overflow-auto rounded-lg border border-border bg-white' : 'hidden'}
-        style={{ direction: 'ltr' }}
-      />
+      <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-border bg-card">
+        <div
+          ref={containerRef}
+          className={previewReady ? 'docx-preview-shell h-full w-full overflow-auto' : 'hidden'}
+        />
 
-      {previewHtml && !previewReady && !loading && (
-        <ScrollArea className="h-[50vh] sm:h-[65vh] md:h-[70vh] rounded-lg border border-border">
-          <div
-            className="prose prose-sm max-w-none p-3 sm:p-4 text-foreground dark:prose-invert"
-            dir="auto"
-            dangerouslySetInnerHTML={{ __html: previewHtml }}
-          />
-        </ScrollArea>
-      )}
+        {previewHtml && !previewReady && !loading && (
+          <ScrollArea className="h-full w-full">
+            <div
+              className="docx-preview-fallback prose prose-sm max-w-none p-4 text-foreground dark:prose-invert sm:p-5"
+              dir="auto"
+              dangerouslySetInnerHTML={{ __html: previewHtml }}
+            />
+          </ScrollArea>
+        )}
+      </div>
     </div>
   );
 
   if (isMobile) {
     return (
       <Drawer open={isOpen} onOpenChange={(open) => { if (!open) clear(); }}>
-        <DrawerContent className="max-h-[85vh]" dir="rtl">
-          <DrawerHeader className="border-b px-4 py-3">
+        <DrawerContent className="flex h-[92dvh] max-h-[92dvh] flex-col" dir="rtl">
+          <DrawerHeader className="shrink-0 border-b px-4 py-3">
             <DrawerTitle>{headerContent}</DrawerTitle>
           </DrawerHeader>
           {bodyContent}
@@ -138,8 +161,8 @@ const DocxPreview = forwardRef<DocxPreviewHandle, DocxPreviewProps>(({ title = '
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) clear(); }}>
-      <DialogContent className="w-[96vw] max-w-6xl max-h-[92vh] overflow-hidden p-0 gap-0" dir="rtl">
-        <DialogHeader className="border-b px-4 py-3">
+      <DialogContent className="flex h-[88dvh] w-[96vw] max-w-3xl flex-col gap-0 overflow-hidden p-0 md:max-w-5xl xl:max-w-6xl" dir="rtl">
+        <DialogHeader className="shrink-0 border-b px-4 py-3">
           <DialogTitle>{headerContent}</DialogTitle>
         </DialogHeader>
         {bodyContent}

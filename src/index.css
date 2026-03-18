@@ -528,3 +528,78 @@
 .legal-prose ul > li {
   padding-right: 1rem;
 }
+
+/* Responsive DOCX preview */
+.docx-preview-shell {
+  direction: ltr;
+  background: hsl(var(--muted) / 0.45);
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-x pan-y;
+}
+
+.docx-preview-shell .docx-wrapper {
+  width: max-content;
+  min-width: 100%;
+  padding: 0.875rem !important;
+}
+
+.docx-preview-shell .docx {
+  margin: 0 auto;
+  background: hsl(var(--card));
+  box-shadow: 0 18px 40px hsl(var(--foreground) / 0.08);
+}
+
+.docx-preview-shell table {
+  max-width: 100%;
+}
+
+.docx-preview-shell img {
+  max-width: 100%;
+  height: auto;
+}
+
+.docx-preview-fallback {
+  direction: rtl;
+  line-height: 1.9;
+  word-break: break-word;
+}
+
+.docx-preview-fallback table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+}
+
+.docx-preview-state {
+  margin: 0;
+  padding: 2rem 1rem;
+  text-align: center;
+  color: hsl(var(--muted-foreground));
+}
+
+@media (max-width: 767px) {
+  .docx-preview-shell .docx-wrapper {
+    width: 100%;
+    min-width: 100%;
+    padding: 0.5rem !important;
+  }
+
+  .docx-preview-shell .docx {
+    width: 100% !important;
+    min-width: 0 !important;
+    box-shadow: none;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1279px) {
+  .docx-preview-shell .docx-wrapper {
+    padding: 1rem !important;
+  }
+}
+
+@media (min-width: 1280px) {
+  .docx-preview-shell .docx-wrapper {
+    padding: 1.5rem !important;
+  }
+}
