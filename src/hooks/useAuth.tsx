@@ -25,24 +25,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const lastRoleFetchId = useRef<string | null>(null);
 
   const fetchUserRole = useCallback(async (userId: string) => {
-    // Skip if we already fetched for this user
-    if (lastRoleFetchId.current === userId) return;
-    lastRoleFetchId.current = userId;
+    if (!userId || lastRoleFetchId.current === userId) return;
+
     try {
       const { data, error } = await (supabase as any)
         .from('user_roles')
         .select('role')
         .eq('user_id', userId)
-        .single();
+        .limit(1)
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching user role:', error);
+        lastRoleFetchId.current = null;
         setRole(null);
         return;
       }
-      setRole(data?.role as AppRole || null);
+
+      if (data?.role) {
+        lastRoleFetchId.current = userId;
+        setRole(data.role as AppRole);
+        return;
+      }
+
+      lastRoleFetchId.current = null;
+      setRole(null);
     } catch (err) {
       console.error('Error in fetchUserRole:', err);
+      lastRoleFetchId.current = null;
       setRole(null);
     }
   }, []);
