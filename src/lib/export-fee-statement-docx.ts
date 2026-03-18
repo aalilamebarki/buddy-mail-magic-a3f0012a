@@ -2,12 +2,17 @@
  * Fee Statement Word (.docx) Export
  * Moroccan Professional style: Navy (#1a2a44) / Gold (#c5a059)
  * Matches the HTML preview design with bilingual labels
+ * 
+ * When the letterhead has stored structural data (header_data),
+ * uses the original letterhead formatting from the uploaded Word file.
  */
 
 import {
   AlignmentType,
   BorderStyle,
   Document,
+  Footer as DocxFooter,
+  Header as DocxHeader,
   Packer,
   Paragraph,
   Table,
@@ -23,6 +28,13 @@ import { saveAs } from 'file-saver';
 import type { FeeStatementRecord } from '@/hooks/useFeeStatements';
 import { formatDateArabic } from '@/lib/formatters';
 import { numberToArabicWords } from '@/lib/pdf-utils';
+import {
+  buildHeader as buildLetterheadHeader,
+  buildFooter as buildLetterheadFooter,
+  getPageMargins,
+  getDefaultFont,
+} from '@/lib/reconstruct-letterhead';
+import type { LetterheadStructure } from '@/lib/parse-letterhead-structure';
 
 /* ── Design tokens ────────────────────────────────────────────────── */
 const FONT = 'Traditional Arabic';
