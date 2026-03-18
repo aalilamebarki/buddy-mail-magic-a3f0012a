@@ -98,6 +98,17 @@ const Billing = () => {
     }
   };
 
+  const downloadStatementDocx = async (statement: FeeStatementRecord) => {
+    setDownloading(`docx-${statement.id}`);
+    try {
+      await exportFeeStatementDocx(statement);
+    } catch (e: any) {
+      toast({ title: 'خطأ في التحميل', description: e.message, variant: 'destructive' });
+    } finally {
+      setDownloading(null);
+    }
+  };
+
   const previewInvoice = async (invoice: InvoiceRecord) => {
     setPreviewing(invoice.id);
     try {
