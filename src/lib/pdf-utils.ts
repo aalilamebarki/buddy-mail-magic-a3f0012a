@@ -149,6 +149,7 @@ export const goldLine = (doc: jsPDF, y: number, x1: number, x2: number) => {
 };
 
 /* ── Draw unified bilingual header ──
+   Dynamically renders ALL letterhead fields.
    Returns new Y position after header */
 export const drawHeader = (
   doc: jsPDF,
@@ -159,17 +160,17 @@ export const drawHeader = (
   const lh = letterhead;
   let y = startY;
 
-  // "مكتب الأستاذ" label
+  // "الأستاذ" label (NOT "مكتب الأستاذ")
   doc.setFont('IBMPlex', 'normal');
   doc.setFontSize(10);
   doc.setTextColor(...GOLD);
-  doc.text('مكتب الأستاذ', CX, y, { align: 'center' });
+  doc.text('الأستاذ', CX, y, { align: 'center' });
 
   // French equivalent
   if (lh?.nameFr) {
     doc.setFontSize(8);
     doc.setTextColor(...TEXT2);
-    doc.text('Cabinet de Maître', CX, y + 4, { align: 'center' });
+    doc.text('Maître', CX, y + 4, { align: 'center' });
     y += 4;
   }
   y += 8;
@@ -195,7 +196,7 @@ export const drawHeader = (
   goldLine(doc, y, CX - 35, CX + 35);
   y += 6;
 
-  // Professional title (Arabic)
+  // Professional title (Arabic) — e.g. "محام لدى هيئة المحامين بالرباط"
   const titleAr = lh?.titleAr || '';
   const barAr = lh?.barNameAr ? `لدى ${lh.barNameAr}` : '';
   const titleLine = [titleAr, barAr].filter(Boolean).join(' ');
@@ -207,7 +208,7 @@ export const drawHeader = (
     y += 5;
   }
 
-  // Professional title (French)
+  // Professional title (French) — e.g. "Avocat près la Cour d'Appel de Rabat"
   const titleFr = lh?.titleFr || '';
   const barFr = lh?.barNameFr ? `près ${lh.barNameFr}` : '';
   const titleLineFr = [titleFr, barFr].filter(Boolean).join(' ');
@@ -219,11 +220,7 @@ export const drawHeader = (
     y += 5;
   }
 
-  // Contact info line
-  const contactParts: string[] = [];
-  if (lh?.phone) contactParts.push(`هاتف: ${lh.phone}`);
-  if (lh?.email) contactParts.push(`بريد: ${lh.email}`);
-
+  // Address line
   if (lh?.address) {
     doc.setFont('IBMPlex', 'normal');
     doc.setFontSize(8);
@@ -233,10 +230,16 @@ export const drawHeader = (
     y += 4;
   }
 
+  // Contact info — phone & email on same line
+  const contactParts: string[] = [];
+  if (lh?.phone) contactParts.push(lh.phone);
+  if (lh?.email) contactParts.push(lh.email);
+
   if (contactParts.length > 0) {
+    doc.setFont('IBMPlex', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(...TEXT3);
-    doc.text(contactParts.join('  |  '), CX, y, { align: 'center' });
+    doc.text(contactParts.join('  ·  '), CX, y, { align: 'center' });
     y += 4;
   }
 
