@@ -102,7 +102,6 @@ const buildCourtSection = (
     clientName: string;
     caseNumber: string;
     opponentName: string;
-    sessionDate: string;
     nextSession: string;
     notes: string;
   }>,
@@ -111,12 +110,12 @@ const buildCourtSection = (
   const title = new Paragraph({
     alignment: AlignmentType.CENTER,
     bidirectional: true,
-    spacing: { before: 300, after: 100 },
+    spacing: { before: 200, after: 80 },
     children: [
       new TextRun({
         text: courtName,
         font: FONT,
-        size: 28,
+        size: 26,
         bold: true,
         color: NAVY,
         rightToLeft: true,
@@ -145,9 +144,8 @@ const buildCourtSection = (
         makeCell(row.clientName, COLS[0].width),
         makeCell(row.caseNumber, COLS[1].width, { alignment: AlignmentType.CENTER }),
         makeCell(row.opponentName, COLS[2].width),
-        makeCell(row.sessionDate, COLS[3].width, { alignment: AlignmentType.CENTER }),
-        makeCell(row.nextSession, COLS[4].width, { alignment: AlignmentType.CENTER }),
-        makeCell(row.notes, COLS[5].width, { size: 20 }),
+        makeCell(row.nextSession, COLS[3].width, { alignment: AlignmentType.CENTER }),
+        makeCell(row.notes, COLS[4].width, { size: 20 }),
       ],
     }),
   );
@@ -161,6 +159,25 @@ const buildCourtSection = (
 
   return [title, table];
 };
+
+/* ── Build a day heading ───────────────────────────────────────────── */
+
+const buildDayHeading = (date: Date): Paragraph =>
+  new Paragraph({
+    alignment: AlignmentType.CENTER,
+    bidirectional: true,
+    spacing: { before: 400, after: 150 },
+    children: [
+      new TextRun({
+        text: formatArabicDate(date, true),
+        font: FONT,
+        size: 32,
+        bold: true,
+        color: NAVY,
+        rightToLeft: true,
+      }),
+    ],
+  });
 
 /* ── Main Export ────────────────────────────────────────────────────── */
 
