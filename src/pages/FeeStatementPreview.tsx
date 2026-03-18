@@ -103,9 +103,17 @@ const FeeStatementPreview = () => {
   }
 
   // Build case details
+  // Track assigned orphan items to avoid duplication across cases
+  const assignedOrphanIds = new Set<string>();
   const caseBlocks = statementCases.length > 0
-    ? statementCases.map(sc => {
-        const caseItems = items.filter(item => item.case_id === sc.case_id || (!item.case_id));
+    ? statementCases.map((sc, idx) => {
+        const linkedItems = items.filter(item => item.case_id === sc.case_id);
+        // Orphan items (no case_id) assigned to first case only
+        const orphanItems = idx === 0
+          ? items.filter(item => !item.case_id && !assignedOrphanIds.has(item.id))
+          : [];
+        orphanItems.forEach(item => assignedOrphanIds.add(item.id));
+        const caseItems = [...linkedItems, ...orphanItems];
         const expTotal = caseItems.reduce((s, i) => s + Number(i.amount), 0);
         return { sc, caseItems, expTotal };
       })

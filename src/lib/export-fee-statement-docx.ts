@@ -548,9 +548,19 @@ export const generateFeeStatementDocxBlob = async (statement: FeeStatementRecord
   children.push(emptyPara(150));
 
   // 4. Services tables (per case or single)
+  // Track which orphan items (no case_id) have been assigned to avoid duplication
+  const assignedOrphanIds = new Set<string>();
+
   if (statementCases.length > 0) {
     statementCases.forEach((sc, idx) => {
-      const caseItems = items.filter(item => item.case_id === sc.case_id || (!item.case_id));
+      // Items explicitly linked to this case
+      const linkedItems = items.filter(item => item.case_id === sc.case_id);
+      // Orphan items (no case_id) go to the first case only
+      const orphanItems = idx === 0
+        ? items.filter(item => !item.case_id && !assignedOrphanIds.has(item.id))
+        : [];
+      orphanItems.forEach(item => assignedOrphanIds.add(item.id));
+      const caseItems = [...linkedItems, ...orphanItems];
       const normalizedItems = caseItems.map(i => ({ description: i.description, amount: Number(i.amount) }));
       const expTotal = normalizedItems.reduce((s, i) => s + i.amount, 0);
 
