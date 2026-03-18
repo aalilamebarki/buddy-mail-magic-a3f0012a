@@ -695,6 +695,11 @@ const Letterheads = () => {
                     </div>
                   </div>
                   <div className="flex gap-1 shrink-0">
+                    {lh.header_data && (lh.header_data as any).version && (
+                      <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => showStructure(lh)} title="عرض البنية المستخرجة">
+                        <Scan className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                     {lh.template_path && (
                       <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => previewExisting(lh)} title="معاينة">
                         <Eye className="h-3.5 w-3.5" />
@@ -713,8 +718,222 @@ const Letterheads = () => {
           ))}
         </div>
       )}
+
+      {/* Structure Preview Dialog */}
+      <Dialog open={!!structurePreview} onOpenChange={(open) => { if (!open) setStructurePreview(null); }}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-hidden flex flex-col" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-sm font-bold">
+              <Scan className="h-4 w-4 text-primary" />
+              البنية المستخرجة — {structurePreview?.name}
+            </DialogTitle>
+          </DialogHeader>
+          {structurePreview && <StructureDetails data={structurePreview.data} />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
+
+/* ── Structure Details Component ──────────────────────────────────── */
+
+function StructureDetails({ data }: { data: LetterheadStructure }) {
+  const fonts = new Set<string>();
+  const sizes = new Set<number>();
+  const colors = new Set<string>();
+
+  const collectFromParagraphs = (paras: typeof data.headerParagraphs) => {
+    for (const para of paras) {
+      for (const run of para.runs) {
+        if (run.font) fonts.add(run.font);
+        if (run.fontCs) fonts.add(run.fontCs);
+        if (run.size) sizes.add(run.size);
+        if (run.sizeCs) sizes.add(run.sizeCs);
+        if (run.color && run.color !== '000000') colors.add(`#${run.color}`);
+      }
+    }
+  };
+
+  collectFromParagraphs(data.headerParagraphs);
+  collectFromParagraphs(data.footerParagraphs);
+
+  if (data.defaultFont) fonts.add(data.defaultFont);
+  if (data.defaultFontCs) fonts.add(data.defaultFontCs);
+
+  const headerImages = data.images.filter(i => i.section === 'header');
+  const footerImages = data.images.filter(i => i.section === 'footer');
+
+  return (
+    <ScrollArea className="flex-1 min-h-0">
+      <div className="space-y-4 p-1 text-sm">
+        {/* Summary badges */}
+        <div className="flex flex-wrap gap-2">
+          <Badge variant="outline" className="gap-1">
+            <Type className="h-3 w-3" />
+            {data.headerParagraphs.length} فقرات رأسية
+          </Badge>
+          <Badge variant="outline" className="gap-1">
+            <Type className="h-3 w-3" />
+            {data.footerParagraphs.length} فقرات تذييل
+          </Badge>
+          <Badge variant="outline" className="gap-1">
+            <ImageIcon className="h-3 w-3" />
+            {data.images.length} صور
+          </Badge>
+          <Badge variant="outline" className="gap-1">
+            <Palette className="h-3 w-3" />
+            {fonts.size} خطوط
+          </Badge>
+        </div>
+
+        {/* Fonts */}
+        {fonts.size > 0 && (
+          <div>
+            <h4 className="text-xs font-bold text-muted-foreground mb-1.5 flex items-center gap-1">
+              <Type className="h-3.5 w-3.5" /> الخطوط المستخدمة
+            </h4>
+            <div className="flex flex-wrap gap-1.5">
+              {[...fonts].map(f => (
+                <Badge key={f} variant="secondary" className="text-xs">{f}</Badge>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Font sizes */}
+        {sizes.size > 0 && (
+          <div>
+            <h4 className="text-xs font-bold text-muted-foreground mb-1.5 flex items-center gap-1">
+              <Ruler className="h-3.5 w-3.5" /> أحجام الخطوط (half-points)
+            </h4>
+            <div className="flex flex-wrap gap-1.5">
+              {[...sizes].sort((a, b) => a - b).map(s => (
+                <Badge key={s} variant="secondary" className="text-xs">{s} ({Math.round(s / 2)}pt)</Badge>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Colors */}
+        {colors.size > 0 && (
+          <div>
+            <h4 className="text-xs font-bold text-muted-foreground mb-1.5 flex items-center gap-1">
+              <Palette className="h-3.5 w-3.5" /> الألوان
+            </h4>
+            <div className="flex flex-wrap gap-2">
+              {[...colors].map(c => (
+                <div key={c} className="flex items-center gap-1.5">
+                  <div className="w-4 h-4 rounded-sm border border-border" style={{ backgroundColor: c }} />
+                  <span className="text-xs text-muted-foreground font-mono">{c}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Images */}
+        {data.images.length > 0 && (
+          <div>
+            <h4 className="text-xs font-bold text-muted-foreground mb-1.5 flex items-center gap-1">
+              <ImageIcon className="h-3.5 w-3.5" /> الصور ({headerImages.length} رأسية، {footerImages.length} تذييل)
+            </h4>
+            <div className="grid grid-cols-2 gap-2">
+              {data.images.map((img, i) => {
+                const wPx = img.widthEmu ? Math.round(img.widthEmu / 9525) : null;
+                const hPx = img.heightEmu ? Math.round(img.heightEmu / 9525) : null;
+                return (
+                  <div key={i} className="border border-border rounded-lg p-2 bg-muted/30">
+                    <img
+                      src={`data:${img.contentType};base64,${img.data.slice(0, 5000)}`}
+                      alt={`صورة ${i + 1}`}
+                      className="max-h-16 mx-auto object-contain mb-1"
+                    />
+                    <p className="text-[10px] text-muted-foreground text-center">
+                      {img.section === 'header' ? 'رأس' : 'تذييل'}
+                      {wPx && hPx ? ` • ${wPx}×${hPx}px` : ''}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Margins */}
+        {data.margins && (
+          <div>
+            <h4 className="text-xs font-bold text-muted-foreground mb-1.5 flex items-center gap-1">
+              <Ruler className="h-3.5 w-3.5" /> الهوامش (twips)
+            </h4>
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div className="bg-muted/40 rounded p-1.5 text-center">
+                <span className="text-muted-foreground">أعلى: </span>
+                <span className="font-bold">{data.margins.top}</span>
+              </div>
+              <div className="bg-muted/40 rounded p-1.5 text-center">
+                <span className="text-muted-foreground">أسفل: </span>
+                <span className="font-bold">{data.margins.bottom}</span>
+              </div>
+              <div className="bg-muted/40 rounded p-1.5 text-center">
+                <span className="text-muted-foreground">يمين: </span>
+                <span className="font-bold">{data.margins.right}</span>
+              </div>
+              <div className="bg-muted/40 rounded p-1.5 text-center">
+                <span className="text-muted-foreground">يسار: </span>
+                <span className="font-bold">{data.margins.left}</span>
+              </div>
+              <div className="bg-muted/40 rounded p-1.5 text-center">
+                <span className="text-muted-foreground">رأس: </span>
+                <span className="font-bold">{data.margins.header}</span>
+              </div>
+              <div className="bg-muted/40 rounded p-1.5 text-center">
+                <span className="text-muted-foreground">تذييل: </span>
+                <span className="font-bold">{data.margins.footer}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Header paragraphs detail */}
+        {data.headerParagraphs.length > 0 && (
+          <div>
+            <h4 className="text-xs font-bold text-muted-foreground mb-1.5">فقرات الرأس</h4>
+            <div className="space-y-1">
+              {data.headerParagraphs.map((para, i) => {
+                const text = para.runs.map(r => r.text).join('');
+                if (!text.trim()) return null;
+                return (
+                  <div key={i} className="bg-muted/30 rounded px-2 py-1 text-xs flex items-start gap-2">
+                    <Badge variant="outline" className="text-[9px] shrink-0 mt-0.5">{i + 1}</Badge>
+                    <span className="text-foreground leading-relaxed" dir="auto">{text}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Footer paragraphs detail */}
+        {data.footerParagraphs.length > 0 && (
+          <div>
+            <h4 className="text-xs font-bold text-muted-foreground mb-1.5">فقرات التذييل</h4>
+            <div className="space-y-1">
+              {data.footerParagraphs.map((para, i) => {
+                const text = para.runs.map(r => r.text).join('');
+                if (!text.trim()) return null;
+                return (
+                  <div key={i} className="bg-muted/30 rounded px-2 py-1 text-xs flex items-start gap-2">
+                    <Badge variant="outline" className="text-[9px] shrink-0 mt-0.5">{i + 1}</Badge>
+                    <span className="text-foreground leading-relaxed" dir="auto">{text}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </ScrollArea>
+  );
+}
 
 export default Letterheads;
