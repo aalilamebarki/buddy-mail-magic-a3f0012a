@@ -125,6 +125,7 @@ const CourtSessions = () => {
       if (editingSession) {
         const { error } = await supabase.from('court_sessions').update({
           session_date: format(sessionDate, 'yyyy-MM-dd'),
+          required_action: requiredAction.trim(),
           notes: notes || null,
         }).eq('id', editingSession.id);
         if (error) throw error;
