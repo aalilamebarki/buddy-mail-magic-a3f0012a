@@ -32,6 +32,20 @@ const FeeStatements = () => {
   const [editStatement, setEditStatement] = useState<FeeStatementRecord | null>(null);
   const [search, setSearch] = useState('');
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [previewing, setPreviewing] = useState<string | null>(null);
+  const docxPreviewRef = useRef<DocxPreviewHandle>(null);
+
+  const previewDocx = async (statement: FeeStatementRecord) => {
+    setPreviewing(statement.id);
+    try {
+      const blob = await generateFeeStatementDocxBlob(statement);
+      await docxPreviewRef.current?.previewBlob(blob);
+    } catch (e: any) {
+      toast({ title: 'خطأ في المعاينة', description: e.message, variant: 'destructive' });
+    } finally {
+      setPreviewing(null);
+    }
+  };
 
   const filtered = statements.filter(s =>
     !search ||
