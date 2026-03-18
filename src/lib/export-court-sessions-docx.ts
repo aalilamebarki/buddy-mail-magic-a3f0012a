@@ -181,7 +181,6 @@ const buildDayHeading = (date: Date): Paragraph =>
 
 export const exportCourtSessionsWord = async ({
   exportDate,
-  getNextSession,
   mode,
   sessions,
 }: ExportParams) => {
