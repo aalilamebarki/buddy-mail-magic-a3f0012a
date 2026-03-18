@@ -25,7 +25,7 @@ import { exportCourtSessionsWord } from '@/lib/export-court-sessions-docx';
 const CourtSessions = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { sessions, loading: sessionsLoading, getNextSession, refetch: refetchSessions } = useSessions();
+  const { sessions, loading: sessionsLoading, refetch: refetchSessions } = useSessions();
   const { cases, loading: casesLoading, refetch: refetchCases } = useCases({ status: 'active' });
   const loading = sessionsLoading || casesLoading;
 
@@ -43,6 +43,7 @@ const CourtSessions = () => {
   const [editingSession, setEditingSession] = useState<any>(null);
   const [selectedCaseId, setSelectedCaseId] = useState('');
   const [sessionDate, setSessionDate] = useState<Date | undefined>(undefined);
+  const [requiredAction, setRequiredAction] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -80,6 +81,7 @@ const CourtSessions = () => {
     setEditingSession(session);
     setSelectedCaseId(session.case_id);
     setSessionDate(new Date(session.session_date + 'T00:00:00'));
+    setRequiredAction(session.required_action || '');
     setNotes(session.notes || '');
     setCaseNumber('');
     setDialogOpen(true);
@@ -89,6 +91,7 @@ const CourtSessions = () => {
     setEditingSession(null);
     setSelectedCaseId('');
     setSessionDate(undefined);
+    setRequiredAction('');
     setNotes('');
     setCaseNumber('');
     setDialogOpen(true);
@@ -97,6 +100,10 @@ const CourtSessions = () => {
   const handleSave = async () => {
     if (!sessionDate || !user) {
       toast.error('يرجى اختيار تاريخ الجلسة');
+      return;
+    }
+    if (!requiredAction.trim()) {
+      toast.error('يرجى تحديد المطلوب في هذه الجلسة');
       return;
     }
     if (!editingSession && !selectedCaseId) {
@@ -118,6 +125,7 @@ const CourtSessions = () => {
       if (editingSession) {
         const { error } = await supabase.from('court_sessions').update({
           session_date: format(sessionDate, 'yyyy-MM-dd'),
+          required_action: requiredAction.trim(),
           notes: notes || null,
         }).eq('id', editingSession.id);
         if (error) throw error;
@@ -126,6 +134,7 @@ const CourtSessions = () => {
         const { error } = await supabase.from('court_sessions').insert({
           case_id: selectedCaseId,
           session_date: format(sessionDate, 'yyyy-MM-dd'),
+          required_action: requiredAction.trim(),
           notes: notes || null,
           user_id: user.id,
         });
@@ -136,6 +145,7 @@ const CourtSessions = () => {
       setEditingSession(null);
       setSelectedCaseId('');
       setSessionDate(undefined);
+      setRequiredAction('');
       setNotes('');
       setCaseNumber('');
       fetchData();
@@ -167,7 +177,6 @@ const CourtSessions = () => {
     try {
       await exportCourtSessionsWord({
         exportDate,
-        getNextSession,
         mode,
         sessions,
       });
@@ -177,7 +186,7 @@ const CourtSessions = () => {
       const message = error instanceof Error ? error.message : 'تعذر إنشاء ملف Word';
       toast.error(message);
     }
-  }, [sessions, exportDate, getNextSession]);
+  }, [sessions, exportDate]);
 
   const renderSessionTable = (items: any[], title: string) => (
     items.length > 0 && (
@@ -190,28 +199,30 @@ const CourtSessions = () => {
             <Table className="min-w-[960px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-right">التاريخ</TableHead>
-                  <TableHead className="text-right">الموكل</TableHead>
-                  <TableHead className="text-right">الخصم</TableHead>
-                  <TableHead className="text-right">رقم الملف</TableHead>
-                  <TableHead className="text-right">المحكمة</TableHead>
-                  <TableHead className="text-right">ملاحظات</TableHead>
-                  <TableHead className="text-right">الحالة</TableHead>
-                  <TableHead className="text-right w-[80px]">إجراءات</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.map(s => (
-                  <TableRow key={s.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/dashboard/cases/${s.case_id}`)}>
-                    <TableCell className="text-sm whitespace-nowrap">
-                      {new Date(s.session_date + 'T00:00:00').toLocaleDateString('ar-u-nu-latn', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                    </TableCell>
-                    <TableCell className="text-sm font-medium">{s.cases?.clients?.full_name || '—'}</TableCell>
-                    <TableCell className="text-sm">{s.cases?.opposing_party || '—'}</TableCell>
-                    <TableCell className="text-sm" dir="ltr">{s.cases?.case_number || '—'}</TableCell>
-                    <TableCell className="text-sm">{s.cases?.court || '—'}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{s.notes || '—'}</TableCell>
-                    <TableCell>{getSessionBadge(s.session_date)}</TableCell>
+                   <TableHead className="text-right">التاريخ</TableHead>
+                   <TableHead className="text-right">الموكل</TableHead>
+                   <TableHead className="text-right">الخصم</TableHead>
+                   <TableHead className="text-right">رقم الملف</TableHead>
+                   <TableHead className="text-right">المحكمة</TableHead>
+                   <TableHead className="text-right">المطلوب</TableHead>
+                   <TableHead className="text-right">ملاحظات</TableHead>
+                   <TableHead className="text-right">الحالة</TableHead>
+                   <TableHead className="text-right w-[80px]">إجراءات</TableHead>
+                 </TableRow>
+               </TableHeader>
+               <TableBody>
+                 {items.map(s => (
+                   <TableRow key={s.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/dashboard/cases/${s.case_id}`)}>
+                     <TableCell className="text-sm whitespace-nowrap">
+                       {new Date(s.session_date + 'T00:00:00').toLocaleDateString('ar-u-nu-latn', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                     </TableCell>
+                     <TableCell className="text-sm font-medium">{s.cases?.clients?.full_name || '—'}</TableCell>
+                     <TableCell className="text-sm">{s.cases?.opposing_party || '—'}</TableCell>
+                     <TableCell className="text-sm" dir="ltr">{s.cases?.case_number || '—'}</TableCell>
+                     <TableCell className="text-sm">{s.cases?.court || '—'}</TableCell>
+                     <TableCell className="text-sm">{s.required_action || '—'}</TableCell>
+                     <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{s.notes || '—'}</TableCell>
+                     <TableCell>{getSessionBadge(s.session_date)}</TableCell>
                     <TableCell>
                       <div className="flex gap-1" onClick={e => e.stopPropagation()}>
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditSession(s)}>
@@ -415,6 +426,16 @@ const CourtSessions = () => {
                   />
                 </PopoverContent>
               </Popover>
+            </div>
+
+            {/* المطلوب */}
+            <div className="space-y-2">
+              <Label>المطلوب في هذه الجلسة *</Label>
+              <Input
+                value={requiredAction}
+                onChange={e => setRequiredAction(e.target.value)}
+                placeholder="مثال: الإدلاء بمذكرة جوابية، شهادة التسليم..."
+              />
             </div>
 
             {/* Notes */}

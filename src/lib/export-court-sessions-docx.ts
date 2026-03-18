@@ -25,7 +25,6 @@ import type { SessionRecord } from '@/hooks/useSessions';
 
 interface ExportParams {
   exportDate: Date;
-  getNextSession: (caseId: string, afterDate: string) => string | null;
   mode: 'day' | 'week';
   sessions: SessionRecord[];
 }
@@ -90,7 +89,7 @@ const COLS = [
   { label: 'الموكل', width: 20 },
   { label: 'رقم الملف', width: 16 },
   { label: 'الخصم', width: 20 },
-  { label: 'الجلسة المقبلة', width: 14 },
+  { label: 'المطلوب', width: 14 },
   { label: 'ملاحظات', width: 30 },
 ];
 
@@ -102,7 +101,7 @@ const buildCourtSection = (
     clientName: string;
     caseNumber: string;
     opponentName: string;
-    nextSession: string;
+    requiredAction: string;
     notes: string;
   }>,
 ): Array<Paragraph | Table> => {
@@ -143,7 +142,7 @@ const buildCourtSection = (
         makeCell(row.clientName, COLS[0].width),
         makeCell(row.caseNumber, COLS[1].width),
         makeCell(row.opponentName, COLS[2].width),
-        makeCell(row.nextSession, COLS[3].width),
+        makeCell(row.requiredAction, COLS[3].width),
         makeCell(row.notes, COLS[4].width, { size: 20 }),
       ],
     }),
@@ -182,7 +181,6 @@ const buildDayHeading = (date: Date): Paragraph =>
 
 export const exportCourtSessionsWord = async ({
   exportDate,
-  getNextSession,
   mode,
   sessions,
 }: ExportParams) => {
@@ -265,16 +263,13 @@ export const exportCourtSessionsWord = async ({
     const sortedCourts = Object.entries(courtGroups).sort(([a], [b]) => a.localeCompare(b, 'ar'));
 
     sortedCourts.forEach(([courtName, courtSessions]) => {
-      const rows = courtSessions.map(s => {
-        const next = getNextSession(s.case_id, s.session_date);
-        return {
-          clientName: s.cases?.clients?.full_name || '—',
-          caseNumber: s.cases?.case_number || '—',
-          opponentName: s.cases?.opposing_party || '—',
-          nextSession: next ? formatArabicDate(new Date(`${next}T00:00:00`)) : '—',
-          notes: s.notes || '',
-        };
-      });
+      const rows = courtSessions.map(s => ({
+        clientName: s.cases?.clients?.full_name || '—',
+        caseNumber: s.cases?.case_number || '—',
+        opponentName: s.cases?.opposing_party || '—',
+        requiredAction: s.required_action || '—',
+        notes: s.notes || '',
+      }));
 
       children.push(...buildCourtSection(courtName, rows));
     });
