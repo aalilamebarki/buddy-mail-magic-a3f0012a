@@ -6,7 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Trash2, FileText, Loader2, Stamp, Edit2, Save, X, Upload, Eye, Phone, Mail, MapPin, Building2, User } from 'lucide-react';
+import { Plus, Trash2, FileText, Loader2, Stamp, Edit2, Save, X, Upload, Eye, Phone, Mail, MapPin, Building2, User, RefreshCw } from 'lucide-react';
 import mammoth from 'mammoth';
 import { extractLetterheadInfo } from '@/lib/extract-letterhead-info';
 
