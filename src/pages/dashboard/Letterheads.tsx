@@ -311,7 +311,7 @@ const Letterheads = () => {
     setTemplateFile(null);
     setPendingTemplatePath(lh.template_path);
     setPendingTemplateName(lh.template_path?.split('/').pop() || null);
-    setPreviewHtml(null);
+    previewRef.current?.clear();
     setShowForm(true);
   };
 
