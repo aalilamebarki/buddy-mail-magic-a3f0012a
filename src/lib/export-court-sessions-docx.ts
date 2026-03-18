@@ -1,3 +1,10 @@
+/**
+ * Court Sessions Word Export — Professional RTL Table Layout
+ * 
+ * Generates a clean, well-structured .docx with proper Arabic table formatting.
+ * Uses EMU-based column widths for precise control and proper RTL bidi settings.
+ */
+
 import {
   AlignmentType,
   BorderStyle,
@@ -10,93 +17,39 @@ import {
   TableLayoutType,
   TableRow,
   TextRun,
+  VerticalAlign,
   WidthType,
 } from 'docx';
 import { saveAs } from 'file-saver';
 import { endOfWeek, format, startOfWeek } from 'date-fns';
 import type { SessionRecord } from '@/hooks/useSessions';
 
-interface ExportCourtSessionsWordParams {
+/* ── Config ────────────────────────────────────────────────────────── */
+
+interface ExportParams {
   exportDate: Date;
   getNextSession: (caseId: string, afterDate: string) => string | null;
   mode: 'day' | 'week';
   sessions: SessionRecord[];
 }
 
-const wordFont = 'Traditional Arabic';
+const FONT = 'Traditional Arabic';
+const TITLE_SIZE = 40;     // 20pt
+const SUBTITLE_SIZE = 28;  // 14pt
+const HEADER_SIZE = 26;    // 13pt
+const BODY_SIZE = 24;      // 12pt
+const SMALL_SIZE = 20;     // 10pt
 
-const forceLtr = (value: string) => `\u200E${value}\u200E`;
+const NAVY = '1a2a44';
+const DARK_GRAY = '333333';
+const MID_GRAY = '666666';
+const LIGHT_BG = 'F2F4F7';
+const WHITE = 'FFFFFF';
+const ROW_ALT = 'F8F9FB';
 
-const cellBorders = (color = '000000') => ({
-  top: { style: BorderStyle.SINGLE, size: 1, color },
-  right: { style: BorderStyle.SINGLE, size: 1, color },
-  bottom: { style: BorderStyle.SINGLE, size: 1, color },
-  left: { style: BorderStyle.SINGLE, size: 1, color },
-});
+/* ── Helpers ───────────────────────────────────────────────────────── */
 
-const buildParagraph = (
-  text: string,
-  options?: {
-    alignment?: (typeof AlignmentType)[keyof typeof AlignmentType];
-    bold?: boolean;
-    color?: string;
-    ltr?: boolean;
-    size?: number;
-    spacingAfter?: number;
-    spacingBefore?: number;
-    lineSpacing?: number;
-  },
-) => new Paragraph({
-  alignment: options?.alignment ?? AlignmentType.RIGHT,
-  bidirectional: !options?.ltr,
-  spacing: {
-    after: options?.spacingAfter ?? 0,
-    before: options?.spacingBefore ?? 0,
-    line: options?.lineSpacing ?? 276,     // 1.15 line spacing (276 twips = 1.15x)
-  },
-  children: [
-    new TextRun({
-      bold: options?.bold ?? false,
-      color: options?.color ?? '000000',
-      font: wordFont,
-      rightToLeft: !options?.ltr,
-      size: options?.size ?? 24,           // 12pt
-      text: options?.ltr ? forceLtr(text) : text,
-    }),
-  ],
-});
-
-const buildCell = (
-  text: string,
-  options?: {
-    alignment?: (typeof AlignmentType)[keyof typeof AlignmentType];
-    bold?: boolean;
-    fill?: string;
-    ltr?: boolean;
-    size?: number;
-    textColor?: string;
-    width: number;
-  },
-) => new TableCell({
-  borders: cellBorders(options?.fill ? '000000' : '555555'),
-  children: [
-    buildParagraph(text, {
-      alignment: options?.alignment ?? AlignmentType.RIGHT,
-      bold: options?.bold,
-      color: options?.textColor,
-      ltr: options?.ltr,
-      size: options?.size ?? 22,           // 11pt for table body
-    }),
-  ],
-  margins: {
-    bottom: 80,
-    left: 100,
-    right: 100,
-    top: 80,
-  },
-  shading: options?.fill ? { fill: options.fill } : undefined,
-  width: { size: options?.width ?? 20, type: WidthType.PERCENTAGE },
-});
+const forceLtr = (v: string) => `\u200E${v}\u200E`;
 
 const formatArabicDate = (date: Date, withWeekday = false) =>
   date.toLocaleDateString('ar-u-nu-latn', {
@@ -106,151 +59,255 @@ const formatArabicDate = (date: Date, withWeekday = false) =>
     year: 'numeric',
   });
 
-const buildCourtTitleTable = (court: string, count: number) => new Table({
-  borders: cellBorders('000000'),
-  layout: TableLayoutType.FIXED,
-  rows: [
-    new TableRow({
-      children: [
-        buildCell(`${court} — ${count} جلسة`, {
-          alignment: AlignmentType.RIGHT,
-          bold: true,
-          fill: '1a2a44',
-          size: 24,
-          textColor: 'FFFFFF',
-          width: 100,
-        }),
-      ],
-    }),
-  ],
-  width: { size: 100, type: WidthType.PERCENTAGE },
+const thinBorder = (color = 'BBBBBB') => ({
+  top:    { style: BorderStyle.SINGLE, size: 1, color },
+  right:  { style: BorderStyle.SINGLE, size: 1, color },
+  bottom: { style: BorderStyle.SINGLE, size: 1, color },
+  left:   { style: BorderStyle.SINGLE, size: 1, color },
 });
 
-const buildSessionsTable = (rows: Array<{
-  clientName: string;
-  caseNumber: string;
-  nextSession: string;
-  opponentName: string;
-  sessionDate: string;
-}>) => new Table({
-  layout: TableLayoutType.FIXED,
-  rows: [
-    new TableRow({
-      tableHeader: true,
-      children: [
-        buildCell('#', { alignment: AlignmentType.CENTER, bold: true, fill: 'E8E8E8', size: 22, width: 5 }),
-        buildCell('الموكل', { alignment: AlignmentType.RIGHT, bold: true, fill: 'E8E8E8', size: 22, width: 22 }),
-        buildCell('رقم الملف', { alignment: AlignmentType.CENTER, bold: true, fill: 'E8E8E8', size: 22, width: 17 }),
-        buildCell('الخصم', { alignment: AlignmentType.RIGHT, bold: true, fill: 'E8E8E8', size: 22, width: 22 }),
-        buildCell('تاريخ الجلسة', { alignment: AlignmentType.CENTER, bold: true, fill: 'E8E8E8', size: 22, width: 17 }),
-        buildCell('الجلسة المقبلة', { alignment: AlignmentType.CENTER, bold: true, fill: 'E8E8E8', size: 22, width: 17 }),
-      ],
-    }),
-    ...rows.map((row, index) => new TableRow({
-      children: [
-        buildCell(String(index + 1), { alignment: AlignmentType.CENTER, size: 20, width: 5 }),
-        buildCell(row.clientName, { alignment: AlignmentType.RIGHT, size: 22, width: 22 }),
-        buildCell(row.caseNumber, { alignment: AlignmentType.CENTER, ltr: true, size: 20, width: 17 }),
-        buildCell(row.opponentName, { alignment: AlignmentType.RIGHT, size: 22, width: 22 }),
-        buildCell(row.sessionDate, { alignment: AlignmentType.CENTER, size: 20, width: 17 }),
-        buildCell(row.nextSession, { alignment: AlignmentType.CENTER, size: 20, width: 17 }),
-      ],
-    })),
-  ],
-  width: { size: 100, type: WidthType.PERCENTAGE },
+const noBorder = () => ({
+  top:    { style: BorderStyle.NONE, size: 0, color: WHITE },
+  right:  { style: BorderStyle.NONE, size: 0, color: WHITE },
+  bottom: { style: BorderStyle.NONE, size: 0, color: WHITE },
+  left:   { style: BorderStyle.NONE, size: 0, color: WHITE },
 });
+
+/* ── Text Builders ─────────────────────────────────────────────────── */
+
+const txt = (
+  text: string,
+  opts?: {
+    alignment?: (typeof AlignmentType)[keyof typeof AlignmentType];
+    bold?: boolean;
+    color?: string;
+    ltr?: boolean;
+    size?: number;
+  },
+) =>
+  new Paragraph({
+    alignment: opts?.alignment ?? AlignmentType.RIGHT,
+    bidirectional: true,
+    spacing: { before: 0, after: 0, line: 276 },
+    children: [
+      new TextRun({
+        text: opts?.ltr ? forceLtr(text) : text,
+        font: FONT,
+        size: opts?.size ?? BODY_SIZE,
+        bold: opts?.bold ?? false,
+        color: opts?.color ?? DARK_GRAY,
+        rightToLeft: !opts?.ltr,
+      }),
+    ],
+  });
+
+/* ── Cell Builder ──────────────────────────────────────────────────── */
+
+const cell = (
+  text: string,
+  width: number,
+  opts?: {
+    alignment?: (typeof AlignmentType)[keyof typeof AlignmentType];
+    bold?: boolean;
+    fill?: string;
+    ltr?: boolean;
+    size?: number;
+    textColor?: string;
+    borderColor?: string;
+  },
+) =>
+  new TableCell({
+    borders: thinBorder(opts?.borderColor ?? (opts?.fill === NAVY ? NAVY : 'CCCCCC')),
+    verticalAlign: VerticalAlign.CENTER,
+    width: { size: width, type: WidthType.PERCENTAGE },
+    shading: opts?.fill ? { fill: opts.fill } : undefined,
+    margins: { top: 100, bottom: 100, left: 120, right: 120 },
+    children: [
+      new Paragraph({
+        alignment: opts?.alignment ?? AlignmentType.CENTER,
+        bidirectional: true,
+        spacing: { before: 0, after: 0, line: 260 },
+        children: [
+          new TextRun({
+            text: opts?.ltr ? forceLtr(text) : text,
+            font: FONT,
+            size: opts?.size ?? BODY_SIZE,
+            bold: opts?.bold ?? false,
+            color: opts?.textColor ?? DARK_GRAY,
+            rightToLeft: !opts?.ltr,
+          }),
+        ],
+      }),
+    ],
+  });
+
+/* ── Column Definition ─────────────────────────────────────────────── */
+
+const COLUMNS = [
+  { label: '#',             width: 5,  align: AlignmentType.CENTER },
+  { label: 'الموكل',        width: 20, align: AlignmentType.RIGHT },
+  { label: 'رقم الملف',     width: 15, align: AlignmentType.CENTER },
+  { label: 'الخصم',         width: 20, align: AlignmentType.RIGHT },
+  { label: 'تاريخ الجلسة',  width: 15, align: AlignmentType.CENTER },
+  { label: 'الجلسة المقبلة', width: 15, align: AlignmentType.CENTER },
+  { label: 'ملاحظات',       width: 10, align: AlignmentType.RIGHT },
+] as const;
+
+/* ── Court Title Banner ────────────────────────────────────────────── */
+
+const courtBanner = (court: string, count: number) =>
+  new Table({
+    layout: TableLayoutType.FIXED,
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [
+      new TableRow({
+        children: [
+          cell(`${court}  —  ${count} جلسة`, 100, {
+            alignment: AlignmentType.RIGHT,
+            bold: true,
+            fill: NAVY,
+            textColor: WHITE,
+            size: HEADER_SIZE,
+            borderColor: NAVY,
+          }),
+        ],
+      }),
+    ],
+  });
+
+/* ── Sessions Table ────────────────────────────────────────────────── */
+
+const sessionsTable = (
+  rows: Array<{
+    clientName: string;
+    caseNumber: string;
+    nextSession: string;
+    opponentName: string;
+    sessionDate: string;
+    notes: string;
+  }>,
+) => {
+  // Header row
+  const headerRow = new TableRow({
+    tableHeader: true,
+    children: COLUMNS.map(col =>
+      cell(col.label, col.width, {
+        alignment: AlignmentType.CENTER,
+        bold: true,
+        fill: LIGHT_BG,
+        textColor: NAVY,
+        size: HEADER_SIZE,
+        borderColor: 'BBBBBB',
+      }),
+    ),
+  });
+
+  // Data rows with alternating backgrounds
+  const dataRows = rows.map((row, i) => {
+    const bg = i % 2 === 1 ? ROW_ALT : undefined;
+    return new TableRow({
+      children: [
+        cell(String(i + 1), COLUMNS[0].width, { alignment: AlignmentType.CENTER, fill: bg, size: SMALL_SIZE }),
+        cell(row.clientName, COLUMNS[1].width, { alignment: AlignmentType.RIGHT, fill: bg }),
+        cell(row.caseNumber, COLUMNS[2].width, { alignment: AlignmentType.CENTER, ltr: true, fill: bg }),
+        cell(row.opponentName, COLUMNS[3].width, { alignment: AlignmentType.RIGHT, fill: bg }),
+        cell(row.sessionDate, COLUMNS[4].width, { alignment: AlignmentType.CENTER, fill: bg }),
+        cell(row.nextSession, COLUMNS[5].width, { alignment: AlignmentType.CENTER, fill: bg }),
+        cell(row.notes, COLUMNS[6].width, { alignment: AlignmentType.RIGHT, fill: bg, size: SMALL_SIZE }),
+      ],
+    });
+  });
+
+  return new Table({
+    layout: TableLayoutType.FIXED,
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [headerRow, ...dataRows],
+  });
+};
+
+/* ── Main Export ────────────────────────────────────────────────────── */
 
 export const exportCourtSessionsWord = async ({
   exportDate,
   getNextSession,
   mode,
   sessions,
-}: ExportCourtSessionsWordParams) => {
-  let dateStart: string;
-  let dateEnd: string;
-  let fileName: string;
-  let periodLabel: string;
-  let title: string;
+}: ExportParams) => {
+  // Determine date range & labels
+  let dateStart: string, dateEnd: string, fileName: string, periodLabel: string, title: string;
 
   if (mode === 'day') {
-    dateStart = format(exportDate, 'yyyy-MM-dd');
-    dateEnd = dateStart;
+    dateStart = dateEnd = format(exportDate, 'yyyy-MM-dd');
     title = 'جدول جلسات يومية';
     periodLabel = formatArabicDate(exportDate, true);
-    fileName = `جلسة_يوم_${format(exportDate, 'yyyy-MM-dd')}.docx`;
+    fileName = `جلسة_يوم_${dateStart}.docx`;
   } else {
-    const weekStart = startOfWeek(exportDate, { weekStartsOn: 1 });
-    const weekEnd = endOfWeek(exportDate, { weekStartsOn: 1 });
-    dateStart = format(weekStart, 'yyyy-MM-dd');
-    dateEnd = format(weekEnd, 'yyyy-MM-dd');
+    const ws = startOfWeek(exportDate, { weekStartsOn: 1 });
+    const we = endOfWeek(exportDate, { weekStartsOn: 1 });
+    dateStart = format(ws, 'yyyy-MM-dd');
+    dateEnd = format(we, 'yyyy-MM-dd');
     title = 'جدول الجلسات الأسبوعي';
-    periodLabel = `من ${formatArabicDate(weekStart)} إلى ${formatArabicDate(weekEnd)}`;
+    periodLabel = `من ${formatArabicDate(ws)} إلى ${formatArabicDate(we)}`;
     fileName = 'جدول_الجلسات_الأسبوع.docx';
   }
 
-  const filteredSessions = sessions.filter(session => session.session_date >= dateStart && session.session_date <= dateEnd);
+  const filtered = sessions.filter(s => s.session_date >= dateStart && s.session_date <= dateEnd);
+  if (!filtered.length) throw new Error('لا توجد جلسات في هذه الفترة');
 
-  if (filteredSessions.length === 0) {
-    throw new Error('لا توجد جلسات في هذه الفترة');
-  }
-
-  const groupedByCourt = filteredSessions.reduce<Record<string, SessionRecord[]>>((acc, session) => {
-    const courtName = session.cases?.court || 'محكمة غير محددة';
-    acc[courtName] = acc[courtName] || [];
-    acc[courtName].push(session);
+  // Group by court
+  const grouped = filtered.reduce<Record<string, SessionRecord[]>>((acc, s) => {
+    const court = s.cases?.court || 'محكمة غير محددة';
+    (acc[court] ??= []).push(s);
     return acc;
   }, {});
 
-  const sortedCourts = Object.entries(groupedByCourt).sort(([a], [b]) => a.localeCompare(b, 'ar'));
+  const sortedCourts = Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b, 'ar'));
 
+  // Build document children
   const children: Array<Paragraph | Table> = [
-    buildParagraph(title, {
+    // Title
+    txt(title, { alignment: AlignmentType.CENTER, bold: true, size: TITLE_SIZE, color: NAVY }),
+    new Paragraph({ spacing: { after: 60 } }),
+    // Period
+    txt(periodLabel, { alignment: AlignmentType.CENTER, size: SUBTITLE_SIZE, color: MID_GRAY }),
+    new Paragraph({ spacing: { after: 40 } }),
+    // Stats
+    txt(`عدد الجلسات: ${filtered.length}  |  عدد المحاكم: ${sortedCourts.length}`, {
       alignment: AlignmentType.CENTER,
-      bold: true,
-      size: 36,                           // 18pt — clear title
-      spacingAfter: 160,
+      size: SMALL_SIZE,
+      color: MID_GRAY,
     }),
-    buildParagraph(periodLabel, {
-      alignment: AlignmentType.CENTER,
-      color: '555555',
-      size: 24,                           // 12pt
-      spacingAfter: 100,
-    }),
-    buildParagraph(`عدد الجلسات: ${filteredSessions.length} | عدد المحاكم: ${sortedCourts.length}`, {
-      alignment: AlignmentType.CENTER,
-      color: '666666',
-      size: 20,                           // 10pt
-      spacingAfter: 300,
-    }),
+    new Paragraph({ spacing: { after: 300 } }),
   ];
 
-  sortedCourts.forEach(([courtName, courtSessions], courtIndex) => {
-    const rows = courtSessions.map(session => {
-      const nextSessionDate = getNextSession(session.case_id, session.session_date);
+  sortedCourts.forEach(([courtName, courtSessions], idx) => {
+    const rows = courtSessions.map(s => {
+      const next = getNextSession(s.case_id, s.session_date);
       return {
-        caseNumber: session.cases?.case_number || '—',
-        clientName: session.cases?.clients?.full_name || '—',
-        nextSession: nextSessionDate ? formatArabicDate(new Date(`${nextSessionDate}T00:00:00`)) : '—',
-        opponentName: session.cases?.opposing_party || '—',
-        sessionDate: formatArabicDate(new Date(`${session.session_date}T00:00:00`)),
+        caseNumber: s.cases?.case_number || '—',
+        clientName: s.cases?.clients?.full_name || '—',
+        nextSession: next ? formatArabicDate(new Date(`${next}T00:00:00`)) : '—',
+        opponentName: s.cases?.opposing_party || '—',
+        sessionDate: formatArabicDate(new Date(`${s.session_date}T00:00:00`)),
+        notes: s.notes || '',
       };
     });
 
-    children.push(buildCourtTitleTable(courtName, courtSessions.length));
-    children.push(buildSessionsTable(rows));
+    children.push(courtBanner(courtName, courtSessions.length));
+    children.push(sessionsTable(rows));
 
-    if (courtIndex < sortedCourts.length - 1) {
-      children.push(new Paragraph({ spacing: { after: 240 } }));
+    if (idx < sortedCourts.length - 1) {
+      children.push(new Paragraph({ spacing: { after: 300 } }));
     }
   });
 
+  // Footer
   children.push(
-    new Paragraph({ spacing: { before: 400 } }),
-    buildParagraph(`تم إنشاء الملف بتاريخ ${formatArabicDate(new Date())}`, {
+    new Paragraph({ spacing: { before: 500 } }),
+    txt(`تم إنشاء الملف بتاريخ ${formatArabicDate(new Date())}`, {
       alignment: AlignmentType.CENTER,
-      color: '999999',
-      size: 18,                           // 9pt
-      spacingAfter: 0,
+      color: 'AAAAAA',
+      size: 18,
     }),
   );
 
@@ -260,12 +317,7 @@ export const exportCourtSessionsWord = async ({
         children,
         properties: {
           page: {
-            margin: {
-              top: 1134,       // 2cm (1134 twips)
-              bottom: 1134,    // 2cm
-              left: 1418,      // 2.5cm (wider for binding)
-              right: 1134,     // 2cm
-            },
+            margin: { top: 850, bottom: 850, left: 1000, right: 850 },
             size: { orientation: PageOrientation.LANDSCAPE },
           },
         },
