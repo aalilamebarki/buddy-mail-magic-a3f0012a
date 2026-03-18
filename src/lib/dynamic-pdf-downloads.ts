@@ -87,7 +87,7 @@ const getStatementItemsForCase = (
   return sourceItems.filter(item => item.case_id === caseId);
 };
 
-export const downloadFeeStatementPdf = async (statement: FeeStatementRecord) => {
+const buildStatementData = (statement: FeeStatementRecord) => {
   const caseDetails = statement.fee_statement_cases && statement.fee_statement_cases.length > 0
     ? statement.fee_statement_cases.map(statementCase => {
         const caseItems = getStatementItemsForCase(statement.fee_statement_items, statementCase.case_id);
@@ -130,7 +130,7 @@ export const downloadFeeStatementPdf = async (statement: FeeStatementRecord) => 
         totalAmount: Number(statement.total_amount || 0),
       }];
 
-  const pdfBlob = await generateFeeStatementPDF({
+  return {
     statementNumber: statement.statement_number,
     signatureUuid: statement.signature_uuid,
     clientName: statement.clients?.full_name || '—',
@@ -148,7 +148,15 @@ export const downloadFeeStatementPdf = async (statement: FeeStatementRecord) => 
     date: formatDateArabic(statement.created_at, { year: 'numeric', month: 'long', day: 'numeric' }),
     lawyerName: statement.letterheads?.lawyer_name || 'مكتب المحاماة',
     letterhead: mapLetterhead(statement.letterheads),
-  });
+  };
+};
 
+export const downloadFeeStatementPdf = async (statement: FeeStatementRecord) => {
+  const pdfBlob = await generateFeeStatementPDF(buildStatementData(statement));
   downloadBlob(pdfBlob, `${statement.statement_number}.pdf`);
+};
+
+export const previewFeeStatementPdf = async (statement: FeeStatementRecord) => {
+  const pdfBlob = await generateFeeStatementPDF(buildStatementData(statement));
+  previewBlob(pdfBlob);
 };
