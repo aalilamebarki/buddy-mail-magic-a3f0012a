@@ -198,7 +198,7 @@ const Letterheads = () => {
     writeStoredDraft(draftBeforeUpload);
     setUploadingTemplate(true);
     setTemplateFile(nextFile);
-    setPreviewHtml(null);
+    previewRef.current?.clear();
     setShowForm(true);
 
     try {
