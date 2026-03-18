@@ -347,12 +347,20 @@ const buildStatementRows = (caseDetails: CaseDetailData[]): StatementRow[] => {
 };
 
 export const generateFeeStatementPDF = async (data: FeeStatementData): Promise<Blob> => {
-  const fontBase64 = await loadAmiriFont();
+  const [amiriBase64, plexBase64] = await Promise.all([
+    loadFont('/fonts/Amiri-Regular.ttf'),
+    loadFont('/fonts/IBMPlexSansArabic-Regular.ttf'),
+  ]);
+
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-  doc.addFileToVFS('Amiri-Regular.ttf', fontBase64);
+  doc.addFileToVFS('Amiri-Regular.ttf', amiriBase64);
   doc.addFont('Amiri-Regular.ttf', 'Amiri', 'normal');
-  doc.setFont('Amiri');
+
+  doc.addFileToVFS('IBMPlexSansArabic-Regular.ttf', plexBase64);
+  doc.addFont('IBMPlexSansArabic-Regular.ttf', 'IBMPlex', 'normal');
+
+  doc.setFont('IBMPlex');
 
   const pageWidth = 210;
   const margin = 22;
