@@ -109,7 +109,7 @@ export const exportTaxReportPDF = async (
   doc.setFontSize(8);
   doc.setTextColor(100, 100, 100);
   doc.text(
-    `${annualTotals.invoiceCount} وصل أداء — ${annualTotals.feeStatementCount} بيان أتعاب`,
+    `${annualTotals.invoiceCount} وصل أداء — ${annualTotals.feeStatementCount} بيان الأتعاب`,
     pw / 2, 53, { align: 'center' }
   );
 

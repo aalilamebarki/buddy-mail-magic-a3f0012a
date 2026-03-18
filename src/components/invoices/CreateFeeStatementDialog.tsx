@@ -454,7 +454,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" />
-            {step === 'preview' ? 'معاينة البيان' : isEdit ? 'تعديل بيان الأتعاب' : 'بيان أتعاب ومصاريف جديد'}
+            {step === 'preview' ? 'معاينة البيان' : isEdit ? 'تعديل بيان الأتعاب' : 'بيان الأتعاب والمصاريف جديد'}
           </DialogTitle>
         </DialogHeader>
 
