@@ -161,6 +161,15 @@ const FeeStatements = () => {
                               variant="ghost"
                               size="sm"
                               className="h-7 w-7 p-0"
+                              title="معاينة"
+                              onClick={() => navigate(`/fee-statement-preview/${s.id}`)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0"
                               title="تعديل"
                               onClick={() => openEdit(s)}
                             >
