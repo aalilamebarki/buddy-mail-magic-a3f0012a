@@ -131,8 +131,7 @@ const buildCourtSection = (
         bold: true,
         fill: HEADER_BG,
         color: NAVY,
-        size: 24,
-        alignment: AlignmentType.CENTER,
+        size: 22,
       }),
     ),
   });
@@ -142,9 +141,9 @@ const buildCourtSection = (
     new TableRow({
       children: [
         makeCell(row.clientName, COLS[0].width),
-        makeCell(row.caseNumber, COLS[1].width, { alignment: AlignmentType.CENTER }),
+        makeCell(row.caseNumber, COLS[1].width),
         makeCell(row.opponentName, COLS[2].width),
-        makeCell(row.nextSession, COLS[3].width, { alignment: AlignmentType.CENTER }),
+        makeCell(row.nextSession, COLS[3].width),
         makeCell(row.notes, COLS[4].width, { size: 20 }),
       ],
     }),
