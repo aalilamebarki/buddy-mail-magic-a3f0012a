@@ -677,11 +677,31 @@ const Letterheads = () => {
               </div>
             )}
 
-            {previewHtml && !previewLoading && (
+            {previewUrl && !previewLoading && (
+              <div className="border border-border rounded-lg overflow-hidden">
+                <div className="bg-muted/50 px-3 py-1.5 flex items-center justify-between border-b border-border">
+                  <div className="flex items-center gap-1.5">
+                    <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-xs font-medium text-muted-foreground">معاينة حية للملف</span>
+                  </div>
+                  <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setPreviewUrl(null)}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+                <iframe
+                  src={previewUrl}
+                  className="w-full h-[450px] bg-white"
+                  title="معاينة القالب"
+                  sandbox="allow-scripts allow-same-origin allow-popups"
+                />
+              </div>
+            )}
+
+            {previewHtml && !previewUrl && !previewLoading && (
               <div className="border border-border rounded-lg overflow-hidden">
                 <div className="bg-muted/50 px-3 py-1.5 flex items-center gap-1.5 border-b border-border">
                   <Eye className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-medium text-muted-foreground">معاينة القالب</span>
+                  <span className="text-xs font-medium text-muted-foreground">معاينة القالب (مبسطة)</span>
                 </div>
                 <ScrollArea className="h-[300px]">
                   <div
