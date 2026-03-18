@@ -296,7 +296,7 @@ const Letterheads = () => {
         if (error) throw error;
         toast({ title: 'تم تعديل الترويسة ✅' });
       } else {
-        const { error } = await supabase.from('letterheads').insert(payload);
+        const { error } = await supabase.from('letterheads').insert(payload as any);
         if (error) throw error;
         toast({ title: 'تم إضافة الترويسة ✅' });
       }
