@@ -450,13 +450,14 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-primary" />
-            {step === 'preview' ? 'معاينة البيان' : isEdit ? 'تعديل بيان الأتعاب' : 'بيان الأتعاب والمصاريف جديد'}
-          </DialogTitle>
-        </DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              {step === 'preview' ? 'معاينة البيان' : isEdit ? 'تعديل بيان الأتعاب' : 'بيان الأتعاب والمصاريف جديد'}
+            </DialogTitle>
+          </DialogHeader>
 
         {step === 'preview' ? (
           /* ─── PREVIEW STEP ─── */
