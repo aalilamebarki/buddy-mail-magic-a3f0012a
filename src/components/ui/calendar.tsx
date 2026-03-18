@@ -49,15 +49,9 @@ function Calendar({
 
   const animateAndChange = React.useCallback(
     (direction: 1 | -1) => {
-      const dir = direction > 0 ? "left" : "right";
-      setSlideDir(dir);
       setTranslateX(0);
       setIsSwiping(false);
-
-      setTimeout(() => {
-        handleMonthChange(addMonths(activeMonthRef.current, direction));
-        setSlideDir(null);
-      }, 200);
+      handleMonthChange(addMonths(activeMonthRef.current, direction));
     },
     [handleMonthChange],
   );
