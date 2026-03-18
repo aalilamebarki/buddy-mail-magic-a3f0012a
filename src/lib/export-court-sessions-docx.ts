@@ -165,7 +165,7 @@ const buildDayHeading = (date: Date): Paragraph =>
   new Paragraph({
     alignment: AlignmentType.CENTER,
     bidirectional: true,
-    spacing: { before: 400, after: 150 },
+    spacing: { before: 250, after: 80 },
     children: [
       new TextRun({
         text: formatArabicDate(date, true),
