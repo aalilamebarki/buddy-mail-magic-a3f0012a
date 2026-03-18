@@ -105,9 +105,11 @@ const Letterheads = () => {
   const [pendingTemplateName, setPendingTemplateName] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+  const [previewReady, setPreviewReady] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
 
   const setField = (key: keyof LetterheadFormFields, value: string) =>
     setFields(prev => ({ ...prev, [key]: value }));
