@@ -457,11 +457,51 @@ const CourtSessions = () => {
             {/* المطلوب */}
             <div className="space-y-2">
               <Label>المطلوب في هذه الجلسة *</Label>
-              <Input
-                value={requiredAction}
-                onChange={e => setRequiredAction(e.target.value)}
-                placeholder="مثال: الإدلاء بمذكرة جوابية، شهادة التسليم..."
-              />
+              <Popover open={actionPopoverOpen} onOpenChange={setActionPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                    {requiredAction || <span className="text-muted-foreground">اختر المطلوب...</span>}
+                    <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0 pointer-events-auto" align="start">
+                  <Command>
+                    <CommandInput placeholder="ابحث أو اكتب مطلوباً جديداً..." value={actionSearch} onValueChange={setActionSearch} />
+                    <CommandList>
+                      <CommandEmpty>
+                        {actionSearch.trim() ? (
+                          <button
+                            className="w-full px-3 py-2 text-sm text-right hover:bg-accent cursor-pointer"
+                            onClick={() => {
+                              setRequiredAction(actionSearch.trim());
+                              setActionSearch('');
+                              setActionPopoverOpen(false);
+                            }}
+                          >
+                            إضافة: <span className="font-medium">{actionSearch.trim()}</span>
+                          </button>
+                        ) : 'لا توجد نتائج'}
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {filteredActions.map(action => (
+                          <CommandItem
+                            key={action}
+                            value={action}
+                            onSelect={() => {
+                              setRequiredAction(action);
+                              setActionSearch('');
+                              setActionPopoverOpen(false);
+                            }}
+                          >
+                            <Check className={cn("h-4 w-4 ml-2", requiredAction === action ? "opacity-100" : "opacity-0")} />
+                            {action}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* Notes */}
