@@ -57,24 +57,24 @@ const border = () => ({
 const makeCell = (
   text: string,
   width: number,
-  opts?: { bold?: boolean; fill?: string; color?: string; size?: number; alignment?: (typeof AlignmentType)[keyof typeof AlignmentType] },
+  opts?: { bold?: boolean; fill?: string; color?: string; size?: number },
 ) =>
   new TableCell({
     borders: border(),
     verticalAlign: VerticalAlign.CENTER,
     width: { size: width, type: WidthType.PERCENTAGE },
     shading: opts?.fill ? { fill: opts.fill } : undefined,
-    margins: { top: 30, bottom: 30, left: 80, right: 80 },
+    margins: { top: 15, bottom: 15, left: 40, right: 40 },
     children: [
       new Paragraph({
-        alignment: opts?.alignment ?? AlignmentType.RIGHT,
+        alignment: AlignmentType.CENTER,
         bidirectional: true,
         spacing: { before: 0, after: 0 },
         children: [
           new TextRun({
             text,
             font: FONT,
-            size: opts?.size ?? 24,
+            size: opts?.size ?? 22,
             bold: opts?.bold ?? false,
             color: opts?.color ?? '000000',
             rightToLeft: true,
@@ -110,7 +110,7 @@ const buildCourtSection = (
   const title = new Paragraph({
     alignment: AlignmentType.CENTER,
     bidirectional: true,
-    spacing: { before: 200, after: 80 },
+    spacing: { before: 100, after: 40 },
     children: [
       new TextRun({
         text: courtName,
@@ -131,8 +131,7 @@ const buildCourtSection = (
         bold: true,
         fill: HEADER_BG,
         color: NAVY,
-        size: 24,
-        alignment: AlignmentType.CENTER,
+        size: 22,
       }),
     ),
   });
@@ -142,9 +141,9 @@ const buildCourtSection = (
     new TableRow({
       children: [
         makeCell(row.clientName, COLS[0].width),
-        makeCell(row.caseNumber, COLS[1].width, { alignment: AlignmentType.CENTER }),
+        makeCell(row.caseNumber, COLS[1].width),
         makeCell(row.opponentName, COLS[2].width),
-        makeCell(row.nextSession, COLS[3].width, { alignment: AlignmentType.CENTER }),
+        makeCell(row.nextSession, COLS[3].width),
         makeCell(row.notes, COLS[4].width, { size: 20 }),
       ],
     }),
@@ -166,7 +165,7 @@ const buildDayHeading = (date: Date): Paragraph =>
   new Paragraph({
     alignment: AlignmentType.CENTER,
     bidirectional: true,
-    spacing: { before: 400, after: 150 },
+    spacing: { before: 250, after: 80 },
     children: [
       new TextRun({
         text: formatArabicDate(date, true),
@@ -304,8 +303,8 @@ export const exportCourtSessionsWord = async ({
       children,
       properties: {
         page: {
-          margin: { top: 700, bottom: 700, left: 800, right: 800 },
-          size: { orientation: PageOrientation.LANDSCAPE },
+          margin: { top: 567, bottom: 567, left: 567, right: 567 },
+          size: { width: 11906, height: 16838 },
         },
       },
     }],
