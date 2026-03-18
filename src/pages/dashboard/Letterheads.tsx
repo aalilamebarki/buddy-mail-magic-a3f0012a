@@ -340,11 +340,15 @@ const Letterheads = () => {
       const { data, error } = await supabase.storage.from('letterhead-templates').download(path);
       if (error || !data) throw error || new Error('تعذر تحميل القالب');
 
-      const extracted = await extractLetterheadInfo(data);
+      const [extracted, structure] = await Promise.all([
+        extractLetterheadInfo(data),
+        parseLetterheadStructure(data),
+      ]);
+      setParsedStructure(structure);
+
       const newFields = { ...fields };
       let filled = 0;
 
-      // Overwrite empty fields with extracted values
       if (extracted.lawyerName && !fields.lawyerName) { newFields.lawyerName = extracted.lawyerName; filled++; }
       if (extracted.nameFr) { newFields.nameFr = extracted.nameFr; filled++; }
       if (extracted.titleAr) { newFields.titleAr = extracted.titleAr; filled++; }
@@ -357,10 +361,13 @@ const Letterheads = () => {
       if (extracted.email) { newFields.email = extracted.email; filled++; }
 
       setFields(newFields);
+      const structInfo = structure.headerParagraphs.length > 0
+        ? ` + بنية الترويسة (${structure.headerParagraphs.length} فقرات)`
+        : '';
       if (filled > 0) {
-        toast({ title: `تم استخراج ${filled} حقول من القالب ✅`, description: 'راجع البيانات ثم اضغط حفظ' });
+        toast({ title: `تم استخراج ${filled} حقول${structInfo} ✅`, description: 'راجع البيانات ثم اضغط حفظ' });
       } else {
-        toast({ title: 'لم يتم العثور على بيانات إضافية في القالب', variant: 'destructive' });
+        toast({ title: `لم يتم العثور على بيانات إضافية${structInfo}`, variant: filled === 0 && !structInfo ? 'destructive' : 'default' });
       }
     } catch (e: any) {
       toast({ title: 'خطأ في استخراج البيانات', description: e.message, variant: 'destructive' });
