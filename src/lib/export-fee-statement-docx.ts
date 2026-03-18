@@ -623,6 +623,7 @@ export const exportFeeStatementDocx = async (statement: FeeStatementRecord) => {
   children.push(
     new Paragraph({
       alignment: AlignmentType.CENTER,
+      bidirectional: true,
       spacing: { before: 200, after: 0 },
       border: { top: { style: BorderStyle.SINGLE, size: 1, color: GOLD } },
       children: [
@@ -631,6 +632,7 @@ export const exportFeeStatementDocx = async (statement: FeeStatementRecord) => {
           font: FONT,
           size: 13,
           color: TEXT_LIGHT,
+          rightToLeft: true,
         }),
       ],
     }),
