@@ -215,6 +215,7 @@ const renderHeader = (
 
   let y = 17;
 
+  doc.setFont('Amiri');
   doc.setFontSize(16);
   doc.setTextColor(...NAVY);
   doc.text('مكتب الأستاذ', centerX, y, { align: 'center' });
@@ -227,6 +228,7 @@ const renderHeader = (
   y += nameLines.length * 9;
 
   if (title) {
+    doc.setFont('IBMPlex');
     doc.setFontSize(14);
     doc.setTextColor(...GOLD);
     doc.text(title, centerX, y, { align: 'center' });
