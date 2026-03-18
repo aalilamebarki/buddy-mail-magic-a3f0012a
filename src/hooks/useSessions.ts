@@ -7,6 +7,7 @@ export interface SessionRecord {
   case_id: string;
   session_date: string;
   notes: string | null;
+  required_action: string;
   status: string;
   user_id: string;
   created_at: string;

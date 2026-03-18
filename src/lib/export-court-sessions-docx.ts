@@ -90,7 +90,7 @@ const COLS = [
   { label: 'الموكل', width: 20 },
   { label: 'رقم الملف', width: 16 },
   { label: 'الخصم', width: 20 },
-  { label: 'الجلسة المقبلة', width: 14 },
+  { label: 'المطلوب', width: 14 },
   { label: 'ملاحظات', width: 30 },
 ];
 
