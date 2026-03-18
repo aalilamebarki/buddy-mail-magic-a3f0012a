@@ -63,8 +63,17 @@ const CourtSessions = () => {
 
   const filteredActions = useMemo(() => {
     if (!actionSearch) return actionOptions;
-    const q = actionSearch.toLowerCase();
-    return actionOptions.filter(a => a.toLowerCase().includes(q));
+    // Normalize Arabic: remove ال, diacritics, normalize hamza forms
+    const normalize = (s: string) =>
+      s.replace(/[\u0610-\u065F\u06D6-\u06ED]/g, '') // strip tashkeel
+       .replace(/^ال/g, '').replace(/ ال/g, ' ')      // strip ال
+       .replace(/[إأآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي') // normalize
+       .toLowerCase().trim();
+    const words = normalize(actionSearch).split(/\s+/).filter(Boolean);
+    return actionOptions.filter(a => {
+      const norm = normalize(a);
+      return words.every(w => norm.includes(w));
+    });
   }, [actionOptions, actionSearch]);
 
   const filteredCases = useMemo(() => {
