@@ -74,6 +74,7 @@ interface Letterhead {
   id: string;
   lawyer_name: string;
   template_path: string | null;
+  header_data: any;
 }
 
 interface ReferenceDocument {
