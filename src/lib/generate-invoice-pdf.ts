@@ -6,6 +6,7 @@ import {
   PW, MARGIN, RX, CW, CX,
   registerFonts, fmt, hline, numberToArabicWords, goldLine,
   drawPageFrame, drawHeader, drawFooter, drawDateAndSignature, ensureSpace,
+  drawOrnament, drawInfoRow,
 } from './pdf-utils';
 
 interface InvoiceData {
@@ -39,15 +40,15 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
   const city = lh?.city || '';
 
   const verificationUrl = `${window.location.origin}/verify/${data.signatureUuid}`;
-  const qrDataUrl = await QRCode.toDataURL(verificationUrl, { width: 200, margin: 1 });
+  const qrDataUrl = await QRCode.toDataURL(verificationUrl, { width: 200, margin: 1, color: { dark: '#1a2a44', light: '#ffffff' } });
 
   /* ── 1. Page frame ── */
   drawPageFrame(doc);
-  let y = 18;
+  let y = 16;
 
   /* ── 2. Bilingual Header ── */
   y = drawHeader(doc, lawyerName, lh, y);
-  y += 6;
+  y += 5;
 
   /* ── 3. Title — وصل أداء / Reçu de paiement ── */
   doc.setFont('Amiri', 'normal');
@@ -57,122 +58,145 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
   y += 5;
 
   doc.setFont('IBMPlex', 'normal');
-  doc.setFontSize(8.5);
+  doc.setFontSize(8);
   doc.setTextColor(...TEXT3);
   doc.text('Reçu de paiement', CX, y, { align: 'center' });
   y += 4;
 
-  goldLine(doc, y, CX - 20, CX + 20);
-  y += 6;
+  goldLine(doc, y, CX - 18, CX + 18);
+  y += 5;
 
-  // Invoice number
-  doc.setFont('IBMPlex', 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(...TEXT2);
-  doc.text(`رقم الوصل: ${data.invoiceNumber}`, CX, y, { align: 'center' });
-  y += 8;
+  // Invoice number badge
+  const badgeW = 44;
+  doc.setFillColor(...BG);
+  doc.roundedRect(CX - badgeW / 2, y - 2, badgeW, 6.5, 1.5, 1.5, 'F');
+  doc.setDrawColor(...GOLD);
+  doc.setLineWidth(0.25);
+  doc.roundedRect(CX - badgeW / 2, y - 2, badgeW, 6.5, 1.5, 1.5, 'S');
+  doc.setFont('IBMPlex', 'bold');
+  doc.setFontSize(6.5);
+  doc.setTextColor(...NAVY);
+  doc.text(`رقم: ${data.invoiceNumber}`, CX, y + 2.5, { align: 'center' });
+  y += 9;
 
-  /* ── 4. Client info table ── */
-  const infoRows: [string, string][] = [
-    ['الموكل / Client', data.clientName],
+  /* ── 4. Client info card ── */
+  const infoRows: [string, string, string][] = [
+    ['الموكل', 'Client', data.clientName],
   ];
-  if (data.caseNumber) infoRows.push(['رقم الملف / N° Dossier', data.caseNumber]);
-  if (data.caseType || data.caseName) infoRows.push(['موضوع الملف / Objet', data.caseType || data.caseName || '']);
+  if (data.caseNumber) infoRows.push(['رقم الملف', 'N° Dossier', data.caseNumber]);
+  if (data.caseType || data.caseName) infoRows.push(['موضوع الملف', 'Objet', data.caseType || data.caseName || '']);
 
-  const rowH = 9;
-  const tableH = infoRows.length * rowH;
-
-  for (let i = 0; i < infoRows.length; i++) {
-    const ry = y + i * rowH;
-    if (i % 2 === 0) {
-      doc.setFillColor(...BG);
-      doc.rect(MARGIN, ry, CW, rowH, 'F');
-    }
-    // Right border accent
-    doc.setFillColor(...GOLD);
-    doc.rect(RX - 1.5, ry, 1.5, rowH, 'F');
-
-    // Label
-    doc.setFont('IBMPlex', 'normal');
-    doc.setFontSize(7);
-    doc.setTextColor(...GOLD);
-    doc.text(infoRows[i][0], RX - 5, ry + 3.5, { align: 'right' });
-
-    // Value
-    doc.setFontSize(10.5);
-    doc.setTextColor(...TEXT);
-    doc.text(infoRows[i][1], RX - 5, ry + 7.5, { align: 'right' });
-  }
-
-  // Table border
+  // Card border
+  const totalH = infoRows.length * 8.5 + 1;
   doc.setDrawColor(...BORDER);
   doc.setLineWidth(0.2);
-  doc.rect(MARGIN, y, CW, tableH, 'S');
+  doc.roundedRect(MARGIN, y - 0.5, CW, totalH, 1.5, 1.5, 'S');
 
-  y += tableH + 10;
+  for (let i = 0; i < infoRows.length; i++) {
+    y = drawInfoRow(doc, y, infoRows[i][0], infoRows[i][1], infoRows[i][2], i % 2 === 0, i === infoRows.length - 1);
+  }
+  y += 8;
 
   /* ── 5. Amount section ── */
-  y = ensureSpace(doc, y, 24);
-  doc.setFillColor(...NAVY);
-  doc.roundedRect(MARGIN, y, CW, 18, 2, 2, 'F');
+  y = ensureSpace(doc, y, 26);
 
-  doc.setFont('IBMPlex', 'normal');
-  doc.setFontSize(8.5);
+  // Navy card
+  const amountCardH = 20;
+  doc.setFillColor(...NAVY);
+  doc.roundedRect(MARGIN, y, CW, amountCardH, 2.5, 2.5, 'F');
+
+  // Gold inner accent
+  doc.setDrawColor(...GOLD);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(MARGIN + 1.5, y + 1.5, CW - 3, amountCardH - 3, 1.5, 1.5, 'S');
+
+  doc.setFont('IBMPlex', 'bold');
+  doc.setFontSize(8);
   doc.setTextColor(...GOLD);
-  doc.text('المبلغ المستلم / Montant reçu', RX - 5, y + 5, { align: 'right' });
+  doc.text('المبلغ المستلم', RX - 6, y + 6, { align: 'right' });
+  doc.setFont('IBMPlex', 'normal');
+  doc.setFontSize(6);
+  doc.text('Montant reçu', RX - 6, y + 10, { align: 'right' });
 
   doc.setFont('Amiri', 'normal');
-  doc.setFontSize(19);
+  doc.setFontSize(20);
   doc.setTextColor(255, 255, 255);
-  doc.text(`${fmt(data.amount)} MAD`, MARGIN + 5, y + 14, { align: 'left' });
+  doc.text(`${fmt(data.amount)} MAD`, MARGIN + 6, y + 14, { align: 'left' });
 
-  y += 22;
+  y += amountCardH + 5;
 
   // Tafkeet
   doc.setFont('IBMPlex', 'normal');
-  doc.setFontSize(8);
+  doc.setFontSize(7);
   doc.setTextColor(...TEXT2);
   const tafkeetText = 'المبلغ بالحروف:  ' + numberToArabicWords(data.amount);
   const tafkeetLines = doc.splitTextToSize(tafkeetText, CW - 8);
-  doc.text(tafkeetLines, RX - 4, y, { align: 'right' });
-  y += tafkeetLines.length * 4 + 4;
+  doc.text(tafkeetLines, CX, y, { align: 'center' });
+  y += tafkeetLines.length * 3.5 + 4;
 
   // Payment method
   const methodLabel = PAYMENT_METHODS[data.paymentMethod] || data.paymentMethod;
-  doc.setFontSize(8);
+  doc.setFont('IBMPlex', 'normal');
+  doc.setFontSize(7.5);
   doc.setTextColor(...TEXT2);
-  doc.text(`طريقة الأداء: ${methodLabel}  |  Mode de paiement: ${data.paymentMethod}`, RX - 4, y, { align: 'right' });
+  doc.text(`طريقة الأداء: ${methodLabel}`, RX - 4, y, { align: 'right' });
+  doc.setFontSize(6);
+  doc.setTextColor(...TEXT3);
+  doc.text(`Mode de paiement: ${data.paymentMethod}`, RX - 4, y + 3.5, { align: 'right' });
   y += 8;
 
   hline(doc, y, MARGIN, RX, BORDER, 0.2);
-  y += 8;
+  y += 6;
 
   /* ── 6. Legal statement ── */
-  y = ensureSpace(doc, y, 30);
-  doc.setFont('IBMPlex', 'normal');
-  doc.setFontSize(9.5);
-  doc.setTextColor(...TEXT);
+  y = ensureSpace(doc, y, 28);
+
+  // Subtle background for legal text
   const legalText = `يشهد الأستاذ ${lawyerName} باستلام المبلغ المذكور أعلاه من السيد(ة) ${data.clientName}، وذلك رسم مستحقات الملف المشار إليه أعلاه، ويعتبر هذا الوصل بمثابة إبراء ذمة نهائي بخصوص هذا الدفع.`;
-  const splitLegal = doc.splitTextToSize(legalText, CW - 8);
-  doc.text(splitLegal, CX, y, { align: 'center' });
-  y += splitLegal.length * 5 + 6;
+  
+  doc.setFont('IBMPlex', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(...TEXT);
+  const splitLegal = doc.splitTextToSize(legalText, CW - 12);
+  
+  // Background card
+  const legalH = splitLegal.length * 4.5 + 6;
+  doc.setFillColor(...BG);
+  doc.roundedRect(MARGIN, y - 2, CW, legalH, 1.5, 1.5, 'F');
+  doc.setFillColor(...GOLD);
+  doc.rect(RX - 1.5, y - 2, 1.5, legalH, 'F');
+  
+  doc.text(splitLegal, CX, y + 2, { align: 'center' });
+  y += legalH + 4;
 
   hline(doc, y, MARGIN, RX, BORDER, 0.2);
-  y += 10;
+  y += 8;
 
   /* ── 7. Date & Signature ── */
   y = ensureSpace(doc, y, 55);
   y = drawDateAndSignature(doc, y, data.date, city);
 
-  /* ── 8. QR Code — positioned dynamically ── */
-  y += 6;
+  /* ── 8. QR Code ── */
+  y += 5;
   y = ensureSpace(doc, y, 22);
-  const qrSize = 14;
-  doc.addImage(qrDataUrl, 'PNG', MARGIN + 2, y, qrSize, qrSize);
+
+  // QR with subtle card
+  const qrSize = 15;
+  const qrX = MARGIN + 3;
+
+  doc.setFillColor(...BG);
+  doc.roundedRect(qrX - 1, y - 1, qrSize + 40, qrSize + 2, 1, 1, 'F');
+  doc.setDrawColor(...BORDER);
+  doc.setLineWidth(0.15);
+  doc.roundedRect(qrX - 1, y - 1, qrSize + 40, qrSize + 2, 1, 1, 'S');
+
+  doc.addImage(qrDataUrl, 'PNG', qrX, y, qrSize, qrSize);
   doc.setFont('IBMPlex', 'normal');
   doc.setFontSize(5.5);
+  doc.setTextColor(...TEXT2);
+  doc.text('رمز التحقق', qrX + qrSize + 3, y + 4);
   doc.setTextColor(...TEXT3);
-  doc.text('رمز التحقق / Code de vérification', MARGIN + 2 + qrSize / 2, y + qrSize + 2, { align: 'center' });
+  doc.text('Code de vérification', qrX + qrSize + 3, y + 7.5);
 
   /* ── Footer ── */
   drawFooter(doc);
