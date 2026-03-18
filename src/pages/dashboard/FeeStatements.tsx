@@ -1,17 +1,18 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { FileText, Plus, Download, Loader2, Search, Pencil, Eye, FileDown } from 'lucide-react';
+import DocxPreview, { type DocxPreviewHandle } from '@/components/DocxPreview';
 import { Input } from '@/components/ui/input';
 import { useFeeStatements, type FeeStatementRecord } from '@/hooks/useFeeStatements';
 import { useToast } from '@/hooks/use-toast';
 import { formatDateShort } from '@/lib/formatters';
 import CreateFeeStatementDialog from '@/components/invoices/CreateFeeStatementDialog';
 import { downloadFeeStatementPdf } from '@/lib/dynamic-pdf-downloads';
-import { exportFeeStatementDocx } from '@/lib/export-fee-statement-docx';
+import { exportFeeStatementDocx, generateFeeStatementDocxBlob } from '@/lib/export-fee-statement-docx';
 
 /** بيان الأتعاب للسيد X ملف عدد Y — تاريخ — رقم */
 const buildStatementLabel = (s: FeeStatementRecord) => {
@@ -31,6 +32,20 @@ const FeeStatements = () => {
   const [editStatement, setEditStatement] = useState<FeeStatementRecord | null>(null);
   const [search, setSearch] = useState('');
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [previewing, setPreviewing] = useState<string | null>(null);
+  const docxPreviewRef = useRef<DocxPreviewHandle>(null);
+
+  const previewDocx = async (statement: FeeStatementRecord) => {
+    setPreviewing(statement.id);
+    try {
+      const blob = await generateFeeStatementDocxBlob(statement);
+      await docxPreviewRef.current?.previewBlob(blob);
+    } catch (e: any) {
+      toast({ title: 'خطأ في المعاينة', description: e.message, variant: 'destructive' });
+    } finally {
+      setPreviewing(null);
+    }
+  };
 
   const filtered = statements.filter(s =>
     !search ||
@@ -182,6 +197,18 @@ const FeeStatements = () => {
                               variant="ghost"
                               size="sm"
                               className="h-7 w-7 p-0"
+                              title="معاينة Word"
+                              onClick={() => previewDocx(s)}
+                              disabled={previewing === s.id}
+                            >
+                              {previewing === s.id
+                                ? <Loader2 className="h-4 w-4 animate-spin" />
+                                : <Eye className="h-4 w-4" />}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0"
                               title="تحميل PDF"
                               onClick={() => downloadPdf(s)}
                               disabled={downloading === s.id}
@@ -220,6 +247,8 @@ const FeeStatements = () => {
         onCreated={refetch}
         editData={editStatement}
       />
+
+      <DocxPreview ref={docxPreviewRef} title="معاينة بيان الأتعاب" />
     </div>
   );
 };

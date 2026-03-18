@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,8 +14,9 @@ import { useAccountingEntries } from '@/hooks/useAccounting';
 import { useToast } from '@/hooks/use-toast';
 import { formatDateShort } from '@/lib/formatters';
 import { exportAccountingExcel, exportAccountingPDF } from '@/lib/export-accounting';
-import { downloadInvoicePdf, downloadFeeStatementPdf, previewInvoicePdf, previewFeeStatementPdf } from '@/lib/dynamic-pdf-downloads';
-import { exportFeeStatementDocx } from '@/lib/export-fee-statement-docx';
+import { downloadInvoicePdf, downloadFeeStatementPdf, previewInvoicePdf } from '@/lib/dynamic-pdf-downloads';
+import { exportFeeStatementDocx, generateFeeStatementDocxBlob } from '@/lib/export-fee-statement-docx';
+import DocxPreview, { type DocxPreviewHandle } from '@/components/DocxPreview';
 import CreateInvoiceDialog from '@/components/invoices/CreateInvoiceDialog';
 import CreateFeeStatementDialog from '@/components/invoices/CreateFeeStatementDialog';
 
@@ -55,6 +56,7 @@ const Billing = () => {
   const [search, setSearch] = useState('');
   const [downloading, setDownloading] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState<string | null>(null);
+  const docxPreviewRef = useRef<DocxPreviewHandle>(null);
 
   const [accYear, setAccYear] = useState(currentYear);
   const { entries, loading: accLoading, stats } = useAccountingEntries(accYear);
@@ -120,10 +122,11 @@ const Billing = () => {
     }
   };
 
-  const previewStatement = async (statement: FeeStatementRecord) => {
+  const previewStatementDocx = async (statement: FeeStatementRecord) => {
     setPreviewing(statement.id);
     try {
-      await previewFeeStatementPdf(statement);
+      const blob = await generateFeeStatementDocxBlob(statement);
+      await docxPreviewRef.current?.previewBlob(blob);
     } catch (e: any) {
       toast({ title: 'خطأ في المعاينة', description: e.message, variant: 'destructive' });
     } finally {
@@ -369,6 +372,18 @@ const Billing = () => {
                                   variant="ghost"
                                   size="sm"
                                   className="h-7 w-7 p-0"
+                                  title="معاينة Word"
+                                  onClick={() => previewStatementDocx(s)}
+                                  disabled={previewing === s.id}
+                                >
+                                  {previewing === s.id
+                                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                                    : <Eye className="h-4 w-4" />}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0"
                                   title="تحميل PDF"
                                   onClick={() => downloadStatement(s)}
                                   disabled={downloading === s.id}
@@ -565,7 +580,9 @@ const Billing = () => {
                 )}
               </CardContent>
             </Card>
-          </div>
+
+      <DocxPreview ref={docxPreviewRef} title="معاينة بيان الأتعاب" />
+    </div>
         </TabsContent>
       </Tabs>
 
