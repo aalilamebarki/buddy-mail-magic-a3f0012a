@@ -63,14 +63,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
         if (newSession?.user) {
-          // fetchUserRole already deduplicates by userId
-          setTimeout(() => fetchUserRole(newSession.user.id), 0);
+          // Await role fetch before marking loading as done
+          await fetchUserRole(newSession.user.id);
         } else {
           lastRoleFetchId.current = null;
           setRole(null);
         }
 
-        if (event === 'INITIAL_SESSION') {
+        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
           setLoading(false);
         }
 
@@ -84,7 +84,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
 
     // Fallback: ensure loading is false after timeout
-    const timeout = setTimeout(() => setLoading(false), 3000);
+    const timeout = setTimeout(() => setLoading(false), 5000);
 
     return () => {
       subscription.unsubscribe();
