@@ -283,6 +283,7 @@ const Letterheads = () => {
         phone: fields.phone.trim() || null,
         email: fields.email.trim() || null,
         ...(finalTemplatePath && { template_path: finalTemplatePath }),
+        ...(parsedStructure && { header_data: parsedStructure }),
       };
 
       if (editingId) {
