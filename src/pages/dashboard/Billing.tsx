@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Receipt, FileText, Plus, Download, Loader2, QrCode, Search, Pencil, DollarSign, BookOpen, TrendingUp } from 'lucide-react';
+import { Receipt, FileText, Plus, Download, Loader2, QrCode, Search, Pencil, DollarSign, BookOpen, TrendingUp, Eye } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useInvoices, type InvoiceRecord } from '@/hooks/useInvoices';
 import { useFeeStatements, type FeeStatementRecord } from '@/hooks/useFeeStatements';
