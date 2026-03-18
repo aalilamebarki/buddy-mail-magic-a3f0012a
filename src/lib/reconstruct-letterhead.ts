@@ -16,7 +16,6 @@ import {
   Paragraph,
   TextRun,
   ImageRun,
-  type IRunOptions,
 } from 'docx';
 
 import type {
