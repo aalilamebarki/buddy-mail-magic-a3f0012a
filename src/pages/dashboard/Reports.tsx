@@ -285,7 +285,7 @@ const Reports = () => {
               </div>
               <div className="flex gap-3 text-[10px] text-muted-foreground">
                 <span>{q.invoiceCount} وصل</span>
-                <span>{q.feeStatementCount} بيان أتعاب</span>
+                <span>{q.feeStatementCount} بيان الأتعاب</span>
               </div>
             </CardContent>
           </Card>

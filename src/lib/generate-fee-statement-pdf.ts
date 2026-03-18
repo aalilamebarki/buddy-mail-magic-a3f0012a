@@ -346,7 +346,7 @@ export const generateFeeStatementPDF = async (data: FeeStatementData): Promise<B
   doc.setFont('Amiri', 'normal');
   doc.setFontSize(22);
   doc.setTextColor(...NAVY);
-  doc.text('بيان أتعاب ومصاريف', CX, y, { align: 'center' });
+  doc.text('بيان الأتعاب والمصاريف', CX, y, { align: 'center' });
   y += 5;
 
   doc.setFont('IBMPlex', 'normal');

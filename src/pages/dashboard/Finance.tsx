@@ -11,7 +11,7 @@ import { exportAccountingExcel, exportAccountingPDF } from '@/lib/export-account
 
 const ENTRY_TYPE_LABELS: Record<string, { label: string; sublabel: string; color: string }> = {
   invoice: { label: 'وصل أداء', sublabel: 'تحصيل', color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200' },
-  fee_statement: { label: 'بيان أتعاب', sublabel: 'أتعاب فقط', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
+  fee_statement: { label: 'بيان الأتعاب', sublabel: 'أتعاب فقط', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
 };
 
 const PAYMENT_LABELS: Record<string, string> = {

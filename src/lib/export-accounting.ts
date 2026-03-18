@@ -5,7 +5,7 @@ import type { AccountingEntry } from '@/hooks/useAccounting';
 
 const ENTRY_TYPE_LABELS: Record<string, string> = {
   invoice: 'وصل أداء',
-  fee_statement: 'بيان أتعاب',
+  fee_statement: 'بيان الأتعاب',
 };
 
 const PAYMENT_LABELS: Record<string, string> = {

@@ -334,7 +334,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
           .from('accounting_entries')
           .update({
             client_id: form.clientId || null,
-            description: `بيان أتعاب — ${client?.full_name || ''} — ${selectedCasesData.map(c => c.case_number).join(', ')}`,
+            description: `بيان الأتعاب والمصاريف — ${client?.full_name || ''} — ${selectedCasesData.map(c => c.case_number).join(', ')}`,
             amount_ht: grandTotal.lawyerFees,
             tax_amount: feesOnlyTax,
             amount_ttc: feesOnlyTTC,
@@ -348,7 +348,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
           entry_type: 'fee_statement',
           reference_id: stmtId,
           client_id: form.clientId || null,
-          description: `بيان أتعاب — ${client?.full_name || ''} — ${selectedCasesData.map(c => c.case_number).join(', ')}`,
+          description: `بيان الأتعاب والمصاريف — ${client?.full_name || ''} — ${selectedCasesData.map(c => c.case_number).join(', ')}`,
           amount_ht: grandTotal.lawyerFees,
           tax_amount: feesOnlyTax,
           amount_ttc: feesOnlyTTC,
@@ -454,7 +454,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" />
-            {step === 'preview' ? 'معاينة البيان' : isEdit ? 'تعديل بيان الأتعاب' : 'بيان أتعاب ومصاريف جديد'}
+            {step === 'preview' ? 'معاينة البيان' : isEdit ? 'تعديل بيان الأتعاب' : 'بيان الأتعاب والمصاريف جديد'}
           </DialogTitle>
         </DialogHeader>
 

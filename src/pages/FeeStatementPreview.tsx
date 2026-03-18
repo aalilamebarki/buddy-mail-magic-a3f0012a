@@ -169,11 +169,11 @@ const FeeStatementPreview = () => {
                 {/* Office label */}
                 <div className="flex items-center justify-center gap-3 mb-1">
                   <span className="block" style={{ width: 30, height: '0.5px', background: '#c5a059' }} />
-                  <span className="text-[9px] tracking-[3px] uppercase" style={{ color: '#c5a059' }}>مكتب الأستاذ</span>
+                  <span className="text-[9px] tracking-[3px] uppercase" style={{ color: '#c5a059' }}>الأستاذ</span>
                   <span className="block" style={{ width: 30, height: '0.5px', background: '#c5a059' }} />
                 </div>
                 {lh?.name_fr && (
-                  <p className="text-[7px] tracking-[2px] uppercase mb-2" style={{ color: '#969696' }}>Cabinet de Maître</p>
+                  <p className="text-[7px] tracking-[2px] uppercase mb-2" style={{ color: '#969696' }}>Maître</p>
                 )}
 
                 {/* Lawyer name */}
@@ -222,7 +222,7 @@ const FeeStatementPreview = () => {
               {/* ══════════════ DOCUMENT TITLE ══════════════ */}
               <section className="text-center my-8">
                 <h2 className="text-[24px] mb-1" style={{ color: '#1a2a44', fontFamily: "'Amiri', serif" }}>
-                  بيان أتعاب ومصاريف
+                  بيان الأتعاب والمصاريف
                 </h2>
                 <p className="text-[9px]" style={{ color: '#969696', letterSpacing: '2px' }}>
                   Note d'honoraires et frais

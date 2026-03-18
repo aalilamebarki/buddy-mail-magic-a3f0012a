@@ -150,7 +150,7 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
   doc.setFont('IBMPlex', 'normal');
   doc.setFontSize(10);
   doc.setTextColor(...TEXT);
-  const legalText = `يشهد مكتب الأستاذ ${lawyerName} باستلام المبلغ المذكور أعلاه من السيد(ة) ${data.clientName}، وذلك رسم مستحقات الملف المشار إليه أعلاه، ويعتبر هذا الوصل بمثابة إبراء ذمة نهائي بخصوص هذا الدفع.`;
+  const legalText = `يشهد الأستاذ ${lawyerName} باستلام المبلغ المذكور أعلاه من السيد(ة) ${data.clientName}، وذلك رسم مستحقات الملف المشار إليه أعلاه، ويعتبر هذا الوصل بمثابة إبراء ذمة نهائي بخصوص هذا الدفع.`;
   const splitLegal = doc.splitTextToSize(legalText, CW - 8);
   doc.text(splitLegal, CX, y, { align: 'center' });
   y += splitLegal.length * 5 + 6;
