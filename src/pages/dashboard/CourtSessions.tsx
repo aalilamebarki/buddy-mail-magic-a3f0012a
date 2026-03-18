@@ -173,8 +173,8 @@ const CourtSessions = () => {
       // Auto-save custom action if not in options
       const trimmedAction = requiredAction.trim();
       if (trimmedAction && !actionOptions.includes(trimmedAction) && user) {
-        await supabase.from('required_actions').insert({ label: trimmedAction, user_id: user.id }).single();
-        fetchActions();
+        setActionOptions(prev => [...prev, trimmedAction].sort((a, b) => a.localeCompare(b, 'ar')));
+        supabase.from('required_actions').insert({ label: trimmedAction, user_id: user.id }).single();
       }
       setDialogOpen(false);
       setEditingSession(null);
