@@ -14,7 +14,7 @@ import { useAccountingEntries } from '@/hooks/useAccounting';
 import { useToast } from '@/hooks/use-toast';
 import { formatDateShort } from '@/lib/formatters';
 import { exportAccountingExcel, exportAccountingPDF } from '@/lib/export-accounting';
-import { downloadInvoicePdf, downloadFeeStatementPdf } from '@/lib/dynamic-pdf-downloads';
+import { downloadInvoicePdf, downloadFeeStatementPdf, previewInvoicePdf, previewFeeStatementPdf } from '@/lib/dynamic-pdf-downloads';
 import CreateInvoiceDialog from '@/components/invoices/CreateInvoiceDialog';
 import CreateFeeStatementDialog from '@/components/invoices/CreateFeeStatementDialog';
 
