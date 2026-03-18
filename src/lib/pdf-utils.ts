@@ -1,21 +1,22 @@
 import jsPDF from 'jspdf';
 
 /* ══════════════════════════════════════════════
-   SHARED PDF UTILITIES
-   Design: Formal Classic — Navy (#1a2a44) accent
+   SHARED PDF UTILITIES — Moroccan Professional
+   Design: Bilingual header, navy & gold accents
    Fonts: Amiri (titles) + IBM Plex Sans Arabic (body)
    ══════════════════════════════════════════════ */
 
 export type RGB = [number, number, number];
 
 /* ── Design Tokens ── */
-export const NAVY: RGB    = [26, 42, 68];       // #1a2a44 — primary accent
-export const TEXT: RGB     = [30, 30, 30];       // near-black body
-export const TEXT2: RGB    = [100, 100, 100];     // secondary / labels
-export const TEXT3: RGB    = [160, 160, 160];     // muted / hints
-export const BORDER: RGB   = [220, 220, 220];     // rules & dividers
-export const BG: RGB       = [245, 246, 248];     // light panel bg
-export const WHITE: RGB    = [255, 255, 255];
+export const NAVY: RGB     = [26, 42, 68];        // #1a2a44
+export const GOLD: RGB     = [197, 160, 89];       // #c5a059
+export const TEXT: RGB      = [30, 30, 30];
+export const TEXT2: RGB     = [100, 100, 100];
+export const TEXT3: RGB     = [150, 150, 150];
+export const BORDER: RGB    = [200, 200, 200];
+export const BG: RGB        = [248, 248, 248];
+export const WHITE: RGB     = [255, 255, 255];
 
 /* ── Font loader with cache ── */
 const fontCache: Record<string, string> = {};
@@ -33,12 +34,15 @@ export const loadFont = async (path: string): Promise<string> => {
 
 /* ── Register both fonts on a jsPDF doc ── */
 export const registerFonts = async (doc: jsPDF) => {
-  const [plexB64, amiriB64] = await Promise.all([
+  const [plexB64, plexBoldB64, amiriB64] = await Promise.all([
     loadFont('/fonts/IBMPlexSansArabic-Regular.ttf'),
+    loadFont('/fonts/IBMPlexSansArabic-Bold.ttf'),
     loadFont('/fonts/Amiri-Regular.ttf'),
   ]);
   doc.addFileToVFS('IBMPlex.ttf', plexB64);
   doc.addFont('IBMPlex.ttf', 'IBMPlex', 'normal');
+  doc.addFileToVFS('IBMPlexBold.ttf', plexBoldB64);
+  doc.addFont('IBMPlexBold.ttf', 'IBMPlex', 'bold');
   doc.addFileToVFS('Amiri.ttf', amiriB64);
   doc.addFont('Amiri.ttf', 'Amiri', 'normal');
 };
@@ -105,11 +109,11 @@ export const numberToArabicWords = (num: number): string => {
 };
 
 /* ── Page constants ── */
-export const PW = 210;           // A4 width
-export const MARGIN = 22;
-export const RX = PW - MARGIN;   // right edge
-export const CW = PW - MARGIN * 2; // content width
-export const CX = PW / 2;        // center x
+export const PW = 210;
+export const MARGIN = 18;
+export const RX = PW - MARGIN;
+export const CW = PW - MARGIN * 2;
+export const CX = PW / 2;
 
 /* ── Letterhead info type ── */
 export interface LetterheadInfo {
@@ -125,7 +129,26 @@ export interface LetterheadInfo {
   email?: string;
 }
 
-/* ── Draw unified header ──
+/* ── Draw double-line frame on page ── */
+export const drawPageFrame = (doc: jsPDF) => {
+  // Outer frame
+  doc.setDrawColor(...NAVY);
+  doc.setLineWidth(0.8);
+  doc.rect(10, 10, PW - 20, 277);
+  // Inner frame
+  doc.setDrawColor(...GOLD);
+  doc.setLineWidth(0.3);
+  doc.rect(12, 12, PW - 24, 273);
+};
+
+/* ── Draw gold decorative line ── */
+export const goldLine = (doc: jsPDF, y: number, x1: number, x2: number) => {
+  doc.setDrawColor(...GOLD);
+  doc.setLineWidth(0.5);
+  doc.line(x1, y, x2, y);
+};
+
+/* ── Draw unified bilingual header ──
    Returns new Y position after header */
 export const drawHeader = (
   doc: jsPDF,
@@ -134,119 +157,155 @@ export const drawHeader = (
   startY: number,
 ): number => {
   const lh = letterhead;
-  const titleText = [lh?.titleAr, lh?.barNameAr ? `لدى ${lh.barNameAr}` : ''].filter(Boolean).join(' ').trim();
-  const city = lh?.city || '';
   let y = startY;
 
-  // مكتب الأستاذ
-  doc.setFont('Amiri');
-  doc.setFontSize(15);
-  doc.setTextColor(...TEXT);
+  // "مكتب الأستاذ" label
+  doc.setFont('IBMPlex', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(...GOLD);
   doc.text('مكتب الأستاذ', CX, y, { align: 'center' });
-  y += 11;
 
-  // اسم المحامي
-  doc.setFontSize(26);
-  doc.setTextColor(...TEXT);
-  doc.text(lawyerName, CX, y, { align: 'center' });
+  // French equivalent
+  if (lh?.nameFr) {
+    doc.setFontSize(8);
+    doc.setTextColor(...TEXT2);
+    doc.text('Cabinet de Maître', CX, y + 4, { align: 'center' });
+    y += 4;
+  }
   y += 8;
 
-  // اللقب المهني
-  if (titleText) {
-    doc.setFont('IBMPlex');
-    doc.setFontSize(12);
-    doc.setTextColor(...NAVY);
-    doc.text(titleText, CX, y, { align: 'center' });
-    y += 8;
-  }
+  // Lawyer name (Arabic)
+  doc.setFont('Amiri', 'normal');
+  doc.setFontSize(24);
+  doc.setTextColor(...NAVY);
+  doc.text(lawyerName, CX, y, { align: 'center' });
+  y += 4;
 
-  // المقر الاجتماعي
-  doc.setFont('IBMPlex');
-  doc.setFontSize(10);
-  doc.setTextColor(...TEXT);
-  doc.text('المقر الاجتماعي', CX, y, { align: 'center' });
+  // Lawyer name (French)
+  if (lh?.nameFr) {
+    doc.setFont('IBMPlex', 'normal');
+    doc.setFontSize(11);
+    doc.setTextColor(...TEXT2);
+    doc.text(lh.nameFr, CX, y + 4, { align: 'center' });
+    y += 7;
+  }
+  y += 4;
+
+  // Gold decorative line
+  goldLine(doc, y, CX - 35, CX + 35);
   y += 6;
 
+  // Professional title (Arabic)
+  const titleAr = lh?.titleAr || '';
+  const barAr = lh?.barNameAr ? `لدى ${lh.barNameAr}` : '';
+  const titleLine = [titleAr, barAr].filter(Boolean).join(' ');
+  if (titleLine) {
+    doc.setFont('IBMPlex', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(...TEXT);
+    doc.text(titleLine, CX, y, { align: 'center' });
+    y += 5;
+  }
+
+  // Professional title (French)
+  const titleFr = lh?.titleFr || '';
+  const barFr = lh?.barNameFr ? `près ${lh.barNameFr}` : '';
+  const titleLineFr = [titleFr, barFr].filter(Boolean).join(' ');
+  if (titleLineFr) {
+    doc.setFont('IBMPlex', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(...TEXT3);
+    doc.text(titleLineFr, CX, y, { align: 'center' });
+    y += 5;
+  }
+
+  // Contact info line
+  const contactParts: string[] = [];
+  if (lh?.phone) contactParts.push(`هاتف: ${lh.phone}`);
+  if (lh?.email) contactParts.push(`بريد: ${lh.email}`);
+
   if (lh?.address) {
-    doc.setFontSize(9);
+    doc.setFont('IBMPlex', 'normal');
+    doc.setFontSize(8);
     doc.setTextColor(...TEXT2);
-    const addr = city ? `${lh.address}، ${city}، المغرب` : lh.address;
+    const addr = lh.city ? `${lh.address}، ${lh.city}` : lh.address;
     doc.text(addr, CX, y, { align: 'center' });
-    y += 5;
-  }
-  if (lh?.phone) {
-    doc.setFontSize(9);
-    doc.setTextColor(...TEXT2);
-    doc.text(`الهاتف: ${lh.phone}`, CX, y, { align: 'center' });
-    y += 5;
-  }
-  if (lh?.email) {
-    doc.setFontSize(9);
-    doc.setTextColor(...TEXT2);
-    doc.text(`البريد: ${lh.email}`, CX, y, { align: 'center' });
-    y += 5;
+    y += 4;
   }
 
-  y += 4;
-  hline(doc, y, MARGIN, RX);
+  if (contactParts.length > 0) {
+    doc.setFontSize(7.5);
+    doc.setTextColor(...TEXT3);
+    doc.text(contactParts.join('  |  '), CX, y, { align: 'center' });
+    y += 4;
+  }
 
-  return y + 2;
+  y += 2;
+  // Navy separator after header
+  hline(doc, y, MARGIN, RX, NAVY, 0.6);
+  y += 1;
+  hline(doc, y + 0.8, MARGIN, RX, GOLD, 0.2);
+
+  return y + 4;
 };
 
 /* ── Draw footer on current page ── */
 export const drawFooter = (doc: jsPDF) => {
-  hline(doc, 291, MARGIN, RX, BORDER, 0.15);
-  doc.setFont('IBMPlex');
-  doc.setFontSize(7);
+  doc.setFont('IBMPlex', 'normal');
+  doc.setFontSize(6.5);
   doc.setTextColor(...TEXT3);
-  doc.text('وثيقة موقعة إلكترونياً', CX, 294, { align: 'center' });
+  doc.text('وثيقة صادرة إلكترونياً — Document généré électroniquement', CX, 282, { align: 'center' });
 };
 
 /* ── Draw navy top bar ── */
 export const drawTopBar = (doc: jsPDF) => {
-  doc.setFillColor(...NAVY);
-  doc.rect(0, 0, PW, 3.5, 'F');
+  // No top bar in Moroccan professional style, replaced by frame
 };
 
 /* ── Check if we need a new page, and add one if so ── */
 export const ensureSpace = (doc: jsPDF, y: number, needed: number): number => {
-  if (y + needed > 275) {
+  if (y + needed > 270) {
     drawFooter(doc);
     doc.addPage();
-    drawTopBar(doc);
-    return 16;
+    drawPageFrame(doc);
+    return 20;
   }
   return y;
 };
 
 /* ── Draw date + signature + seal area ── */
 export const drawDateAndSignature = (doc: jsPDF, y: number, date: string, city: string): number => {
-  // Date
-  doc.setFont('IBMPlex');
+  // Date on right
+  doc.setFont('IBMPlex', 'normal');
   doc.setFontSize(9);
-  doc.setTextColor(...TEXT3);
-  doc.text(`حرر ب${city || '...'} في:`, RX, y, { align: 'right' });
-  y += 7;
+  doc.setTextColor(...TEXT2);
+  doc.text(`حرر ب${city || '...'} في:`, RX - 4, y, { align: 'right' });
+  y += 6;
 
-  doc.setFontSize(14);
-  doc.setTextColor(...TEXT);
-  doc.text(date, RX, y, { align: 'right' });
+  doc.setFont('Amiri', 'normal');
+  doc.setFontSize(13);
+  doc.setTextColor(...NAVY);
+  doc.text(date, RX - 4, y, { align: 'right' });
   y += 14;
 
-  // Signature
-  doc.setFontSize(11);
-  doc.setTextColor(...TEXT);
+  // Signature label
+  doc.setFont('IBMPlex', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(...NAVY);
   doc.text('التوقيع والختم', CX, y, { align: 'center' });
-  y += 8;
-
-  const sealW = 55, sealH = 28;
-  const sealX = CX - sealW / 2;
-  doc.setFillColor(245, 245, 245);
-  doc.rect(sealX, y, sealW, sealH, 'F');
-  drawDottedRect(doc, sealX, y, sealW, sealH);
   doc.setFontSize(7);
   doc.setTextColor(...TEXT3);
-  doc.text('SEAL & SIGNATURE AREA', CX, y + sealH / 2 + 1, { align: 'center' });
+  doc.text('Signature et cachet', CX, y + 4, { align: 'center' });
+  y += 10;
+
+  // Signature box with gold border
+  const sealW = 55, sealH = 25;
+  const sealX = CX - sealW / 2;
+  doc.setFillColor(...BG);
+  doc.rect(sealX, y, sealW, sealH, 'F');
+  doc.setDrawColor(...GOLD);
+  doc.setLineWidth(0.4);
+  doc.rect(sealX, y, sealW, sealH, 'S');
 
   return y + sealH;
 };
