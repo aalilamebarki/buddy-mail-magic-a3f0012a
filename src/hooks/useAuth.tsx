@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -22,13 +22,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
-  const lastRoleFetchId = useRef<string | null>(null);
 
   const fetchUserRole = useCallback(async (userId: string) => {
-    if (!userId || lastRoleFetchId.current === userId) return;
+    if (!userId) {
+      setRole(null);
+      return null;
+    }
 
     try {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', userId)
@@ -37,81 +39,72 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) {
         console.error('Error fetching user role:', error);
-        lastRoleFetchId.current = null;
         setRole(null);
-        return;
+        return null;
       }
 
-      if (data?.role) {
-        lastRoleFetchId.current = userId;
-        setRole(data.role as AppRole);
-        return;
-      }
-
-      lastRoleFetchId.current = null;
-      setRole(null);
+      const nextRole = (data?.role as AppRole | undefined) ?? null;
+      setRole(nextRole);
+      return nextRole;
     } catch (err) {
       console.error('Error in fetchUserRole:', err);
-      lastRoleFetchId.current = null;
       setRole(null);
+      return null;
     }
   }, []);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, newSession) => {
-        // Only update state if something actually changed
-        setSession(prev => {
-          if (prev?.access_token === newSession?.access_token) return prev;
-          return newSession;
-        });
-        
-        const newUser = newSession?.user ?? null;
-        setUser(prev => {
-          if (prev?.id === newUser?.id) return prev;
-          return newUser;
-        });
+    let isActive = true;
 
-        if (newSession?.user) {
-          // Await role fetch before marking loading as done
-          await fetchUserRole(newSession.user.id);
-        } else {
-          lastRoleFetchId.current = null;
-          setRole(null);
-        }
+    const applySession = async (nextSession: Session | null) => {
+      if (!isActive) return;
 
-        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
-          setLoading(false);
-        }
+      setSession(nextSession);
 
-        // If user signs out, reset
-        if (event === 'SIGNED_OUT') {
-          lastRoleFetchId.current = null;
-          setRole(null);
-          setLoading(false);
-        }
+      const nextUser = nextSession?.user ?? null;
+      setUser(nextUser);
+
+      if (nextUser) {
+        await fetchUserRole(nextUser.id);
+      } else {
+        setRole(null);
       }
-    );
 
-    // Fallback: ensure loading is false after timeout
-    const timeout = setTimeout(() => setLoading(false), 5000);
+      if (isActive) {
+        setLoading(false);
+      }
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      void applySession(nextSession);
+    });
+
+    void supabase.auth.getSession().then(({ data, error }) => {
+      if (error) {
+        console.error('Error restoring session:', error);
+        if (isActive) setLoading(false);
+        return;
+      }
+
+      void applySession(data.session ?? null);
+    });
 
     return () => {
+      isActive = false;
       subscription.unsubscribe();
-      clearTimeout(timeout);
     };
   }, [fetchUserRole]);
 
   const signIn = useCallback(async (email: string, password: string) => {
-    lastRoleFetchId.current = null;
+    setLoading(true);
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
+      setLoading(false);
       return { error: error as Error | null };
     }
 
-    // State will be set by onAuthStateChange listener
     return { error: null };
   }, []);
 
@@ -128,11 +121,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signOut = useCallback(async () => {
+    setLoading(true);
     await supabase.auth.signOut();
-    lastRoleFetchId.current = null;
     setSession(null);
     setUser(null);
     setRole(null);
+    setLoading(false);
   }, []);
 
   const hasRole = useCallback((roles: AppRole | AppRole[]) => {
