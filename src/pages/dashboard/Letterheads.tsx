@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Trash2, FileText, Loader2, Stamp, Edit2, Save, X, Upload, Eye, Phone, Mail, MapPin, Building2, User, RefreshCw } from 'lucide-react';
 import mammoth from 'mammoth';
+import { renderAsync } from 'docx-preview';
 import { extractLetterheadInfo } from '@/lib/extract-letterhead-info';
 
 interface Letterhead {
@@ -104,9 +105,11 @@ const Letterheads = () => {
   const [pendingTemplateName, setPendingTemplateName] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+  const [previewReady, setPreviewReady] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
 
   const setField = (key: keyof LetterheadFormFields, value: string) =>
     setFields(prev => ({ ...prev, [key]: value }));
@@ -164,33 +167,31 @@ const Letterheads = () => {
     setLoading(false);
   };
 
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-
-  const generateSignedPreviewUrl = async (storagePath: string): Promise<string | null> => {
-    const { data, error } = await supabase.storage
-      .from('letterhead-templates')
-      .createSignedUrl(storagePath, 3600); // 1 hour
-    if (error || !data?.signedUrl) return null;
-    return data.signedUrl;
-  };
-
-  const openLivePreview = async (storagePath: string) => {
+  const renderDocxPreview = async (blob: Blob) => {
     setPreviewLoading(true);
     setPreviewHtml(null);
-    setPreviewUrl(null);
+    setPreviewReady(false);
     try {
-      const signedUrl = await generateSignedPreviewUrl(storagePath);
-      if (!signedUrl) throw new Error('تعذر إنشاء رابط المعاينة');
-      
-      // Use Microsoft Office Online viewer for faithful .docx rendering
-      const viewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(signedUrl)}`;
-      setPreviewUrl(viewerUrl);
-    } catch {
-      // Fallback to mammoth HTML conversion
+      // Wait for next tick so the container ref is mounted
+      await new Promise(r => setTimeout(r, 50));
+      const container = previewContainerRef.current;
+      if (!container) throw new Error('Preview container not found');
+      container.innerHTML = '';
+      await renderAsync(blob, container, undefined, {
+        className: 'docx-preview',
+        inWrapper: true,
+        ignoreWidth: false,
+        ignoreHeight: false,
+        renderHeaders: true,
+        renderFooters: true,
+        renderFootnotes: true,
+      });
+      setPreviewReady(true);
+    } catch (err) {
+      console.error('docx-preview error:', err);
+      // Fallback to mammoth
       try {
-        const { data, error } = await supabase.storage.from('letterhead-templates').download(storagePath);
-        if (error || !data) throw error;
-        const result = await mammoth.convertToHtml({ arrayBuffer: await data.arrayBuffer() });
+        const result = await mammoth.convertToHtml({ arrayBuffer: await blob.arrayBuffer() });
         setPreviewHtml(result.value || '<p style="color:gray;text-align:center;">الملف فارغ</p>');
       } catch {
         setPreviewHtml('<p style="color:gray;text-align:center;">تعذر عرض معاينة هذا الملف</p>');
@@ -201,31 +202,33 @@ const Letterheads = () => {
   };
 
   const generatePreview = async (file: File) => {
-    // For newly uploaded files, we need to use the pending path (already uploaded to storage)
-    if (pendingTemplatePath) {
-      await openLivePreview(pendingTemplatePath);
-    } else {
-      // Fallback to mammoth for files not yet uploaded
-      setPreviewLoading(true);
-      try {
-        const result = await mammoth.convertToHtml({ arrayBuffer: await file.arrayBuffer() });
-        setPreviewHtml(result.value || '<p style="color:gray;text-align:center;">الملف فارغ</p>');
-      } catch {
-        setPreviewHtml(fallbackPreview(file.name, 'تم اختيار الملف بنجاح'));
-      } finally {
-        setPreviewLoading(false);
-      }
-    }
+    await renderDocxPreview(file);
   };
 
   const previewPendingTemplate = async () => {
     if (!pendingTemplatePath) return;
-    await openLivePreview(pendingTemplatePath);
+    setPreviewLoading(true);
+    try {
+      const { data, error } = await supabase.storage.from('letterhead-templates').download(pendingTemplatePath);
+      if (error || !data) throw error;
+      await renderDocxPreview(data);
+    } catch {
+      setPreviewHtml('<p style="color:gray;text-align:center;">تعذر عرض معاينة هذا الملف</p>');
+      setPreviewLoading(false);
+    }
   };
 
   const previewExisting = async (lh: Letterhead) => {
     if (!lh.template_path) return;
-    await openLivePreview(lh.template_path);
+    setPreviewLoading(true);
+    try {
+      const { data, error } = await supabase.storage.from('letterhead-templates').download(lh.template_path);
+      if (error || !data) throw error;
+      await renderDocxPreview(data);
+    } catch {
+      setPreviewHtml('<p style="color:gray;text-align:center;">تعذر عرض معاينة هذا الملف</p>');
+      setPreviewLoading(false);
+    }
   };
 
   const cleanupPendingUpload = async (path: string | null) => {
@@ -432,7 +435,8 @@ const Letterheads = () => {
     setPendingTemplatePath(null);
     setPendingTemplateName(null);
     setPreviewHtml(null);
-    setPreviewUrl(null);
+    setPreviewReady(false);
+    if (previewContainerRef.current) previewContainerRef.current.innerHTML = '';
     setPreviewLoading(false);
     setUploadingTemplate(false);
     writeStoredDraft(null);
@@ -677,27 +681,26 @@ const Letterheads = () => {
               </div>
             )}
 
-            {previewUrl && !previewLoading && (
-              <div className="border border-border rounded-lg overflow-hidden">
-                <div className="bg-muted/50 px-3 py-1.5 flex items-center justify-between border-b border-border">
-                  <div className="flex items-center gap-1.5">
-                    <Eye className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-xs font-medium text-muted-foreground">معاينة حية للملف</span>
-                  </div>
-                  <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setPreviewUrl(null)}>
-                    <X className="h-3 w-3" />
-                  </Button>
+            {/* docx-preview container - always mounted for ref */}
+            <div
+              ref={previewContainerRef}
+              className={`border border-border rounded-lg overflow-auto bg-white ${previewReady ? 'h-[450px]' : 'hidden'}`}
+              style={{ direction: 'ltr' }}
+            />
+
+            {previewReady && !previewLoading && (
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-1.5">
+                  <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium text-muted-foreground">معاينة حية للملف</span>
                 </div>
-                <iframe
-                  src={previewUrl}
-                  className="w-full h-[450px] bg-white"
-                  title="معاينة القالب"
-                  sandbox="allow-scripts allow-same-origin allow-popups"
-                />
+                <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => { setPreviewReady(false); if (previewContainerRef.current) previewContainerRef.current.innerHTML = ''; }}>
+                  <X className="h-3 w-3" />
+                </Button>
               </div>
             )}
 
-            {previewHtml && !previewUrl && !previewLoading && (
+            {previewHtml && !previewReady && !previewLoading && (
               <div className="border border-border rounded-lg overflow-hidden">
                 <div className="bg-muted/50 px-3 py-1.5 flex items-center gap-1.5 border-b border-border">
                   <Eye className="h-3.5 w-3.5 text-muted-foreground" />
@@ -729,7 +732,7 @@ const Letterheads = () => {
         </Card>
       )}
 
-      {!showForm && (previewUrl || previewHtml) && (
+      {!showForm && (previewReady || previewHtml) && (
         <Card>
           <CardContent className="pt-4 space-y-2">
             <div className="flex items-center justify-between">
@@ -737,26 +740,19 @@ const Letterheads = () => {
                 <Eye className="h-4 w-4 text-primary" />
                 <span className="text-sm font-bold text-foreground">معاينة القالب</span>
               </div>
-              <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => { setPreviewHtml(null); setPreviewUrl(null); }}>
+              <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => { setPreviewHtml(null); setPreviewReady(false); if (previewContainerRef.current) previewContainerRef.current.innerHTML = ''; }}>
                 <X className="h-3.5 w-3.5" />
               </Button>
             </div>
-            {previewUrl ? (
-              <iframe
-                src={previewUrl}
-                className="w-full h-[450px] bg-white border border-border rounded-lg"
-                title="معاينة القالب"
-                sandbox="allow-scripts allow-same-origin allow-popups"
-              />
-            ) : (
+            {previewHtml && !previewReady ? (
               <ScrollArea className="h-[300px] border border-border rounded-lg">
                 <div
                   className="p-4 prose prose-sm max-w-none dark:prose-invert text-foreground"
                   dir="auto"
-                  dangerouslySetInnerHTML={{ __html: previewHtml! }}
+                  dangerouslySetInnerHTML={{ __html: previewHtml }}
                 />
               </ScrollArea>
-            )}
+            ) : null}
           </CardContent>
         </Card>
       )}
