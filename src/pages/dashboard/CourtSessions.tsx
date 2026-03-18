@@ -25,7 +25,7 @@ import { exportCourtSessionsWord } from '@/lib/export-court-sessions-docx';
 const CourtSessions = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { sessions, loading: sessionsLoading, getNextSession, refetch: refetchSessions } = useSessions();
+  const { sessions, loading: sessionsLoading, refetch: refetchSessions } = useSessions();
   const { cases, loading: casesLoading, refetch: refetchCases } = useCases({ status: 'active' });
   const loading = sessionsLoading || casesLoading;
 
