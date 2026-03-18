@@ -830,6 +830,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
             </Button>
           </div>
         )}
+      </div>
       </DialogContent>
     </Dialog>
   );
