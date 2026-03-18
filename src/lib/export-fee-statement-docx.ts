@@ -527,7 +527,7 @@ function buildSignatureSection(date: string, city: string): Paragraph[] {
    MAIN EXPORT FUNCTION
    ══════════════════════════════════════════════ */
 
-export const exportFeeStatementDocx = async (statement: FeeStatementRecord) => {
+export const generateFeeStatementDocxBlob = async (statement: FeeStatementRecord): Promise<Blob> => {
   const lh = statement.letterheads;
   const items = statement.fee_statement_items || [];
   const statementCases = statement.fee_statement_cases || [];
