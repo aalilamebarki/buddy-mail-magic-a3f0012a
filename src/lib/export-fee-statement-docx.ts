@@ -82,7 +82,7 @@ const centerText = (
   });
 
 const emptyPara = (spacing = 80) =>
-  new Paragraph({ spacing: { before: spacing, after: 0 }, children: [] });
+  new Paragraph({ spacing: { before: spacing, after: 0 }, bidirectional: true, children: [] });
 
 /* ── Gold ornament line ───────────────────────────────────────────── */
 
