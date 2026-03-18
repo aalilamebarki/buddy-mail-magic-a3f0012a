@@ -467,6 +467,7 @@ function buildGrandTotal(totalAmount: number): (Paragraph | Table)[] {
             children: [
               new Paragraph({
                 alignment: AlignmentType.LEFT,
+                bidirectional: true,
                 spacing: { after: 0 },
                 children: [
                   new TextRun({ text: `${fmt(totalAmount)} MAD`, font: FONT, size: 36, bold: true, color: 'FFFFFF' }),
