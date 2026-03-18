@@ -328,6 +328,7 @@ function buildServicesTable(
           children: [
             new Paragraph({
               alignment: AlignmentType.LEFT,
+              bidirectional: true,
               spacing: { after: 0 },
               children: [
                 new TextRun({ text: fmt(item.amount), font: FONT_BODY, size: 20, color: TEXT_GRAY }),
