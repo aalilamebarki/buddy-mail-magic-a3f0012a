@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Trash2, FileText, Loader2, Stamp, Edit2, Save, X, Upload, Eye, Phone, Mail, MapPin, Building2, User, RefreshCw } from 'lucide-react';
 import mammoth from 'mammoth';
+import { renderAsync } from 'docx-preview';
 import { extractLetterheadInfo } from '@/lib/extract-letterhead-info';
 
 interface Letterhead {
