@@ -85,46 +85,46 @@ const DocxPreview = forwardRef<DocxPreviewHandle, DocxPreviewProps>(({ title = '
 
   const isVisible = previewReady || previewHtml || loading;
 
-  return (
-    <>
-      {/* Always-mounted docx-preview container */}
-      <div
-        ref={containerRef}
-        className={`border border-border rounded-lg overflow-auto bg-white ${previewReady ? 'h-[450px]' : 'hidden'}`}
-        style={{ direction: 'ltr' }}
-      />
+  if (!isVisible) {
+    // Keep containerRef mounted but hidden so renderAsync can paint into it
+    return <div ref={containerRef} className="hidden" />;
+  }
 
-      {isVisible && (
-        <Card>
-          <CardContent className="pt-4 space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <Eye className="h-4 w-4 text-primary" />
-                <span className="text-sm font-bold text-foreground">{title}</span>
-              </div>
-              <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={clear}>
-                <X className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-            {loading && (
-              <div className="flex items-center justify-center py-6">
-                <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                <span className="text-sm text-muted-foreground mr-2">جاري تحميل المعاينة...</span>
-              </div>
-            )}
-            {previewHtml && !previewReady && !loading && (
-              <ScrollArea className="h-[300px] border border-border rounded-lg">
-                <div
-                  className="p-4 prose prose-sm max-w-none dark:prose-invert text-foreground"
-                  dir="auto"
-                  dangerouslySetInnerHTML={{ __html: previewHtml }}
-                />
-              </ScrollArea>
-            )}
-          </CardContent>
-        </Card>
-      )}
-    </>
+  return (
+    <Card>
+      <CardContent className="pt-4 space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <Eye className="h-4 w-4 text-primary" />
+            <span className="text-sm font-bold text-foreground">{title}</span>
+          </div>
+          <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={clear}>
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+        {loading && (
+          <div className="flex items-center justify-center py-6">
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            <span className="text-sm text-muted-foreground mr-2">جاري تحميل المعاينة...</span>
+          </div>
+        )}
+        {/* docx-preview renders here */}
+        <div
+          ref={containerRef}
+          className={`border border-border rounded-lg overflow-auto bg-white ${previewReady ? 'h-[450px]' : 'hidden'}`}
+          style={{ direction: 'ltr' }}
+        />
+        {previewHtml && !previewReady && !loading && (
+          <ScrollArea className="h-[300px] border border-border rounded-lg">
+            <div
+              className="p-4 prose prose-sm max-w-none dark:prose-invert text-foreground"
+              dir="auto"
+              dangerouslySetInnerHTML={{ __html: previewHtml }}
+            />
+          </ScrollArea>
+        )}
+      </CardContent>
+    </Card>
   );
 });
 
