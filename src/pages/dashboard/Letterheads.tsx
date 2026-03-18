@@ -213,9 +213,14 @@ const Letterheads = () => {
       setPendingTemplatePath(path);
       setPendingTemplateName(nextFile.name);
 
-      // Auto-extract letterhead info from the uploaded Word file
+      // Auto-extract letterhead info AND parse structure
       try {
-        const extracted = await extractLetterheadInfo(nextFile);
+        const [extracted, structure] = await Promise.all([
+          extractLetterheadInfo(nextFile),
+          parseLetterheadStructure(nextFile),
+        ]);
+        setParsedStructure(structure);
+
         const newFields = { ...fields };
         let filled = 0;
         if (extracted.lawyerName && !fields.lawyerName) { newFields.lawyerName = extracted.lawyerName; filled++; }
@@ -229,10 +234,14 @@ const Letterheads = () => {
         if (extracted.phone && !fields.phone) { newFields.phone = extracted.phone; filled++; }
         if (extracted.email && !fields.email) { newFields.email = extracted.email; filled++; }
         setFields(newFields);
+
+        const structInfo = structure.headerParagraphs.length > 0
+          ? ` + ${structure.headerParagraphs.length} فقرات ترويسة`
+          : '';
         if (filled > 0) {
-          toast({ title: `تم استخراج ${filled} حقول من الترويسة تلقائياً ✅`, description: 'راجع البيانات وأكمل ما يلزم' });
+          toast({ title: `تم استخراج ${filled} حقول${structInfo} ✅`, description: 'راجع البيانات وأكمل ما يلزم' });
         } else {
-          toast({ title: 'تم تجهيز ملف الترويسة ✅' });
+          toast({ title: `تم تجهيز ملف الترويسة${structInfo} ✅` });
         }
       } catch {
         toast({ title: 'تم تجهيز ملف الترويسة ✅' });
