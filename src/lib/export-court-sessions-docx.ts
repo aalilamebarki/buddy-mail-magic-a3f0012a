@@ -124,14 +124,6 @@ const buildCourtSection = (
       }),
     ],
   });
-        font: FONT,
-        size: 30,
-        bold: true,
-        color: NAVY,
-        rightToLeft: true,
-      }),
-    ],
-  });
 
   // Header row
   const headerRow = new TableRow({
