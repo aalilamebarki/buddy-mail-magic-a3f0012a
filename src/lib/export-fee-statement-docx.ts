@@ -547,10 +547,17 @@ export const generateFeeStatementDocxBlob = async (statement: FeeStatementRecord
   const city = lh?.city || '';
   const date = formatDateArabic(statement.created_at, { year: 'numeric', month: 'long', day: 'numeric' });
 
+  // Check if we have stored letterhead structure for faithful reconstruction
+  const headerData = lh?.header_data as LetterheadStructure | null | undefined;
+  const hasStoredStructure = headerData && headerData.version && 
+    (headerData.headerParagraphs?.length > 0 || headerData.images?.length > 0);
+
   const children: (Paragraph | Table)[] = [];
 
-  // 1. Header
-  children.push(...buildHeader(lh));
+  // 1. Header — use original letterhead if available, otherwise fallback to programmatic
+  if (!hasStoredStructure) {
+    children.push(...buildHeader(lh));
+  }
 
   // 2. Title
   children.push(...buildTitle(statement.statement_number));
@@ -560,14 +567,11 @@ export const generateFeeStatementDocxBlob = async (statement: FeeStatementRecord
   children.push(emptyPara(150));
 
   // 4. Services tables (per case or single)
-  // Track which orphan items (no case_id) have been assigned to avoid duplication
   const assignedOrphanIds = new Set<string>();
 
   if (statementCases.length > 0) {
     statementCases.forEach((sc, idx) => {
-      // Items explicitly linked to this case
       const linkedItems = items.filter(item => item.case_id === sc.case_id);
-      // Orphan items (no case_id) go to the first case only
       const orphanItems = idx === 0
         ? items.filter(item => !item.case_id && !assignedOrphanIds.has(item.id))
         : [];
@@ -576,7 +580,6 @@ export const generateFeeStatementDocxBlob = async (statement: FeeStatementRecord
       const normalizedItems = caseItems.map(i => ({ description: i.description, amount: Number(i.amount) }));
       const expTotal = normalizedItems.reduce((s, i) => s + i.amount, 0);
 
-      // Multi-case banner
       if (statementCases.length > 1) {
         children.push(
           new Paragraph({
@@ -641,35 +644,55 @@ export const generateFeeStatementDocxBlob = async (statement: FeeStatementRecord
   // 7. Signature
   children.push(...buildSignatureSection(date, city));
 
-  // 8. Footer
-  children.push(
-    new Paragraph({
-      alignment: AlignmentType.CENTER,
-      bidirectional: true,
-      spacing: { before: 200, after: 0 },
-      border: { top: { style: BorderStyle.SINGLE, size: 1, color: GOLD } },
-      children: [
-        new TextRun({
-          text: 'وثيقة صادرة إلكترونياً — Document généré électroniquement',
-          font: FONT,
-          size: 13,
-          color: TEXT_LIGHT,
-          rightToLeft: true,
-        }),
-      ],
-    }),
-  );
+  // 8. Footer (only if no stored structure — stored structure uses real footer)
+  if (!hasStoredStructure) {
+    children.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        bidirectional: true,
+        spacing: { before: 200, after: 0 },
+        border: { top: { style: BorderStyle.SINGLE, size: 1, color: GOLD } },
+        children: [
+          new TextRun({
+            text: 'وثيقة صادرة إلكترونياً — Document généré électroniquement',
+            font: FONT,
+            size: 13,
+            color: TEXT_LIGHT,
+            rightToLeft: true,
+          }),
+        ],
+      }),
+    );
+  }
+
+  // Build section properties with original margins if available
+  const defaultMargins = { top: 1134, bottom: 1134, left: 1134, right: 1134 };
+  const pageMargins = hasStoredStructure ? (getPageMargins(headerData!) || defaultMargins) : defaultMargins;
+
+  // Build document with or without stored header/footer
+  const sectionProps: any = {
+    children,
+    properties: {
+      page: {
+        margin: pageMargins,
+        size: { width: 11906, height: 16838, orientation: undefined },
+      },
+    },
+  };
+
+  if (hasStoredStructure) {
+    sectionProps.headers = {
+      default: buildLetterheadHeader(headerData!),
+    };
+    if (headerData!.footerParagraphs?.length > 0 || headerData!.images?.some(img => img.section === 'footer')) {
+      sectionProps.footers = {
+        default: buildLetterheadFooter(headerData!),
+      };
+    }
+  }
 
   const doc = new Document({
-    sections: [{
-      children,
-      properties: {
-        page: {
-          margin: { top: 1134, bottom: 1134, left: 1134, right: 1134 },
-          size: { width: 11906, height: 16838, orientation: undefined },
-        },
-      },
-    }],
+    sections: [sectionProps],
   });
 
   return Packer.toBlob(doc);
