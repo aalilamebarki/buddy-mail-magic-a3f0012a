@@ -94,23 +94,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signIn = useCallback(async (email: string, password: string) => {
     lastRoleFetchId.current = null;
-    setLoading(true);
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      setLoading(false);
       return { error: error as Error | null };
     }
 
-    if (data.session?.user) {
-      setSession(data.session);
-      setUser(data.session.user);
-      await fetchUserRole(data.session.user.id);
-    }
-
+    // State will be set by onAuthStateChange listener
     return { error: null };
-  }, [fetchUserRole]);
+  }, []);
 
   const signUp = useCallback(async (email: string, password: string, fullName: string) => {
     const { error } = await supabase.auth.signUp({
