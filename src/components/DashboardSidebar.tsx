@@ -125,19 +125,20 @@ const DashboardSidebar = () => {
 
   return (
     <>
-      {/* Mobile: hamburger + sheet */}
+      {/* Mobile: visible menu trigger + sheet */}
       <div className="lg:hidden fixed top-0 right-0 left-0 z-40 bg-background/80 backdrop-blur-md border-b border-border flex items-center h-14 px-4" dir="rtl">
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="shrink-0">
-              <Menu className="h-5 w-5" />
+            <Button variant="outline" size="sm" className="shrink-0 gap-2 border-border bg-background/90 text-foreground hover:bg-accent">
+              <Menu className="h-4 w-4" />
+              <span>القائمة</span>
             </Button>
           </SheetTrigger>
           <SheetContent side="right" className="p-0 w-72">
             <SidebarContent onNavigate={() => setOpen(false)} />
           </SheetContent>
         </Sheet>
-        <Link to="/dashboard" className="flex items-center gap-2 mr-2">
+        <Link to="/dashboard" className="flex items-center gap-2 mr-3">
           <Scale className="h-5 w-5 text-primary" />
           <span className="font-bold text-sm text-foreground">محاماة ذكية</span>
         </Link>
