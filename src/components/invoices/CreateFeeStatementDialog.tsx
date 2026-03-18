@@ -69,6 +69,13 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
 
   const isEdit = !!editData;
 
+  // Auto-select first letterhead if none selected and letterheads are available
+  useEffect(() => {
+    if (!form.letterheadId && letterheads.length > 0 && !isEdit) {
+      setForm(prev => ({ ...prev, letterheadId: letterheads[0].id }));
+    }
+  }, [letterheads, form.letterheadId, isEdit]);
+
   // Pre-fill form when editing
   useEffect(() => {
     if (editData && open) {
