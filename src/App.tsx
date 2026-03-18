@@ -9,10 +9,12 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
-// Public pages (eager)
+// Public pages (eager — only Index for SEO)
 import Index from "./pages/Index";
-import Auth from "./pages/Auth";
-import NotFound from "./pages/NotFound";
+
+// Public pages (lazy)
+const Auth = lazy(() => import("./pages/Auth"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Public pages (lazy)
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
@@ -51,7 +53,16 @@ const Letterheads = lazy(() => import("./pages/dashboard/Letterheads"));
 
 const Billing = lazy(() => import("./pages/dashboard/Billing"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes  
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 const LazyFallback = () => (
   <div className="flex items-center justify-center min-h-[40vh]">
