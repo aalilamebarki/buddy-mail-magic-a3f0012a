@@ -1,0 +1,1 @@
+ALTER TABLE public.letterheads ADD COLUMN IF NOT EXISTS header_data jsonb DEFAULT '{}'::jsonb;
