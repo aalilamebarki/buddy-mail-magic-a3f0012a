@@ -474,23 +474,27 @@ const CourtSessions = () => {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-full p-0 pointer-events-auto" align="start">
-                  <Command>
+                  <Command shouldFilter={false}>
                     <CommandInput placeholder="ابحث أو اكتب مطلوباً جديداً..." value={actionSearch} onValueChange={setActionSearch} />
                     <CommandList>
-                      <CommandEmpty>
-                        {actionSearch.trim() ? (
-                          <button
-                            className="w-full px-3 py-2 text-sm text-right hover:bg-accent cursor-pointer"
-                            onClick={() => {
+                      {filteredActions.length === 0 && !actionSearch.trim() && (
+                        <CommandEmpty>لا توجد نتائج</CommandEmpty>
+                      )}
+                      {actionSearch.trim() && !actionOptions.includes(actionSearch.trim()) && (
+                        <CommandGroup heading="إضافة جديد">
+                          <CommandItem
+                            value={`__add__${actionSearch.trim()}`}
+                            onSelect={() => {
                               setRequiredAction(actionSearch.trim());
                               setActionSearch('');
                               setActionPopoverOpen(false);
                             }}
                           >
-                            إضافة: <span className="font-medium">{actionSearch.trim()}</span>
-                          </button>
-                        ) : 'لا توجد نتائج'}
-                      </CommandEmpty>
+                            <Plus className="h-4 w-4 ml-2" />
+                            إضافة: <span className="font-medium mr-1">{actionSearch.trim()}</span>
+                          </CommandItem>
+                        </CommandGroup>
+                      )}
                       <CommandGroup>
                         {filteredActions.map(action => (
                           <CommandItem
