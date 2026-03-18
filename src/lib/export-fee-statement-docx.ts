@@ -89,9 +89,10 @@ const emptyPara = (spacing = 80) =>
 const ornamentLine = () =>
   new Paragraph({
     alignment: AlignmentType.CENTER,
+    bidirectional: true,
     spacing: { before: 60, after: 60 },
     children: [
-      new TextRun({ text: '━━━━━  ◆  ━━━━━', color: GOLD, font: FONT, size: 16 }),
+      new TextRun({ text: '━━━━━  ◆  ━━━━━', color: GOLD, font: FONT, size: 16, rightToLeft: true }),
     ],
   });
 
