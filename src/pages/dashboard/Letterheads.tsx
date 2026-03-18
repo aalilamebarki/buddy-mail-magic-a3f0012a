@@ -357,6 +357,48 @@ const Letterheads = () => {
     setShowForm(true);
   };
 
+  const [extracting, setExtracting] = useState(false);
+
+  const reExtractFromTemplate = async () => {
+    const path = pendingTemplatePath;
+    if (!path) {
+      toast({ title: 'لا يوجد ملف قالب مرفق', variant: 'destructive' });
+      return;
+    }
+    setExtracting(true);
+    try {
+      const { data, error } = await supabase.storage.from('letterhead-templates').download(path);
+      if (error || !data) throw error || new Error('تعذر تحميل القالب');
+
+      const extracted = await extractLetterheadInfo(data);
+      const newFields = { ...fields };
+      let filled = 0;
+
+      // Overwrite empty fields with extracted values
+      if (extracted.lawyerName && !fields.lawyerName) { newFields.lawyerName = extracted.lawyerName; filled++; }
+      if (extracted.nameFr) { newFields.nameFr = extracted.nameFr; filled++; }
+      if (extracted.titleAr) { newFields.titleAr = extracted.titleAr; filled++; }
+      if (extracted.titleFr) { newFields.titleFr = extracted.titleFr; filled++; }
+      if (extracted.barNameAr) { newFields.barNameAr = extracted.barNameAr; filled++; }
+      if (extracted.barNameFr) { newFields.barNameFr = extracted.barNameFr; filled++; }
+      if (extracted.address) { newFields.address = extracted.address; filled++; }
+      if (extracted.city) { newFields.city = extracted.city; filled++; }
+      if (extracted.phone) { newFields.phone = extracted.phone; filled++; }
+      if (extracted.email) { newFields.email = extracted.email; filled++; }
+
+      setFields(newFields);
+      if (filled > 0) {
+        toast({ title: `تم استخراج ${filled} حقول من القالب ✅`, description: 'راجع البيانات ثم اضغط حفظ' });
+      } else {
+        toast({ title: 'لم يتم العثور على بيانات إضافية في القالب', variant: 'destructive' });
+      }
+    } catch (e: any) {
+      toast({ title: 'خطأ في استخراج البيانات', description: e.message, variant: 'destructive' });
+    } finally {
+      setExtracting(false);
+    }
+  };
+
   const deleteLetterhead = async (lh: Letterhead) => {
     try {
       if (lh.template_path) {
