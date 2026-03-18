@@ -1,4 +1,5 @@
 import * as React from "react";
+import { addMonths } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DayPicker } from "react-day-picker";
 import { ar } from "date-fns/locale";
@@ -8,12 +9,76 @@ import { buttonVariants } from "@/components/ui/button";
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>;
 
-function Calendar({ className, classNames, showOutsideDays = true, locale, ...props }: CalendarProps) {
+const SWIPE_THRESHOLD_PX = 40;
+
+function Calendar({
+  className,
+  classNames,
+  showOutsideDays = true,
+  locale,
+  month,
+  onMonthChange,
+  onTouchStart,
+  onTouchEnd,
+  ...props
+}: CalendarProps) {
+  const initialMonth = React.useMemo(() => month ?? props.defaultMonth ?? new Date(), [month, props.defaultMonth]);
+  const [internalMonth, setInternalMonth] = React.useState<Date>(initialMonth);
+  const touchStartRef = React.useRef<{ x: number; y: number } | null>(null);
+
+  React.useEffect(() => {
+    if (month) {
+      setInternalMonth(month);
+    }
+  }, [month]);
+
+  const activeMonth = month ?? internalMonth;
+
+  const handleMonthChange = React.useCallback(
+    (nextMonth: Date) => {
+      if (!month) {
+        setInternalMonth(nextMonth);
+      }
+      onMonthChange?.(nextMonth);
+    },
+    [month, onMonthChange],
+  );
+
+  const handleTouchStart: React.TouchEventHandler<HTMLDivElement> = (event) => {
+    const touch = event.changedTouches[0];
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    onTouchStart?.(event);
+  };
+
+  const handleTouchEnd: React.TouchEventHandler<HTMLDivElement> = (event) => {
+    onTouchEnd?.(event);
+
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+    if (!start || event.defaultPrevented) return;
+
+    const touch = event.changedTouches[0];
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+
+    // Horizontal swipe only (ignore vertical scrolling/dragging)
+    if (Math.abs(deltaX) < SWIPE_THRESHOLD_PX || Math.abs(deltaX) <= Math.abs(deltaY)) {
+      return;
+    }
+
+    const direction = deltaX < 0 ? 1 : -1;
+    handleMonthChange(addMonths(activeMonth, direction));
+  };
+
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
       locale={locale || ar}
       dir="rtl"
+      month={activeMonth}
+      onMonthChange={handleMonthChange}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
       className={cn("p-3", className)}
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
