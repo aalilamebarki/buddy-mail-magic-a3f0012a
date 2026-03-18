@@ -4,6 +4,7 @@ import jsPDF from 'jspdf';
    SHARED PDF UTILITIES — Moroccan Professional
    Design: Bilingual header, navy & gold accents
    Fonts: Amiri (titles) + IBM Plex Sans Arabic (body)
+   A4 Print-optimized: 20mm margins, proper page breaks
    ══════════════════════════════════════════════ */
 
 export type RGB = [number, number, number];
@@ -108,12 +109,19 @@ export const numberToArabicWords = (num: number): string => {
   return `فقط ${parts.join(' و')} درهم مغربي لا غير.`;
 };
 
-/* ── Page constants ── */
-export const PW = 210;
-export const MARGIN = 18;
-export const RX = PW - MARGIN;
-export const CW = PW - MARGIN * 2;
-export const CX = PW / 2;
+/* ── Page constants — A4 optimized ── */
+export const PW = 210;                    // A4 width in mm
+export const PH = 297;                    // A4 height in mm
+export const MARGIN = 20;                 // 20mm — standard print-safe margin
+export const RX = PW - MARGIN;            // Right edge of content area
+export const CW = PW - MARGIN * 2;        // Content width (170mm)
+export const CX = PW / 2;                 // Center X
+
+/* ── Safe zones ── */
+const FRAME_OUTER = 11;                   // Outer frame inset
+const FRAME_INNER = 13;                   // Inner frame inset
+const FOOTER_Y = 284;                     // Footer text Y position
+const MAX_CONTENT_Y = 275;                // Max Y before forced page break (leaves room for footer + frame)
 
 /* ── Letterhead info type ── */
 export interface LetterheadInfo {
@@ -134,11 +142,11 @@ export const drawPageFrame = (doc: jsPDF) => {
   // Outer frame
   doc.setDrawColor(...NAVY);
   doc.setLineWidth(0.8);
-  doc.rect(10, 10, PW - 20, 277);
+  doc.rect(FRAME_OUTER, FRAME_OUTER, PW - FRAME_OUTER * 2, PH - FRAME_OUTER * 2);
   // Inner frame
   doc.setDrawColor(...GOLD);
   doc.setLineWidth(0.3);
-  doc.rect(12, 12, PW - 24, 273);
+  doc.rect(FRAME_INNER, FRAME_INNER, PW - FRAME_INNER * 2, PH - FRAME_INNER * 2);
 };
 
 /* ── Draw gold decorative line ── */
@@ -173,11 +181,11 @@ export const drawHeader = (
     doc.text('Maître', CX, y + 4, { align: 'center' });
     y += 4;
   }
-  y += 8;
+  y += 7;
 
-  // Lawyer name (Arabic)
+  // Lawyer name (Arabic) — prominent
   doc.setFont('Amiri', 'normal');
-  doc.setFontSize(24);
+  doc.setFontSize(22);
   doc.setTextColor(...NAVY);
   doc.text(lawyerName, CX, y, { align: 'center' });
   y += 4;
@@ -185,45 +193,45 @@ export const drawHeader = (
   // Lawyer name (French)
   if (lh?.nameFr) {
     doc.setFont('IBMPlex', 'normal');
-    doc.setFontSize(11);
+    doc.setFontSize(10);
     doc.setTextColor(...TEXT2);
     doc.text(lh.nameFr, CX, y + 4, { align: 'center' });
     y += 7;
   }
-  y += 4;
+  y += 3;
 
   // Gold decorative line
   goldLine(doc, y, CX - 35, CX + 35);
-  y += 6;
+  y += 5;
 
-  // Professional title (Arabic) — e.g. "محام لدى هيئة المحامين بالرباط"
+  // Professional title (Arabic)
   const titleAr = lh?.titleAr || '';
   const barAr = lh?.barNameAr ? `لدى ${lh.barNameAr}` : '';
   const titleLine = [titleAr, barAr].filter(Boolean).join(' ');
   if (titleLine) {
     doc.setFont('IBMPlex', 'normal');
-    doc.setFontSize(10);
+    doc.setFontSize(9.5);
     doc.setTextColor(...TEXT);
     doc.text(titleLine, CX, y, { align: 'center' });
-    y += 5;
+    y += 4.5;
   }
 
-  // Professional title (French) — e.g. "Avocat près la Cour d'Appel de Rabat"
+  // Professional title (French)
   const titleFr = lh?.titleFr || '';
   const barFr = lh?.barNameFr ? `près ${lh.barNameFr}` : '';
   const titleLineFr = [titleFr, barFr].filter(Boolean).join(' ');
   if (titleLineFr) {
     doc.setFont('IBMPlex', 'normal');
-    doc.setFontSize(8);
+    doc.setFontSize(7.5);
     doc.setTextColor(...TEXT3);
     doc.text(titleLineFr, CX, y, { align: 'center' });
-    y += 5;
+    y += 4.5;
   }
 
   // Address line
   if (lh?.address) {
     doc.setFont('IBMPlex', 'normal');
-    doc.setFontSize(8);
+    doc.setFontSize(7.5);
     doc.setTextColor(...TEXT2);
     const addr = lh.city ? `${lh.address}، ${lh.city}` : lh.address;
     doc.text(addr, CX, y, { align: 'center' });
@@ -237,7 +245,7 @@ export const drawHeader = (
 
   if (contactParts.length > 0) {
     doc.setFont('IBMPlex', 'normal');
-    doc.setFontSize(7.5);
+    doc.setFontSize(7);
     doc.setTextColor(...TEXT3);
     doc.text(contactParts.join('  ·  '), CX, y, { align: 'center' });
     y += 4;
@@ -249,15 +257,15 @@ export const drawHeader = (
   y += 1;
   hline(doc, y + 0.8, MARGIN, RX, GOLD, 0.2);
 
-  return y + 4;
+  return y + 5;
 };
 
 /* ── Draw footer on current page ── */
 export const drawFooter = (doc: jsPDF) => {
   doc.setFont('IBMPlex', 'normal');
-  doc.setFontSize(6.5);
+  doc.setFontSize(6);
   doc.setTextColor(...TEXT3);
-  doc.text('وثيقة صادرة إلكترونياً — Document généré électroniquement', CX, 282, { align: 'center' });
+  doc.text('وثيقة صادرة إلكترونياً — Document généré électroniquement', CX, FOOTER_Y, { align: 'center' });
 };
 
 /* ── Draw navy top bar ── */
@@ -267,11 +275,11 @@ export const drawTopBar = (doc: jsPDF) => {
 
 /* ── Check if we need a new page, and add one if so ── */
 export const ensureSpace = (doc: jsPDF, y: number, needed: number): number => {
-  if (y + needed > 270) {
+  if (y + needed > MAX_CONTENT_Y) {
     drawFooter(doc);
     doc.addPage();
     drawPageFrame(doc);
-    return 20;
+    return 18;
   }
   return y;
 };
@@ -283,26 +291,26 @@ export const drawDateAndSignature = (doc: jsPDF, y: number, date: string, city: 
   doc.setFontSize(9);
   doc.setTextColor(...TEXT2);
   doc.text(`حرر ب${city || '...'} في:`, RX - 4, y, { align: 'right' });
-  y += 6;
+  y += 5;
 
   doc.setFont('Amiri', 'normal');
-  doc.setFontSize(13);
+  doc.setFontSize(12);
   doc.setTextColor(...NAVY);
   doc.text(date, RX - 4, y, { align: 'right' });
-  y += 14;
+  y += 12;
 
   // Signature label
   doc.setFont('IBMPlex', 'normal');
-  doc.setFontSize(10);
+  doc.setFontSize(9.5);
   doc.setTextColor(...NAVY);
   doc.text('التوقيع والختم', CX, y, { align: 'center' });
-  doc.setFontSize(7);
+  doc.setFontSize(6.5);
   doc.setTextColor(...TEXT3);
   doc.text('Signature et cachet', CX, y + 4, { align: 'center' });
-  y += 10;
+  y += 8;
 
   // Signature box with gold border
-  const sealW = 55, sealH = 25;
+  const sealW = 50, sealH = 22;
   const sealX = CX - sealW / 2;
   doc.setFillColor(...BG);
   doc.rect(sealX, y, sealW, sealH, 'F');

@@ -43,18 +43,24 @@ const buildParagraph = (
     ltr?: boolean;
     size?: number;
     spacingAfter?: number;
+    spacingBefore?: number;
+    lineSpacing?: number;
   },
 ) => new Paragraph({
   alignment: options?.alignment ?? AlignmentType.RIGHT,
   bidirectional: !options?.ltr,
-  spacing: { after: options?.spacingAfter ?? 0 },
+  spacing: {
+    after: options?.spacingAfter ?? 0,
+    before: options?.spacingBefore ?? 0,
+    line: options?.lineSpacing ?? 276,     // 1.15 line spacing (276 twips = 1.15x)
+  },
   children: [
     new TextRun({
       bold: options?.bold ?? false,
       color: options?.color ?? '000000',
       font: wordFont,
       rightToLeft: !options?.ltr,
-      size: options?.size ?? 24,
+      size: options?.size ?? 24,           // 12pt
       text: options?.ltr ? forceLtr(text) : text,
     }),
   ],
@@ -72,21 +78,21 @@ const buildCell = (
     width: number;
   },
 ) => new TableCell({
-  borders: cellBorders(options?.fill ? '000000' : '444444'),
+  borders: cellBorders(options?.fill ? '000000' : '555555'),
   children: [
     buildParagraph(text, {
       alignment: options?.alignment ?? AlignmentType.RIGHT,
       bold: options?.bold,
       color: options?.textColor,
       ltr: options?.ltr,
-      size: options?.size,
+      size: options?.size ?? 22,           // 11pt for table body
     }),
   ],
   margins: {
-    bottom: 110,
-    left: 90,
-    right: 90,
-    top: 110,
+    bottom: 80,
+    left: 100,
+    right: 100,
+    top: 80,
   },
   shading: options?.fill ? { fill: options.fill } : undefined,
   width: { size: options?.width ?? 20, type: WidthType.PERCENTAGE },
@@ -109,7 +115,7 @@ const buildCourtTitleTable = (court: string, count: number) => new Table({
         buildCell(`${court} — ${count} جلسة`, {
           alignment: AlignmentType.RIGHT,
           bold: true,
-          fill: '000000',
+          fill: '1a2a44',
           size: 24,
           textColor: 'FFFFFF',
           width: 100,
@@ -132,22 +138,22 @@ const buildSessionsTable = (rows: Array<{
     new TableRow({
       tableHeader: true,
       children: [
-        buildCell('#', { alignment: AlignmentType.CENTER, bold: true, fill: 'EAEAEA', width: 6 }),
-        buildCell('الموكل', { alignment: AlignmentType.RIGHT, bold: true, fill: 'EAEAEA', width: 23 }),
-        buildCell('رقم الملف', { alignment: AlignmentType.CENTER, bold: true, fill: 'EAEAEA', width: 16 }),
-        buildCell('الخصم', { alignment: AlignmentType.RIGHT, bold: true, fill: 'EAEAEA', width: 23 }),
-        buildCell('تاريخ الجلسة', { alignment: AlignmentType.CENTER, bold: true, fill: 'EAEAEA', width: 16 }),
-        buildCell('الجلسة المقبلة', { alignment: AlignmentType.CENTER, bold: true, fill: 'EAEAEA', width: 16 }),
+        buildCell('#', { alignment: AlignmentType.CENTER, bold: true, fill: 'E8E8E8', size: 22, width: 5 }),
+        buildCell('الموكل', { alignment: AlignmentType.RIGHT, bold: true, fill: 'E8E8E8', size: 22, width: 22 }),
+        buildCell('رقم الملف', { alignment: AlignmentType.CENTER, bold: true, fill: 'E8E8E8', size: 22, width: 17 }),
+        buildCell('الخصم', { alignment: AlignmentType.RIGHT, bold: true, fill: 'E8E8E8', size: 22, width: 22 }),
+        buildCell('تاريخ الجلسة', { alignment: AlignmentType.CENTER, bold: true, fill: 'E8E8E8', size: 22, width: 17 }),
+        buildCell('الجلسة المقبلة', { alignment: AlignmentType.CENTER, bold: true, fill: 'E8E8E8', size: 22, width: 17 }),
       ],
     }),
     ...rows.map((row, index) => new TableRow({
       children: [
-        buildCell(String(index + 1), { alignment: AlignmentType.CENTER, width: 6 }),
-        buildCell(row.clientName, { alignment: AlignmentType.RIGHT, width: 23 }),
-        buildCell(row.caseNumber, { alignment: AlignmentType.CENTER, ltr: true, width: 16 }),
-        buildCell(row.opponentName, { alignment: AlignmentType.RIGHT, width: 23 }),
-        buildCell(row.sessionDate, { alignment: AlignmentType.CENTER, width: 16 }),
-        buildCell(row.nextSession, { alignment: AlignmentType.CENTER, width: 16 }),
+        buildCell(String(index + 1), { alignment: AlignmentType.CENTER, size: 20, width: 5 }),
+        buildCell(row.clientName, { alignment: AlignmentType.RIGHT, size: 22, width: 22 }),
+        buildCell(row.caseNumber, { alignment: AlignmentType.CENTER, ltr: true, size: 20, width: 17 }),
+        buildCell(row.opponentName, { alignment: AlignmentType.RIGHT, size: 22, width: 22 }),
+        buildCell(row.sessionDate, { alignment: AlignmentType.CENTER, size: 20, width: 17 }),
+        buildCell(row.nextSession, { alignment: AlignmentType.CENTER, size: 20, width: 17 }),
       ],
     })),
   ],
@@ -201,20 +207,20 @@ export const exportCourtSessionsWord = async ({
     buildParagraph(title, {
       alignment: AlignmentType.CENTER,
       bold: true,
-      size: 34,
-      spacingAfter: 120,
+      size: 36,                           // 18pt — clear title
+      spacingAfter: 160,
     }),
     buildParagraph(periodLabel, {
       alignment: AlignmentType.CENTER,
-      color: '666666',
-      size: 22,
-      spacingAfter: 80,
+      color: '555555',
+      size: 24,                           // 12pt
+      spacingAfter: 100,
     }),
     buildParagraph(`عدد الجلسات: ${filteredSessions.length} | عدد المحاكم: ${sortedCourts.length}`, {
       alignment: AlignmentType.CENTER,
-      color: '555555',
-      size: 20,
-      spacingAfter: 220,
+      color: '666666',
+      size: 20,                           // 10pt
+      spacingAfter: 300,
     }),
   ];
 
@@ -234,15 +240,16 @@ export const exportCourtSessionsWord = async ({
     children.push(buildSessionsTable(rows));
 
     if (courtIndex < sortedCourts.length - 1) {
-      children.push(new Paragraph({ spacing: { after: 180 } }));
+      children.push(new Paragraph({ spacing: { after: 240 } }));
     }
   });
 
   children.push(
+    new Paragraph({ spacing: { before: 400 } }),
     buildParagraph(`تم إنشاء الملف بتاريخ ${formatArabicDate(new Date())}`, {
       alignment: AlignmentType.CENTER,
-      color: '777777',
-      size: 18,
+      color: '999999',
+      size: 18,                           // 9pt
       spacingAfter: 0,
     }),
   );
@@ -253,7 +260,12 @@ export const exportCourtSessionsWord = async ({
         children,
         properties: {
           page: {
-            margin: { bottom: 720, left: 720, right: 720, top: 720 },
+            margin: {
+              top: 1134,       // 2cm (1134 twips)
+              bottom: 1134,    // 2cm
+              left: 1418,      // 2.5cm (wider for binding)
+              right: 1134,     // 2cm
+            },
             size: { orientation: PageOrientation.LANDSCAPE },
           },
         },

@@ -76,8 +76,8 @@ const drawClientInfoCard = (
   if (data.clientCin) infoRows.push(['رقم ب.و', 'CIN', data.clientCin]);
   if (data.powerOfAttorneyDate) infoRows.push(['تاريخ الوكالة', 'Date procuration', data.powerOfAttorneyDate]);
 
-  const rowH = 10;
-  const labelColW = 50;
+  const rowH = 9;
+  const labelColW = 48;
   const tableW = CW;
 
   // Card background
@@ -96,20 +96,20 @@ const drawClientInfoCard = (
 
     // Bilingual label
     doc.setFont('IBMPlex', 'bold');
-    doc.setFontSize(8);
+    doc.setFontSize(7.5);
     doc.setTextColor(...NAVY);
-    doc.text(infoRows[i][0], RX - 6, ry + 4, { align: 'right' });
+    doc.text(infoRows[i][0], RX - 6, ry + 3.5, { align: 'right' });
 
     doc.setFont('IBMPlex', 'normal');
-    doc.setFontSize(6.5);
+    doc.setFontSize(6);
     doc.setTextColor(...TEXT3);
-    doc.text(infoRows[i][1], RX - 6, ry + 7.5, { align: 'right' });
+    doc.text(infoRows[i][1], RX - 6, ry + 7, { align: 'right' });
 
     // Value
     doc.setFont('Amiri', 'normal');
-    doc.setFontSize(12);
+    doc.setFontSize(11);
     doc.setTextColor(...TEXT);
-    doc.text(infoRows[i][2], RX - labelColW - 4, ry + 6.5, { align: 'right' });
+    doc.text(infoRows[i][2], RX - labelColW - 4, ry + 6, { align: 'right' });
 
     // Separator
     if (i < infoRows.length - 1) {
@@ -130,37 +130,36 @@ const drawServicesTable = (
 ): number => {
   // Multi-case header badge
   if (isMultiCase) {
-    y = ensureSpace(doc, y, 22);
-    // Rounded badge
+    y = ensureSpace(doc, y, 20);
     doc.setFillColor(...NAVY);
-    doc.roundedRect(CX - 45, y, 90, 8, 2, 2, 'F');
+    doc.roundedRect(CX - 42, y, 84, 7, 2, 2, 'F');
     doc.setFont('IBMPlex', 'bold');
-    doc.setFontSize(8.5);
+    doc.setFontSize(8);
     doc.setTextColor(255, 255, 255);
-    doc.text(`ملف ${caseIndex + 1}: ${cd.caseTitle || cd.caseNumber}`, CX, y + 5.5, { align: 'center' });
-    y += 12;
+    doc.text(`ملف ${caseIndex + 1}: ${cd.caseTitle || cd.caseNumber}`, CX, y + 5, { align: 'center' });
+    y += 11;
   }
 
   // Table header
-  y = ensureSpace(doc, y, 16);
+  y = ensureSpace(doc, y, 14);
   doc.setFillColor(...NAVY);
-  doc.roundedRect(MARGIN, y, CW, 8, 1.5, 1.5, 'F');
+  doc.roundedRect(MARGIN, y, CW, 7.5, 1.5, 1.5, 'F');
 
   doc.setFont('IBMPlex', 'bold');
-  doc.setFontSize(8);
+  doc.setFontSize(7.5);
   doc.setTextColor(255, 255, 255);
-  doc.text('بيان الخدمات والمصاريف', RX - 6, y + 5.5, { align: 'right' });
+  doc.text('بيان الخدمات والمصاريف', RX - 6, y + 5, { align: 'right' });
   doc.setFont('IBMPlex', 'normal');
-  doc.setFontSize(6.5);
-  doc.text('Désignation des services', RX - 55, y + 5.5, { align: 'right' });
-  doc.text('المبلغ (درهم)', MARGIN + 6, y + 5.5, { align: 'left' });
-  y += 8;
+  doc.setFontSize(6);
+  doc.text('Désignation des services', RX - 52, y + 5, { align: 'right' });
+  doc.text('المبلغ (درهم)', MARGIN + 6, y + 5, { align: 'left' });
+  y += 7.5;
 
   // Item rows
   for (let i = 0; i < cd.items.length; i++) {
     const item = cd.items[i];
-    const descLines = doc.splitTextToSize(item.description || '—', CW - 50);
-    const rH = Math.max(8, descLines.length * 4.5 + 4);
+    const descLines = doc.splitTextToSize(item.description || '—', CW - 46);
+    const rH = Math.max(7.5, descLines.length * 4 + 3.5);
 
     y = ensureSpace(doc, y, rH + 2);
 
@@ -172,23 +171,23 @@ const drawServicesTable = (
 
     // Row number circle
     doc.setFillColor(...GOLD);
-    doc.circle(RX - 4, y + rH / 2, 2.5, 'F');
+    doc.circle(RX - 4, y + rH / 2, 2.2, 'F');
     doc.setFont('IBMPlex', 'bold');
-    doc.setFontSize(6.5);
+    doc.setFontSize(6);
     doc.setTextColor(255, 255, 255);
-    doc.text(`${i + 1}`, RX - 4, y + rH / 2 + 1, { align: 'center' });
+    doc.text(`${i + 1}`, RX - 4, y + rH / 2 + 0.8, { align: 'center' });
 
     // Description
     doc.setFont('IBMPlex', 'normal');
-    doc.setFontSize(9);
+    doc.setFontSize(8.5);
     doc.setTextColor(...TEXT);
-    doc.text(descLines, RX - 10, y + 5, { align: 'right' });
+    doc.text(descLines, RX - 10, y + 4.5, { align: 'right' });
 
     // Amount
     doc.setFont('IBMPlex', 'bold');
-    doc.setFontSize(9);
+    doc.setFontSize(8.5);
     doc.setTextColor(...NAVY);
-    doc.text(fmt(item.amount), MARGIN + 6, y + 5, { align: 'left' });
+    doc.text(fmt(item.amount), MARGIN + 6, y + 4.5, { align: 'left' });
 
     y += rH;
     hline(doc, y, MARGIN + 2, RX - 2, [235, 235, 240] as RGB, 0.1);
@@ -208,13 +207,12 @@ const drawServicesTable = (
   summaryRows.push({ labelAr: 'المجموع الكلي', labelFr: 'Total TTC', value: cd.totalAmount, highlight: true });
 
   for (const row of summaryRows) {
-    const rh = 8;
+    const rh = 7.5;
     y = ensureSpace(doc, y, rh + 2);
 
     if (row.highlight) {
       doc.setFillColor(245, 245, 250);
       doc.rect(MARGIN, y, CW, rh, 'F');
-      // Gold left accent for highlighted rows
       doc.setFillColor(...GOLD);
       doc.rect(MARGIN, y, 2, rh, 'F');
     }
@@ -223,38 +221,37 @@ const drawServicesTable = (
 
     // Arabic label
     doc.setFont('IBMPlex', row.highlight ? 'bold' : 'normal');
-    doc.setFontSize(row.highlight ? 9.5 : 8.5);
+    doc.setFontSize(row.highlight ? 9 : 8);
     doc.setTextColor(...(row.highlight ? NAVY : TEXT2));
-    doc.text(row.labelAr, RX - 6, y + 4.5, { align: 'right' });
+    doc.text(row.labelAr, RX - 6, y + 4, { align: 'right' });
 
     // French label
     doc.setFont('IBMPlex', 'normal');
-    doc.setFontSize(6.5);
+    doc.setFontSize(6);
     doc.setTextColor(...TEXT3);
-    doc.text(row.labelFr, RX - 6, y + 7, { align: 'right' });
+    doc.text(row.labelFr, RX - 6, y + 6.5, { align: 'right' });
 
     // Value
     doc.setFont('IBMPlex', row.highlight ? 'bold' : 'normal');
-    doc.setFontSize(row.highlight ? 10 : 9);
+    doc.setFontSize(row.highlight ? 9.5 : 8.5);
     doc.setTextColor(...(row.highlight ? NAVY : TEXT));
-    doc.text(fmt(row.value), MARGIN + 6, y + 5.5, { align: 'left' });
+    doc.text(fmt(row.value), MARGIN + 6, y + 5, { align: 'left' });
 
     y += rh;
   }
 
-  return y + 6;
+  return y + 5;
 };
 
 /* ── Draw grand total box ── */
 const drawGrandTotal = (doc: jsPDF, y: number, data: FeeStatementData): number => {
-  y = ensureSpace(doc, y, 42);
+  y = ensureSpace(doc, y, 38);
 
-  // Decorative line
-  goldLine(doc, y, CX - 30, CX + 30);
-  y += 6;
+  goldLine(doc, y, CX - 28, CX + 28);
+  y += 5;
 
   // Navy total card
-  const cardH = 22;
+  const cardH = 20;
   doc.setFillColor(...NAVY);
   doc.roundedRect(MARGIN, y, CW, cardH, 3, 3, 'F');
 
@@ -265,23 +262,23 @@ const drawGrandTotal = (doc: jsPDF, y: number, data: FeeStatementData): number =
 
   // Label
   doc.setFont('IBMPlex', 'normal');
-  doc.setFontSize(9);
+  doc.setFontSize(8.5);
   doc.setTextColor(...GOLD);
-  doc.text('الواجب أداؤه', RX - 6, y + 7, { align: 'right' });
-  doc.setFontSize(7);
-  doc.text('Net à payer', RX - 6, y + 11, { align: 'right' });
+  doc.text('الواجب أداؤه', RX - 6, y + 6, { align: 'right' });
+  doc.setFontSize(6.5);
+  doc.text('Net à payer', RX - 6, y + 10, { align: 'right' });
 
   // Amount
   doc.setFont('Amiri', 'normal');
-  doc.setFontSize(22);
+  doc.setFontSize(20);
   doc.setTextColor(255, 255, 255);
-  doc.text(`${fmt(data.grandTotal)} MAD`, MARGIN + 6, y + 15, { align: 'left' });
+  doc.text(`${fmt(data.grandTotal)} MAD`, MARGIN + 6, y + 13.5, { align: 'left' });
 
   y += cardH + 5;
 
   // Tafkeet
   doc.setFont('IBMPlex', 'normal');
-  doc.setFontSize(8);
+  doc.setFontSize(7.5);
   doc.setTextColor(...TEXT2);
   const tafkeet = numberToArabicWords(data.grandTotal);
   const tafkeetLines = doc.splitTextToSize(`المبلغ بالحروف:  ${tafkeet}`, CW - 10);
@@ -293,29 +290,27 @@ const drawGrandTotal = (doc: jsPDF, y: number, data: FeeStatementData): number =
 
 /* ── Draw QR verification section ── */
 const drawQRSection = async (doc: jsPDF, y: number, data: FeeStatementData): Promise<number> => {
-  y = ensureSpace(doc, y, 40);
+  y = ensureSpace(doc, y, 30);
 
   const verifyUrl = `${window.location.origin}/verify-invoice?uuid=${data.signatureUuid}`;
   const qrDataUrl = await generateQRDataUrl(verifyUrl);
 
   if (qrDataUrl) {
-    // QR code on left
-    const qrSize = 22;
+    const qrSize = 18;
     const qrX = MARGIN + 4;
     const qrY = y;
 
     doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
 
-    // Verification text next to QR
     doc.setFont('IBMPlex', 'normal');
-    doc.setFontSize(7);
+    doc.setFontSize(6.5);
     doc.setTextColor(...TEXT3);
     doc.text('رمز التحقق من صحة الوثيقة', qrX + qrSize + 4, qrY + 5);
     doc.text('Code de vérification du document', qrX + qrSize + 4, qrY + 9);
 
-    doc.setFontSize(6);
+    doc.setFontSize(5.5);
     doc.setTextColor(...GOLD);
-    doc.text(`Réf: ${data.statementNumber}`, qrX + qrSize + 4, qrY + 14);
+    doc.text(`Réf: ${data.statementNumber}`, qrX + qrSize + 4, qrY + 13);
 
     y = qrY + qrSize + 4;
   }
@@ -336,7 +331,7 @@ export const generateFeeStatementPDF = async (data: FeeStatementData): Promise<B
 
   /* ── 1. Page frame ── */
   drawPageFrame(doc);
-  let y = 20;
+  let y = 18;
 
   /* ── 2. Bilingual Header ── */
   y = drawHeader(doc, lawyerName, lh, y);
@@ -344,13 +339,13 @@ export const generateFeeStatementPDF = async (data: FeeStatementData): Promise<B
 
   /* ── 3. Title ── */
   doc.setFont('Amiri', 'normal');
-  doc.setFontSize(22);
+  doc.setFontSize(20);
   doc.setTextColor(...NAVY);
   doc.text('بيان الأتعاب والمصاريف', CX, y, { align: 'center' });
   y += 5;
 
   doc.setFont('IBMPlex', 'normal');
-  doc.setFontSize(9);
+  doc.setFontSize(8.5);
   doc.setTextColor(...TEXT3);
   doc.text("Note d'honoraires et frais", CX, y, { align: 'center' });
   y += 4;
@@ -359,7 +354,7 @@ export const generateFeeStatementPDF = async (data: FeeStatementData): Promise<B
   y += 5;
 
   // Statement number badge
-  const badgeW = 50;
+  const badgeW = 48;
   doc.setFillColor(245, 245, 250);
   doc.roundedRect(CX - badgeW / 2, y - 2, badgeW, 7, 2, 2, 'F');
   doc.setDrawColor(...GOLD);
@@ -367,7 +362,7 @@ export const generateFeeStatementPDF = async (data: FeeStatementData): Promise<B
   doc.roundedRect(CX - badgeW / 2, y - 2, badgeW, 7, 2, 2, 'S');
 
   doc.setFont('IBMPlex', 'bold');
-  doc.setFontSize(7.5);
+  doc.setFontSize(7);
   doc.setTextColor(...NAVY);
   doc.text(data.statementNumber, CX, y + 2.5, { align: 'center' });
   y += 10;
@@ -390,18 +385,18 @@ export const generateFeeStatementPDF = async (data: FeeStatementData): Promise<B
   /* ── 7. Notes ── */
   const noteText = data.notes || 'يتم تحديد الأتعاب وفقاً للقوانين المنظمة لمهنة المحاماة بالمغرب وللاتفاق المسبق.';
   doc.setFont('IBMPlex', 'normal');
-  doc.setFontSize(7.5);
+  doc.setFontSize(7);
   doc.setTextColor(...TEXT2);
   const noteLines = doc.splitTextToSize(noteText, CW - 10);
-  y = ensureSpace(doc, y, noteLines.length * 4 + 10);
+  y = ensureSpace(doc, y, noteLines.length * 4 + 8);
   doc.text(noteLines, CX, y, { align: 'center' });
   y += noteLines.length * 4 + 5;
 
   hline(doc, y, MARGIN, RX, BORDER, 0.2);
-  y += 6;
+  y += 5;
 
   /* ── 8. Date & Signature ── */
-  y = ensureSpace(doc, y, 55);
+  y = ensureSpace(doc, y, 50);
   y = drawDateAndSignature(doc, y, data.date, city);
 
   /* ── 9. QR verification ── */
