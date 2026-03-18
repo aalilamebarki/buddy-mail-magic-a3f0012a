@@ -303,8 +303,8 @@ export const exportCourtSessionsWord = async ({
       children,
       properties: {
         page: {
-          margin: { top: 700, bottom: 700, left: 800, right: 800 },
-          size: { orientation: PageOrientation.LANDSCAPE },
+          margin: { top: 567, bottom: 567, left: 567, right: 567 },
+          size: { width: 11906, height: 16838 },
         },
       },
     }],
