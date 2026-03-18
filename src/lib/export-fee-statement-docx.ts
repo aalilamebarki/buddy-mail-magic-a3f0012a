@@ -555,6 +555,7 @@ export const exportFeeStatementDocx = async (statement: FeeStatementRecord) => {
             alignment: AlignmentType.CENTER,
             bidirectional: true,
             spacing: { before: 150, after: 60 },
+            shading: { fill: NAVY, type: ShadingType.CLEAR },
             children: [
               new TextRun({
                 text: `ملف ${idx + 1}: ${sc.cases?.title || sc.cases?.case_number || '—'}`,
@@ -563,7 +564,6 @@ export const exportFeeStatementDocx = async (statement: FeeStatementRecord) => {
                 bold: true,
                 color: 'FFFFFF',
                 rightToLeft: true,
-                shading: { fill: NAVY, type: ShadingType.CLEAR },
               }),
             ],
           }),
