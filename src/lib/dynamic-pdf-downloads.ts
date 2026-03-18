@@ -13,6 +13,13 @@ const downloadBlob = (blob: Blob, filename: string) => {
   URL.revokeObjectURL(url);
 };
 
+const previewBlob = (blob: Blob) => {
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank');
+  // Don't revoke immediately — the new tab needs time to load
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+};
+
 const mapLetterhead = (letterhead?: {
   lawyer_name: string;
   name_fr?: string | null;
@@ -41,23 +48,29 @@ const mapLetterhead = (letterhead?: {
   };
 };
 
-export const downloadInvoicePdf = async (invoice: InvoiceRecord) => {
-  const pdfBlob = await generateInvoicePDF({
-    invoiceNumber: invoice.invoice_number,
-    signatureUuid: invoice.signature_uuid,
-    clientName: invoice.clients?.full_name || 'غير محدد',
-    caseName: invoice.cases?.title || undefined,
-    caseNumber: invoice.cases?.case_number || undefined,
-    caseType: invoice.cases?.case_type || undefined,
-    amount: Number(invoice.amount || 0),
-    description: invoice.description || undefined,
-    paymentMethod: invoice.payment_method || 'cash',
-    date: formatDateArabic(invoice.created_at, { year: 'numeric', month: 'long', day: 'numeric' }),
-    lawyerName: invoice.letterheads?.lawyer_name || 'مكتب المحاماة',
-    letterhead: mapLetterhead(invoice.letterheads),
-  });
+const buildInvoiceData = (invoice: InvoiceRecord) => ({
+  invoiceNumber: invoice.invoice_number,
+  signatureUuid: invoice.signature_uuid,
+  clientName: invoice.clients?.full_name || 'غير محدد',
+  caseName: invoice.cases?.title || undefined,
+  caseNumber: invoice.cases?.case_number || undefined,
+  caseType: invoice.cases?.case_type || undefined,
+  amount: Number(invoice.amount || 0),
+  description: invoice.description || undefined,
+  paymentMethod: invoice.payment_method || 'cash',
+  date: formatDateArabic(invoice.created_at, { year: 'numeric', month: 'long', day: 'numeric' }),
+  lawyerName: invoice.letterheads?.lawyer_name || 'مكتب المحاماة',
+  letterhead: mapLetterhead(invoice.letterheads),
+});
 
+export const downloadInvoicePdf = async (invoice: InvoiceRecord) => {
+  const pdfBlob = await generateInvoicePDF(buildInvoiceData(invoice));
   downloadBlob(pdfBlob, `${invoice.invoice_number}.pdf`);
+};
+
+export const previewInvoicePdf = async (invoice: InvoiceRecord) => {
+  const pdfBlob = await generateInvoicePDF(buildInvoiceData(invoice));
+  previewBlob(pdfBlob);
 };
 
 const getStatementItemsForCase = (
@@ -74,7 +87,7 @@ const getStatementItemsForCase = (
   return sourceItems.filter(item => item.case_id === caseId);
 };
 
-export const downloadFeeStatementPdf = async (statement: FeeStatementRecord) => {
+const buildStatementData = (statement: FeeStatementRecord) => {
   const caseDetails = statement.fee_statement_cases && statement.fee_statement_cases.length > 0
     ? statement.fee_statement_cases.map(statementCase => {
         const caseItems = getStatementItemsForCase(statement.fee_statement_items, statementCase.case_id);
@@ -117,7 +130,7 @@ export const downloadFeeStatementPdf = async (statement: FeeStatementRecord) => 
         totalAmount: Number(statement.total_amount || 0),
       }];
 
-  const pdfBlob = await generateFeeStatementPDF({
+  return {
     statementNumber: statement.statement_number,
     signatureUuid: statement.signature_uuid,
     clientName: statement.clients?.full_name || '—',
@@ -135,7 +148,15 @@ export const downloadFeeStatementPdf = async (statement: FeeStatementRecord) => 
     date: formatDateArabic(statement.created_at, { year: 'numeric', month: 'long', day: 'numeric' }),
     lawyerName: statement.letterheads?.lawyer_name || 'مكتب المحاماة',
     letterhead: mapLetterhead(statement.letterheads),
-  });
+  };
+};
 
+export const downloadFeeStatementPdf = async (statement: FeeStatementRecord) => {
+  const pdfBlob = await generateFeeStatementPDF(buildStatementData(statement));
   downloadBlob(pdfBlob, `${statement.statement_number}.pdf`);
+};
+
+export const previewFeeStatementPdf = async (statement: FeeStatementRecord) => {
+  const pdfBlob = await generateFeeStatementPDF(buildStatementData(statement));
+  previewBlob(pdfBlob);
 };

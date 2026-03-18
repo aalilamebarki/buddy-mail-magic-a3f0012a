@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Receipt, FileText, Plus, Download, Loader2, QrCode, Search, Pencil, DollarSign, BookOpen, TrendingUp } from 'lucide-react';
+import { Receipt, FileText, Plus, Download, Loader2, QrCode, Search, Pencil, DollarSign, BookOpen, TrendingUp, Eye } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useInvoices, type InvoiceRecord } from '@/hooks/useInvoices';
 import { useFeeStatements, type FeeStatementRecord } from '@/hooks/useFeeStatements';
@@ -14,7 +14,7 @@ import { useAccountingEntries } from '@/hooks/useAccounting';
 import { useToast } from '@/hooks/use-toast';
 import { formatDateShort } from '@/lib/formatters';
 import { exportAccountingExcel, exportAccountingPDF } from '@/lib/export-accounting';
-import { downloadInvoicePdf, downloadFeeStatementPdf } from '@/lib/dynamic-pdf-downloads';
+import { downloadInvoicePdf, downloadFeeStatementPdf, previewInvoicePdf, previewFeeStatementPdf } from '@/lib/dynamic-pdf-downloads';
 import CreateInvoiceDialog from '@/components/invoices/CreateInvoiceDialog';
 import CreateFeeStatementDialog from '@/components/invoices/CreateFeeStatementDialog';
 
@@ -53,6 +53,7 @@ const Billing = () => {
   const [editStatement, setEditStatement] = useState<FeeStatementRecord | null>(null);
   const [search, setSearch] = useState('');
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [previewing, setPreviewing] = useState<string | null>(null);
 
   const [accYear, setAccYear] = useState(currentYear);
   const { entries, loading: accLoading, stats } = useAccountingEntries(accYear);
@@ -93,6 +94,28 @@ const Billing = () => {
       toast({ title: 'خطأ في التحميل', description: e.message, variant: 'destructive' });
     } finally {
       setDownloading(null);
+    }
+  };
+
+  const previewInvoice = async (invoice: InvoiceRecord) => {
+    setPreviewing(invoice.id);
+    try {
+      await previewInvoicePdf(invoice);
+    } catch (e: any) {
+      toast({ title: 'خطأ في المعاينة', description: e.message, variant: 'destructive' });
+    } finally {
+      setPreviewing(null);
+    }
+  };
+
+  const previewStatement = async (statement: FeeStatementRecord) => {
+    setPreviewing(statement.id);
+    try {
+      await previewFeeStatementPdf(statement);
+    } catch (e: any) {
+      toast({ title: 'خطأ في المعاينة', description: e.message, variant: 'destructive' });
+    } finally {
+      setPreviewing(null);
     }
   };
 
@@ -237,7 +260,7 @@ const Billing = () => {
                         <TableHead className="text-right">الأداء</TableHead>
                         <TableHead className="text-right">التاريخ</TableHead>
                         <TableHead className="text-right">التحقق</TableHead>
-                        <TableHead className="text-right">PDF</TableHead>
+                        <TableHead className="text-right">إجراءات</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -257,17 +280,32 @@ const Billing = () => {
                             <span title={inv.signature_uuid}><QrCode className="h-4 w-4 text-primary" /></span>
                           </TableCell>
                           <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0"
-                              onClick={() => downloadInvoice(inv)}
-                              disabled={downloading === inv.id}
-                            >
-                              {downloading === inv.id
-                                ? <Loader2 className="h-4 w-4 animate-spin" />
-                                : <Download className="h-4 w-4" />}
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0"
+                                title="مشاهدة"
+                                onClick={() => previewInvoice(inv)}
+                                disabled={previewing === inv.id}
+                              >
+                                {previewing === inv.id
+                                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                                  : <Eye className="h-4 w-4" />}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0"
+                                title="تحميل PDF"
+                                onClick={() => downloadInvoice(inv)}
+                                disabled={downloading === inv.id}
+                              >
+                                {downloading === inv.id
+                                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                                  : <Download className="h-4 w-4" />}
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -314,6 +352,18 @@ const Billing = () => {
                               <div className="flex items-center gap-1">
                                 <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="تعديل" onClick={() => openEditFs(s)}>
                                   <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0"
+                                  title="مشاهدة"
+                                  onClick={() => previewStatement(s)}
+                                  disabled={previewing === s.id}
+                                >
+                                  {previewing === s.id
+                                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                                    : <Eye className="h-4 w-4" />}
                                 </Button>
                                 <Button
                                   variant="ghost"
