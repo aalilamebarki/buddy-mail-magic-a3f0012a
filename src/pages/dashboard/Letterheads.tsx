@@ -379,10 +379,7 @@ const Letterheads = () => {
     setTemplateFile(null);
     setPendingTemplatePath(null);
     setPendingTemplateName(null);
-    setPreviewHtml(null);
-    setPreviewReady(false);
-    if (previewContainerRef.current) previewContainerRef.current.innerHTML = '';
-    setPreviewLoading(false);
+    previewRef.current?.clear();
     setUploadingTemplate(false);
     writeStoredDraft(null);
     if (pathToCleanup) cleanupPendingUpload(pathToCleanup);
