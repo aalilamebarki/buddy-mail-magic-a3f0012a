@@ -167,33 +167,31 @@ const Letterheads = () => {
     setLoading(false);
   };
 
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-
-  const generateSignedPreviewUrl = async (storagePath: string): Promise<string | null> => {
-    const { data, error } = await supabase.storage
-      .from('letterhead-templates')
-      .createSignedUrl(storagePath, 3600); // 1 hour
-    if (error || !data?.signedUrl) return null;
-    return data.signedUrl;
-  };
-
-  const openLivePreview = async (storagePath: string) => {
+  const renderDocxPreview = async (blob: Blob) => {
     setPreviewLoading(true);
     setPreviewHtml(null);
-    setPreviewUrl(null);
+    setPreviewReady(false);
     try {
-      const signedUrl = await generateSignedPreviewUrl(storagePath);
-      if (!signedUrl) throw new Error('تعذر إنشاء رابط المعاينة');
-      
-      // Use Microsoft Office Online viewer for faithful .docx rendering
-      const viewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(signedUrl)}`;
-      setPreviewUrl(viewerUrl);
-    } catch {
-      // Fallback to mammoth HTML conversion
+      // Wait for next tick so the container ref is mounted
+      await new Promise(r => setTimeout(r, 50));
+      const container = previewContainerRef.current;
+      if (!container) throw new Error('Preview container not found');
+      container.innerHTML = '';
+      await renderAsync(blob, container, undefined, {
+        className: 'docx-preview',
+        inWrapper: true,
+        ignoreWidth: false,
+        ignoreHeight: false,
+        renderHeaders: true,
+        renderFooters: true,
+        renderFootnotes: true,
+      });
+      setPreviewReady(true);
+    } catch (err) {
+      console.error('docx-preview error:', err);
+      // Fallback to mammoth
       try {
-        const { data, error } = await supabase.storage.from('letterhead-templates').download(storagePath);
-        if (error || !data) throw error;
-        const result = await mammoth.convertToHtml({ arrayBuffer: await data.arrayBuffer() });
+        const result = await mammoth.convertToHtml({ arrayBuffer: await blob.arrayBuffer() });
         setPreviewHtml(result.value || '<p style="color:gray;text-align:center;">الملف فارغ</p>');
       } catch {
         setPreviewHtml('<p style="color:gray;text-align:center;">تعذر عرض معاينة هذا الملف</p>');
@@ -204,31 +202,33 @@ const Letterheads = () => {
   };
 
   const generatePreview = async (file: File) => {
-    // For newly uploaded files, we need to use the pending path (already uploaded to storage)
-    if (pendingTemplatePath) {
-      await openLivePreview(pendingTemplatePath);
-    } else {
-      // Fallback to mammoth for files not yet uploaded
-      setPreviewLoading(true);
-      try {
-        const result = await mammoth.convertToHtml({ arrayBuffer: await file.arrayBuffer() });
-        setPreviewHtml(result.value || '<p style="color:gray;text-align:center;">الملف فارغ</p>');
-      } catch {
-        setPreviewHtml(fallbackPreview(file.name, 'تم اختيار الملف بنجاح'));
-      } finally {
-        setPreviewLoading(false);
-      }
-    }
+    await renderDocxPreview(file);
   };
 
   const previewPendingTemplate = async () => {
     if (!pendingTemplatePath) return;
-    await openLivePreview(pendingTemplatePath);
+    setPreviewLoading(true);
+    try {
+      const { data, error } = await supabase.storage.from('letterhead-templates').download(pendingTemplatePath);
+      if (error || !data) throw error;
+      await renderDocxPreview(data);
+    } catch {
+      setPreviewHtml('<p style="color:gray;text-align:center;">تعذر عرض معاينة هذا الملف</p>');
+      setPreviewLoading(false);
+    }
   };
 
   const previewExisting = async (lh: Letterhead) => {
     if (!lh.template_path) return;
-    await openLivePreview(lh.template_path);
+    setPreviewLoading(true);
+    try {
+      const { data, error } = await supabase.storage.from('letterhead-templates').download(lh.template_path);
+      if (error || !data) throw error;
+      await renderDocxPreview(data);
+    } catch {
+      setPreviewHtml('<p style="color:gray;text-align:center;">تعذر عرض معاينة هذا الملف</p>');
+      setPreviewLoading(false);
+    }
   };
 
   const cleanupPendingUpload = async (path: string | null) => {
