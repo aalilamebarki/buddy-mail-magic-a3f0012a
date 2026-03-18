@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -44,8 +44,28 @@ const CourtSessions = () => {
   const [selectedCaseId, setSelectedCaseId] = useState('');
   const [sessionDate, setSessionDate] = useState<Date | undefined>(undefined);
   const [requiredAction, setRequiredAction] = useState('');
+  const [actionPopoverOpen, setActionPopoverOpen] = useState(false);
+  const [actionSearch, setActionSearch] = useState('');
+  const [actionOptions, setActionOptions] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Fetch required actions from DB
+  const fetchActions = useCallback(async () => {
+    const { data } = await supabase
+      .from('required_actions')
+      .select('label')
+      .order('label');
+    if (data) setActionOptions(data.map(d => d.label));
+  }, []);
+
+  useEffect(() => { fetchActions(); }, [fetchActions]);
+
+  const filteredActions = useMemo(() => {
+    if (!actionSearch) return actionOptions;
+    const q = actionSearch.toLowerCase();
+    return actionOptions.filter(a => a.toLowerCase().includes(q));
+  }, [actionOptions, actionSearch]);
 
   const filteredCases = useMemo(() => {
     if (!caseSearch) return cases;
@@ -140,6 +160,12 @@ const CourtSessions = () => {
         });
         if (error) throw error;
         toast.success('تمت إضافة الجلسة');
+      }
+      // Auto-save custom action if not in options
+      const trimmedAction = requiredAction.trim();
+      if (trimmedAction && !actionOptions.includes(trimmedAction) && user) {
+        await supabase.from('required_actions').insert({ label: trimmedAction, user_id: user.id }).single();
+        fetchActions();
       }
       setDialogOpen(false);
       setEditingSession(null);
@@ -431,11 +457,51 @@ const CourtSessions = () => {
             {/* المطلوب */}
             <div className="space-y-2">
               <Label>المطلوب في هذه الجلسة *</Label>
-              <Input
-                value={requiredAction}
-                onChange={e => setRequiredAction(e.target.value)}
-                placeholder="مثال: الإدلاء بمذكرة جوابية، شهادة التسليم..."
-              />
+              <Popover open={actionPopoverOpen} onOpenChange={setActionPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                    {requiredAction || <span className="text-muted-foreground">اختر المطلوب...</span>}
+                    <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0 pointer-events-auto" align="start">
+                  <Command>
+                    <CommandInput placeholder="ابحث أو اكتب مطلوباً جديداً..." value={actionSearch} onValueChange={setActionSearch} />
+                    <CommandList>
+                      <CommandEmpty>
+                        {actionSearch.trim() ? (
+                          <button
+                            className="w-full px-3 py-2 text-sm text-right hover:bg-accent cursor-pointer"
+                            onClick={() => {
+                              setRequiredAction(actionSearch.trim());
+                              setActionSearch('');
+                              setActionPopoverOpen(false);
+                            }}
+                          >
+                            إضافة: <span className="font-medium">{actionSearch.trim()}</span>
+                          </button>
+                        ) : 'لا توجد نتائج'}
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {filteredActions.map(action => (
+                          <CommandItem
+                            key={action}
+                            value={action}
+                            onSelect={() => {
+                              setRequiredAction(action);
+                              setActionSearch('');
+                              setActionPopoverOpen(false);
+                            }}
+                          >
+                            <Check className={cn("h-4 w-4 ml-2", requiredAction === action ? "opacity-100" : "opacity-0")} />
+                            {action}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* Notes */}
