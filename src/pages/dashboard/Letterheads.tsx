@@ -162,68 +162,18 @@ const Letterheads = () => {
     setLoading(false);
   };
 
-  const renderDocxPreview = async (blob: Blob) => {
-    setPreviewLoading(true);
-    setPreviewHtml(null);
-    setPreviewReady(false);
-    try {
-      // Wait for next tick so the container ref is mounted
-      await new Promise(r => setTimeout(r, 50));
-      const container = previewContainerRef.current;
-      if (!container) throw new Error('Preview container not found');
-      container.innerHTML = '';
-      await renderAsync(blob, container, undefined, {
-        className: 'docx-preview',
-        inWrapper: true,
-        ignoreWidth: false,
-        ignoreHeight: false,
-        renderHeaders: true,
-        renderFooters: true,
-        renderFootnotes: true,
-      });
-      setPreviewReady(true);
-    } catch (err) {
-      console.error('docx-preview error:', err);
-      // Fallback to mammoth
-      try {
-        const result = await mammoth.convertToHtml({ arrayBuffer: await blob.arrayBuffer() });
-        setPreviewHtml(result.value || '<p style="color:gray;text-align:center;">الملف فارغ</p>');
-      } catch {
-        setPreviewHtml('<p style="color:gray;text-align:center;">تعذر عرض معاينة هذا الملف</p>');
-      }
-    } finally {
-      setPreviewLoading(false);
-    }
-  };
-
   const generatePreview = async (file: File) => {
-    await renderDocxPreview(file);
+    previewRef.current?.previewBlob(file);
   };
 
   const previewPendingTemplate = async () => {
     if (!pendingTemplatePath) return;
-    setPreviewLoading(true);
-    try {
-      const { data, error } = await supabase.storage.from('letterhead-templates').download(pendingTemplatePath);
-      if (error || !data) throw error;
-      await renderDocxPreview(data);
-    } catch {
-      setPreviewHtml('<p style="color:gray;text-align:center;">تعذر عرض معاينة هذا الملف</p>');
-      setPreviewLoading(false);
-    }
+    previewRef.current?.previewFromStorage('letterhead-templates', pendingTemplatePath);
   };
 
   const previewExisting = async (lh: Letterhead) => {
     if (!lh.template_path) return;
-    setPreviewLoading(true);
-    try {
-      const { data, error } = await supabase.storage.from('letterhead-templates').download(lh.template_path);
-      if (error || !data) throw error;
-      await renderDocxPreview(data);
-    } catch {
-      setPreviewHtml('<p style="color:gray;text-align:center;">تعذر عرض معاينة هذا الملف</p>');
-      setPreviewLoading(false);
-    }
+    previewRef.current?.previewFromStorage('letterhead-templates', lh.template_path);
   };
 
   const cleanupPendingUpload = async (path: string | null) => {
