@@ -727,7 +727,14 @@ const Letterheads = () => {
         </Card>
       )}
 
-      {!showForm && (previewReady || previewHtml) && (
+      {/* Always-mounted docx-preview container */}
+      <div
+        ref={previewContainerRef}
+        className={`border border-border rounded-lg overflow-auto bg-white ${previewReady ? 'h-[450px]' : 'hidden'}`}
+        style={{ direction: 'ltr' }}
+      />
+
+      {(previewReady || previewHtml || previewLoading) && (
         <Card>
           <CardContent className="pt-4 space-y-2">
             <div className="flex items-center justify-between">
@@ -735,11 +742,17 @@ const Letterheads = () => {
                 <Eye className="h-4 w-4 text-primary" />
                 <span className="text-sm font-bold text-foreground">معاينة القالب</span>
               </div>
-              <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => { setPreviewHtml(null); setPreviewReady(false); if (previewContainerRef.current) previewContainerRef.current.innerHTML = ''; }}>
+              <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => { setPreviewHtml(null); setPreviewReady(false); setPreviewLoading(false); if (previewContainerRef.current) previewContainerRef.current.innerHTML = ''; }}>
                 <X className="h-3.5 w-3.5" />
               </Button>
             </div>
-            {previewHtml && !previewReady ? (
+            {previewLoading && (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                <span className="text-sm text-muted-foreground mr-2">جاري تحميل المعاينة...</span>
+              </div>
+            )}
+            {previewHtml && !previewReady && !previewLoading && (
               <ScrollArea className="h-[300px] border border-border rounded-lg">
                 <div
                   className="p-4 prose prose-sm max-w-none dark:prose-invert text-foreground"
@@ -747,7 +760,7 @@ const Letterheads = () => {
                   dangerouslySetInnerHTML={{ __html: previewHtml }}
                 />
               </ScrollArea>
-            ) : null}
+            )}
           </CardContent>
         </Card>
       )}
