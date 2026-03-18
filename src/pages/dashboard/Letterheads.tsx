@@ -673,48 +673,7 @@ const Letterheads = () => {
                 <span className="text-xs text-muted-foreground">الملف محفوظ مؤقتاً حتى تضغط حفظ الترويسة</span>
               </div>
             )}
-
-            {previewLoading && (
-              <div className="flex items-center justify-center py-6">
-                <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                <span className="text-sm text-muted-foreground mr-2">جاري تحميل المعاينة...</span>
-              </div>
-            )}
-
-            {/* docx-preview container - always mounted for ref */}
-            <div
-              ref={previewContainerRef}
-              className={`border border-border rounded-lg overflow-auto bg-white ${previewReady ? 'h-[450px]' : 'hidden'}`}
-              style={{ direction: 'ltr' }}
-            />
-
-            {previewReady && !previewLoading && (
-              <div className="flex items-center justify-between px-1">
-                <div className="flex items-center gap-1.5">
-                  <Eye className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-medium text-muted-foreground">معاينة حية للملف</span>
-                </div>
-                <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => { setPreviewReady(false); if (previewContainerRef.current) previewContainerRef.current.innerHTML = ''; }}>
-                  <X className="h-3 w-3" />
-                </Button>
-              </div>
-            )}
-
-            {previewHtml && !previewReady && !previewLoading && (
-              <div className="border border-border rounded-lg overflow-hidden">
-                <div className="bg-muted/50 px-3 py-1.5 flex items-center gap-1.5 border-b border-border">
-                  <Eye className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-medium text-muted-foreground">معاينة القالب (مبسطة)</span>
-                </div>
-                <ScrollArea className="h-[300px]">
-                  <div
-                    className="p-4 prose prose-sm max-w-none dark:prose-invert text-foreground"
-                    dir="auto"
-                    dangerouslySetInnerHTML={{ __html: previewHtml }}
-                  />
-                </ScrollArea>
-              </div>
-            )}
+            {/* Preview is rendered in the always-mounted container below the form */}
 
             <div className="flex gap-2 pt-2">
               <Button
@@ -732,7 +691,14 @@ const Letterheads = () => {
         </Card>
       )}
 
-      {!showForm && (previewReady || previewHtml) && (
+      {/* Always-mounted docx-preview container */}
+      <div
+        ref={previewContainerRef}
+        className={`border border-border rounded-lg overflow-auto bg-white ${previewReady ? 'h-[450px]' : 'hidden'}`}
+        style={{ direction: 'ltr' }}
+      />
+
+      {(previewReady || previewHtml || previewLoading) && (
         <Card>
           <CardContent className="pt-4 space-y-2">
             <div className="flex items-center justify-between">
@@ -740,11 +706,17 @@ const Letterheads = () => {
                 <Eye className="h-4 w-4 text-primary" />
                 <span className="text-sm font-bold text-foreground">معاينة القالب</span>
               </div>
-              <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => { setPreviewHtml(null); setPreviewReady(false); if (previewContainerRef.current) previewContainerRef.current.innerHTML = ''; }}>
+              <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => { setPreviewHtml(null); setPreviewReady(false); setPreviewLoading(false); if (previewContainerRef.current) previewContainerRef.current.innerHTML = ''; }}>
                 <X className="h-3.5 w-3.5" />
               </Button>
             </div>
-            {previewHtml && !previewReady ? (
+            {previewLoading && (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                <span className="text-sm text-muted-foreground mr-2">جاري تحميل المعاينة...</span>
+              </div>
+            )}
+            {previewHtml && !previewReady && !previewLoading && (
               <ScrollArea className="h-[300px] border border-border rounded-lg">
                 <div
                   className="p-4 prose prose-sm max-w-none dark:prose-invert text-foreground"
@@ -752,7 +724,7 @@ const Letterheads = () => {
                   dangerouslySetInnerHTML={{ __html: previewHtml }}
                 />
               </ScrollArea>
-            ) : null}
+            )}
           </CardContent>
         </Card>
       )}
