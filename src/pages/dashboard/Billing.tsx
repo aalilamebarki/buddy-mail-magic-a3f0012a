@@ -260,7 +260,7 @@ const Billing = () => {
                         <TableHead className="text-right">الأداء</TableHead>
                         <TableHead className="text-right">التاريخ</TableHead>
                         <TableHead className="text-right">التحقق</TableHead>
-                        <TableHead className="text-right">PDF</TableHead>
+                        <TableHead className="text-right">إجراءات</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -280,17 +280,32 @@ const Billing = () => {
                             <span title={inv.signature_uuid}><QrCode className="h-4 w-4 text-primary" /></span>
                           </TableCell>
                           <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0"
-                              onClick={() => downloadInvoice(inv)}
-                              disabled={downloading === inv.id}
-                            >
-                              {downloading === inv.id
-                                ? <Loader2 className="h-4 w-4 animate-spin" />
-                                : <Download className="h-4 w-4" />}
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0"
+                                title="مشاهدة"
+                                onClick={() => previewInvoice(inv)}
+                                disabled={previewing === inv.id}
+                              >
+                                {previewing === inv.id
+                                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                                  : <Eye className="h-4 w-4" />}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0"
+                                title="تحميل PDF"
+                                onClick={() => downloadInvoice(inv)}
+                                disabled={downloading === inv.id}
+                              >
+                                {downloading === inv.id
+                                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                                  : <Download className="h-4 w-4" />}
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
