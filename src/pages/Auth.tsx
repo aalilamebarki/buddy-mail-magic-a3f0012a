@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +13,8 @@ import { motion } from 'framer-motion';
 
 const Auth = () => {
   const navigate = useNavigate();
-  const { signIn, signUp } = useAuth();
+  const location = useLocation();
+  const { signIn, signUp, user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -24,17 +25,25 @@ const Auth = () => {
   const [signupPassword, setSignupPassword] = useState('');
   const [signupConfirm, setSignupConfirm] = useState('');
 
+  useEffect(() => {
+    if (!user) return;
+
+    const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname;
+    navigate(from || '/dashboard', { replace: true });
+  }, [user, navigate, location.state]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     const { error } = await signIn(loginEmail, loginPassword);
     setLoading(false);
+
     if (error) {
       toast.error('خطأ في تسجيل الدخول: ' + error.message);
-    } else {
-      toast.success('تم تسجيل الدخول بنجاح');
-      navigate('/dashboard');
+      return;
     }
+
+    toast.success('تم تسجيل الدخول بنجاح');
   };
 
   const handleSignup = async (e: React.FormEvent) => {
