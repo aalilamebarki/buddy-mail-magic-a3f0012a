@@ -173,7 +173,7 @@ const FeeStatementPreview = () => {
                   <span className="block" style={{ width: 30, height: '0.5px', background: '#c5a059' }} />
                 </div>
                 {lh?.name_fr && (
-                  <p className="text-[7px] tracking-[2px] uppercase mb-2" style={{ color: '#969696' }}>Cabinet de Maître</p>
+                  <p className="text-[7px] tracking-[2px] uppercase mb-2" style={{ color: '#969696' }}>Maître</p>
                 )}
 
                 {/* Lawyer name */}
