@@ -32,6 +32,8 @@ const FeeStatementPreview = () => {
     load();
   }, [id]);
 
+  const [downloadingDocx, setDownloadingDocx] = useState(false);
+
   const handleDownload = async () => {
     if (!statement) return;
     setDownloading(true);
@@ -39,6 +41,16 @@ const FeeStatementPreview = () => {
       await downloadFeeStatementPdf(statement);
     } finally {
       setDownloading(false);
+    }
+  };
+
+  const handleDownloadDocx = async () => {
+    if (!statement) return;
+    setDownloadingDocx(true);
+    try {
+      await exportFeeStatementDocx(statement);
+    } finally {
+      setDownloadingDocx(false);
     }
   };
 
