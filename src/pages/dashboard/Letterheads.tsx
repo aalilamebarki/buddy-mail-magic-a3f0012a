@@ -276,7 +276,7 @@ const Letterheads = () => {
 
     setSaving(true);
     try {
-      const payload: Record<string, any> = {
+      const payload = {
         user_id: user.id,
         lawyer_name: fields.lawyerName.trim(),
         name_fr: fields.nameFr.trim() || null,
