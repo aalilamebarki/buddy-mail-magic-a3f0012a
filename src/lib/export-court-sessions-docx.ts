@@ -87,12 +87,11 @@ const makeCell = (
 /* ── Column config (RTL order: right to left) ──────────────────────── */
 
 const COLS = [
-  { label: 'الموكل', width: 18 },
-  { label: 'رقم الملف', width: 14 },
-  { label: 'الخصم', width: 18 },
-  { label: 'تاريخ الجلسة', width: 12 },
-  { label: 'الجلسة المقبلة', width: 12 },
-  { label: 'ملاحظات', width: 26 },
+  { label: 'الموكل', width: 20 },
+  { label: 'رقم الملف', width: 16 },
+  { label: 'الخصم', width: 20 },
+  { label: 'الجلسة المقبلة', width: 14 },
+  { label: 'ملاحظات', width: 30 },
 ];
 
 /* ── Build one court section ───────────────────────────────────────── */
@@ -103,7 +102,6 @@ const buildCourtSection = (
     clientName: string;
     caseNumber: string;
     opponentName: string;
-    sessionDate: string;
     nextSession: string;
     notes: string;
   }>,
@@ -112,12 +110,12 @@ const buildCourtSection = (
   const title = new Paragraph({
     alignment: AlignmentType.CENTER,
     bidirectional: true,
-    spacing: { before: 300, after: 100 },
+    spacing: { before: 200, after: 80 },
     children: [
       new TextRun({
         text: courtName,
         font: FONT,
-        size: 28,
+        size: 26,
         bold: true,
         color: NAVY,
         rightToLeft: true,
@@ -146,9 +144,8 @@ const buildCourtSection = (
         makeCell(row.clientName, COLS[0].width),
         makeCell(row.caseNumber, COLS[1].width, { alignment: AlignmentType.CENTER }),
         makeCell(row.opponentName, COLS[2].width),
-        makeCell(row.sessionDate, COLS[3].width, { alignment: AlignmentType.CENTER }),
-        makeCell(row.nextSession, COLS[4].width, { alignment: AlignmentType.CENTER }),
-        makeCell(row.notes, COLS[5].width, { size: 20 }),
+        makeCell(row.nextSession, COLS[3].width, { alignment: AlignmentType.CENTER }),
+        makeCell(row.notes, COLS[4].width, { size: 20 }),
       ],
     }),
   );
@@ -162,6 +159,25 @@ const buildCourtSection = (
 
   return [title, table];
 };
+
+/* ── Build a day heading ───────────────────────────────────────────── */
+
+const buildDayHeading = (date: Date): Paragraph =>
+  new Paragraph({
+    alignment: AlignmentType.CENTER,
+    bidirectional: true,
+    spacing: { before: 400, after: 150 },
+    children: [
+      new TextRun({
+        text: formatArabicDate(date, true),
+        font: FONT,
+        size: 32,
+        bold: true,
+        color: NAVY,
+        rightToLeft: true,
+      }),
+    ],
+  });
 
 /* ── Main Export ────────────────────────────────────────────────────── */
 
@@ -191,14 +207,13 @@ export const exportCourtSessionsWord = async ({
   const filtered = sessions.filter(s => s.session_date >= dateStart && s.session_date <= dateEnd);
   if (!filtered.length) throw new Error('لا توجد جلسات في هذه الفترة');
 
-  // Group by court
-  const grouped = filtered.reduce<Record<string, SessionRecord[]>>((acc, s) => {
-    const court = s.cases?.court || 'محكمة غير محددة';
-    (acc[court] ??= []).push(s);
+  // Group by date first, then by court within each date
+  const groupedByDate = filtered.reduce<Record<string, SessionRecord[]>>((acc, s) => {
+    (acc[s.session_date] ??= []).push(s);
     return acc;
   }, {});
 
-  const sortedCourts = Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b, 'ar'));
+  const sortedDates = Object.keys(groupedByDate).sort();
 
   // Document header
   const children: Array<Paragraph | Table> = [
@@ -233,22 +248,37 @@ export const exportCourtSessionsWord = async ({
     }),
   ];
 
-  // Build court sections
-  sortedCourts.forEach(([courtName, courtSessions]) => {
-    // Determine a representative date for the court header
-    const rows = courtSessions.map(s => {
-      const next = getNextSession(s.case_id, s.session_date);
-      return {
-        clientName: s.cases?.clients?.full_name || '—',
-        caseNumber: s.cases?.case_number || '—',
-        opponentName: s.cases?.opposing_party || '—',
-        sessionDate: formatArabicDate(new Date(`${s.session_date}T00:00:00`)),
-        nextSession: next ? formatArabicDate(new Date(`${next}T00:00:00`)) : '—',
-        notes: s.notes || '',
-      };
-    });
+  // For each day, add day heading then court tables
+  sortedDates.forEach(dateStr => {
+    const daySessions = groupedByDate[dateStr];
+    const dayDate = new Date(`${dateStr}T00:00:00`);
 
-    children.push(...buildCourtSection(courtName, rows));
+    // Day heading
+    children.push(buildDayHeading(dayDate));
+
+    // Group this day's sessions by court
+    const courtGroups = daySessions.reduce<Record<string, SessionRecord[]>>((acc, s) => {
+      const court = s.cases?.court || 'محكمة غير محددة';
+      (acc[court] ??= []).push(s);
+      return acc;
+    }, {});
+
+    const sortedCourts = Object.entries(courtGroups).sort(([a], [b]) => a.localeCompare(b, 'ar'));
+
+    sortedCourts.forEach(([courtName, courtSessions]) => {
+      const rows = courtSessions.map(s => {
+        const next = getNextSession(s.case_id, s.session_date);
+        return {
+          clientName: s.cases?.clients?.full_name || '—',
+          caseNumber: s.cases?.case_number || '—',
+          opponentName: s.cases?.opposing_party || '—',
+          nextSession: next ? formatArabicDate(new Date(`${next}T00:00:00`)) : '—',
+          notes: s.notes || '',
+        };
+      });
+
+      children.push(...buildCourtSection(courtName, rows));
+    });
   });
 
   // Footer
