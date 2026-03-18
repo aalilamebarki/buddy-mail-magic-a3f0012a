@@ -25,6 +25,7 @@ const Invoices = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [downloadingDocx, setDownloadingDocx] = useState<string | null>(null);
 
   const filtered = invoices.filter(inv =>
     !search ||
