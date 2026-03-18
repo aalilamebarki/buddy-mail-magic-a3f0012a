@@ -638,80 +638,17 @@ const DocumentGenerator = () => {
       const ext = lh.template_path.split('.').pop()?.toLowerCase();
 
       if (ext === 'docx') {
-        const zip = await JSZip.loadAsync(fileData);
-        const docXml = await zip.file('word/document.xml')?.async('string');
-        if (!docXml) throw new Error('ملف القالب غير صالح');
+        const { injectIntoTemplate } = await import('@/lib/docx-template-engine');
 
-        // Extract template font
-        let templateFont = 'Traditional Arabic';
-        let templateFontSize = '24';
-        try {
-          const stylesXml = await zip.file('word/styles.xml')?.async('string');
-          if (stylesXml) {
-            const csFontMatch = stylesXml.match(/<w:rFonts[^>]*w:cs="([^"]+)"/);
-            if (csFontMatch) templateFont = csFontMatch[1];
-            const csSizeMatch = stylesXml.match(/<w:szCs\s+w:val="(\d+)"/);
-            if (csSizeMatch) templateFontSize = csSizeMatch[1];
-          }
-        } catch { /* use defaults */ }
+        const blob = await injectIntoTemplate(fileData, {
+          content,
+          clientName: selectedCase?.client_name || '',
+          caseName: title,
+          court: selectedCase?.court || '',
+          caseNumber: selectedCase?.case_number || '',
+          lawyerName: lh.lawyer_name,
+        });
 
-        const classifyLine = (line: string): string => {
-          const trimmed = line.trim();
-          if (trimmed.startsWith('بسم الله')) return 'basmala';
-          if (/^(إلى السيد|حضرة|سيدي|السيد الرئيس|الموجه إلى)/.test(trimmed)) return 'heading';
-          if (/^(المدعي|المدعى عليه|الطرف|الطالب|المطلوب|المشتكي|المشتكى به|الموكل|الخصم|نيابة عن|من طرف):?/.test(trimmed)) return 'party_label';
-          if (/^(الاسم|العنوان|رقم البطاقة|CIN|الهاتف|المهنة):?/.test(trimmed)) return 'party_value';
-          if (/^(الوقائع|في الشكل|في الموضوع|بناءً عليه|لهذه الأسباب|المناقشة|الأساس القانوني|الطلبات|أسباب الاستئناف|وسائل النقض|ملتمسات|حيث إن)/.test(trimmed)) return 'section_title';
-          if (/^(وتفضلوا|والسلام|عن الموكل|الإمضاء|المحامي|الأستاذ)/.test(trimmed)) return 'signature';
-          return 'normal';
-        };
-
-        const boldSize = String(parseInt(templateFontSize) + 4);
-
-        const lines = content.split('\n').filter(l => l.trim());
-        const paragraphsXml = lines.map(line => {
-          const type = classifyLine(line);
-          let alignment = 'right', isBold = false, fontSize = templateFontSize;
-          let spacingAfter = '200', spacingLine = '360', isUnderline = false;
-
-          switch (type) {
-            case 'basmala': alignment = 'center'; isBold = true; fontSize = boldSize; spacingAfter = '400'; break;
-            case 'heading': isBold = true; fontSize = boldSize; spacingAfter = '120'; isUnderline = true; break;
-            case 'party_label': isBold = true; spacingAfter = '60'; break;
-            case 'party_value': spacingAfter = '60'; spacingLine = '280'; break;
-            case 'section_title': isBold = true; fontSize = boldSize; isUnderline = true; spacingAfter = '240'; break;
-            case 'signature': alignment = 'center'; spacingAfter = '60'; break;
-          }
-
-          return `<w:p>
-            <w:pPr><w:bidi/><w:jc w:val="${alignment}"/><w:spacing w:after="${spacingAfter}" w:line="${spacingLine}" w:lineRule="auto"/></w:pPr>
-            <w:r>
-              <w:rPr>
-                <w:rFonts w:ascii="${templateFont}" w:hAnsi="${templateFont}" w:cs="${templateFont}"/>
-                <w:sz w:val="${fontSize}"/><w:szCs w:val="${fontSize}"/>
-                ${isBold ? '<w:b/><w:bCs/>' : ''}${isUnderline ? '<w:u w:val="single"/>' : ''}<w:rtl/>
-              </w:rPr>
-              <w:t xml:space="preserve">${escapeXml(line)}</w:t>
-            </w:r>
-          </w:p>`;
-        }).join('\n');
-
-        let newDocXml: string;
-        const bookmarkStartRegex = /<w:bookmarkStart[^>]*w:name="CONTENT"[^>]*\/?>[\s\S]*?<w:bookmarkEnd[^>]*\/?>/i;
-        const placeholderRegex = /<w:p[^>]*>[\s\S]*?\{\{CONTENT\}\}[\s\S]*?<\/w:p>/i;
-
-        if (docXml.match(bookmarkStartRegex)) {
-          newDocXml = docXml.replace(bookmarkStartRegex, paragraphsXml);
-        } else if (docXml.match(placeholderRegex)) {
-          newDocXml = docXml.replace(placeholderRegex, paragraphsXml);
-        } else {
-          const sectPrMatch = docXml.match(/<w:sectPr[\s\S]*?<\/w:sectPr>/);
-          const sectPr = sectPrMatch ? sectPrMatch[0] : '';
-          newDocXml = docXml.replace(/<w:body>[\s\S]*<\/w:body>/, `<w:body>${paragraphsXml}${sectPr}</w:body>`);
-        }
-
-        zip.file('word/document.xml', newDocXml);
-        const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
         saveAs(blob, `${title}_${new Date().toISOString().slice(0, 10)}.docx`);
       } else {
         toast({ title: 'صيغة غير مدعومة. يرجى استخدام ملف .docx', variant: 'destructive' });
@@ -720,10 +657,6 @@ const DocumentGenerator = () => {
       console.error('Export error:', e);
       toast({ title: 'خطأ في التصدير', description: e.message, variant: 'destructive' });
     }
-  };
-
-  const escapeXml = (str: string): string => {
-    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
   };
 
   const detectDocType = (content: string): string => {
