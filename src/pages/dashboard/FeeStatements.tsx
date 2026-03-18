@@ -52,6 +52,17 @@ const FeeStatements = () => {
     }
   };
 
+  const downloadDocx = async (statement: FeeStatementRecord) => {
+    setDownloading(`docx-${statement.id}`);
+    try {
+      await exportFeeStatementDocx(statement);
+    } catch (e: any) {
+      toast({ title: 'خطأ في التحميل', description: e.message, variant: 'destructive' });
+    } finally {
+      setDownloading(null);
+    }
+  };
+
   const openEdit = (s: FeeStatementRecord) => {
     setEditStatement(s);
     setDialogOpen(true);
