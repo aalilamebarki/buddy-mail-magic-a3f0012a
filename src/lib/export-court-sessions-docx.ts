@@ -64,7 +64,7 @@ const makeCell = (
     verticalAlign: VerticalAlign.CENTER,
     width: { size: width, type: WidthType.PERCENTAGE },
     shading: opts?.fill ? { fill: opts.fill } : undefined,
-    margins: { top: 60, bottom: 60, left: 100, right: 100 },
+    margins: { top: 30, bottom: 30, left: 80, right: 80 },
     children: [
       new Paragraph({
         alignment: opts?.alignment ?? AlignmentType.RIGHT,
