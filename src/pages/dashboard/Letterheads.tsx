@@ -161,7 +161,7 @@ const Letterheads = () => {
   const loadLetterheads = async () => {
     const { data } = await supabase
       .from('letterheads')
-      .select('id, lawyer_name, name_fr, title_ar, title_fr, bar_name_ar, bar_name_fr, address, city, phone, email, template_path, created_at')
+      .select('id, lawyer_name, name_fr, title_ar, title_fr, bar_name_ar, bar_name_fr, address, city, phone, email, template_path, header_data, created_at')
       .order('created_at', { ascending: false });
 
     if (data) setLetterheads(data);
