@@ -136,7 +136,8 @@ const Invoices = () => {
                     <TableHead className="text-right">الأداء</TableHead>
                     <TableHead className="text-right">التاريخ</TableHead>
                     <TableHead className="text-right">التحقق</TableHead>
-                    <TableHead className="text-right">PDF</TableHead>
+                     <TableHead className="text-right">PDF</TableHead>
+                     <TableHead className="text-right">Word</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
