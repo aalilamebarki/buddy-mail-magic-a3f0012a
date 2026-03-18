@@ -426,6 +426,16 @@ const CourtSessions = () => {
               </Popover>
             </div>
 
+            {/* المطلوب */}
+            <div className="space-y-2">
+              <Label>المطلوب في هذه الجلسة *</Label>
+              <Input
+                value={requiredAction}
+                onChange={e => setRequiredAction(e.target.value)}
+                placeholder="مثال: الإدلاء بمذكرة جوابية، شهادة التسليم..."
+              />
+            </div>
+
             {/* Notes */}
             <div className="space-y-2">
               <Label>ملاحظات</Label>
