@@ -278,6 +278,7 @@ const renderHeader = (
   doc.line(centerX - 28, y, centerX + 28, y);
   y += 7;
 
+  doc.setFont('IBMPlex');
   doc.setFontSize(10.5);
   doc.setTextColor(...TEXT_LIGHT);
   doc.text(`رقم المرجع: ${data.statementNumber}`, centerX, y, { align: 'center' });
