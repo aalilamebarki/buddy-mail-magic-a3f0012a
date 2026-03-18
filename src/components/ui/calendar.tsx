@@ -7,7 +7,10 @@ import { ar } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 
-export type CalendarProps = React.ComponentProps<typeof DayPicker>;
+export type CalendarProps = React.ComponentProps<typeof DayPicker> & {
+  onTouchStart?: React.TouchEventHandler<HTMLDivElement>;
+  onTouchEnd?: React.TouchEventHandler<HTMLDivElement>;
+};
 
 const SWIPE_THRESHOLD_PX = 40;
 
