@@ -580,11 +580,11 @@ const Billing = () => {
                 )}
               </CardContent>
             </Card>
-
-      <DocxPreview ref={docxPreviewRef} title="معاينة بيان الأتعاب" />
-    </div>
+          </div>
         </TabsContent>
       </Tabs>
+
+      <DocxPreview ref={docxPreviewRef} title="معاينة بيان الأتعاب" />
 
       <CreateInvoiceDialog open={invDialogOpen} onOpenChange={setInvDialogOpen} onCreated={refetchInv} />
       <CreateFeeStatementDialog
