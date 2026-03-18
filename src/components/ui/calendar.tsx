@@ -26,6 +26,7 @@ function Calendar({
   const [slideDir, setSlideDir] = React.useState<"left" | "right" | null>(null);
   const [translateX, setTranslateX] = React.useState(0);
   const [isSwiping, setIsSwiping] = React.useState(false);
+  const activeMonthRef = React.useRef<Date>(initialMonth);
 
   React.useEffect(() => {
     if (month) {
@@ -34,6 +35,7 @@ function Calendar({
   }, [month]);
 
   const activeMonth = month ?? internalMonth;
+  activeMonthRef.current = activeMonth;
 
   const handleMonthChange = React.useCallback(
     (nextMonth: Date) => {
@@ -47,19 +49,17 @@ function Calendar({
 
   const animateAndChange = React.useCallback(
     (direction: 1 | -1) => {
-      // Slide out in the swipe direction
       const dir = direction > 0 ? "left" : "right";
       setSlideDir(dir);
       setTranslateX(0);
       setIsSwiping(false);
 
-      // After animation, change month and reset
       setTimeout(() => {
-        handleMonthChange(addMonths(activeMonth, direction));
+        handleMonthChange(addMonths(activeMonthRef.current, direction));
         setSlideDir(null);
       }, 200);
     },
-    [activeMonth, handleMonthChange],
+    [handleMonthChange],
   );
 
   const handleTouchStart: React.TouchEventHandler<HTMLDivElement> = (event) => {
