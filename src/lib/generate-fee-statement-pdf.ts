@@ -52,13 +52,12 @@ export interface FeeStatementData {
 
 type RgbColor = [number, number, number];
 
-let amiriFontLoaded = false;
-let amiriFontBase64 = '';
+const fontCache: Record<string, string> = {};
 
-const loadAmiriFont = async (): Promise<string> => {
-  if (amiriFontLoaded) return amiriFontBase64;
+const loadFont = async (path: string): Promise<string> => {
+  if (fontCache[path]) return fontCache[path];
 
-  const response = await fetch('/fonts/Amiri-Regular.ttf');
+  const response = await fetch(path);
   const buffer = await response.arrayBuffer();
   const bytes = new Uint8Array(buffer);
   let binary = '';
@@ -67,9 +66,9 @@ const loadAmiriFont = async (): Promise<string> => {
     binary += String.fromCharCode(bytes[i]);
   }
 
-  amiriFontBase64 = btoa(binary);
-  amiriFontLoaded = true;
-  return amiriFontBase64;
+  const base64 = btoa(binary);
+  fontCache[path] = base64;
+  return base64;
 };
 
 const NAVY: RgbColor = [30, 47, 78];
