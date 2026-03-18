@@ -134,6 +134,7 @@ const CourtSessions = () => {
         const { error } = await supabase.from('court_sessions').insert({
           case_id: selectedCaseId,
           session_date: format(sessionDate, 'yyyy-MM-dd'),
+          required_action: requiredAction.trim(),
           notes: notes || null,
           user_id: user.id,
         });
