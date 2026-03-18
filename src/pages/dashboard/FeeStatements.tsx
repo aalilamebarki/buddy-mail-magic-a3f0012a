@@ -1,9 +1,10 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { FileText, Plus, Download, Loader2, Search, Pencil } from 'lucide-react';
+import { FileText, Plus, Download, Loader2, Search, Pencil, Eye } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useFeeStatements, type FeeStatementRecord } from '@/hooks/useFeeStatements';
 import { useToast } from '@/hooks/use-toast';
