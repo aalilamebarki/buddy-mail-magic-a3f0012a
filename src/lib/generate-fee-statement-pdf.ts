@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf';
+import QRCode from 'qrcode';
 import {
   type RGB, type LetterheadInfo,
   NAVY, GOLD, TEXT, TEXT2, TEXT3, BORDER, BG, WHITE,
@@ -46,6 +47,285 @@ export interface FeeStatementData {
   letterhead?: LetterheadInfo;
 }
 
+/* ── QR Code generator ── */
+const generateQRDataUrl = async (text: string): Promise<string> => {
+  try {
+    return await QRCode.toDataURL(text, {
+      width: 200,
+      margin: 1,
+      color: { dark: '#1a2a44', light: '#ffffff' },
+    });
+  } catch {
+    return '';
+  }
+};
+
+/* ── Draw client info card ── */
+const drawClientInfoCard = (
+  doc: jsPDF,
+  y: number,
+  data: FeeStatementData,
+  firstCase: CaseDetailData,
+): number => {
+  const infoRows: [string, string, string][] = [
+    ['الموكل', 'Client', data.clientName],
+  ];
+  if (firstCase?.caseNumber) infoRows.push(['رقم الملف', 'N° Dossier', firstCase.caseNumber]);
+  if (firstCase?.court) infoRows.push(['المحكمة', 'Tribunal', firstCase.court]);
+  if (firstCase?.caseType) infoRows.push(['طبيعة النزاع', 'Nature du litige', firstCase.caseType]);
+  if (data.clientCin) infoRows.push(['رقم ب.و', 'CIN', data.clientCin]);
+  if (data.powerOfAttorneyDate) infoRows.push(['تاريخ الوكالة', 'Date procuration', data.powerOfAttorneyDate]);
+
+  const rowH = 10;
+  const labelColW = 50;
+  const tableW = CW;
+
+  // Card background
+  doc.setFillColor(252, 252, 254);
+  doc.roundedRect(MARGIN, y - 1, tableW, infoRows.length * rowH + 2, 2, 2, 'F');
+  doc.setDrawColor(...BORDER);
+  doc.setLineWidth(0.2);
+  doc.roundedRect(MARGIN, y - 1, tableW, infoRows.length * rowH + 2, 2, 2, 'S');
+
+  for (let i = 0; i < infoRows.length; i++) {
+    const ry = y + i * rowH;
+
+    // Gold accent bar on right
+    doc.setFillColor(...GOLD);
+    doc.rect(RX - 2, ry, 2, rowH, 'F');
+
+    // Bilingual label
+    doc.setFont('IBMPlex', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(...NAVY);
+    doc.text(infoRows[i][0], RX - 6, ry + 4, { align: 'right' });
+
+    doc.setFont('IBMPlex', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(...TEXT3);
+    doc.text(infoRows[i][1], RX - 6, ry + 7.5, { align: 'right' });
+
+    // Value
+    doc.setFont('Amiri', 'normal');
+    doc.setFontSize(12);
+    doc.setTextColor(...TEXT);
+    doc.text(infoRows[i][2], RX - labelColW - 4, ry + 6.5, { align: 'right' });
+
+    // Separator
+    if (i < infoRows.length - 1) {
+      hline(doc, ry + rowH, MARGIN + 4, RX - 4, [230, 230, 235] as RGB, 0.15);
+    }
+  }
+
+  return y + infoRows.length * rowH + 6;
+};
+
+/* ── Draw services table for a case ── */
+const drawServicesTable = (
+  doc: jsPDF,
+  y: number,
+  cd: CaseDetailData,
+  caseIndex: number,
+  isMultiCase: boolean,
+): number => {
+  // Multi-case header badge
+  if (isMultiCase) {
+    y = ensureSpace(doc, y, 22);
+    // Rounded badge
+    doc.setFillColor(...NAVY);
+    doc.roundedRect(CX - 45, y, 90, 8, 2, 2, 'F');
+    doc.setFont('IBMPlex', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(255, 255, 255);
+    doc.text(`ملف ${caseIndex + 1}: ${cd.caseTitle || cd.caseNumber}`, CX, y + 5.5, { align: 'center' });
+    y += 12;
+  }
+
+  // Table header
+  y = ensureSpace(doc, y, 16);
+  doc.setFillColor(...NAVY);
+  doc.roundedRect(MARGIN, y, CW, 8, 1.5, 1.5, 'F');
+
+  doc.setFont('IBMPlex', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(255, 255, 255);
+  doc.text('بيان الخدمات والمصاريف', RX - 6, y + 5.5, { align: 'right' });
+  doc.setFont('IBMPlex', 'normal');
+  doc.setFontSize(6.5);
+  doc.text('Désignation des services', RX - 55, y + 5.5, { align: 'right' });
+  doc.text('المبلغ (درهم)', MARGIN + 6, y + 5.5, { align: 'left' });
+  y += 8;
+
+  // Item rows
+  for (let i = 0; i < cd.items.length; i++) {
+    const item = cd.items[i];
+    const descLines = doc.splitTextToSize(item.description || '—', CW - 50);
+    const rH = Math.max(8, descLines.length * 4.5 + 4);
+
+    y = ensureSpace(doc, y, rH + 2);
+
+    // Alternating row bg
+    if (i % 2 === 0) {
+      doc.setFillColor(250, 250, 253);
+      doc.rect(MARGIN, y, CW, rH, 'F');
+    }
+
+    // Row number circle
+    doc.setFillColor(...GOLD);
+    doc.circle(RX - 4, y + rH / 2, 2.5, 'F');
+    doc.setFont('IBMPlex', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(255, 255, 255);
+    doc.text(`${i + 1}`, RX - 4, y + rH / 2 + 1, { align: 'center' });
+
+    // Description
+    doc.setFont('IBMPlex', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(...TEXT);
+    doc.text(descLines, RX - 10, y + 5, { align: 'right' });
+
+    // Amount
+    doc.setFont('IBMPlex', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(...NAVY);
+    doc.text(fmt(item.amount), MARGIN + 6, y + 5, { align: 'left' });
+
+    y += rH;
+    hline(doc, y, MARGIN + 2, RX - 2, [235, 235, 240] as RGB, 0.1);
+  }
+
+  y += 4;
+
+  // Summary section
+  const summaryRows: { labelAr: string; labelFr: string; value: number; highlight?: boolean }[] = [
+    { labelAr: 'الأتعاب المهنية', labelFr: 'Honoraires', value: cd.lawyerFees },
+    { labelAr: 'المصاريف والرسوم', labelFr: 'Frais et débours', value: cd.expensesTotal },
+    { labelAr: 'المجموع الصافي', labelFr: 'Sous-total HT', value: cd.subtotal, highlight: true },
+  ];
+  if (cd.taxRate > 0) {
+    summaryRows.push({ labelAr: `الضريبة (${cd.taxRate}%)`, labelFr: `TVA (${cd.taxRate}%)`, value: cd.taxAmount });
+  }
+  summaryRows.push({ labelAr: 'المجموع الكلي', labelFr: 'Total TTC', value: cd.totalAmount, highlight: true });
+
+  for (const row of summaryRows) {
+    const rh = 8;
+    y = ensureSpace(doc, y, rh + 2);
+
+    if (row.highlight) {
+      doc.setFillColor(245, 245, 250);
+      doc.rect(MARGIN, y, CW, rh, 'F');
+      // Gold left accent for highlighted rows
+      doc.setFillColor(...GOLD);
+      doc.rect(MARGIN, y, 2, rh, 'F');
+    }
+
+    hline(doc, y, MARGIN, RX, [230, 230, 235] as RGB, 0.1);
+
+    // Arabic label
+    doc.setFont('IBMPlex', row.highlight ? 'bold' : 'normal');
+    doc.setFontSize(row.highlight ? 9.5 : 8.5);
+    doc.setTextColor(...(row.highlight ? NAVY : TEXT2));
+    doc.text(row.labelAr, RX - 6, y + 4.5, { align: 'right' });
+
+    // French label
+    doc.setFont('IBMPlex', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(...TEXT3);
+    doc.text(row.labelFr, RX - 6, y + 7, { align: 'right' });
+
+    // Value
+    doc.setFont('IBMPlex', row.highlight ? 'bold' : 'normal');
+    doc.setFontSize(row.highlight ? 10 : 9);
+    doc.setTextColor(...(row.highlight ? NAVY : TEXT));
+    doc.text(fmt(row.value), MARGIN + 6, y + 5.5, { align: 'left' });
+
+    y += rh;
+  }
+
+  return y + 6;
+};
+
+/* ── Draw grand total box ── */
+const drawGrandTotal = (doc: jsPDF, y: number, data: FeeStatementData): number => {
+  y = ensureSpace(doc, y, 42);
+
+  // Decorative line
+  goldLine(doc, y, CX - 30, CX + 30);
+  y += 6;
+
+  // Navy total card
+  const cardH = 22;
+  doc.setFillColor(...NAVY);
+  doc.roundedRect(MARGIN, y, CW, cardH, 3, 3, 'F');
+
+  // Gold inner border accent
+  doc.setDrawColor(...GOLD);
+  doc.setLineWidth(0.4);
+  doc.roundedRect(MARGIN + 1.5, y + 1.5, CW - 3, cardH - 3, 2, 2, 'S');
+
+  // Label
+  doc.setFont('IBMPlex', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(...GOLD);
+  doc.text('الواجب أداؤه', RX - 6, y + 7, { align: 'right' });
+  doc.setFontSize(7);
+  doc.text('Net à payer', RX - 6, y + 11, { align: 'right' });
+
+  // Amount
+  doc.setFont('Amiri', 'normal');
+  doc.setFontSize(22);
+  doc.setTextColor(255, 255, 255);
+  doc.text(`${fmt(data.grandTotal)} MAD`, MARGIN + 6, y + 15, { align: 'left' });
+
+  y += cardH + 5;
+
+  // Tafkeet
+  doc.setFont('IBMPlex', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(...TEXT2);
+  const tafkeet = numberToArabicWords(data.grandTotal);
+  const tafkeetLines = doc.splitTextToSize(`المبلغ بالحروف:  ${tafkeet}`, CW - 10);
+  doc.text(tafkeetLines, CX, y, { align: 'center' });
+  y += tafkeetLines.length * 4 + 4;
+
+  return y;
+};
+
+/* ── Draw QR verification section ── */
+const drawQRSection = async (doc: jsPDF, y: number, data: FeeStatementData): Promise<number> => {
+  y = ensureSpace(doc, y, 40);
+
+  const verifyUrl = `${window.location.origin}/verify-invoice?uuid=${data.signatureUuid}`;
+  const qrDataUrl = await generateQRDataUrl(verifyUrl);
+
+  if (qrDataUrl) {
+    // QR code on left
+    const qrSize = 22;
+    const qrX = MARGIN + 4;
+    const qrY = y;
+
+    doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
+
+    // Verification text next to QR
+    doc.setFont('IBMPlex', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(...TEXT3);
+    doc.text('رمز التحقق من صحة الوثيقة', qrX + qrSize + 4, qrY + 5);
+    doc.text('Code de vérification du document', qrX + qrSize + 4, qrY + 9);
+
+    doc.setFontSize(6);
+    doc.setTextColor(...GOLD);
+    doc.text(`Réf: ${data.statementNumber}`, qrX + qrSize + 4, qrY + 14);
+
+    y = qrY + qrSize + 4;
+  }
+
+  return y;
+};
+
+/* ══════════════════════════════════════
+   MAIN — Generate Fee Statement PDF
+   ══════════════════════════════════════ */
 export const generateFeeStatementPDF = async (data: FeeStatementData): Promise<Blob> => {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   await registerFonts(doc);
@@ -60,9 +340,9 @@ export const generateFeeStatementPDF = async (data: FeeStatementData): Promise<B
 
   /* ── 2. Bilingual Header ── */
   y = drawHeader(doc, lawyerName, lh, y);
-  y += 6;
+  y += 4;
 
-  /* ── 3. Title — بيان أتعاب / Note d'honoraires ── */
+  /* ── 3. Title ── */
   doc.setFont('Amiri', 'normal');
   doc.setFontSize(22);
   doc.setTextColor(...NAVY);
@@ -76,194 +356,57 @@ export const generateFeeStatementPDF = async (data: FeeStatementData): Promise<B
   y += 4;
 
   goldLine(doc, y, CX - 25, CX + 25);
-  y += 6;
+  y += 5;
 
-  // Statement number
-  doc.setFont('IBMPlex', 'normal');
-  doc.setFontSize(8);
-  doc.setTextColor(...TEXT2);
-  doc.text(`رقم المرجع: ${data.statementNumber}`, CX, y, { align: 'center' });
-  y += 8;
+  // Statement number badge
+  const badgeW = 50;
+  doc.setFillColor(245, 245, 250);
+  doc.roundedRect(CX - badgeW / 2, y - 2, badgeW, 7, 2, 2, 'F');
+  doc.setDrawColor(...GOLD);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(CX - badgeW / 2, y - 2, badgeW, 7, 2, 2, 'S');
 
-  /* ── 4. Client info table ── */
+  doc.setFont('IBMPlex', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(...NAVY);
+  doc.text(data.statementNumber, CX, y + 2.5, { align: 'center' });
+  y += 10;
+
+  /* ── 4. Client info card ── */
   const firstCase = data.caseDetails[0];
-  const infoRows: [string, string][] = [
-    ['الموكل / Client', data.clientName],
-  ];
-  if (firstCase?.caseNumber) infoRows.push(['رقم الملف / N° Dossier', firstCase.caseNumber]);
-  if (firstCase?.court) infoRows.push(['المحكمة / Tribunal', firstCase.court]);
-  if (firstCase?.caseType) infoRows.push(['طبيعة النزاع / Nature', firstCase.caseType]);
-  if (data.clientCin) infoRows.push(['رقم ب.و / CIN', data.clientCin]);
-  if (data.powerOfAttorneyDate) infoRows.push(['تاريخ الوكالة / Date de procuration', data.powerOfAttorneyDate]);
+  y = drawClientInfoCard(doc, y, data, firstCase);
 
-  const rowH = 9;
-  const tableH = infoRows.length * rowH;
-
-  for (let i = 0; i < infoRows.length; i++) {
-    const ry = y + i * rowH;
-    if (i % 2 === 0) {
-      doc.setFillColor(...BG);
-      doc.rect(MARGIN, ry, CW, rowH, 'F');
-    }
-    doc.setFillColor(...GOLD);
-    doc.rect(RX - 1.5, ry, 1.5, rowH, 'F');
-
-    doc.setFont('IBMPlex', 'normal');
-    doc.setFontSize(7.5);
-    doc.setTextColor(...GOLD);
-    doc.text(infoRows[i][0], RX - 5, ry + 3.5, { align: 'right' });
-
-    doc.setFontSize(11);
-    doc.setTextColor(...TEXT);
-    doc.text(infoRows[i][1], RX - 5, ry + 7.5, { align: 'right' });
-  }
-
-  doc.setDrawColor(...BORDER);
-  doc.setLineWidth(0.2);
-  doc.rect(MARGIN, y, CW, tableH, 'S');
-
-  y += tableH + 8;
-
-  /* ── 5. Services table (per case) ── */
+  /* ── 5. Services tables (per case) ── */
   for (let ci = 0; ci < data.caseDetails.length; ci++) {
-    const cd = data.caseDetails[ci];
-
-    // Multi-case header
-    if (data.caseDetails.length > 1) {
-      y = ensureSpace(doc, y, 20);
-      doc.setFillColor(...NAVY);
-      doc.roundedRect(MARGIN, y, CW, 7, 1, 1, 'F');
-      doc.setFont('IBMPlex', 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(255, 255, 255);
-      doc.text(`ملف ${ci + 1}: ${cd.caseTitle || cd.caseNumber}`, CX, y + 5, { align: 'center' });
-      y += 9;
-    }
-
-    // Table header row
-    y = ensureSpace(doc, y, 15);
-    doc.setFillColor(...NAVY);
-    doc.rect(MARGIN, y, CW, 7, 'F');
-
-    doc.setFont('IBMPlex', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(255, 255, 255);
-    doc.text('بيان الخدمات / Désignation', RX - 4, y + 5, { align: 'right' });
-    doc.text('المبلغ (درهم) / Montant', MARGIN + 4, y + 5, { align: 'left' });
-    y += 7;
-
-    // Data rows
-    for (let i = 0; i < cd.items.length; i++) {
-      const item = cd.items[i];
-      const descLines = doc.splitTextToSize(item.description || '—', CW - 44);
-      const rH = Math.max(7, descLines.length * 4.5 + 3);
-
-      y = ensureSpace(doc, y, rH + 2);
-
-      if (i % 2 === 0) {
-        doc.setFillColor(...BG);
-        doc.rect(MARGIN, y, CW, rH, 'F');
-      }
-
-      // Left gold accent
-      doc.setFillColor(...GOLD);
-      doc.rect(RX - 1, y, 1, rH, 'F');
-
-      doc.setFont('IBMPlex', 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(...TEXT);
-      doc.text(descLines, RX - 4, y + 4.5, { align: 'right' });
-
-      doc.setTextColor(...TEXT2);
-      doc.text(fmt(item.amount), MARGIN + 4, y + 4.5, { align: 'left' });
-
-      y += rH;
-      hline(doc, y, MARGIN, RX, BORDER, 0.1);
-    }
-
-    y += 3;
-
-    // Summary rows
-    const summaryRows: { label: string; value: number; strong?: boolean }[] = [
-      { label: 'الأتعاب المهنية / Honoraires', value: cd.lawyerFees },
-      { label: 'المصاريف والرسوم / Frais et débours', value: cd.expensesTotal },
-      { label: 'المجموع الصافي / Sous-total HT', value: cd.subtotal, strong: true },
-    ];
-    if (cd.taxRate > 0) summaryRows.push({ label: `الضريبة / TVA (${cd.taxRate}%)`, value: cd.taxAmount });
-    summaryRows.push({ label: 'المجموع الكلي / Total TTC', value: cd.totalAmount, strong: true });
-
-    for (const row of summaryRows) {
-      const rh = 7;
-      y = ensureSpace(doc, y, rh + 2);
-
-      if (row.strong) {
-        doc.setFillColor(240, 240, 245);
-        doc.rect(MARGIN, y, CW, rh, 'F');
-      }
-
-      hline(doc, y, MARGIN, RX, BORDER, 0.1);
-
-      doc.setFont('IBMPlex', row.strong ? 'bold' : 'normal');
-      doc.setFontSize(row.strong ? 10 : 9);
-      doc.setTextColor(...(row.strong ? NAVY : TEXT2));
-      doc.text(row.label, RX - 4, y + 5, { align: 'right' });
-
-      doc.setTextColor(...TEXT);
-      doc.text(fmt(row.value), MARGIN + 4, y + 5, { align: 'left' });
-
-      y += rh;
-    }
-
-    y += 5;
+    y = drawServicesTable(doc, y, data.caseDetails[ci], ci, data.caseDetails.length > 1);
   }
 
-  /* ── 6. Grand total box ── */
-  y = ensureSpace(doc, y, 35);
-  hline(doc, y, MARGIN, RX, NAVY, 0.5);
-  y += 6;
-
-  // Navy total box
-  doc.setFillColor(...NAVY);
-  doc.roundedRect(MARGIN, y, CW, 18, 2, 2, 'F');
-
-  doc.setFont('IBMPlex', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(...GOLD);
-  doc.text('الواجب أداؤه / Net à payer', RX - 5, y + 5, { align: 'right' });
-
-  doc.setFont('Amiri', 'normal');
-  doc.setFontSize(20);
-  doc.setTextColor(255, 255, 255);
-  doc.text(`${fmt(data.grandTotal)} MAD`, MARGIN + 5, y + 14, { align: 'left' });
-
-  y += 22;
-
-  // Tafkeet
-  doc.setFont('IBMPlex', 'normal');
-  doc.setFontSize(8.5);
-  doc.setTextColor(...TEXT2);
-  doc.text('المبلغ بالحروف:  ' + numberToArabicWords(data.grandTotal), RX - 4, y, { align: 'right' });
-  y += 6;
+  /* ── 6. Grand total ── */
+  y = drawGrandTotal(doc, y, data);
 
   hline(doc, y, MARGIN, RX, BORDER, 0.2);
-  y += 6;
+  y += 5;
 
   /* ── 7. Notes ── */
   const noteText = data.notes || 'يتم تحديد الأتعاب وفقاً للقوانين المنظمة لمهنة المحاماة بالمغرب وللاتفاق المسبق.';
   doc.setFont('IBMPlex', 'normal');
-  doc.setFontSize(8);
+  doc.setFontSize(7.5);
   doc.setTextColor(...TEXT2);
   const noteLines = doc.splitTextToSize(noteText, CW - 10);
   y = ensureSpace(doc, y, noteLines.length * 4 + 10);
   doc.text(noteLines, CX, y, { align: 'center' });
-  y += noteLines.length * 4 + 6;
+  y += noteLines.length * 4 + 5;
 
   hline(doc, y, MARGIN, RX, BORDER, 0.2);
-  y += 8;
+  y += 6;
 
   /* ── 8. Date & Signature ── */
   y = ensureSpace(doc, y, 55);
   y = drawDateAndSignature(doc, y, data.date, city);
+
+  /* ── 9. QR verification ── */
+  y += 4;
+  y = await drawQRSection(doc, y, data);
 
   /* ── Footer ── */
   drawFooter(doc);
