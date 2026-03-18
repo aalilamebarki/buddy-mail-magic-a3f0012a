@@ -596,11 +596,11 @@ const Letterheads = () => {
                   type="button"
                   variant="outline"
                   onClick={templateFile ? () => generatePreview(templateFile) : previewPendingTemplate}
-                  disabled={previewLoading || uploadingTemplate}
+                  disabled={uploadingTemplate}
                   className="gap-1.5"
                 >
-                  {previewLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
-                  {previewHtml ? 'تحديث المعاينة' : 'معاينة الملف'}
+                  <Eye className="h-4 w-4" />
+                  معاينة الملف
                 </Button>
                 <Button
                   type="button"
