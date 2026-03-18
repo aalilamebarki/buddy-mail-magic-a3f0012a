@@ -199,7 +199,7 @@ const DocumentGenerator = () => {
         supabase.from('generated_documents')
           .select('id, doc_type, content, opponent_memo, step_number, status, created_at, thread_id, title, client_name, client_id, opposing_party, court, case_number, case_id')
           .order('created_at', { ascending: true }),
-        supabase.from('letterheads').select('id, lawyer_name, template_path') as any,
+        supabase.from('letterheads').select('id, lawyer_name, template_path, header_data') as any,
         supabase.from('reference_documents').select('*').order('created_at', { ascending: false }) as any,
       ]);
       if (clientsRes.data) setClients(clientsRes.data as ClientInfo[]);
