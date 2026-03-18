@@ -43,6 +43,7 @@ const CourtSessions = () => {
   const [editingSession, setEditingSession] = useState<any>(null);
   const [selectedCaseId, setSelectedCaseId] = useState('');
   const [sessionDate, setSessionDate] = useState<Date | undefined>(undefined);
+  const [requiredAction, setRequiredAction] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
