@@ -47,6 +47,17 @@ const Invoices = () => {
     }
   };
 
+  const downloadDocx = async (invoice: InvoiceRecord) => {
+    setDownloadingDocx(invoice.id);
+    try {
+      await exportInvoiceDocx(invoice);
+    } catch (e: any) {
+      toast({ title: 'خطأ في التحميل', description: e.message, variant: 'destructive' });
+    } finally {
+      setDownloadingDocx(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
