@@ -28,6 +28,7 @@ const About = lazy(() => import("./pages/About"));
 const DocumentCenter = lazy(() => import("./pages/DocumentCenter"));
 const DocumentDetail = lazy(() => import("./pages/DocumentDetail"));
 const VerifyInvoice = lazy(() => import("./pages/VerifyInvoice"));
+const FeeStatementPreview = lazy(() => import("./pages/FeeStatementPreview"));
 
 // Dashboard (lazy)
 const Dashboard = lazy(() => import("./pages/Dashboard"));
