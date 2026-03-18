@@ -334,7 +334,7 @@ const CreateFeeStatementDialog = ({ open, onOpenChange, onCreated, editData }: P
           .from('accounting_entries')
           .update({
             client_id: form.clientId || null,
-            description: `بيان أتعاب — ${client?.full_name || ''} — ${selectedCasesData.map(c => c.case_number).join(', ')}`,
+            description: `بيان الأتعاب والمصاريف — ${client?.full_name || ''} — ${selectedCasesData.map(c => c.case_number).join(', ')}`,
             amount_ht: grandTotal.lawyerFees,
             tax_amount: feesOnlyTax,
             amount_ttc: feesOnlyTTC,
