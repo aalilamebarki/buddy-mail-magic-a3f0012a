@@ -167,9 +167,21 @@ const Invoices = () => {
                           {downloading === inv.id
                             ? <Loader2 className="h-4 w-4 animate-spin" />
                             : <Download className="h-4 w-4" />}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
+                       </Button>
+                     </TableCell>
+                     <TableCell>
+                       <Button
+                         variant="ghost"
+                         size="sm"
+                         className="h-7 w-7 p-0"
+                         onClick={() => downloadDocx(inv)}
+                         disabled={downloadingDocx === inv.id}
+                       >
+                         {downloadingDocx === inv.id
+                           ? <Loader2 className="h-4 w-4 animate-spin" />
+                           : <FileText className="h-4 w-4" />}
+                       </Button>
+                     </TableCell>
                   ))}
                 </TableBody>
               </Table>
