@@ -432,6 +432,7 @@ const Letterheads = () => {
     setPendingTemplatePath(null);
     setPendingTemplateName(null);
     setPreviewHtml(null);
+    setPreviewUrl(null);
     setPreviewLoading(false);
     setUploadingTemplate(false);
     writeStoredDraft(null);
