@@ -97,6 +97,28 @@ const Billing = () => {
     }
   };
 
+  const previewInvoice = async (invoice: InvoiceRecord) => {
+    setPreviewing(invoice.id);
+    try {
+      await previewInvoicePdf(invoice);
+    } catch (e: any) {
+      toast({ title: 'خطأ في المعاينة', description: e.message, variant: 'destructive' });
+    } finally {
+      setPreviewing(null);
+    }
+  };
+
+  const previewStatement = async (statement: FeeStatementRecord) => {
+    setPreviewing(statement.id);
+    try {
+      await previewFeeStatementPdf(statement);
+    } catch (e: any) {
+      toast({ title: 'خطأ في المعاينة', description: e.message, variant: 'destructive' });
+    } finally {
+      setPreviewing(null);
+    }
+  };
+
   const openEditFs = (s: FeeStatementRecord) => {
     setEditStatement(s);
     setFsDialogOpen(true);
