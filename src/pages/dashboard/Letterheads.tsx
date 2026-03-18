@@ -103,6 +103,7 @@ const Letterheads = () => {
   const [pendingTemplatePath, setPendingTemplatePath] = useState<string | null>(null);
   const [pendingTemplateName, setPendingTemplateName] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [parsedStructure, setParsedStructure] = useState<any>(null);
   const [draftRestored, setDraftRestored] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<DocxPreviewHandle>(null);
