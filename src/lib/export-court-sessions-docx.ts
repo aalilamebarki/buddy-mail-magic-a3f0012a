@@ -57,24 +57,24 @@ const border = () => ({
 const makeCell = (
   text: string,
   width: number,
-  opts?: { bold?: boolean; fill?: string; color?: string; size?: number; alignment?: (typeof AlignmentType)[keyof typeof AlignmentType] },
+  opts?: { bold?: boolean; fill?: string; color?: string; size?: number },
 ) =>
   new TableCell({
     borders: border(),
     verticalAlign: VerticalAlign.CENTER,
     width: { size: width, type: WidthType.PERCENTAGE },
     shading: opts?.fill ? { fill: opts.fill } : undefined,
-    margins: { top: 30, bottom: 30, left: 80, right: 80 },
+    margins: { top: 15, bottom: 15, left: 40, right: 40 },
     children: [
       new Paragraph({
-        alignment: opts?.alignment ?? AlignmentType.RIGHT,
+        alignment: AlignmentType.CENTER,
         bidirectional: true,
         spacing: { before: 0, after: 0 },
         children: [
           new TextRun({
             text,
             font: FONT,
-            size: opts?.size ?? 24,
+            size: opts?.size ?? 22,
             bold: opts?.bold ?? false,
             color: opts?.color ?? '000000',
             rightToLeft: true,
