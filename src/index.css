@@ -445,6 +445,18 @@
   }
 }
 
+/* Fix touch scrolling in Radix popovers/dropdowns on mobile */
+[data-radix-popper-content-wrapper] {
+  touch-action: auto !important;
+  pointer-events: auto !important;
+}
+
+[data-radix-popper-content-wrapper] [cmdk-list] {
+  touch-action: pan-y !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior: contain !important;
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;
