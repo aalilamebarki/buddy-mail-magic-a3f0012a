@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import NotificationBell from './NotificationBell';
-import { Receipt } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -49,7 +48,6 @@ const menuItems = [
   { icon: BookOpen, label: 'قاعدة المعرفة', path: '/dashboard/knowledge-base', roles: ['director', 'partner'] as const },
   { icon: FileText, label: 'مولّد المستندات', path: '/dashboard/document-generator', roles: ['director', 'partner', 'clerk'] as const },
   { icon: Stamp, label: 'الترويسات', path: '/dashboard/letterheads', roles: ['director', 'partner'] as const },
-  { icon: Receipt, label: 'مُصدر الوصولات', path: '/dashboard/receipt-generator', roles: ['director', 'partner', 'clerk'] as const },
   
   { icon: ScrollText, label: 'سجل النشاط', path: '/dashboard/audit-log', roles: ['director'] as const },
   { icon: Settings, label: 'الإعدادات', path: '/dashboard/settings', roles: ['director', 'partner'] as const },

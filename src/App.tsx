@@ -50,7 +50,6 @@ const DocumentGenerator = lazy(() => import("./pages/dashboard/DocumentGenerator
 const Letterheads = lazy(() => import("./pages/dashboard/Letterheads"));
 
 const Billing = lazy(() => import("./pages/dashboard/Billing"));
-const ReceiptGenerator = lazy(() => import("./pages/dashboard/ReceiptGenerator"));
 
 const queryClient = new QueryClient();
 
@@ -116,7 +115,6 @@ const App = () => (
                     <Route path="letterheads" element={<Letterheads />} />
                     
                     <Route path="billing" element={<Billing />} />
-                    <Route path="receipt-generator" element={<ReceiptGenerator />} />
                   </Route>
 
                   <Route path="*" element={<NotFound />} />
