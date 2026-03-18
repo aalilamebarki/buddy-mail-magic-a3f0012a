@@ -9,10 +9,12 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
-// Public pages (eager)
+// Public pages (eager — only Index for SEO)
 import Index from "./pages/Index";
-import Auth from "./pages/Auth";
-import NotFound from "./pages/NotFound";
+
+// Public pages (lazy)
+const Auth = lazy(() => import("./pages/Auth"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Public pages (lazy)
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
