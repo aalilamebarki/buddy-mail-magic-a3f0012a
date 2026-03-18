@@ -53,13 +53,14 @@ const PAYMENT_METHODS: Record<string, string> = {
   card: 'بطاقة بنكية',
 };
 
-/* ── Color palette — light-weight for B&W print, navy accent for PDF ── */
-const NAVY: [number, number, number] = [26, 43, 60];
-const TEXT_PRIMARY: [number, number, number] = [40, 40, 40];    // near-black, soft on print
-const TEXT_SECONDARY: [number, number, number] = [110, 110, 110]; // labels
-const TEXT_MUTED: [number, number, number] = [160, 160, 160];   // footer/subtle
-const BORDER_COLOR: [number, number, number] = [210, 210, 210];
-const BOX_BG: [number, number, number] = [248, 249, 251];
+/* ── Colors matching the design ── */
+const TEAL: [number, number, number] = [55, 145, 160];      // header accent #3791A0
+const TEXT_DARK: [number, number, number] = [35, 35, 35];
+const TEXT_MID: [number, number, number] = [90, 90, 90];
+const TEXT_LIGHT: [number, number, number] = [140, 140, 140];
+const TEXT_MUTED: [number, number, number] = [180, 180, 180];
+const BG_LIGHT: [number, number, number] = [245, 246, 248];  // #f5f6f8
+const BORDER_LIGHT: [number, number, number] = [220, 220, 220];
 
 /** Convert number to Arabic words */
 const numberToArabicWords = (num: number): string => {
@@ -121,17 +122,15 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
   doc.setFont('Amiri');
 
   const pw = 210;
-  const m = 18;
+  const m = 22;       // generous margins like the design
   const rightX = pw - m;
   const contentW = pw - m * 2;
+  const cx = pw / 2;  // center X
 
   const lh = data.letterhead;
   const lawyerName = lh?.lawyerName || data.lawyerName;
-  const nameFr = lh?.nameFr || '';
   const titleAr = lh?.titleAr || '';
-  const titleFr = lh?.titleFr || '';
   const barNameAr = lh?.barNameAr || '';
-  const barNameFr = lh?.barNameFr || '';
   const city = lh?.city || '';
   const address = lh?.address || '';
   const phone = lh?.phone || '';
@@ -140,223 +139,256 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
   const verificationUrl = `${window.location.origin}/verify/${data.signatureUuid}`;
   const qrDataUrl = await QRCode.toDataURL(verificationUrl, { width: 200, margin: 1 });
 
-  let y = 16;
+  let y = 0;
 
   /* ═══════════════════════════════════════
-     BILINGUAL HEADER
+     1. TEAL TOP BAR (full width)
      ═══════════════════════════════════════ */
+  doc.setFillColor(...TEAL);
+  doc.rect(0, 0, pw, 4, 'F');
+  y = 18;
+
+  /* ═══════════════════════════════════════
+     2. CENTERED HEADER — Lawyer info
+     ═══════════════════════════════════════ */
+  // "مكتب الأستاذ"
   doc.setFontSize(16);
-  doc.setTextColor(...NAVY);
-  doc.text(`الأستاذ ${lawyerName}`, rightX, y, { align: 'right' });
+  doc.setTextColor(...TEXT_DARK);
+  doc.text('مكتب الأستاذ', cx, y, { align: 'center' });
+  y += 12;
 
-  if (nameFr) {
-    doc.setFontSize(11);
-    doc.setTextColor(...NAVY);
-    doc.text(`Maître ${nameFr}`, m, y, { align: 'left' });
-  }
-  y += 7;
+  // Lawyer name — large
+  doc.setFontSize(26);
+  doc.setTextColor(...TEXT_DARK);
+  doc.text(lawyerName, cx, y, { align: 'center' });
+  y += 9;
 
-  if (titleAr || barNameAr) {
-    doc.setFontSize(11);
-    doc.setTextColor(...TEXT_SECONDARY);
-    const arTitle = [titleAr, barNameAr ? `هيئة ${barNameAr}` : ''].filter(Boolean).join(' — ');
-    doc.text(arTitle, rightX, y, { align: 'right' });
+  // Title (e.g. محام لدى المجلس)
+  if (titleAr) {
+    doc.setFontSize(13);
+    doc.setTextColor(...TEAL);
+    const fullTitle = barNameAr ? `${titleAr} لدى ${barNameAr}` : titleAr;
+    doc.text(fullTitle, cx, y, { align: 'center' });
+    y += 10;
+  } else {
+    y += 4;
   }
-  if (titleFr || barNameFr) {
-    doc.setFontSize(9);
-    doc.setTextColor(...TEXT_SECONDARY);
-    const frTitle = [titleFr, barNameFr ? `au Barreau de ${barNameFr}` : ''].filter(Boolean).join(' ');
-    doc.text(frTitle, m, y, { align: 'left' });
-  }
-  y += 5;
 
-  if (phone) {
-    doc.setFontSize(9);
-    doc.setTextColor(...TEXT_SECONDARY);
-    doc.text(`Tél: ${phone}`, m, y, { align: 'left' });
-  }
-  y += 4;
-
-  // Navy separator
-  doc.setDrawColor(...NAVY);
-  doc.setLineWidth(0.6);
-  doc.line(m, y, rightX, y);
-  y += 1.5;
-  doc.setLineWidth(0.25);
-  doc.line(m + 25, y, rightX - 25, y);
-  y += 5;
+  // Contact info block — centered, smaller
+  y += 2;
 
   if (address) {
+    doc.setFontSize(11);
+    doc.setTextColor(...TEXT_DARK);
+    doc.text('المقر الاجتماعي', cx, y, { align: 'center' });
+    y += 6;
     doc.setFontSize(10);
-    doc.setTextColor(...TEXT_PRIMARY);
-    const fullAddr = [address, city ? `- ${city}` : ''].filter(Boolean).join(' ');
-    doc.text(fullAddr, pw / 2, y, { align: 'center' });
-    y += 5;
-  }
-  if (email) {
-    doc.setFontSize(9);
-    doc.setTextColor(...TEXT_SECONDARY);
-    doc.text(`E-mail : ${email}`, pw / 2, y, { align: 'center' });
-    y += 5;
+    doc.setTextColor(...TEXT_MID);
+    const fullAddr = city ? `${address}، ${city}، المغرب` : address;
+    doc.text(fullAddr, cx, y, { align: 'center' });
+    y += 6;
   }
 
-  // City & Date
-  y += 3;
-  doc.setFontSize(12);
-  doc.setTextColor(...TEXT_PRIMARY);
-  doc.text(city ? `${city} في: ${data.date}` : data.date, rightX, y, { align: 'right' });
+  if (phone) {
+    doc.setFontSize(10);
+    doc.setTextColor(...TEXT_MID);
+    doc.text(`الهاتف: ${phone}`, cx, y, { align: 'center' });
+    y += 6;
+  }
+
+  if (email) {
+    doc.setFontSize(10);
+    doc.setTextColor(...TEXT_MID);
+    doc.text(`البريد الإلكتروني: ${email}`, cx, y, { align: 'center' });
+    y += 6;
+  }
+
+  y += 6;
+
+  // Light gray separator line
+  doc.setDrawColor(...BORDER_LIGHT);
+  doc.setLineWidth(0.3);
+  doc.line(m, y, rightX, y);
   y += 14;
 
   /* ═══════════════════════════════════════
-     TITLE
+     3. TITLE — "وصل أداء" (very large, centered)
      ═══════════════════════════════════════ */
-  doc.setFontSize(22);
-  doc.setTextColor(...NAVY);
-  doc.text('وصل أداء', pw / 2, y, { align: 'center' });
-  y += 4;
-  const titleBarW = 30;
-  doc.setDrawColor(...NAVY);
-  doc.setLineWidth(0.7);
-  doc.line(pw / 2 - titleBarW / 2, y, pw / 2 + titleBarW / 2, y);
+  doc.setFontSize(30);
+  doc.setTextColor(...TEXT_DARK);
+  doc.text('وصل أداء', cx, y, { align: 'center' });
+  y += 5;
+
+  // Underline
+  doc.setDrawColor(...TEXT_DARK);
+  doc.setLineWidth(0.5);
+  const ulW = 35;
+  doc.line(cx - ulW / 2, y, cx + ulW / 2, y);
   y += 8;
 
   // Receipt number
-  doc.setFontSize(12);
-  doc.setTextColor(...TEXT_SECONDARY);
-  doc.text(`رقم الوصل: ${data.invoiceNumber}`, pw / 2, y, { align: 'center' });
+  doc.setFontSize(11);
+  doc.setTextColor(...TEXT_LIGHT);
+  doc.text(`رقم الوصل: ${data.invoiceNumber}`, cx, y, { align: 'center' });
   y += 12;
 
   /* ═══════════════════════════════════════
-     CLIENT INFO BOX
+     4. CLIENT INFO BOX — gray bg, structured labels
      ═══════════════════════════════════════ */
-  let boxLines = 1;
-  if (data.caseNumber) boxLines++;
-  if (data.caseType || data.caseName) boxLines++;
-  const boxH = 10 + boxLines * 9;
-  const boxInnerX = rightX - 6;
+  // Calculate height
+  let infoRows = 1; // client always
+  if (data.caseNumber) infoRows++;
+  if (data.caseType || data.caseName) infoRows++;
+  const infoBoxH = 8 + infoRows * 18;
 
-  doc.setFillColor(...BOX_BG);
-  doc.roundedRect(m, y, contentW, boxH, 2, 2, 'F');
-  doc.setDrawColor(...NAVY);
-  doc.setLineWidth(1.2);
-  doc.line(rightX, y, rightX, y + boxH);
+  doc.setFillColor(...BG_LIGHT);
+  doc.roundedRect(m, y, contentW, infoBoxH, 3, 3, 'F');
 
-  let boxY = y + 8;
+  let infoY = y + 10;
+  const infoRightX = rightX - 8;
 
-  doc.setFontSize(14);
-  doc.setTextColor(...TEXT_SECONDARY);
-  doc.text('الموكل(ة): ', boxInnerX, boxY, { align: 'right' });
-  const clientLabelW = doc.getTextWidth('الموكل(ة): ');
-  doc.setTextColor(...TEXT_PRIMARY);
-  doc.text(data.clientName, boxInnerX - clientLabelW, boxY, { align: 'right' });
-  boxY += 9;
+  // الموكل
+  doc.setFontSize(11);
+  doc.setTextColor(...TEAL);
+  doc.text('الموكل', infoRightX, infoY, { align: 'right' });
+  infoY += 8;
+  doc.setFontSize(16);
+  doc.setTextColor(...TEXT_DARK);
+  doc.text(data.clientName, infoRightX, infoY, { align: 'right' });
+  infoY += 10;
 
+  // رقم الملف
   if (data.caseNumber) {
+    doc.setFontSize(11);
+    doc.setTextColor(...TEAL);
+    doc.text('رقم الملف', infoRightX, infoY, { align: 'right' });
+    infoY += 8;
     doc.setFontSize(14);
-    doc.setTextColor(...TEXT_SECONDARY);
-    doc.text('رقم الملف: ', boxInnerX, boxY, { align: 'right' });
-    const numLabelW = doc.getTextWidth('رقم الملف: ');
-    doc.setTextColor(...TEXT_PRIMARY);
-    doc.text(data.caseNumber, boxInnerX - numLabelW, boxY, { align: 'right' });
-    boxY += 9;
+    doc.setTextColor(...TEXT_DARK);
+    doc.text(data.caseNumber, infoRightX, infoY, { align: 'right' });
+    infoY += 10;
   }
 
+  // موضوع الملف
   if (data.caseType || data.caseName) {
+    doc.setFontSize(11);
+    doc.setTextColor(...TEAL);
+    doc.text('موضوع الملف', infoRightX, infoY, { align: 'right' });
+    infoY += 8;
     doc.setFontSize(14);
-    doc.setTextColor(...TEXT_SECONDARY);
-    doc.text('الموضوع: ', boxInnerX, boxY, { align: 'right' });
-    const subjectLabelW = doc.getTextWidth('الموضوع: ');
-    doc.setTextColor(...TEXT_PRIMARY);
-    doc.text(`${data.caseType || data.caseName}`, boxInnerX - subjectLabelW, boxY, { align: 'right' });
+    doc.setTextColor(...TEXT_DARK);
+    doc.text(`${data.caseType || data.caseName}`, infoRightX, infoY, { align: 'right' });
   }
 
-  y += boxH + 10;
+  y += infoBoxH + 10;
 
   /* ═══════════════════════════════════════
-     AMOUNT SECTION
+     5. AMOUNT SECTION
      ═══════════════════════════════════════ */
-  doc.setDrawColor(...BORDER_COLOR);
-  doc.setLineWidth(0.25);
-  doc.line(m, y, rightX, y);
-  y += 9;
+  // Label on right, amount on left — same line
+  doc.setFontSize(12);
+  doc.setTextColor(...TEXT_MID);
+  doc.text('المبلغ الإجمالي المستلم:', rightX, y, { align: 'right' });
 
-  doc.setFontSize(14);
-  doc.setTextColor(...TEXT_SECONDARY);
-  doc.text('المبلغ المستلم:', rightX, y, { align: 'right' });
-  y += 11;
-
-  doc.setFontSize(22);
-  doc.setTextColor(...NAVY);
-  const amountStr = `${data.amount.toLocaleString('fr-MA', { minimumFractionDigits: 2 })} درهم`;
-  doc.text(amountStr, rightX, y, { align: 'right' });
-  y += 9;
+  // Large amount + MAD on left
+  doc.setFontSize(24);
+  doc.setTextColor(...TEXT_DARK);
+  const amountFormatted = data.amount.toLocaleString('fr-MA', { minimumFractionDigits: 2 });
+  doc.text(`MAD  ${amountFormatted}`, m, y + 1, { align: 'left' });
+  y += 10;
 
   // Tafkeet
   doc.setFontSize(11);
-  doc.setTextColor(...TEXT_SECONDARY);
-  doc.text(numberToArabicWords(data.amount), rightX, y, { align: 'right' });
+  doc.setTextColor(...TEXT_LIGHT);
+  doc.text('المبلغ بالحروف:', rightX, y, { align: 'right' });
+  const tafkeetW = doc.getTextWidth('المبلغ بالحروف:  ');
+  doc.setTextColor(...TEXT_MID);
+  doc.text(numberToArabicWords(data.amount), rightX - tafkeetW, y, { align: 'right' });
   y += 10;
 
-  // Payment method
-  doc.setFontSize(14);
-  doc.setTextColor(...TEXT_SECONDARY);
-  doc.text('طريقة الأداء: ', rightX, y, { align: 'right' });
-  const pmLabelW = doc.getTextWidth('طريقة الأداء: ');
-  const paymentMethodText = PAYMENT_METHODS[data.paymentMethod] || data.paymentMethod;
-  doc.setTextColor(...TEXT_PRIMARY);
-  doc.text(paymentMethodText, rightX - pmLabelW, y, { align: 'right' });
-  y += 8;
-
-  if (data.description) {
-    doc.setFontSize(12);
-    doc.setTextColor(...TEXT_SECONDARY);
-    doc.text(`البيان: ${data.description}`, rightX, y, { align: 'right' });
+  // Payment method (if not cash, show it)
+  if (data.paymentMethod && data.paymentMethod !== 'cash') {
+    const pmText = PAYMENT_METHODS[data.paymentMethod] || data.paymentMethod;
+    doc.setFontSize(11);
+    doc.setTextColor(...TEXT_LIGHT);
+    doc.text(`طريقة الأداء: ${pmText}`, rightX, y, { align: 'right' });
     y += 8;
   }
 
   y += 4;
-  doc.setDrawColor(...BORDER_COLOR);
+
+  /* ═══════════════════════════════════════
+     6. LEGAL TEXT — bordered box
+     ═══════════════════════════════════════ */
+  doc.setDrawColor(...BORDER_LIGHT);
+  doc.setLineWidth(0.3);
   doc.line(m, y, rightX, y);
   y += 10;
 
-  /* ═══════════════════════════════════════
-     LEGAL TEXT
-     ═══════════════════════════════════════ */
-  doc.setFontSize(12);
-  doc.setTextColor(...TEXT_PRIMARY);
-  const legalText = `يشهد مكتب الأستاذ ${lawyerName} باستلام المبلغ المذكور أعلاه من السيد(ة) ${data.clientName}، وذلك رسم مستحقات الملف المشار إليه أعلاه، ويعتبر هذا الوصل بمثابة إبراء ذمة بخصوص هذا الدفع.`;
-  const splitText = doc.splitTextToSize(legalText, contentW);
-  doc.text(splitText, rightX, y, { align: 'right' });
-  y += splitText.length * 6 + 14;
+  doc.setFontSize(14);
+  doc.setTextColor(...TEXT_DARK);
+  const legalText = `يشهد مكتب الأستاذ ${lawyerName} باستلام المبلغ المذكور أعلاه من السيد(ة) ${data.clientName}، وذلك رسم مستحقات الملف المشار إليه أعلاه، ويعتبر هذا الوصل بمثابة إبراء ذمة نهائي بخصوص هذا الدفع.`;
+  const splitLegal = doc.splitTextToSize(legalText, contentW);
+  // Center the text block
+  doc.text(splitLegal, cx, y, { align: 'center' });
+  y += splitLegal.length * 7 + 6;
+
+  doc.setDrawColor(...BORDER_LIGHT);
+  doc.line(m, y, rightX, y);
+  y += 14;
 
   /* ═══════════════════════════════════════
-     SIGNATURE & QR
+     7. DATE SECTION — "حرر بـ..."
      ═══════════════════════════════════════ */
-  const qrSize = 22;
-  const qrY = Math.max(y, 240);
-  doc.addImage(qrDataUrl, 'PNG', m, qrY, qrSize, qrSize);
+  doc.setFontSize(11);
+  doc.setTextColor(...TEXT_LIGHT);
+  doc.text(`حرر ب${city || '...'} في:`, rightX, y, { align: 'right' });
+  y += 9;
+
+  doc.setFontSize(16);
+  doc.setTextColor(...TEXT_DARK);
+  doc.text(data.date, rightX, y, { align: 'right' });
+  y += 16;
+
+  /* ═══════════════════════════════════════
+     8. SIGNATURE — centered
+     ═══════════════════════════════════════ */
+  doc.setFontSize(14);
+  doc.setTextColor(...TEXT_DARK);
+  doc.text('توقيع وختم المكتب', cx, y, { align: 'center' });
+  y += 10;
+
+  // Seal placeholder — rounded gray rectangle
+  const sealW = 55;
+  const sealH = 35;
+  const sealX = cx - sealW / 2;
+  doc.setFillColor(240, 241, 243);
+  doc.roundedRect(sealX, y, sealW, sealH, 6, 6, 'F');
+
+  // "SEAL & SIGNATURE AREA" text inside
   doc.setFontSize(7);
   doc.setTextColor(...TEXT_MUTED);
-  doc.text('رمز التحقق', m + qrSize / 2, qrY + qrSize + 3, { align: 'center' });
-
-  doc.setFontSize(14);
-  doc.setTextColor(...TEXT_PRIMARY);
-  doc.text('التوقيع والختم', rightX, qrY + 2, { align: 'right' });
-  doc.setDrawColor(...TEXT_MUTED);
-  doc.setLineWidth(0.3);
-  doc.setLineDashPattern([1.5, 1.5], 0);
-  doc.line(rightX - 55, qrY + 22, rightX, qrY + 22);
-  doc.setLineDashPattern([], 0);
+  doc.text('SEAL & SIGNATURE AREA', cx, y + sealH / 2 + 1, { align: 'center' });
 
   /* ═══════════════════════════════════════
-     FOOTER
+     QR CODE — bottom left corner
      ═══════════════════════════════════════ */
-  doc.setDrawColor(...BORDER_COLOR);
-  doc.setLineWidth(0.15);
-  doc.line(m, 285, rightX, 285);
-  doc.setFontSize(8);
+  const qrSize = 18;
+  const qrY = 272;
+  doc.addImage(qrDataUrl, 'PNG', m, qrY, qrSize, qrSize);
+  doc.setFontSize(6);
   doc.setTextColor(...TEXT_MUTED);
-  doc.text('وثيقة موقعة إلكترونياً', pw / 2, 289, { align: 'center' });
+  doc.text('رمز التحقق', m + qrSize / 2, qrY + qrSize + 2.5, { align: 'center' });
+
+  /* ═══════════════════════════════════════
+     FOOTER — subtle line
+     ═══════════════════════════════════════ */
+  doc.setDrawColor(...BORDER_LIGHT);
+  doc.setLineWidth(0.15);
+  doc.line(m, 293, rightX, 293);
+  doc.setFontSize(7);
+  doc.setTextColor(...TEXT_MUTED);
+  doc.text('وثيقة موقعة إلكترونياً', cx, 296, { align: 'center' });
 
   return doc.output('blob');
 };
