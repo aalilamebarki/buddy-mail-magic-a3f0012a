@@ -634,7 +634,7 @@ const Letterheads = () => {
             </div>
 
             {pendingTemplatePath && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Button
                   type="button"
                   variant="outline"
@@ -644,6 +644,16 @@ const Letterheads = () => {
                 >
                   {previewLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
                   {previewHtml ? 'تحديث المعاينة' : 'معاينة الملف'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={reExtractFromTemplate}
+                  disabled={extracting || uploadingTemplate}
+                  className="gap-1.5"
+                >
+                  {extracting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  استخراج البيانات من القالب
                 </Button>
                 <span className="text-xs text-muted-foreground">الملف محفوظ مؤقتاً حتى تضغط حفظ الترويسة</span>
               </div>
