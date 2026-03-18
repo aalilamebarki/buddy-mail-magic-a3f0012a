@@ -643,8 +643,8 @@ export const exportFeeStatementDocx = async (statement: FeeStatementRecord) => {
       children,
       properties: {
         page: {
-          margin: { top: 567, bottom: 567, left: 850, right: 850 },
-          size: { width: 11906, height: 16838 },
+          margin: { top: 1134, bottom: 1134, left: 1134, right: 1134 },
+          size: { width: 11906, height: 16838, orientation: undefined },
         },
       },
     }],
