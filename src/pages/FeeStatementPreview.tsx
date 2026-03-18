@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, ArrowRight, Download, Printer, FileText } from 'lucide-react';
+import { Loader2, ArrowRight, Download, Printer, FileText, FileDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDateArabic } from '@/lib/formatters';
 import type { FeeStatementRecord } from '@/hooks/useFeeStatements';
 import { downloadFeeStatementPdf } from '@/lib/dynamic-pdf-downloads';
+import { exportFeeStatementDocx } from '@/lib/export-fee-statement-docx';
 import { numberToArabicWords } from '@/lib/pdf-utils';
 
 const fmt = (n: number) =>
