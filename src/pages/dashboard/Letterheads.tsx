@@ -2,12 +2,15 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Trash2, FileText, Loader2, Stamp, Edit2, Save, X, Upload, Eye, Phone, Mail, MapPin, Building2, User, RefreshCw } from 'lucide-react';
+import { Plus, Trash2, FileText, Loader2, Stamp, Edit2, Save, X, Upload, Eye, Phone, Mail, MapPin, Building2, User, RefreshCw, Scan, Type, Image as ImageIcon, Ruler, Palette } from 'lucide-react';
 import { extractLetterheadInfo } from '@/lib/extract-letterhead-info';
-import { parseLetterheadStructure } from '@/lib/parse-letterhead-structure';
+import { parseLetterheadStructure, type LetterheadStructure } from '@/lib/parse-letterhead-structure';
 import DocxPreview, { type DocxPreviewHandle } from '@/components/DocxPreview';
 
 interface Letterhead {
