@@ -236,11 +236,6 @@ export const exportCourtSessionsWord = async ({
   // Build court sections
   sortedCourts.forEach(([courtName, courtSessions]) => {
     // Determine a representative date for the court header
-    const dates = [...new Set(courtSessions.map(s => s.session_date))].sort();
-    const dateLabel = dates.length === 1
-      ? formatArabicDate(new Date(`${dates[0]}T00:00:00`), true)
-      : dates.map(d => formatArabicDate(new Date(`${d}T00:00:00`))).join(' / ');
-
     const rows = courtSessions.map(s => {
       const next = getNextSession(s.case_id, s.session_date);
       return {
@@ -253,7 +248,7 @@ export const exportCourtSessionsWord = async ({
       };
     });
 
-    children.push(...buildCourtSection(courtName, dateLabel, rows));
+    children.push(...buildCourtSection(courtName, rows));
   });
 
   // Footer
