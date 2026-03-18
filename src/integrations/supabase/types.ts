@@ -414,6 +414,7 @@ export type Database = {
           created_at: string
           id: string
           notes: string | null
+          required_action: string
           session_date: string
           status: string
           updated_at: string
@@ -424,6 +425,7 @@ export type Database = {
           created_at?: string
           id?: string
           notes?: string | null
+          required_action?: string
           session_date: string
           status?: string
           updated_at?: string
@@ -434,6 +436,7 @@ export type Database = {
           created_at?: string
           id?: string
           notes?: string | null
+          required_action?: string
           session_date?: string
           status?: string
           updated_at?: string

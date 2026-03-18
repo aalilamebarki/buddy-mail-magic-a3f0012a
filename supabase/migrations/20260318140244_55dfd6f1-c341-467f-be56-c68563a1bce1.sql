@@ -1,0 +1,1 @@
+ALTER TABLE public.court_sessions ADD COLUMN required_action TEXT DEFAULT '' NOT NULL;
