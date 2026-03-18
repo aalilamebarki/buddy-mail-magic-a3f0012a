@@ -102,6 +102,10 @@ const CourtSessions = () => {
       toast.error('يرجى اختيار تاريخ الجلسة');
       return;
     }
+    if (!requiredAction.trim()) {
+      toast.error('يرجى تحديد المطلوب في هذه الجلسة');
+      return;
+    }
     if (!editingSession && !selectedCaseId) {
       toast.error('يرجى اختيار الملف');
       return;
