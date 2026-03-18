@@ -235,6 +235,7 @@ const renderHeader = (
     y += 9;
   }
 
+  doc.setFont('IBMPlex');
   doc.setFontSize(11);
   doc.setTextColor(...TEXT_DARK);
   doc.text('المقر الاجتماعي', centerX, y, { align: 'center' });
@@ -266,6 +267,7 @@ const renderHeader = (
   drawRule(doc, y, margin + 8, rightX - 8);
   y += 18;
 
+  doc.setFont('Amiri');
   doc.setFontSize(30);
   doc.setTextColor(...NAVY);
   doc.text('بيان أتعاب', centerX, y, { align: 'center' });
