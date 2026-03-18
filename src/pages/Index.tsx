@@ -1,16 +1,19 @@
+import { lazy, Suspense } from 'react';
 import { Helmet } from 'react-helmet-async';
 import Navbar from '@/components/landing/Navbar';
 import HeroSection from '@/components/landing/HeroSection';
-import LiveTicker from '@/components/landing/LiveTicker';
-import StatsStrip from '@/components/landing/StatsStrip';
-import BentoGrid from '@/components/landing/BentoGrid';
-import DomainsSection from '@/components/landing/DomainsSection';
-import ToolsSection from '@/components/landing/ToolsSection';
-import QuotesCarousel from '@/components/landing/QuotesCarousel';
-import TrustSection from '@/components/landing/TrustSection';
-import CTASection from '@/components/landing/CTASection';
-import Footer from '@/components/landing/Footer';
-import TeamSectionComponent from '@/components/TeamSection';
+
+// Lazy load below-the-fold sections
+const LiveTicker = lazy(() => import('@/components/landing/LiveTicker'));
+const StatsStrip = lazy(() => import('@/components/landing/StatsStrip'));
+const BentoGrid = lazy(() => import('@/components/landing/BentoGrid'));
+const DomainsSection = lazy(() => import('@/components/landing/DomainsSection'));
+const ToolsSection = lazy(() => import('@/components/landing/ToolsSection'));
+const QuotesCarousel = lazy(() => import('@/components/landing/QuotesCarousel'));
+const TrustSection = lazy(() => import('@/components/landing/TrustSection'));
+const CTASection = lazy(() => import('@/components/landing/CTASection'));
+const Footer = lazy(() => import('@/components/landing/Footer'));
+const TeamSectionComponent = lazy(() => import('@/components/TeamSection'));
 
 const Index = () => (
   <>
@@ -22,17 +25,21 @@ const Index = () => (
       <Navbar />
       <main className="flex-1">
         <HeroSection />
-        <LiveTicker />
-        <StatsStrip />
-        <BentoGrid />
-        <DomainsSection />
-        <ToolsSection />
-        <TeamSectionComponent variant="compact" />
-        <QuotesCarousel />
-        <TrustSection />
-        <CTASection />
+        <Suspense fallback={null}>
+          <LiveTicker />
+          <StatsStrip />
+          <BentoGrid />
+          <DomainsSection />
+          <ToolsSection />
+          <TeamSectionComponent variant="compact" />
+          <QuotesCarousel />
+          <TrustSection />
+          <CTASection />
+        </Suspense>
       </main>
-      <Footer />
+      <Suspense fallback={null}>
+        <Footer />
+      </Suspense>
     </div>
   </>
 );
