@@ -199,28 +199,30 @@ const CourtSessions = () => {
             <Table className="min-w-[960px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-right">التاريخ</TableHead>
-                  <TableHead className="text-right">الموكل</TableHead>
-                  <TableHead className="text-right">الخصم</TableHead>
-                  <TableHead className="text-right">رقم الملف</TableHead>
-                  <TableHead className="text-right">المحكمة</TableHead>
-                  <TableHead className="text-right">ملاحظات</TableHead>
-                  <TableHead className="text-right">الحالة</TableHead>
-                  <TableHead className="text-right w-[80px]">إجراءات</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.map(s => (
-                  <TableRow key={s.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/dashboard/cases/${s.case_id}`)}>
-                    <TableCell className="text-sm whitespace-nowrap">
-                      {new Date(s.session_date + 'T00:00:00').toLocaleDateString('ar-u-nu-latn', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                    </TableCell>
-                    <TableCell className="text-sm font-medium">{s.cases?.clients?.full_name || '—'}</TableCell>
-                    <TableCell className="text-sm">{s.cases?.opposing_party || '—'}</TableCell>
-                    <TableCell className="text-sm" dir="ltr">{s.cases?.case_number || '—'}</TableCell>
-                    <TableCell className="text-sm">{s.cases?.court || '—'}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{s.notes || '—'}</TableCell>
-                    <TableCell>{getSessionBadge(s.session_date)}</TableCell>
+                   <TableHead className="text-right">التاريخ</TableHead>
+                   <TableHead className="text-right">الموكل</TableHead>
+                   <TableHead className="text-right">الخصم</TableHead>
+                   <TableHead className="text-right">رقم الملف</TableHead>
+                   <TableHead className="text-right">المحكمة</TableHead>
+                   <TableHead className="text-right">المطلوب</TableHead>
+                   <TableHead className="text-right">ملاحظات</TableHead>
+                   <TableHead className="text-right">الحالة</TableHead>
+                   <TableHead className="text-right w-[80px]">إجراءات</TableHead>
+                 </TableRow>
+               </TableHeader>
+               <TableBody>
+                 {items.map(s => (
+                   <TableRow key={s.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/dashboard/cases/${s.case_id}`)}>
+                     <TableCell className="text-sm whitespace-nowrap">
+                       {new Date(s.session_date + 'T00:00:00').toLocaleDateString('ar-u-nu-latn', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                     </TableCell>
+                     <TableCell className="text-sm font-medium">{s.cases?.clients?.full_name || '—'}</TableCell>
+                     <TableCell className="text-sm">{s.cases?.opposing_party || '—'}</TableCell>
+                     <TableCell className="text-sm" dir="ltr">{s.cases?.case_number || '—'}</TableCell>
+                     <TableCell className="text-sm">{s.cases?.court || '—'}</TableCell>
+                     <TableCell className="text-sm">{s.required_action || '—'}</TableCell>
+                     <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{s.notes || '—'}</TableCell>
+                     <TableCell>{getSessionBadge(s.session_date)}</TableCell>
                     <TableCell>
                       <div className="flex gap-1" onClick={e => e.stopPropagation()}>
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditSession(s)}>
