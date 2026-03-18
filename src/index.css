@@ -445,16 +445,32 @@
   }
 }
 
-/* Fix touch scrolling in Radix popovers/dropdowns on mobile */
+/* Fix touch interactions in Radix popovers/dropdowns on mobile */
 [data-radix-popper-content-wrapper] {
   touch-action: auto !important;
   pointer-events: auto !important;
+}
+
+[data-radix-popper-content-wrapper] * {
+  touch-action: auto !important;
 }
 
 [data-radix-popper-content-wrapper] [cmdk-list] {
   touch-action: pan-y !important;
   -webkit-overflow-scrolling: touch !important;
   overscroll-behavior: contain !important;
+}
+
+/* Calendar touch support inside popovers */
+[data-radix-popper-content-wrapper] .rdp,
+[data-radix-popper-content-wrapper] .rdp-month,
+[data-radix-popper-content-wrapper] .rdp-table,
+[data-radix-popper-content-wrapper] .rdp-day,
+[data-radix-popper-content-wrapper] .rdp-nav_button,
+[data-radix-popper-content-wrapper] .rdp-caption {
+  touch-action: manipulation !important;
+  pointer-events: auto !important;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Scrollbar styling */
