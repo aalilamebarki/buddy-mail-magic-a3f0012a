@@ -13,6 +13,13 @@ const downloadBlob = (blob: Blob, filename: string) => {
   URL.revokeObjectURL(url);
 };
 
+const previewBlob = (blob: Blob) => {
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank');
+  // Don't revoke immediately — the new tab needs time to load
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+};
+
 const mapLetterhead = (letterhead?: {
   lawyer_name: string;
   name_fr?: string | null;
