@@ -142,7 +142,7 @@ const buildCourtSection = (
         makeCell(row.clientName, COLS[0].width),
         makeCell(row.caseNumber, COLS[1].width),
         makeCell(row.opponentName, COLS[2].width),
-        makeCell(row.nextSession, COLS[3].width),
+        makeCell(row.requiredAction, COLS[3].width),
         makeCell(row.notes, COLS[4].width, { size: 20 }),
       ],
     }),
