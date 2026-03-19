@@ -261,6 +261,22 @@ const CaseDetail = () => {
             </div>
             <div className="flex justify-between"><span className="text-muted-foreground">التاريخ:</span><span>{new Date(caseData.created_at).toLocaleDateString('ar-MA')}</span></div>
             {caseData.description && <div className="pt-2 border-t"><p className="text-muted-foreground">{caseData.description}</p></div>}
+            {caseData.case_number && (
+              <div className="pt-2 border-t">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full gap-2 text-primary"
+                  onClick={() => window.open('https://www.mahakim.ma/#/suivi/dossier-suivi', '_blank')}
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  تتبع الملف على بوابة محاكم
+                </Button>
+                <p className="text-[11px] text-muted-foreground mt-1 text-center">
+                  رقم الملف: <span dir="ltr" className="font-mono">{caseData.case_number}</span> — انسخه وألصقه في بوابة محاكم
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
