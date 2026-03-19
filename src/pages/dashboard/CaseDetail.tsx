@@ -285,61 +285,42 @@ const CaseDetail = () => {
                       
                       if (error) throw error;
                       
-                      if (data?.success) {
+                      if (data?.success && data?.source !== 'firecrawl') {
                         setMahakimResult(data);
                         toast.success('تم جلب بيانات الملف من بوابة محاكم');
                       } else {
-                        setMahakimResult(data);
-                        toast.error(data?.error || 'لم نتمكن من جلب البيانات');
+                        // API غير متاح - نسخ الرقم وفتح الموقع
+                        await navigator.clipboard.writeText(caseData.case_number);
+                        toast.info('تم نسخ رقم الملف — سيتم فتح بوابة محاكم للبحث اليدوي');
+                        window.open('https://www.mahakim.ma/#/suivi/dossier-suivi', '_blank');
                       }
                     } catch (err: any) {
-                      toast.error('خطأ في الاتصال ببوابة محاكم');
-                      console.error(err);
+                      // Fallback: نسخ وفتح
+                      await navigator.clipboard.writeText(caseData.case_number);
+                      toast.info('تم نسخ رقم الملف — سيتم فتح بوابة محاكم');
+                      window.open('https://www.mahakim.ma/#/suivi/dossier-suivi', '_blank');
                     } finally {
                       setMahakimLoading(false);
                     }
                   }}
                 >
                   {mahakimLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                  جلب تلقائي من بوابة محاكم
+                  جلب بيانات الملف من محاكم
                 </Button>
-                
-                {mahakimResult && (
-                  <div className={`p-3 rounded-lg text-xs ${mahakimResult.success ? 'bg-legal-emerald/10 text-legal-emerald' : 'bg-destructive/10 text-destructive'}`}>
-                    {mahakimResult.success ? (
-                      <div>
-                        <p className="font-semibold mb-1">✅ تم الجلب بنجاح</p>
-                        <pre className="whitespace-pre-wrap text-[10px] max-h-32 overflow-auto" dir="ltr">
-                          {JSON.stringify(mahakimResult.data, null, 2)}
-                        </pre>
-                        <p className="text-[10px] mt-1 text-muted-foreground">المصدر: {mahakimResult.source}</p>
-                      </div>
-                    ) : (
-                      <div>
-                        <p className="font-semibold">❌ {mahakimResult.error}</p>
-                        {mahakimResult.api_status === 'all_methods_failed' && (
-                          <p className="mt-1">بوابة محاكم لا توفر API عام. يرجى استخدام البحث اليدوي.</p>
-                        )}
-                      </div>
-                    )}
+
+                {mahakimResult?.success && mahakimResult?.source !== 'firecrawl' && (
+                  <div className="p-3 rounded-lg text-xs bg-primary/10 text-primary">
+                    <p className="font-semibold mb-1">✅ تم الجلب بنجاح</p>
+                    <pre className="whitespace-pre-wrap text-[10px] max-h-32 overflow-auto" dir="ltr">
+                      {JSON.stringify(mahakimResult.data, null, 2)}
+                    </pre>
                   </div>
                 )}
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full gap-2 text-xs"
-                  onClick={() => {
-                    navigator.clipboard.writeText(caseData.case_number);
-                    toast.success('تم نسخ رقم الملف');
-                    window.open('https://www.mahakim.ma/#/suivi/dossier-suivi', '_blank');
-                  }}
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  فتح بوابة محاكم يدوياً
-                </Button>
+
                 <p className="text-[10px] text-muted-foreground text-center">
-                  رقم الملف: <span dir="ltr" className="font-mono">{caseData.case_number}</span>
+                  رقم الملف: <span dir="ltr" className="font-mono font-bold">{caseData.case_number}</span>
+                  <br />
+                  يُحاول الجلب الآلي أولاً، وإن تعذر يُنسخ الرقم ويُفتح الموقع
                 </p>
               </div>
             )}
