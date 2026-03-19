@@ -36,6 +36,8 @@ const CaseDetail = () => {
   const [editingCaseNumber, setEditingCaseNumber] = useState(false);
   const [caseNumberEdit, setCaseNumberEdit] = useState('');
   const [saving, setSaving] = useState(false);
+  const [mahakimLoading, setMahakimLoading] = useState(false);
+  const [mahakimResult, setMahakimResult] = useState<any>(null);
 
   const fetchData = async () => {
     if (!id) return;
