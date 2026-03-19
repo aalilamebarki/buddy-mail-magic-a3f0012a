@@ -61,7 +61,7 @@ const NotificationBell = () => {
   const handleClick = (notif: Notification) => {
     markAsRead(notif.id);
     setOpen(false);
-    navigate(`/dashboard/cases/${notif.case_id}`);
+    navigate(`/dashboard/cases/${notif.case_id}`, { state: { openAddSession: true } });
   };
 
   return (
