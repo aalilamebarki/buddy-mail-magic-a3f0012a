@@ -361,6 +361,20 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
               <Input value={form.title} onChange={e => updateField('title', e.target.value)} placeholder="مثال: نزاع عقاري - الدار البيضاء" />
             </div>
 
+            {/* Case Number */}
+            <div>
+              <Label>رقم الملف</Label>
+              <Input
+                value={form.case_number}
+                onChange={e => updateField('case_number', e.target.value)}
+                placeholder="مثال: 1/1401/2026 (اختياري)"
+                dir="ltr"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">
+                إذا أدخلت رقم الملف، سيتم جلب الإجراءات والجلسات تلقائياً من بوابة محاكم
+              </p>
+            </div>
+
             {/* Case Type */}
             <div>
               <Label>نوع الملف *</Label>
