@@ -59,6 +59,15 @@ const CaseDetail = () => {
 
   useEffect(() => { fetchData(); }, [id, navigate]);
 
+  // Auto-open add session dialog when navigating from notification
+  useEffect(() => {
+    if (!loading && caseData && (location.state as any)?.openAddSession) {
+      openAddSession();
+      // Clear the state so it doesn't re-trigger
+      window.history.replaceState({}, '');
+    }
+  }, [loading, caseData, location.state]);
+
   const needsCaseNumber = caseData && !caseData.case_number;
 
   const openEditSession = (session: any) => {
