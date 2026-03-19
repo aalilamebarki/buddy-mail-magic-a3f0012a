@@ -436,15 +436,14 @@ export const generateInvoiceDocxBlob = async (invoice: InvoiceRecord): Promise<B
   const city = lh?.city || '';
   const date = formatDateArabic(invoice.created_at, { year: 'numeric', month: 'long', day: 'numeric' });
 
-  // Check stored letterhead structure
-  const headerData = lh?.header_data as LetterheadStructure | null | undefined;
-  const hasStoredStructure = headerData && headerData.version &&
-    (headerData.headerParagraphs?.length > 0 || headerData.images?.length > 0);
+  // Check if we have an original template to inject into
+  const templatePath = lh?.template_path;
+  const hasTemplate = !!templatePath;
 
   const children: (Paragraph | Table)[] = [];
 
-  // 1. Header — use original letterhead if available
-  if (!hasStoredStructure) {
+  // 1. Header — only if no template
+  if (!hasTemplate) {
     children.push(...buildHeader(lh));
   }
 
@@ -487,8 +486,8 @@ export const generateInvoiceDocxBlob = async (invoice: InvoiceRecord): Promise<B
   // 9. Signature
   children.push(...buildSignatureSection(date, city));
 
-  // 10. Footer (only if no stored structure)
-  if (!hasStoredStructure) {
+  // 10. Footer (only if no template)
+  if (!hasTemplate) {
     children.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
@@ -508,33 +507,29 @@ export const generateInvoiceDocxBlob = async (invoice: InvoiceRecord): Promise<B
     );
   }
 
-  // Build section with page settings
-  const defaultMargins = { top: 1134, bottom: 1134, left: 1134, right: 1134 };
-  const pageMargins = hasStoredStructure ? (getPageMargins(headerData!) || defaultMargins) : defaultMargins;
-
-  const sectionProps: any = {
-    children,
-    properties: {
-      page: {
-        margin: pageMargins,
-        size: { width: 11906, height: 16838, orientation: undefined },
-      },
-    },
-  };
-
-  if (hasStoredStructure) {
-    sectionProps.headers = {
-      default: buildLetterheadHeader(headerData!),
-    };
-    if (headerData!.footerParagraphs?.length > 0 || headerData!.images?.some(img => img.section === 'footer')) {
-      sectionProps.footers = {
-        default: buildLetterheadFooter(headerData!),
-      };
+  // ── Template injection (primary) or standalone generation (fallback) ──
+  if (hasTemplate) {
+    const templateBlob = await downloadTemplate(templatePath!);
+    if (templateBlob) {
+      try {
+        return await injectIntoTemplate(templateBlob, children);
+      } catch (e) {
+        console.warn('Template injection failed, falling back to standalone:', e);
+      }
     }
   }
 
+  // Fallback: standalone document
   const doc = new Document({
-    sections: [sectionProps],
+    sections: [{
+      children,
+      properties: {
+        page: {
+          margin: { top: 1134, bottom: 1134, left: 1134, right: 1134 },
+          size: { width: 11906, height: 16838, orientation: undefined },
+        },
+      },
+    }],
   });
 
   return Packer.toBlob(doc);
