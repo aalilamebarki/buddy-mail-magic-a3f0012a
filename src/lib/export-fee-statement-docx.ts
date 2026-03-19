@@ -1,10 +1,10 @@
 /**
  * Fee Statement Word (.docx) Export
  * Moroccan Professional style: Navy (#1a2a44) / Gold (#c5a059)
- * Matches the HTML preview design with bilingual labels
  * 
- * When the letterhead has stored structural data (header_data),
- * uses the original letterhead formatting from the uploaded Word file.
+ * PRIMARY: Injects body content directly into the original .docx template,
+ * preserving ALL original formatting (headers, footers, images, fonts, styles).
+ * FALLBACK: Generates a standalone document if no template is available.
  */
 
 import {
@@ -28,13 +28,7 @@ import { saveAs } from 'file-saver';
 import type { FeeStatementRecord } from '@/hooks/useFeeStatements';
 import { formatDateArabic } from '@/lib/formatters';
 import { numberToArabicWords } from '@/lib/pdf-utils';
-import {
-  buildHeader as buildLetterheadHeader,
-  buildFooter as buildLetterheadFooter,
-  getPageMargins,
-  getDefaultFont,
-} from '@/lib/reconstruct-letterhead';
-import type { LetterheadStructure } from '@/lib/parse-letterhead-structure';
+import { downloadTemplate, injectIntoTemplate } from '@/lib/template-injector';
 
 /* ── Design tokens ────────────────────────────────────────────────── */
 const FONT = 'Traditional Arabic';
@@ -547,15 +541,14 @@ export const generateFeeStatementDocxBlob = async (statement: FeeStatementRecord
   const city = lh?.city || '';
   const date = formatDateArabic(statement.created_at, { year: 'numeric', month: 'long', day: 'numeric' });
 
-  // Check if we have stored letterhead structure for faithful reconstruction
-  const headerData = lh?.header_data as LetterheadStructure | null | undefined;
-  const hasStoredStructure = headerData && headerData.version && 
-    (headerData.headerParagraphs?.length > 0 || headerData.images?.length > 0);
+  // Check if we have an original template to inject into
+  const templatePath = lh?.template_path;
+  const hasTemplate = !!templatePath;
 
   const children: (Paragraph | Table)[] = [];
 
-  // 1. Header — use original letterhead if available, otherwise fallback to programmatic
-  if (!hasStoredStructure) {
+  // 1. Header — only add programmatic header if NO template (template has its own)
+  if (!hasTemplate) {
     children.push(...buildHeader(lh));
   }
 
@@ -644,8 +637,8 @@ export const generateFeeStatementDocxBlob = async (statement: FeeStatementRecord
   // 7. Signature
   children.push(...buildSignatureSection(date, city));
 
-  // 8. Footer (only if no stored structure — stored structure uses real footer)
-  if (!hasStoredStructure) {
+  // 8. Footer (only if no template)
+  if (!hasTemplate) {
     children.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
@@ -665,34 +658,29 @@ export const generateFeeStatementDocxBlob = async (statement: FeeStatementRecord
     );
   }
 
-  // Build section properties with original margins if available
-  const defaultMargins = { top: 1134, bottom: 1134, left: 1134, right: 1134 };
-  const pageMargins = hasStoredStructure ? (getPageMargins(headerData!) || defaultMargins) : defaultMargins;
-
-  // Build document with or without stored header/footer
-  const sectionProps: any = {
-    children,
-    properties: {
-      page: {
-        margin: pageMargins,
-        size: { width: 11906, height: 16838, orientation: undefined },
-      },
-    },
-  };
-
-  if (hasStoredStructure) {
-    sectionProps.headers = {
-      default: buildLetterheadHeader(headerData!),
-    };
-    if (headerData!.footerParagraphs?.length > 0 || headerData!.images?.some(img => img.section === 'footer')) {
-      sectionProps.footers = {
-        default: buildLetterheadFooter(headerData!),
-      };
+  // ── Template injection (primary) or standalone generation (fallback) ──
+  if (hasTemplate) {
+    const templateBlob = await downloadTemplate(templatePath!);
+    if (templateBlob) {
+      try {
+        return await injectIntoTemplate(templateBlob, children);
+      } catch (e) {
+        console.warn('Template injection failed, falling back to standalone:', e);
+      }
     }
   }
 
+  // Fallback: standalone document
   const doc = new Document({
-    sections: [sectionProps],
+    sections: [{
+      children,
+      properties: {
+        page: {
+          margin: { top: 1134, bottom: 1134, left: 1134, right: 1134 },
+          size: { width: 11906, height: 16838, orientation: undefined },
+        },
+      },
+    }],
   });
 
   return Packer.toBlob(doc);

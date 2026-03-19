@@ -54,6 +54,7 @@ export interface FeeStatementRecord {
     phone?: string | null;
     email?: string | null;
     header_data?: any | null;
+    template_path?: string | null;
   } | null;
   fee_statement_items?: FeeStatementItemRecord[];
   fee_statement_cases?: FeeStatementCaseRecord[];
@@ -67,7 +68,7 @@ export const useFeeStatements = () => {
     setLoading(true);
     const { data } = await supabase
       .from('fee_statements')
-      .select('*, clients(full_name, cin, phone), cases(title, case_number, court, case_type), letterheads(lawyer_name, name_fr, title_ar, title_fr, bar_name_ar, bar_name_fr, address, city, phone, email, header_data), fee_statement_items(*), fee_statement_cases(*, cases(title, case_number, court, case_type))')
+      .select('*, clients(full_name, cin, phone), cases(title, case_number, court, case_type), letterheads(lawyer_name, name_fr, title_ar, title_fr, bar_name_ar, bar_name_fr, address, city, phone, email, header_data, template_path), fee_statement_items(*), fee_statement_cases(*, cases(title, case_number, court, case_type))')
       .order('created_at', { ascending: false });
     if (data) setStatements(data as unknown as FeeStatementRecord[]);
     setLoading(false);
