@@ -38,7 +38,7 @@ export interface CaseForm {
 }
 
 /* ─── Constants ─── */
-const emptyForm: CaseForm = { title: '', case_type: '', description: '', client_id: '', court: '' };
+const emptyForm: CaseForm = { title: '', case_type: '', description: '', client_id: '', court: '', case_number: '' };
 const emptyOpponent: Opponent = { name: '', address: '', phone: '' };
 const NIYABA = 'النيابة العامة';
 const HIDDEN_ADDRESS_PARTIES = [NIYABA, 'قاضي التوثيق', 'قاضي شؤون القاصرين'];
