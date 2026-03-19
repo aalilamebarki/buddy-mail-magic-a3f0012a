@@ -29,7 +29,7 @@ const CaseDetail = () => {
   const [documents, setDocuments] = useState<any[]>([]);
   const [sessions, setSessions] = useState<any[]>([]);
   const [opponents, setOpponents] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [procedures, setProcedures] = useState<any[]>([]);
   const [sessionDialogOpen, setSessionDialogOpen] = useState(false);
   const [editingSession, setEditingSession] = useState<any>(null);
   const [sessionDate, setSessionDate] = useState<Date | undefined>(undefined);
