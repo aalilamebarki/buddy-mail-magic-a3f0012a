@@ -43,11 +43,12 @@ const CaseDetail = () => {
 
   const fetchData = async () => {
     if (!id) return;
-    const [caseRes, docsRes, sessionsRes, opponentsRes] = await Promise.all([
+    const [caseRes, docsRes, sessionsRes, opponentsRes, procsRes] = await Promise.all([
       supabase.from('cases').select('*, clients(full_name, phone, email, cin, address)').eq('id', id).single(),
       supabase.from('generated_documents').select('id, title, doc_type, status, created_at, next_court').eq('case_id', id).order('created_at', { ascending: false }),
       supabase.from('court_sessions').select('*').eq('case_id', id).order('session_date', { ascending: true }),
       supabase.from('case_opponents').select('*').eq('case_id', id).order('sort_order'),
+      supabase.from('case_procedures').select('*').eq('case_id', id).order('created_at', { ascending: true }),
     ]);
     if (caseRes.error) {
       toast.error('لم يتم العثور على الملف');
