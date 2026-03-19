@@ -20,18 +20,28 @@ const DashboardHome = () => {
   const navigate = useNavigate();
   const [upcomingSessions, setUpcomingSessions] = useState<any[]>([]);
 
+  const fetchSessions = async () => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const { data } = await supabase
+      .from('court_sessions')
+      .select('*, cases(title, case_number, court, opposing_party, clients(full_name))')
+      .gte('session_date', today)
+      .order('session_date', { ascending: true })
+      .limit(5);
+    if (data) setUpcomingSessions(data);
+  };
+
+  useEffect(() => { fetchSessions(); }, []);
+
+  // Realtime: auto-refresh when new sessions are inserted (e.g. from mahakim sync)
   useEffect(() => {
-    const fetchSessions = async () => {
-      const today = format(new Date(), 'yyyy-MM-dd');
-      const { data } = await supabase
-        .from('court_sessions')
-        .select('*, cases(title, case_number, court, opposing_party, clients(full_name))')
-        .gte('session_date', today)
-        .order('session_date', { ascending: true })
-        .limit(5);
-      if (data) setUpcomingSessions(data);
-    };
-    fetchSessions();
+    const channel = supabase
+      .channel('dashboard-sessions')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'court_sessions' }, () => {
+        fetchSessions();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   return (
