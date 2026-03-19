@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { MahakimSyncStatus } from '@/components/cases/MahakimSyncStatus';
+import { useMahakimSync } from '@/hooks/useMahakimSync';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -10,7 +12,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowRight, FileText, User, Scale, MapPin, ClipboardList, CalendarDays, Plus, Pencil, Trash2, Check, X, ExternalLink, Search, Loader2 } from 'lucide-react';
+import { ArrowRight, FileText, User, Scale, MapPin, ClipboardList, CalendarDays, Plus, Pencil, Trash2, Check, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -36,8 +38,7 @@ const CaseDetail = () => {
   const [editingCaseNumber, setEditingCaseNumber] = useState(false);
   const [caseNumberEdit, setCaseNumberEdit] = useState('');
   const [saving, setSaving] = useState(false);
-  const [mahakimLoading, setMahakimLoading] = useState(false);
-  const [mahakimResult, setMahakimResult] = useState<any>(null);
+  const { latestJob, syncing, startSync, openPortal } = useMahakimSync(id);
 
   const fetchData = async () => {
     if (!id) return;
@@ -264,64 +265,14 @@ const CaseDetail = () => {
             <div className="flex justify-between"><span className="text-muted-foreground">التاريخ:</span><span>{new Date(caseData.created_at).toLocaleDateString('ar-MA')}</span></div>
             {caseData.description && <div className="pt-2 border-t"><p className="text-muted-foreground">{caseData.description}</p></div>}
             {caseData.case_number && (
-              <div className="pt-2 border-t space-y-2">
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="w-full gap-2"
-                  disabled={mahakimLoading}
-                  onClick={async () => {
-                    setMahakimLoading(true);
-                    setMahakimResult(null);
-                    try {
-                      const parts = caseData.case_number.split('/');
-                      const numero = parts[0] || '';
-                      const mark = parts[1] || '';
-                      const annee = parts[2] || '';
-                      
-                      const { data, error } = await supabase.functions.invoke('scrape-mahakim', {
-                        body: { action: 'searchDossier', numero, mark, annee },
-                      });
-                      
-                      if (error) throw error;
-                      
-                      if (data?.success && data?.source !== 'firecrawl') {
-                        setMahakimResult(data);
-                        toast.success('تم جلب بيانات الملف من بوابة محاكم');
-                      } else {
-                        // API غير متاح - نسخ الرقم وفتح الموقع
-                        await navigator.clipboard.writeText(caseData.case_number);
-                        toast.info('تم نسخ رقم الملف — سيتم فتح بوابة محاكم للبحث اليدوي');
-                        window.open('https://www.mahakim.ma/#/suivi/dossier-suivi', '_blank');
-                      }
-                    } catch (err: any) {
-                      // Fallback: نسخ وفتح
-                      await navigator.clipboard.writeText(caseData.case_number);
-                      toast.info('تم نسخ رقم الملف — سيتم فتح بوابة محاكم');
-                      window.open('https://www.mahakim.ma/#/suivi/dossier-suivi', '_blank');
-                    } finally {
-                      setMahakimLoading(false);
-                    }
-                  }}
-                >
-                  {mahakimLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                  جلب بيانات الملف من محاكم
-                </Button>
-
-                {mahakimResult?.success && mahakimResult?.source !== 'firecrawl' && (
-                  <div className="p-3 rounded-lg text-xs bg-primary/10 text-primary">
-                    <p className="font-semibold mb-1">✅ تم الجلب بنجاح</p>
-                    <pre className="whitespace-pre-wrap text-[10px] max-h-32 overflow-auto" dir="ltr">
-                      {JSON.stringify(mahakimResult.data, null, 2)}
-                    </pre>
-                  </div>
-                )}
-
-                <p className="text-[10px] text-muted-foreground text-center">
-                  رقم الملف: <span dir="ltr" className="font-mono font-bold">{caseData.case_number}</span>
-                  <br />
-                  يُحاول الجلب الآلي أولاً، وإن تعذر يُنسخ الرقم ويُفتح الموقع
-                </p>
+              <div className="pt-2 border-t">
+                <MahakimSyncStatus
+                  caseNumber={caseData.case_number}
+                  latestJob={latestJob}
+                  syncing={syncing}
+                  onSync={() => startSync(caseData.case_number)}
+                  onOpenPortal={() => openPortal(caseData.case_number)}
+                />
               </div>
             )}
           </CardContent>

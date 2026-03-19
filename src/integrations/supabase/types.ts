@@ -241,6 +241,8 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          last_sync_result: Json | null
+          last_synced_at: string | null
           opposing_party: string | null
           opposing_party_address: string | null
           opposing_party_phone: string | null
@@ -258,6 +260,8 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          last_sync_result?: Json | null
+          last_synced_at?: string | null
           opposing_party?: string | null
           opposing_party_address?: string | null
           opposing_party_phone?: string | null
@@ -275,6 +279,8 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          last_sync_result?: Json | null
+          last_synced_at?: string | null
           opposing_party?: string | null
           opposing_party_address?: string | null
           opposing_party_phone?: string | null
@@ -1012,6 +1018,59 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      mahakim_sync_jobs: {
+        Row: {
+          case_id: string
+          case_number: string
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          next_session_date: string | null
+          request_payload: Json | null
+          result_data: Json | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          case_id: string
+          case_number: string
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          next_session_date?: string | null
+          request_payload?: Json | null
+          result_data?: Json | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          case_id?: string
+          case_number?: string
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          next_session_date?: string | null
+          request_payload?: Json | null
+          result_data?: Json | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mahakim_sync_jobs_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       newsletter_subscribers: {
         Row: {
