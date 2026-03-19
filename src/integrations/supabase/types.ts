@@ -230,6 +230,53 @@ export type Database = {
           },
         ]
       }
+      case_procedures: {
+        Row: {
+          action_date: string | null
+          action_type: string
+          case_id: string
+          conflict_log: Json | null
+          created_at: string
+          decision: string | null
+          id: string
+          is_manual: boolean
+          next_session_date: string | null
+          source: string
+        }
+        Insert: {
+          action_date?: string | null
+          action_type: string
+          case_id: string
+          conflict_log?: Json | null
+          created_at?: string
+          decision?: string | null
+          id?: string
+          is_manual?: boolean
+          next_session_date?: string | null
+          source?: string
+        }
+        Update: {
+          action_date?: string | null
+          action_type?: string
+          case_id?: string
+          conflict_log?: Json | null
+          created_at?: string
+          decision?: string | null
+          id?: string
+          is_manual?: boolean
+          next_session_date?: string | null
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_procedures_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cases: {
         Row: {
           assigned_to: string | null
@@ -243,6 +290,9 @@ export type Database = {
           id: string
           last_sync_result: Json | null
           last_synced_at: string | null
+          mahakim_department: string | null
+          mahakim_judge: string | null
+          mahakim_status: string | null
           opposing_party: string | null
           opposing_party_address: string | null
           opposing_party_phone: string | null
@@ -262,6 +312,9 @@ export type Database = {
           id?: string
           last_sync_result?: Json | null
           last_synced_at?: string | null
+          mahakim_department?: string | null
+          mahakim_judge?: string | null
+          mahakim_status?: string | null
           opposing_party?: string | null
           opposing_party_address?: string | null
           opposing_party_phone?: string | null
@@ -281,6 +334,9 @@ export type Database = {
           id?: string
           last_sync_result?: Json | null
           last_synced_at?: string | null
+          mahakim_department?: string | null
+          mahakim_judge?: string | null
+          mahakim_status?: string | null
           opposing_party?: string | null
           opposing_party_address?: string | null
           opposing_party_phone?: string | null

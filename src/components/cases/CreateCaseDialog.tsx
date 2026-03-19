@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -33,10 +34,11 @@ export interface CaseForm {
   description: string;
   client_id: string;
   court: string;
+  case_number: string;
 }
 
 /* ─── Constants ─── */
-const emptyForm: CaseForm = { title: '', case_type: '', description: '', client_id: '', court: '' };
+const emptyForm: CaseForm = { title: '', case_type: '', description: '', client_id: '', court: '', case_number: '' };
 const emptyOpponent: Opponent = { name: '', address: '', phone: '' };
 const NIYABA = 'النيابة العامة';
 const HIDDEN_ADDRESS_PARTIES = [NIYABA, 'قاضي التوثيق', 'قاضي شؤون القاصرين'];
@@ -58,6 +60,7 @@ interface Props {
 
 const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, editingCase }: Props) => {
   const { clients, setClients } = useClients();
+  const { user } = useAuth();
 
   const [form, setForm] = useState<CaseForm>(emptyForm);
   const [opponents, setOpponents] = useState<Opponent[]>([{ ...emptyOpponent }]);
@@ -95,6 +98,7 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
         description: editingCase.description || '',
         client_id: editingCase.client_id || '',
         court: editingCase.court || '',
+        case_number: editingCase.case_number || '',
       });
       // Load opponents
       supabase.from('case_opponents').select('*').eq('case_id', editingCase.id).order('sort_order').then(({ data }) => {
@@ -242,6 +246,7 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
         opposingSummary = NIYABA;
       }
 
+      const caseNum = form.case_number.trim() || null;
       const payload = {
         title: form.title.trim(),
         case_type: form.case_type,
@@ -251,6 +256,7 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
         opposing_party_address: oppAddress,
         opposing_party_phone: oppPhone,
         court: form.court.trim(),
+        case_number: caseNum,
       };
 
       let caseId: string;
@@ -277,6 +283,21 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
       toast.success(editingCase ? 'تم تحديث الملف' : 'تم إنشاء الملف بنجاح');
       onOpenChange(false);
       onCreated(caseId);
+
+      // Auto-trigger mahakim sync for new cases with a case number
+      if (!editingCase && caseNum) {
+        supabase.functions.invoke('scrape-mahakim', {
+          body: {
+            action: 'autoSyncNewCase',
+            caseId,
+            userId: user?.id,
+            caseNumber: caseNum,
+          },
+        }).then(({ data, error }) => {
+          if (error) console.warn('[auto-sync] Failed:', error);
+          else if (data?.jobId) toast.info('جاري جلب بيانات الملف من بوابة محاكم تلقائياً...', { duration: 5000 });
+        });
+      }
     } catch (err: any) {
       toast.error(err.message || 'حدث خطأ');
     } finally {
@@ -338,6 +359,20 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
             <div>
               <Label>عنوان الملف *</Label>
               <Input value={form.title} onChange={e => updateField('title', e.target.value)} placeholder="مثال: نزاع عقاري - الدار البيضاء" />
+            </div>
+
+            {/* Case Number */}
+            <div>
+              <Label>رقم الملف</Label>
+              <Input
+                value={form.case_number}
+                onChange={e => updateField('case_number', e.target.value)}
+                placeholder="مثال: 1/1401/2026 (اختياري)"
+                dir="ltr"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">
+                إذا أدخلت رقم الملف، سيتم جلب الإجراءات والجلسات تلقائياً من بوابة محاكم
+              </p>
             </div>
 
             {/* Case Type */}
