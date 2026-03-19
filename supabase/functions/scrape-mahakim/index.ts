@@ -3,76 +3,170 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const MAHAKIM_API_BASE = "https://www.mahakim.ma/Ar/Services/SuiviAffaires_new/JFunctions/fn.aspx";
+const MAHAKIM_SEARCH_URL = "https://www.mahakim.ma/#/suivi/dossier-suivi";
 
-// Helper to call mahakim.ma internal .NET WebMethod API
-async function mahakimPost(method: string, body: Record<string, unknown>) {
-  const res = await fetch(`${MAHAKIM_API_BASE}/${method}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'Origin': 'https://www.mahakim.ma',
-      'Referer': 'https://www.mahakim.ma/',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    },
-    body: JSON.stringify(body),
-  });
-  
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Mahakim API ${method} failed [${res.status}]: ${text.substring(0, 200)}`);
+/**
+ * Build Firecrawl actions sequence to fill the mahakim.ma Angular form and extract results.
+ * 
+ * Flow:
+ * 1. Wait for Angular app to load
+ * 2. Fill case number fields (numero, mark/code, annee)
+ * 3. Select appeal court from PrimeNG dropdown
+ * 4. Optionally toggle primary court checkbox and select
+ * 5. Click search button
+ * 6. Wait for results
+ */
+function buildSearchActions(
+  numero: string, 
+  mark: string, 
+  annee: string, 
+  appealCourt?: string,
+  primaryCourt?: string
+) {
+  const actions: Record<string, unknown>[] = [
+    // Wait for Angular app to fully load
+    { type: "wait", milliseconds: 4000 },
+
+    // Fill the 3 case number fields
+    // Field 1: Case number (رقم الملف)
+    { type: "click", selector: "input[placeholder*='رقم'], input[type='number']:first-of-type, .p-inputtext:first-of-type" },
+    { type: "write", text: numero, selector: "input[placeholder*='رقم'], input[type='number']:first-of-type, .p-inputtext:first-of-type" },
+
+    // Field 2: Code/Mark (الرمز)
+    { type: "click", selector: "input[placeholder*='رمز'], input[type='number']:nth-of-type(2), .p-inputtext:nth-of-type(2)" },
+    { type: "write", text: mark, selector: "input[placeholder*='رمز'], input[type='number']:nth-of-type(2), .p-inputtext:nth-of-type(2)" },
+
+    // Field 3: Year (السنة)
+    { type: "click", selector: "input[placeholder*='سنة'], input[type='number']:nth-of-type(3), .p-inputtext:nth-of-type(3)" },
+    { type: "write", text: annee, selector: "input[placeholder*='سنة'], input[type='number']:nth-of-type(3), .p-inputtext:nth-of-type(3)" },
+  ];
+
+  // Select appeal court if specified
+  if (appealCourt) {
+    actions.push(
+      // Click the first PrimeNG dropdown (appeal court)
+      { type: "click", selector: "p-dropdown:first-of-type .p-dropdown, .p-dropdown:first-of-type" },
+      { type: "wait", milliseconds: 1000 },
+      // Try to find and click the matching court option
+      { type: "executeJavascript", script: `
+        const items = document.querySelectorAll('.p-dropdown-item, .p-dropdown-items li');
+        for (const item of items) {
+          if (item.textContent.includes('${appealCourt}')) {
+            item.click();
+            break;
+          }
+        }
+      `},
+      { type: "wait", milliseconds: 500 },
+    );
   }
-  
-  const data = await res.json();
-  return data.d || data;
+
+  // If primary court specified, toggle checkbox and select
+  if (primaryCourt) {
+    actions.push(
+      // Click the primary court checkbox/toggle
+      { type: "click", selector: "p-checkbox .p-checkbox-box, .p-checkbox:first-of-type, input[type='checkbox']" },
+      { type: "wait", milliseconds: 1000 },
+      // Click second dropdown (primary court)
+      { type: "click", selector: "p-dropdown:nth-of-type(2) .p-dropdown, .p-dropdown:nth-of-type(2)" },
+      { type: "wait", milliseconds: 1000 },
+      { type: "executeJavascript", script: `
+        const items = document.querySelectorAll('.p-dropdown-item, .p-dropdown-items li');
+        for (const item of items) {
+          if (item.textContent.includes('${primaryCourt}')) {
+            item.click();
+            break;
+          }
+        }
+      `},
+      { type: "wait", milliseconds: 500 },
+    );
+  }
+
+  // Click search button
+  actions.push(
+    { type: "click", selector: "button[type='submit'], button.p-button, .btn-search, button[label*='بحث']" },
+    // Wait for results to load
+    { type: "wait", milliseconds: 5000 },
+    // Take screenshot for debugging
+    { type: "screenshot" },
+  );
+
+  return actions;
 }
 
-// Fallback: Try the new Angular app's potential API patterns
-async function tryNewApiPatterns(numero: string, mark: string, annee: string, idJuridiction?: string) {
-  const possibleBases = [
-    "https://www.mahakim.ma/api",
-    "https://www.mahakim.ma/services",
-    "https://www.mahakim.ma/suivi/api",
-  ];
+/**
+ * Parse the scraped HTML/markdown to extract case info and sessions
+ */
+function parseResults(markdown?: string, html?: string) {
+  const result: Record<string, unknown> = {};
 
-  const possibleEndpoints = [
-    "/getDossier",
-    "/searchDossier",
-    "/dossier/search",
-    "/suivi/dossier",
-  ];
+  const content = markdown || html || '';
+  
+  if (!content || content.length < 100) {
+    return { error: 'لم يتم العثور على نتائج', raw_length: content.length };
+  }
 
-  const body = {
-    numero,
-    mark,
-    annee,
-    ...(idJuridiction ? { idJuridiction } : {}),
+  // Extract case card info from markdown
+  const fieldPatterns: Record<string, RegExp> = {
+    court: /المحكمة[:\s]*([^\n|]+)/,
+    national_number: /الرقم الوطني[:\s]*([^\n|]+)/,
+    case_type: /نوع القضية[:\s]*([^\n|]+)/,
+    department: /الشعبة[:\s]*([^\n|]+)/,
+    judge: /القاضي المقرر[:\s]*([^\n|]+)/,
+    subject: /الموضوع[:\s]*([^\n|]+)/,
+    registration_date: /تاريخ التسجيل[:\s]*([^\n|]+)/,
+    latest_judgment: /آخر حكم[:\s]*([^\n|]+)/,
   };
 
-  for (const base of possibleBases) {
-    for (const endpoint of possibleEndpoints) {
-      try {
-        const res = await fetch(`${base}${endpoint}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Origin': 'https://www.mahakim.ma',
-            'Referer': 'https://www.mahakim.ma/',
-          },
-          body: JSON.stringify(body),
+  for (const [key, pattern] of Object.entries(fieldPatterns)) {
+    const match = content.match(pattern);
+    if (match) {
+      result[key] = match[1].trim();
+    }
+  }
+
+  // Extract sessions/procedures table
+  const sessions: Record<string, string>[] = [];
+  
+  // Try to find table rows in markdown (| col1 | col2 | pattern)
+  const tableRows = content.match(/\|[^|\n]+\|[^|\n]+\|[^|\n]*\|?[^|\n]*\|?/g);
+  if (tableRows && tableRows.length > 2) {
+    // Skip header and separator rows
+    const dataRows = tableRows.slice(2);
+    for (const row of dataRows) {
+      const cells = row.split('|').map(c => c.trim()).filter(c => c && c !== '---');
+      if (cells.length >= 3) {
+        sessions.push({
+          action_date: cells[0] || '',
+          action_type: cells[1] || '',
+          decision: cells[2] || '',
+          next_session_date: cells[3] || '',
         });
-        if (res.ok) {
-          const data = await res.json();
-          return { source: `${base}${endpoint}`, data };
-        }
-        await res.text(); // consume body
-      } catch {
-        // Try next
       }
     }
   }
-  return null;
+
+  if (sessions.length > 0) {
+    result.sessions = sessions;
+    // Find the next upcoming session
+    const now = new Date();
+    const futureSessions = sessions
+      .filter(s => s.next_session_date && s.next_session_date.match(/\d{2}\/\d{2}\/\d{4}/))
+      .map(s => {
+        const [d, m, y] = s.next_session_date.split('/');
+        return { ...s, date: new Date(`${y}-${m}-${d}`) };
+      })
+      .filter(s => s.date >= now)
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+    
+    if (futureSessions.length > 0) {
+      result.next_session_date = futureSessions[0].next_session_date;
+    }
+  }
+
+  result.raw_content_length = content.length;
+  return result;
 }
 
 Deno.serve(async (req) => {
@@ -81,32 +175,20 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { action, numero, mark, annee, typeJuridiction, idJuridiction } = await req.json();
+    const { action, numero, mark, annee, appealCourt, primaryCourt } = await req.json();
 
-    // Action: Get list of courts (jurisdictions)
-    if (action === 'getCourts') {
-      const type = typeJuridiction || 'TPI';
-      console.log(`Getting courts for type: ${type}`);
-      
-      try {
-        const courts = await mahakimPost('getCA', { typeJuridiction: type });
-        return new Response(JSON.stringify({ success: true, data: courts }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      } catch (error) {
-        console.log(`Old API failed for getCourts: ${error}`);
-        // Return empty array if API is unavailable
-        return new Response(JSON.stringify({ 
-          success: false, 
-          error: 'واجهة محاكم غير متاحة حالياً',
-          api_status: 'unavailable' 
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
+    const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
+    if (!FIRECRAWL_API_KEY) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Firecrawl غير مهيأ. يرجى ربط Firecrawl connector.' 
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    // Action: Search for a case/dossier
+    // Action: Search for a case/dossier using Firecrawl actions
     if (action === 'searchDossier') {
       if (!numero || !mark || !annee) {
         return new Response(JSON.stringify({ 
@@ -118,124 +200,112 @@ Deno.serve(async (req) => {
         });
       }
 
-      console.log(`Searching dossier: ${numero}/${mark}/${annee} at court ${idJuridiction || 'any'}`);
+      console.log(`Searching dossier via Firecrawl: ${numero}/${mark}/${annee}`);
 
-      // Try multiple API endpoint patterns
-      const searchMethods = [
-        // Old .NET WebMethod patterns
-        { method: 'getDossier', body: { numeroDossier: numero, codeDossier: mark, anneeDossier: annee, idJuridiction: idJuridiction || '' } },
-        { method: 'SearchDossier', body: { numero, mark, annee, idJuridiction: idJuridiction || '' } },
-        { method: 'rechercheDossier', body: { numero, codeDossier: mark, annee, idJuridiction: idJuridiction || '' } },
-        { method: 'getDossierSuivi', body: { numeroDossier: numero, codeDossier: mark, anneeDossier: annee } },
-        { method: 'GetDetailsDossier', body: { numeroDossier: numero, codeDossier: mark, anneeDossier: annee, idJuridiction: idJuridiction || '' } },
-        { method: 'getResultDossier', body: { numero, code: mark, annee, idJuridiction: idJuridiction || '' } },
-      ];
+      const actions = buildSearchActions(numero, mark, annee, appealCourt, primaryCourt);
 
-      for (const attempt of searchMethods) {
-        try {
-          console.log(`Trying ${attempt.method}...`);
-          const result = await mahakimPost(attempt.method, attempt.body);
-          if (result) {
-            console.log(`Success with ${attempt.method}!`);
-            return new Response(JSON.stringify({ 
-              success: true, 
-              data: result,
-              source: `fn.aspx/${attempt.method}`,
-            }), {
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
-          }
-        } catch (error) {
-          console.log(`${attempt.method} failed: ${error}`);
-        }
-      }
+      const scrapeRes = await fetch('https://api.firecrawl.dev/v1/scrape', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          url: MAHAKIM_SEARCH_URL,
+          formats: ['markdown', 'html'],
+          waitFor: 5000,
+          actions,
+        }),
+      });
 
-      // Try new API patterns
-      console.log('Trying new API patterns...');
-      const newApiResult = await tryNewApiPatterns(numero, mark, annee, idJuridiction);
-      if (newApiResult) {
-        return new Response(JSON.stringify({ 
-          success: true, 
-          data: newApiResult.data,
-          source: newApiResult.source,
+      const scrapeData = await scrapeRes.json();
+
+      if (!scrapeRes.ok) {
+        console.error('Firecrawl error:', JSON.stringify(scrapeData));
+        return new Response(JSON.stringify({
+          success: false,
+          error: `خطأ في Firecrawl: ${scrapeData.error || scrapeRes.status}`,
         }), {
+          status: scrapeRes.status,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
-      // All methods failed - try Firecrawl as last resort
-      const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
-      if (FIRECRAWL_API_KEY) {
-        console.log('Trying Firecrawl scrape...');
-        try {
-          const scrapeRes = await fetch('https://api.firecrawl.dev/v1/scrape', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              url: `https://www.mahakim.ma/#/suivi/dossier-suivi`,
-              formats: ['html', 'markdown'],
-              waitFor: 5000,
-            }),
-          });
-          
-          const scrapeData = await scrapeRes.json();
-          if (scrapeRes.ok && scrapeData.success) {
-            return new Response(JSON.stringify({
-              success: true,
-              data: {
-                html: scrapeData.data?.html,
-                markdown: scrapeData.data?.markdown,
-                note: 'تم جلب الصفحة لكن بدون تعبئة النموذج - يرجى استخدام البحث اليدوي أو سكربت Python'
-              },
-              source: 'firecrawl',
-              api_status: 'api_unavailable_firecrawl_fallback',
-            }), {
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
-          }
-          await scrapeRes.text();
-        } catch (e) {
-          console.log(`Firecrawl failed: ${e}`);
-        }
-      }
+      const markdown = scrapeData.data?.markdown || scrapeData.markdown;
+      const html = scrapeData.data?.html || scrapeData.html;
+      const screenshots = scrapeData.data?.actions?.screenshots;
 
-      // Complete failure
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: 'لم نتمكن من الوصول إلى واجهة محاكم. يرجى استخدام البحث المباشر على الموقع أو سكربت Python.',
-        api_status: 'all_methods_failed',
-        tried_methods: searchMethods.map(m => m.method),
+      const parsed = parseResults(markdown, html);
+
+      return new Response(JSON.stringify({
+        success: true,
+        data: parsed,
+        screenshots: screenshots?.length ? `${screenshots.length} screenshot(s) captured` : null,
+        source: 'firecrawl-actions',
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Action: Get child jurisdictions
-    if (action === 'getChildCourts') {
-      try {
-        const courts = await mahakimPost('getJuridiction1instance', { 
-          IdJuridiction2Instance: idJuridiction 
-        });
-        return new Response(JSON.stringify({ success: true, data: courts }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      } catch (error) {
-        console.log(`getChildCourts failed: ${error}`);
+    // Action: Get available courts by scraping the page
+    if (action === 'getCourts') {
+      console.log('Fetching courts list via Firecrawl...');
+
+      const scrapeRes = await fetch('https://api.firecrawl.dev/v1/scrape', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          url: MAHAKIM_SEARCH_URL,
+          formats: ['html'],
+          waitFor: 5000,
+          actions: [
+            { type: "wait", milliseconds: 4000 },
+            // Open the appeal court dropdown to load options
+            { type: "click", selector: "p-dropdown:first-of-type .p-dropdown, .p-dropdown:first-of-type" },
+            { type: "wait", milliseconds: 2000 },
+            { type: "screenshot" },
+          ],
+        }),
+      });
+
+      const scrapeData = await scrapeRes.json();
+      
+      if (!scrapeRes.ok) {
         return new Response(JSON.stringify({ 
           success: false, 
-          error: 'واجهة محاكم غير متاحة',
+          error: 'لم نتمكن من جلب قائمة المحاكم',
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
+
+      // Extract dropdown options from HTML
+      const html = scrapeData.data?.html || scrapeData.html || '';
+      const courts: string[] = [];
+      const optionRegex = /<li[^>]*class="[^"]*p-dropdown-item[^"]*"[^>]*>(.*?)<\/li>/gi;
+      let match;
+      while ((match = optionRegex.exec(html)) !== null) {
+        const text = match[1].replace(/<[^>]*>/g, '').trim();
+        if (text && text !== '--') {
+          courts.push(text);
+        }
+      }
+
+      return new Response(JSON.stringify({ 
+        success: true, 
+        data: courts,
+        source: 'firecrawl-actions',
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     return new Response(JSON.stringify({ 
       success: false, 
-      error: 'إجراء غير معروف. الإجراءات المتاحة: getCourts, searchDossier, getChildCourts' 
+      error: 'إجراء غير معروف. الإجراءات المتاحة: getCourts, searchDossier' 
     }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
