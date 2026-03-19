@@ -5,83 +5,129 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const MAHAKIM_SEARCH_URL = "https://www.mahakim.ma/#/suivi/dossier-suivi";
+/* ── ScrapingBee Custom JS for Mahakim.ma Angular/PrimeNG portal ── */
+function buildScrapingBeeJS(numero: string, mark: string, annee: string, appealCourt?: string): string {
+  return `
+    (async () => {
+      // Wait for Angular to bootstrap
+      await new Promise(r => setTimeout(r, 5000));
 
-/* ── Firecrawl Actions Builder ── */
-function buildSearchActions(numero: string, mark: string, annee: string, appealCourt?: string) {
-  const actions: Record<string, unknown>[] = [
-    { type: "wait", milliseconds: 4000 },
-    { type: "click", selector: "input[placeholder*='رقم'], input[type='number']:first-of-type, .p-inputtext:first-of-type" },
-    { type: "write", text: numero, selector: "input[placeholder*='رقم'], input[type='number']:first-of-type, .p-inputtext:first-of-type" },
-    { type: "click", selector: "input[placeholder*='رمز'], input[type='number']:nth-of-type(2), .p-inputtext:nth-of-type(2)" },
-    { type: "write", text: mark, selector: "input[placeholder*='رمز'], input[type='number']:nth-of-type(2), .p-inputtext:nth-of-type(2)" },
-    { type: "click", selector: "input[placeholder*='سنة'], input[type='number']:nth-of-type(3), .p-inputtext:nth-of-type(3)" },
-    { type: "write", text: annee, selector: "input[placeholder*='سنة'], input[type='number']:nth-of-type(3), .p-inputtext:nth-of-type(3)" },
-  ];
+      // Fill the search fields
+      const inputs = document.querySelectorAll('.p-inputtext, input[type="number"], input[type="text"]');
+      const fields = Array.from(inputs).filter(el => el.offsetParent !== null);
+      
+      // Try to find fields by placeholder or position
+      for (const input of fields) {
+        const ph = input.getAttribute('placeholder') || '';
+        if (ph.includes('رقم') || (fields.indexOf(input) === 0 && !input.value)) {
+          input.value = '${numero}';
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+        } else if (ph.includes('رمز') || (fields.indexOf(input) === 1 && !input.value)) {
+          input.value = '${mark}';
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+        } else if (ph.includes('سنة') || (fields.indexOf(input) === 2 && !input.value)) {
+          input.value = '${annee}';
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }
 
-  if (appealCourt) {
-    actions.push(
-      { type: "click", selector: "p-dropdown:first-of-type .p-dropdown, .p-dropdown:first-of-type" },
-      { type: "wait", milliseconds: 1000 },
-      { type: "executeJavascript", script: `
+      ${appealCourt ? `
+      // Select appeal court from dropdown
+      await new Promise(r => setTimeout(r, 1000));
+      const dropdowns = document.querySelectorAll('.p-dropdown');
+      if (dropdowns.length > 0) {
+        dropdowns[0].click();
+        await new Promise(r => setTimeout(r, 1500));
         const items = document.querySelectorAll('.p-dropdown-item, .p-dropdown-items li');
         for (const item of items) {
-          if (item.textContent.includes('${appealCourt}')) { item.click(); break; }
+          if (item.textContent && item.textContent.includes('${appealCourt}')) {
+            item.click();
+            break;
+          }
         }
-      `},
-      { type: "wait", milliseconds: 500 },
-    );
-  }
+        await new Promise(r => setTimeout(r, 500));
+      }
+      ` : ''}
 
-  actions.push(
-    { type: "click", selector: "button[type='submit'], button.p-button, .btn-search, button[label*='بحث']" },
-    { type: "wait", milliseconds: 5000 },
-    { type: "screenshot" },
-  );
+      // Click search button
+      await new Promise(r => setTimeout(r, 500));
+      const buttons = document.querySelectorAll('button[type="submit"], button.p-button, .btn-search');
+      for (const btn of buttons) {
+        if (btn.offsetParent !== null) {
+          btn.click();
+          break;
+        }
+      }
 
-  return actions;
+      // Wait for results to load
+      await new Promise(r => setTimeout(r, 8000));
+    })();
+  `;
 }
 
 /* ── Result Parser ── */
-function parseResults(markdown?: string, html?: string) {
+function parseResults(htmlContent: string) {
   const result: Record<string, unknown> = {};
-  const content = markdown || html || '';
 
-  if (!content || content.length < 100) {
-    return { error: 'لم يتم العثور على نتائج', raw_length: content.length };
+  if (!htmlContent || htmlContent.length < 100) {
+    return { error: 'لم يتم العثور على نتائج', raw_length: htmlContent?.length || 0 };
   }
 
   const fieldPatterns: Record<string, RegExp> = {
-    court: /المحكمة[:\s]*([^\n|]+)/,
-    national_number: /الرقم الوطني[:\s]*([^\n|]+)/,
-    case_type: /نوع القضية[:\s]*([^\n|]+)/,
-    department: /الشعبة[:\s]*([^\n|]+)/,
-    judge: /القاضي المقرر[:\s]*([^\n|]+)/,
-    subject: /الموضوع[:\s]*([^\n|]+)/,
-    registration_date: /تاريخ التسجيل[:\s]*([^\n|]+)/,
-    latest_judgment: /آخر حكم[:\s]*([^\n|]+)/,
-    status: /الحالة[:\s]*([^\n|]+)/,
+    court: /المحكمة[:\s]*([^\n<|]+)/,
+    national_number: /الرقم الوطني[:\s]*([^\n<|]+)/,
+    case_type: /نوع القضية[:\s]*([^\n<|]+)/,
+    department: /الشعبة[:\s]*([^\n<|]+)/,
+    judge: /القاضي المقرر[:\s]*([^\n<|]+)/,
+    subject: /الموضوع[:\s]*([^\n<|]+)/,
+    registration_date: /تاريخ التسجيل[:\s]*([^\n<|]+)/,
+    latest_judgment: /آخر حكم[:\s]*([^\n<|]+)/,
+    status: /الحالة[:\s]*([^\n<|]+)/,
   };
 
   for (const [key, pattern] of Object.entries(fieldPatterns)) {
-    const match = content.match(pattern);
+    const match = htmlContent.match(pattern);
     if (match) result[key] = match[1].trim();
   }
 
   // Extract procedures table
   const sessions: Record<string, string>[] = [];
-  const tableRows = content.match(/\|[^|\n]+\|[^|\n]+\|[^|\n]*\|?[^|\n]*\|?/g);
-  if (tableRows && tableRows.length > 2) {
-    const dataRows = tableRows.slice(2);
-    for (const row of dataRows) {
-      const cells = row.split('|').map(c => c.trim()).filter(c => c && c !== '---');
-      if (cells.length >= 3) {
-        sessions.push({
-          action_date: cells[0] || '',
-          action_type: cells[1] || '',
-          decision: cells[2] || '',
-          next_session_date: cells[3] || '',
-        });
+  // Match table rows from HTML
+  const rowMatches = htmlContent.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi);
+  for (const rowMatch of rowMatches) {
+    const cells: string[] = [];
+    const cellMatches = rowMatch[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi);
+    for (const cellMatch of cellMatches) {
+      cells.push(cellMatch[1].replace(/<[^>]*>/g, '').trim());
+    }
+    if (cells.length >= 3 && cells[0] && cells[0].match(/\d/)) {
+      sessions.push({
+        action_date: cells[0] || '',
+        action_type: cells[1] || '',
+        decision: cells[2] || '',
+        next_session_date: cells[3] || '',
+      });
+    }
+  }
+
+  // Fallback: try markdown table format
+  if (sessions.length === 0) {
+    const tableRows = htmlContent.match(/\|[^|\n]+\|[^|\n]+\|[^|\n]*\|?[^|\n]*\|?/g);
+    if (tableRows && tableRows.length > 2) {
+      const dataRows = tableRows.slice(2);
+      for (const row of dataRows) {
+        const cells = row.split('|').map(c => c.trim()).filter(c => c && c !== '---');
+        if (cells.length >= 3) {
+          sessions.push({
+            action_date: cells[0] || '',
+            action_type: cells[1] || '',
+            decision: cells[2] || '',
+            next_session_date: cells[3] || '',
+          });
+        }
       }
     }
   }
@@ -103,7 +149,7 @@ function parseResults(markdown?: string, html?: string) {
     }
   }
 
-  result.raw_content_length = content.length;
+  result.raw_content_length = htmlContent.length;
   return result;
 }
 
@@ -124,7 +170,7 @@ async function applyFieldMapping(
 ) {
   const log: string[] = [];
 
-  // 1. Update case metadata (judge, department, status)
+  // 1. Update case metadata
   const caseUpdates: Record<string, unknown> = {
     last_synced_at: new Date().toISOString(),
     last_sync_result: parsed,
@@ -136,10 +182,9 @@ async function applyFieldMapping(
   await supabaseAdmin.from('cases').update(caseUpdates).eq('id', caseId);
   log.push('تم تحديث بيانات الملف');
 
-  // 2. Insert procedures into case_procedures with conflict detection
+  // 2. Insert procedures with conflict detection
   const procedures = (parsed.sessions as Record<string, string>[]) || [];
   if (procedures.length > 0) {
-    // Get existing procedures for this case
     const { data: existingProcs } = await supabaseAdmin
       .from('case_procedures')
       .select('*')
@@ -167,7 +212,7 @@ async function applyFieldMapping(
       log.push(`تم إضافة ${newProcs.length} إجراء جديد`);
     }
 
-    // Conflict resolution: Check for manual entries that contradict court data
+    // Conflict resolution: court data takes priority
     if (existingProcs && existingProcs.length > 0) {
       const manualProcs = (await supabaseAdmin
         .from('case_procedures')
@@ -180,7 +225,6 @@ async function applyFieldMapping(
           p => p.action_date === manual.action_date && p.action_type !== manual.action_type
         );
         if (courtMatch) {
-          // Court data takes priority — update manual entry but log the conflict
           await supabaseAdmin.from('case_procedures').update({
             action_type: courtMatch.action_type,
             decision: courtMatch.decision,
@@ -189,10 +233,7 @@ async function applyFieldMapping(
             is_manual: false,
             conflict_log: {
               resolved_at: new Date().toISOString(),
-              original_manual: {
-                action_type: manual.action_type,
-                decision: manual.decision,
-              },
+              original_manual: { action_type: manual.action_type, decision: manual.decision },
               court_data: courtMatch,
               resolution: 'court_priority',
             },
@@ -233,6 +274,166 @@ async function applyFieldMapping(
   return { nextDateISO: null, log };
 }
 
+/* ── ScrapingBee Scraper ── */
+async function scrapeWithScrapingBee(
+  caseNumber: string,
+  appealCourt?: string,
+): Promise<{ html: string; success: boolean; error?: string }> {
+  const SCRAPINGBEE_API_KEY = Deno.env.get('SCRAPINGBEE_API_KEY');
+  if (!SCRAPINGBEE_API_KEY) {
+    return { html: '', success: false, error: 'ScrapingBee API key not configured' };
+  }
+
+  const parts = caseNumber.split('/');
+  const numero = parts[0] || '';
+  const mark = parts[1] || '';
+  const annee = parts[2] || '';
+
+  const jsScript = buildScrapingBeeJS(numero, mark, annee, appealCourt);
+  const jsScriptBase64 = btoa(unescape(encodeURIComponent(jsScript)));
+
+  const params = new URLSearchParams({
+    api_key: SCRAPINGBEE_API_KEY,
+    url: 'https://www.mahakim.ma/#/suivi/dossier-suivi',
+    render_js: 'true',
+    js_scenario: JSON.stringify({
+      instructions: [
+        { wait: 5000 },
+        { evaluate: jsScript },
+        { wait: 10000 },
+      ],
+    }),
+    wait: '15000',
+    timeout: '60000',
+    block_ads: 'true',
+    premium_proxy: 'true',
+  });
+
+  try {
+    const response = await fetch(`https://app.scrapingbee.com/api/v1?${params.toString()}`, {
+      method: 'GET',
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[ScrapingBee] Error:', response.status, errorText);
+      return { html: '', success: false, error: `ScrapingBee error ${response.status}: ${errorText.slice(0, 200)}` };
+    }
+
+    const html = await response.text();
+    return { html, success: true };
+  } catch (err) {
+    console.error('[ScrapingBee] Fetch error:', err);
+    return { html: '', success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+  }
+}
+
+/* ── Retry Logic ── */
+async function scheduleRetry(
+  supabaseAdmin: ReturnType<typeof getSupabaseAdmin>,
+  jobId: string,
+  retryCount: number,
+  maxRetries: number,
+) {
+  if (retryCount >= maxRetries) {
+    return false; // No more retries
+  }
+
+  // Schedule retry by updating the job status back to pending
+  await supabaseAdmin.from('mahakim_sync_jobs').update({
+    status: 'pending',
+    retry_count: retryCount + 1,
+    error_message: `إعادة المحاولة ${retryCount + 1}/${maxRetries} — تمت جدولة المحاولة التالية`,
+    updated_at: new Date().toISOString(),
+  }).eq('id', jobId);
+
+  return true;
+}
+
+/* ── Process a sync job ── */
+async function processSyncJob(
+  supabaseAdmin: ReturnType<typeof getSupabaseAdmin>,
+  jobId: string,
+  caseId: string,
+  userId: string,
+  caseNumber: string,
+  appealCourt?: string,
+) {
+  // Get current job to check retry count
+  const { data: jobData } = await supabaseAdmin
+    .from('mahakim_sync_jobs')
+    .select('retry_count, max_retries')
+    .eq('id', jobId)
+    .single();
+
+  const retryCount = (jobData as any)?.retry_count || 0;
+  const maxRetries = (jobData as any)?.max_retries || 2;
+
+  // Update to scraping
+  await supabaseAdmin.from('mahakim_sync_jobs').update({
+    status: 'scraping',
+    updated_at: new Date().toISOString(),
+  }).eq('id', jobId);
+
+  console.log(`[sync] Job ${jobId}: scraping ${caseNumber} (attempt ${retryCount + 1}/${maxRetries + 1})`);
+
+  // Use ScrapingBee
+  const { html, success, error: scrapeError } = await scrapeWithScrapingBee(caseNumber, appealCourt);
+
+  if (!success) {
+    console.error(`[sync] ScrapingBee failed for job ${jobId}:`, scrapeError);
+
+    // Try retry
+    const retryScheduled = await scheduleRetry(supabaseAdmin, jobId, retryCount, maxRetries);
+
+    if (!retryScheduled) {
+      await supabaseAdmin.from('mahakim_sync_jobs').update({
+        status: 'failed',
+        error_message: scrapeError || 'فشل جلب البيانات من بوابة محاكم',
+        updated_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+      }).eq('id', jobId);
+    }
+
+    return { success: false, retryScheduled, error: scrapeError };
+  }
+
+  // Parse results
+  const parsed = parseResults(html);
+  const hasError = parsed.error && !parsed.court;
+
+  if (hasError) {
+    const retryScheduled = await scheduleRetry(supabaseAdmin, jobId, retryCount, maxRetries);
+
+    if (!retryScheduled) {
+      await supabaseAdmin.from('mahakim_sync_jobs').update({
+        status: 'failed',
+        result_data: parsed,
+        error_message: parsed.error as string,
+        updated_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+      }).eq('id', jobId);
+    }
+
+    return { success: false, retryScheduled, data: parsed };
+  }
+
+  // Apply field mapping
+  const { nextDateISO, log } = await applyFieldMapping(supabaseAdmin, caseId, userId, parsed);
+
+  // Mark completed
+  await supabaseAdmin.from('mahakim_sync_jobs').update({
+    status: 'completed',
+    result_data: { ...parsed, mapping_log: log },
+    next_session_date: nextDateISO,
+    updated_at: new Date().toISOString(),
+    completed_at: new Date().toISOString(),
+  }).eq('id', jobId);
+
+  console.log(`[sync] Job ${jobId} completed. Log: ${log.join(', ')}`);
+  return { success: true, data: parsed, mapping_log: log };
+}
+
 /* ── Main Handler ── */
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -242,6 +443,8 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     const { action } = body;
+
+    const supabaseAdmin = getSupabaseAdmin();
 
     // ── ACTION: submitSyncJob ──
     if (action === 'submitSyncJob') {
@@ -253,134 +456,19 @@ Deno.serve(async (req) => {
         });
       }
 
-      const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
-      if (!FIRECRAWL_API_KEY) {
-        return new Response(JSON.stringify({ success: false, error: 'Firecrawl غير مهيأ' }), {
-          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
+      const result = await processSyncJob(supabaseAdmin, jobId, caseId, userId, caseNumber, appealCourt);
 
-      const supabaseAdmin = getSupabaseAdmin();
-
-      // Update job to 'scraping'
-      await supabaseAdmin.from('mahakim_sync_jobs').update({
-        status: 'scraping',
-        updated_at: new Date().toISOString(),
-      }).eq('id', jobId);
-
-      const parts = caseNumber.split('/');
-      const numero = parts[0] || '';
-      const mark = parts[1] || '';
-      const annee = parts[2] || '';
-
-      const actions = buildSearchActions(numero, mark, annee, appealCourt);
-
-      console.log(`[sync] Job ${jobId}: scraping ${caseNumber}`);
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 22000);
-
-      try {
-        const scrapeRes = await fetch('https://api.firecrawl.dev/v1/scrape', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            url: MAHAKIM_SEARCH_URL,
-            formats: ['markdown', 'html'],
-            waitFor: 5000,
-            timeout: 55000,
-            actions,
-          }),
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeoutId);
-        const scrapeData = await scrapeRes.json();
-
-        if (!scrapeRes.ok) {
-          console.error('[sync] Firecrawl error:', JSON.stringify(scrapeData));
-          await supabaseAdmin.from('mahakim_sync_jobs').update({
-            status: 'failed',
-            error_message: `خطأ Firecrawl: ${scrapeData.error || scrapeRes.status}`,
-            updated_at: new Date().toISOString(),
-            completed_at: new Date().toISOString(),
-          }).eq('id', jobId);
-
-          return new Response(JSON.stringify({ success: false, error: 'فشل الجلب' }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-
-        // Parse
-        const markdown = scrapeData.data?.markdown || scrapeData.markdown;
-        const html = scrapeData.data?.html || scrapeData.html;
-        const parsed = parseResults(markdown, html);
-        const hasError = parsed.error && !parsed.court;
-
-        if (hasError) {
-          await supabaseAdmin.from('mahakim_sync_jobs').update({
-            status: 'failed',
-            result_data: parsed,
-            error_message: parsed.error as string,
-            updated_at: new Date().toISOString(),
-            completed_at: new Date().toISOString(),
-          }).eq('id', jobId);
-
-          return new Response(JSON.stringify({ success: false, status: 'failed', data: parsed }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-
-        // Apply field mapping — procedures, sessions, metadata
-        const { nextDateISO, log } = await applyFieldMapping(supabaseAdmin, caseId, userId, parsed);
-
-        // Update sync job
-        await supabaseAdmin.from('mahakim_sync_jobs').update({
-          status: 'completed',
-          result_data: { ...parsed, mapping_log: log },
-          next_session_date: nextDateISO,
-          updated_at: new Date().toISOString(),
-          completed_at: new Date().toISOString(),
-        }).eq('id', jobId);
-
-        console.log(`[sync] Job ${jobId} completed. Log: ${log.join(', ')}`);
-
-        return new Response(JSON.stringify({
-          success: true,
-          status: 'completed',
-          data: parsed,
-          mapping_log: log,
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-
-      } catch (fetchErr) {
-        clearTimeout(timeoutId);
-        const isTimeout = fetchErr instanceof DOMException && fetchErr.name === 'AbortError';
-
-        await supabaseAdmin.from('mahakim_sync_jobs').update({
-          status: 'failed',
-          error_message: isTimeout
-            ? 'انتهت مهلة الاتصال ببوابة محاكم. البوابة بطيئة حالياً — يرجى المحاولة لاحقاً أو استخدام الرابط المباشر.'
-            : `خطأ: ${fetchErr instanceof Error ? fetchErr.message : 'غير معروف'}`,
-          updated_at: new Date().toISOString(),
-          completed_at: new Date().toISOString(),
-        }).eq('id', jobId);
-
-        return new Response(JSON.stringify({
-          success: false,
-          error: isTimeout ? 'timeout' : 'fetch_error',
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
+      return new Response(JSON.stringify({
+        success: result.success,
+        status: result.success ? 'completed' : (result.retryScheduled ? 'retrying' : 'failed'),
+        data: result.data,
+        mapping_log: result.mapping_log,
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // ── ACTION: autoSyncNewCase ──
-    // Triggered after case creation — fire-and-forget style
     if (action === 'autoSyncNewCase') {
       const { caseId, userId, caseNumber, appealCourt } = body;
 
@@ -390,117 +478,64 @@ Deno.serve(async (req) => {
         });
       }
 
-      const supabaseAdmin = getSupabaseAdmin();
+      // Check if a job already exists (could be from DB trigger)
+      const { data: existingJobs } = await supabaseAdmin
+        .from('mahakim_sync_jobs')
+        .select('id, status')
+        .eq('case_id', caseId)
+        .in('status', ['pending', 'scraping'])
+        .limit(1);
 
-      // Create a sync job automatically
-      const jobId = crypto.randomUUID();
-      await supabaseAdmin.from('mahakim_sync_jobs').insert({
-        id: jobId,
-        case_id: caseId,
-        user_id: userId,
-        case_number: caseNumber,
-        status: 'pending',
-        request_payload: { appealCourt, auto_triggered: true },
+      let jobId: string;
+      if (existingJobs && existingJobs.length > 0) {
+        jobId = existingJobs[0].id;
+        console.log(`[auto-sync] Using existing job ${jobId} for case ${caseId}`);
+      } else {
+        jobId = crypto.randomUUID();
+        await supabaseAdmin.from('mahakim_sync_jobs').insert({
+          id: jobId,
+          case_id: caseId,
+          user_id: userId,
+          case_number: caseNumber,
+          status: 'pending',
+          request_payload: { appealCourt, auto_triggered: true },
+        });
+        console.log(`[auto-sync] Created job ${jobId} for new case ${caseId}`);
+      }
+
+      const result = await processSyncJob(supabaseAdmin, jobId, caseId, userId, caseNumber, appealCourt);
+
+      return new Response(JSON.stringify({ success: true, jobId, ...result }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
 
-      console.log(`[auto-sync] Created job ${jobId} for new case ${caseId}`);
+    // ── ACTION: retryFailedJobs ──
+    if (action === 'retryFailedJobs') {
+      // Find pending retry jobs (status = 'pending', retry_count > 0)
+      const { data: retryJobs } = await supabaseAdmin
+        .from('mahakim_sync_jobs')
+        .select('*')
+        .eq('status', 'pending')
+        .gt('retry_count', 0)
+        .order('updated_at', { ascending: true })
+        .limit(5);
 
-      // Re-invoke ourselves with submitSyncJob (non-blocking from caller's perspective)
-      // We do it inline here to avoid double network hop
-      const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
-      if (!FIRECRAWL_API_KEY) {
-        await supabaseAdmin.from('mahakim_sync_jobs').update({
-          status: 'failed',
-          error_message: 'Firecrawl غير مهيأ',
-          completed_at: new Date().toISOString(),
-        }).eq('id', jobId);
-
-        return new Response(JSON.stringify({ success: true, jobId, status: 'skipped', reason: 'no_firecrawl' }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+      const results = [];
+      for (const job of retryJobs || []) {
+        const payload = (job.request_payload as Record<string, unknown>) || {};
+        const result = await processSyncJob(
+          supabaseAdmin,
+          job.id,
+          job.case_id,
+          job.user_id,
+          job.case_number,
+          payload.appealCourt as string | undefined,
+        );
+        results.push({ jobId: job.id, ...result });
       }
 
-      // Update to scraping
-      await supabaseAdmin.from('mahakim_sync_jobs').update({
-        status: 'scraping',
-        updated_at: new Date().toISOString(),
-      }).eq('id', jobId);
-
-      const parts = caseNumber.split('/');
-      const numero = parts[0] || '';
-      const mark = parts[1] || '';
-      const annee = parts[2] || '';
-      const actions = buildSearchActions(numero, mark, annee, appealCourt);
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 22000);
-
-      try {
-        const scrapeRes = await fetch('https://api.firecrawl.dev/v1/scrape', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            url: MAHAKIM_SEARCH_URL,
-            formats: ['markdown', 'html'],
-            waitFor: 5000,
-            timeout: 55000,
-            actions,
-          }),
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeoutId);
-        const scrapeData = await scrapeRes.json();
-
-        if (!scrapeRes.ok) {
-          await supabaseAdmin.from('mahakim_sync_jobs').update({
-            status: 'failed',
-            error_message: `خطأ Firecrawl: ${scrapeData.error || scrapeRes.status}`,
-            updated_at: new Date().toISOString(),
-            completed_at: new Date().toISOString(),
-          }).eq('id', jobId);
-        } else {
-          const markdown = scrapeData.data?.markdown || scrapeData.markdown;
-          const html = scrapeData.data?.html || scrapeData.html;
-          const parsed = parseResults(markdown, html);
-          const hasError = parsed.error && !parsed.court;
-
-          if (!hasError) {
-            const { nextDateISO, log } = await applyFieldMapping(supabaseAdmin, caseId, userId, parsed);
-            await supabaseAdmin.from('mahakim_sync_jobs').update({
-              status: 'completed',
-              result_data: { ...parsed, mapping_log: log },
-              next_session_date: nextDateISO,
-              updated_at: new Date().toISOString(),
-              completed_at: new Date().toISOString(),
-            }).eq('id', jobId);
-          } else {
-            await supabaseAdmin.from('mahakim_sync_jobs').update({
-              status: 'failed',
-              result_data: parsed,
-              error_message: parsed.error as string,
-              updated_at: new Date().toISOString(),
-              completed_at: new Date().toISOString(),
-            }).eq('id', jobId);
-          }
-        }
-      } catch (fetchErr) {
-        clearTimeout(timeoutId);
-        const isTimeout = fetchErr instanceof DOMException && fetchErr.name === 'AbortError';
-        await supabaseAdmin.from('mahakim_sync_jobs').update({
-          status: 'failed',
-          error_message: isTimeout
-            ? 'انتهت مهلة الاتصال ببوابة محاكم — ستتم المحاولة لاحقاً.'
-            : `خطأ: ${fetchErr instanceof Error ? fetchErr.message : 'غير معروف'}`,
-          updated_at: new Date().toISOString(),
-          completed_at: new Date().toISOString(),
-        }).eq('id', jobId);
-      }
-
-      return new Response(JSON.stringify({ success: true, jobId }), {
+      return new Response(JSON.stringify({ success: true, processed: results.length, results }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -508,7 +543,6 @@ Deno.serve(async (req) => {
     // ── ACTION: getLatestSync ──
     if (action === 'getLatestSync') {
       const { caseId } = body;
-      const supabaseAdmin = getSupabaseAdmin();
       const { data } = await supabaseAdmin
         .from('mahakim_sync_jobs')
         .select('*')
@@ -523,7 +557,7 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       success: false,
-      error: 'إجراء غير معروف. الإجراءات المتاحة: submitSyncJob, autoSyncNewCase, getLatestSync',
+      error: 'إجراء غير معروف. الإجراءات المتاحة: submitSyncJob, autoSyncNewCase, retryFailedJobs, getLatestSync',
     }), {
       status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

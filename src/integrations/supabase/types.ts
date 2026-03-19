@@ -1083,9 +1083,11 @@ export type Database = {
           created_at: string
           error_message: string | null
           id: string
+          max_retries: number
           next_session_date: string | null
           request_payload: Json | null
           result_data: Json | null
+          retry_count: number
           status: string
           updated_at: string
           user_id: string
@@ -1097,9 +1099,11 @@ export type Database = {
           created_at?: string
           error_message?: string | null
           id?: string
+          max_retries?: number
           next_session_date?: string | null
           request_payload?: Json | null
           result_data?: Json | null
+          retry_count?: number
           status?: string
           updated_at?: string
           user_id: string
@@ -1111,9 +1115,11 @@ export type Database = {
           created_at?: string
           error_message?: string | null
           id?: string
+          max_retries?: number
           next_session_date?: string | null
           request_payload?: Json | null
           result_data?: Json | null
+          retry_count?: number
           status?: string
           updated_at?: string
           user_id?: string

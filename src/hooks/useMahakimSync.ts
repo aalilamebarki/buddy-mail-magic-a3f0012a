@@ -12,6 +12,8 @@ export interface SyncJob {
   result_data: Record<string, unknown> | null;
   error_message: string | null;
   next_session_date: string | null;
+  retry_count: number;
+  max_retries: number;
   created_at: string;
   updated_at: string;
   completed_at: string | null;
@@ -112,6 +114,8 @@ export const useMahakimSync = (caseId: string | undefined) => {
       result_data: null,
       error_message: null,
       next_session_date: null,
+      retry_count: 0,
+      max_retries: 2,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       completed_at: null,

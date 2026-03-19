@@ -284,19 +284,10 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
       onOpenChange(false);
       onCreated(caseId);
 
-      // Auto-trigger mahakim sync for new cases with a case number
+      // Auto-sync is now handled by a database trigger (trg_auto_sync_mahakim)
+      // No need to manually invoke the edge function
       if (!editingCase && caseNum) {
-        supabase.functions.invoke('scrape-mahakim', {
-          body: {
-            action: 'autoSyncNewCase',
-            caseId,
-            userId: user?.id,
-            caseNumber: caseNum,
-          },
-        }).then(({ data, error }) => {
-          if (error) console.warn('[auto-sync] Failed:', error);
-          else if (data?.jobId) toast.info('جاري جلب بيانات الملف من بوابة محاكم تلقائياً...', { duration: 5000 });
-        });
+        toast.info('جاري جلب بيانات الملف من بوابة محاكم تلقائياً...', { duration: 5000 });
       }
     } catch (err: any) {
       toast.error(err.message || 'حدث خطأ');

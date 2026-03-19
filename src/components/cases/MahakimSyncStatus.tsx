@@ -65,9 +65,19 @@ export const MahakimSyncStatus = ({ caseNumber, latestJob, syncing, onSync, onOp
               )}
             </div>
 
+            {/* Retry info */}
+            {latestJob.status === 'pending' && latestJob.retry_count > 0 && (
+              <p className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 rounded p-2">
+                إعادة المحاولة {latestJob.retry_count}/{latestJob.max_retries} — جاري المحاولة مجدداً...
+              </p>
+            )}
+
             {/* Error message */}
             {latestJob.status === 'failed' && latestJob.error_message && (
-              <p className="text-xs text-destructive bg-destructive/10 rounded p-2">{latestJob.error_message}</p>
+              <p className="text-xs text-destructive bg-destructive/10 rounded p-2">
+                {latestJob.error_message}
+                {latestJob.retry_count > 0 && ` (بعد ${latestJob.retry_count + 1} محاولات)`}
+              </p>
             )}
 
             {/* Success data preview */}
