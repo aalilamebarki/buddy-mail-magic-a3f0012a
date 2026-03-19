@@ -282,6 +282,21 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
       toast.success(editingCase ? 'تم تحديث الملف' : 'تم إنشاء الملف بنجاح');
       onOpenChange(false);
       onCreated(caseId);
+
+      // Auto-trigger mahakim sync for new cases with a case number
+      if (!editingCase && caseNum) {
+        supabase.functions.invoke('scrape-mahakim', {
+          body: {
+            action: 'autoSyncNewCase',
+            caseId,
+            userId: user?.id,
+            caseNumber: caseNum,
+          },
+        }).then(({ data, error }) => {
+          if (error) console.warn('[auto-sync] Failed:', error);
+          else if (data?.jobId) toast.info('جاري جلب بيانات الملف من بوابة محاكم تلقائياً...', { duration: 5000 });
+        });
+      }
     } catch (err: any) {
       toast.error(err.message || 'حدث خطأ');
     } finally {
