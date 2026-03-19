@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.scrape-mahakim]
 verify_jwt = false
+
+[functions.mahakim-webhook]
+verify_jwt = false
