@@ -54,6 +54,7 @@ export interface FeeStatementRecord {
     phone?: string | null;
     email?: string | null;
     header_data?: any | null;
+    template_path?: string | null;
   } | null;
   fee_statement_items?: FeeStatementItemRecord[];
   fee_statement_cases?: FeeStatementCaseRecord[];
