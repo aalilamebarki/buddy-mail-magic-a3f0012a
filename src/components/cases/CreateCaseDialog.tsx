@@ -34,6 +34,7 @@ export interface CaseForm {
   description: string;
   client_id: string;
   court: string;
+  case_number: string;
 }
 
 /* ─── Constants ─── */
