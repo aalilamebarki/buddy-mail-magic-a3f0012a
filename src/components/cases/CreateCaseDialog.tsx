@@ -245,6 +245,7 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
         opposingSummary = NIYABA;
       }
 
+      const caseNum = form.case_number.trim() || null;
       const payload = {
         title: form.title.trim(),
         case_type: form.case_type,
@@ -254,6 +255,7 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
         opposing_party_address: oppAddress,
         opposing_party_phone: oppPhone,
         court: form.court.trim(),
+        case_number: caseNum,
       };
 
       let caseId: string;
