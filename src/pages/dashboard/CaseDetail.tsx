@@ -59,6 +59,7 @@ const CaseDetail = () => {
     if (docsRes.data) setDocuments(docsRes.data);
     if (sessionsRes.data) setSessions(sessionsRes.data);
     if (opponentsRes.data) setOpponents(opponentsRes.data);
+    if (procsRes.data) setProcedures(procsRes.data);
     setLoading(false);
   };
 
