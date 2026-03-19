@@ -31,6 +31,7 @@ export interface InvoiceRecord {
     phone?: string | null;
     email?: string | null;
     header_data?: any;
+    template_path?: string | null;
   } | null;
   fee_statements?: { statement_number: string; total_amount: number; lawyer_fees: number } | null;
 }
