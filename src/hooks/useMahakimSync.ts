@@ -12,6 +12,8 @@ export interface SyncJob {
   result_data: Record<string, unknown> | null;
   error_message: string | null;
   next_session_date: string | null;
+  retry_count: number;
+  max_retries: number;
   created_at: string;
   updated_at: string;
   completed_at: string | null;
