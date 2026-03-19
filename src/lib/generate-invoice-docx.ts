@@ -3,7 +3,8 @@
  * Moroccan Professional style: Navy (#1a2a44) / Gold (#c5a059)
  * Full RTL + Bilingual (Arabic / French) support
  * 
- * Uses the universal letterhead engine when header_data is available.
+ * PRIMARY: Injects body content into the original .docx template.
+ * FALLBACK: Generates standalone document if no template available.
  */
 
 import {
@@ -25,12 +26,7 @@ import { saveAs } from 'file-saver';
 import type { InvoiceRecord } from '@/hooks/useInvoices';
 import { formatDateArabic } from '@/lib/formatters';
 import { numberToArabicWords } from '@/lib/pdf-utils';
-import {
-  buildHeader as buildLetterheadHeader,
-  buildFooter as buildLetterheadFooter,
-  getPageMargins,
-} from '@/lib/reconstruct-letterhead';
-import type { LetterheadStructure } from '@/lib/parse-letterhead-structure';
+import { downloadTemplate, injectIntoTemplate } from '@/lib/template-injector';
 
 /* ── Design tokens ────────────────────────────────────────────────── */
 const FONT = 'Traditional Arabic';
