@@ -264,18 +264,82 @@ const CaseDetail = () => {
             <div className="flex justify-between"><span className="text-muted-foreground">التاريخ:</span><span>{new Date(caseData.created_at).toLocaleDateString('ar-MA')}</span></div>
             {caseData.description && <div className="pt-2 border-t"><p className="text-muted-foreground">{caseData.description}</p></div>}
             {caseData.case_number && (
-              <div className="pt-2 border-t">
+              <div className="pt-2 border-t space-y-2">
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="w-full gap-2"
+                  disabled={mahakimLoading}
+                  onClick={async () => {
+                    setMahakimLoading(true);
+                    setMahakimResult(null);
+                    try {
+                      const parts = caseData.case_number.split('/');
+                      const numero = parts[0] || '';
+                      const mark = parts[1] || '';
+                      const annee = parts[2] || '';
+                      
+                      const { data, error } = await supabase.functions.invoke('scrape-mahakim', {
+                        body: { action: 'searchDossier', numero, mark, annee },
+                      });
+                      
+                      if (error) throw error;
+                      
+                      if (data?.success) {
+                        setMahakimResult(data);
+                        toast.success('تم جلب بيانات الملف من بوابة محاكم');
+                      } else {
+                        setMahakimResult(data);
+                        toast.error(data?.error || 'لم نتمكن من جلب البيانات');
+                      }
+                    } catch (err: any) {
+                      toast.error('خطأ في الاتصال ببوابة محاكم');
+                      console.error(err);
+                    } finally {
+                      setMahakimLoading(false);
+                    }
+                  }}
+                >
+                  {mahakimLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                  جلب تلقائي من بوابة محاكم
+                </Button>
+                
+                {mahakimResult && (
+                  <div className={`p-3 rounded-lg text-xs ${mahakimResult.success ? 'bg-legal-emerald/10 text-legal-emerald' : 'bg-destructive/10 text-destructive'}`}>
+                    {mahakimResult.success ? (
+                      <div>
+                        <p className="font-semibold mb-1">✅ تم الجلب بنجاح</p>
+                        <pre className="whitespace-pre-wrap text-[10px] max-h-32 overflow-auto" dir="ltr">
+                          {JSON.stringify(mahakimResult.data, null, 2)}
+                        </pre>
+                        <p className="text-[10px] mt-1 text-muted-foreground">المصدر: {mahakimResult.source}</p>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="font-semibold">❌ {mahakimResult.error}</p>
+                        {mahakimResult.api_status === 'all_methods_failed' && (
+                          <p className="mt-1">بوابة محاكم لا توفر API عام. يرجى استخدام البحث اليدوي.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+                
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full gap-2 text-primary"
-                  onClick={() => window.open('https://www.mahakim.ma/#/suivi/dossier-suivi', '_blank')}
+                  className="w-full gap-2 text-xs"
+                  onClick={() => {
+                    navigator.clipboard.writeText(caseData.case_number);
+                    toast.success('تم نسخ رقم الملف');
+                    window.open('https://www.mahakim.ma/#/suivi/dossier-suivi', '_blank');
+                  }}
                 >
-                  <ExternalLink className="h-4 w-4" />
-                  تتبع الملف على بوابة محاكم
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  فتح بوابة محاكم يدوياً
                 </Button>
-                <p className="text-[11px] text-muted-foreground mt-1 text-center">
-                  رقم الملف: <span dir="ltr" className="font-mono">{caseData.case_number}</span> — انسخه وألصقه في بوابة محاكم
+                <p className="text-[10px] text-muted-foreground text-center">
+                  رقم الملف: <span dir="ltr" className="font-mono">{caseData.case_number}</span>
                 </p>
               </div>
             )}
