@@ -60,6 +60,7 @@ interface Props {
 
 const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, editingCase }: Props) => {
   const { clients, setClients } = useClients();
+  const { user } = useAuth();
 
   const [form, setForm] = useState<CaseForm>(emptyForm);
   const [opponents, setOpponents] = useState<Opponent[]>([{ ...emptyOpponent }]);
