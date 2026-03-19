@@ -65,6 +65,13 @@ const CaseDetail = () => {
 
   useEffect(() => { fetchData(); }, [id, navigate]);
 
+  // Auto-refetch when sync job completes (new sessions/procedures from mahakim)
+  useEffect(() => {
+    if (latestJob?.status === 'completed') {
+      fetchData();
+    }
+  }, [latestJob?.status, latestJob?.id]);
+
   // Auto-open add session dialog when navigating from notification
   useEffect(() => {
     if (!loading && caseData && (location.state as any)?.openAddSession) {
