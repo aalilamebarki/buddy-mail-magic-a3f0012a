@@ -327,7 +327,51 @@ const CaseDetail = () => {
         </CardContent>
       </Card>
 
-      {/* سجل الإجراءات */}
+      {/* الإجراءات من بوابة محاكم */}
+      {procedures.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Scale className="h-4 w-4" /> إجراءات بوابة محاكم ({procedures.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-right">التاريخ</TableHead>
+                    <TableHead className="text-right">الإجراء</TableHead>
+                    <TableHead className="text-right">القرار</TableHead>
+                    <TableHead className="text-right">الجلسة المقبلة</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {procedures.map(p => (
+                    <TableRow key={p.id}>
+                      <TableCell className="text-sm whitespace-nowrap">{p.action_date || '—'}</TableCell>
+                      <TableCell className="text-sm">{p.action_type}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{p.decision || '—'}</TableCell>
+                      <TableCell className="text-sm">{p.next_session_date || '—'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Mahakim metadata */}
+      {(caseData.mahakim_judge || caseData.mahakim_department) && (
+        <div className="flex flex-wrap gap-2 text-xs">
+          {caseData.mahakim_judge && <Badge variant="outline">القاضي: {caseData.mahakim_judge}</Badge>}
+          {caseData.mahakim_department && <Badge variant="outline">الشعبة: {caseData.mahakim_department}</Badge>}
+          {caseData.mahakim_status && <Badge variant="secondary">{caseData.mahakim_status}</Badge>}
+        </div>
+      )}
+
+
       <Card>
         <CardHeader className="pb-3 flex flex-row items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2">
