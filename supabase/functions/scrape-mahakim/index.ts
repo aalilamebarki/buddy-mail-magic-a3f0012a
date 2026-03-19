@@ -5,67 +5,105 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-/* ── ScrapingBee Custom JS for Mahakim.ma Angular/PrimeNG portal ── */
-function buildScrapingBeeJS(numero: string, mark: string, annee: string, appealCourt?: string): string {
-  return `
-    (async () => {
-      // Wait for Angular to bootstrap
-      await new Promise(r => setTimeout(r, 5000));
+/* ── ScrapingBee JS scenario for Mahakim.ma ── */
+function buildJsScenario(numero: string, mark: string, annee: string, appealCourt?: string): object {
+  // Use js_scenario instructions format — shorter, more reliable
+  const instructions: object[] = [
+    // Wait for Angular to bootstrap and form to appear
+    { wait_for_and_click: ".p-dropdown" },
+    { wait: 1500 },
+  ];
 
-      // Fill the search fields
-      const inputs = document.querySelectorAll('.p-inputtext, input[type="number"], input[type="text"]');
-      const fields = Array.from(inputs).filter(el => el.offsetParent !== null);
-      
-      // Try to find fields by placeholder or position
-      for (const input of fields) {
-        const ph = input.getAttribute('placeholder') || '';
-        if (ph.includes('رقم') || (fields.indexOf(input) === 0 && !input.value)) {
-          input.value = '${numero}';
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-          input.dispatchEvent(new Event('change', { bubbles: true }));
-        } else if (ph.includes('رمز') || (fields.indexOf(input) === 1 && !input.value)) {
-          input.value = '${mark}';
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-          input.dispatchEvent(new Event('change', { bubbles: true }));
-        } else if (ph.includes('سنة') || (fields.indexOf(input) === 2 && !input.value)) {
-          input.value = '${annee}';
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-          input.dispatchEvent(new Event('change', { bubbles: true }));
+  // If appeal court specified, select it
+  if (appealCourt) {
+    instructions.push(
+      { evaluate: `
+        (function() {
+          var items = document.querySelectorAll('.p-dropdown-panel .p-dropdown-item, .p-dropdown-items li, .p-dropdown-panel li');
+          for (var i = 0; i < items.length; i++) {
+            if (items[i].textContent && items[i].textContent.indexOf('${appealCourt}') !== -1) {
+              items[i].click();
+              return 'found: ' + items[i].textContent;
+            }
+          }
+          return 'not_found: ' + items.length + ' items';
+        })()
+      ` },
+      { wait: 1500 },
+    );
+  } else {
+    // Click first available option
+    instructions.push(
+      { evaluate: `
+        (function() {
+          var items = document.querySelectorAll('.p-dropdown-panel .p-dropdown-item, .p-dropdown-items li');
+          if (items.length > 1) { items[1].click(); return 'selected: ' + items[1].textContent; }
+          else if (items.length > 0) { items[0].click(); return 'selected: ' + items[0].textContent; }
+          return 'no items found';
+        })()
+      ` },
+      { wait: 1500 },
+    );
+  }
+
+  // Fill the 3 input fields
+  instructions.push(
+    { evaluate: `
+      (function() {
+        var inputs = document.querySelectorAll('input.p-inputtext, input[pinputtext], input[type="text"], input[type="number"]');
+        var visible = [];
+        for (var i = 0; i < inputs.length; i++) {
+          if (inputs[i].offsetParent !== null && inputs[i].type !== 'hidden') visible.push(inputs[i]);
         }
-      }
+        if (visible.length >= 3) {
+          // Fields: numero, code, annee
+          function setVal(el, val) {
+            var nativeSet = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+            nativeSet.call(el, val);
+            el.dispatchEvent(new Event('input', {bubbles:true}));
+            el.dispatchEvent(new Event('change', {bubbles:true}));
+          }
+          setVal(visible[0], '${numero}');
+          setVal(visible[1], '${mark}');
+          setVal(visible[2], '${annee}');
+          return 'filled 3 fields';
+        } else if (visible.length >= 1) {
+          var nativeSet = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+          nativeSet.call(visible[0], '${numero}/${mark}/${annee}');
+          visible[0].dispatchEvent(new Event('input', {bubbles:true}));
+          visible[0].dispatchEvent(new Event('change', {bubbles:true}));
+          return 'filled 1 combined field';
+        }
+        return 'no visible inputs found: total=' + inputs.length;
+      })()
+    ` },
+    { wait: 2000 },
+  );
 
-      ${appealCourt ? `
-      // Select appeal court from dropdown
-      await new Promise(r => setTimeout(r, 1000));
-      const dropdowns = document.querySelectorAll('.p-dropdown');
-      if (dropdowns.length > 0) {
-        dropdowns[0].click();
-        await new Promise(r => setTimeout(r, 1500));
-        const items = document.querySelectorAll('.p-dropdown-item, .p-dropdown-items li');
-        for (const item of items) {
-          if (item.textContent && item.textContent.includes('${appealCourt}')) {
-            item.click();
-            break;
+  // Click search button
+  instructions.push(
+    { evaluate: `
+      (function() {
+        var btns = document.querySelectorAll('button.p-button, button[type="submit"], .p-button');
+        for (var i = 0; i < btns.length; i++) {
+          var txt = btns[i].textContent || '';
+          if ((txt.indexOf('بحث') !== -1 || txt.indexOf('عرض') !== -1) && btns[i].offsetParent !== null) {
+            btns[i].click();
+            return 'clicked: ' + txt.trim();
           }
         }
-        await new Promise(r => setTimeout(r, 500));
-      }
-      ` : ''}
-
-      // Click search button
-      await new Promise(r => setTimeout(r, 500));
-      const buttons = document.querySelectorAll('button[type="submit"], button.p-button, .btn-search');
-      for (const btn of buttons) {
-        if (btn.offsetParent !== null) {
-          btn.click();
-          break;
+        // Fallback: click last visible button
+        for (var j = btns.length - 1; j >= 0; j--) {
+          if (btns[j].offsetParent !== null) { btns[j].click(); return 'fallback click'; }
         }
-      }
+        return 'no button found';
+      })()
+    ` },
+    // Wait for results to load
+    { wait: 8000 },
+  );
 
-      // Wait for results to load
-      await new Promise(r => setTimeout(r, 8000));
-    })();
-  `;
+  return { instructions };
 }
 
 /* ── Result Parser ── */
@@ -95,7 +133,6 @@ function parseResults(htmlContent: string) {
 
   // Extract procedures table
   const sessions: Record<string, string>[] = [];
-  // Match table rows from HTML
   const rowMatches = htmlContent.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi);
   for (const rowMatch of rowMatches) {
     const cells: string[] = [];
@@ -113,7 +150,7 @@ function parseResults(htmlContent: string) {
     }
   }
 
-  // Fallback: try markdown table format
+  // Fallback: markdown table format
   if (sessions.length === 0) {
     const tableRows = htmlContent.match(/\|[^|\n]+\|[^|\n]+\|[^|\n]*\|?[^|\n]*\|?/g);
     if (tableRows && tableRows.length > 2) {
@@ -170,7 +207,6 @@ async function applyFieldMapping(
 ) {
   const log: string[] = [];
 
-  // 1. Update case metadata
   const caseUpdates: Record<string, unknown> = {
     last_synced_at: new Date().toISOString(),
     last_sync_result: parsed,
@@ -182,7 +218,6 @@ async function applyFieldMapping(
   await supabaseAdmin.from('cases').update(caseUpdates).eq('id', caseId);
   log.push('تم تحديث بيانات الملف');
 
-  // 2. Insert procedures with conflict detection
   const procedures = (parsed.sessions as Record<string, string>[]) || [];
   if (procedures.length > 0) {
     const { data: existingProcs } = await supabaseAdmin
@@ -212,7 +247,6 @@ async function applyFieldMapping(
       log.push(`تم إضافة ${newProcs.length} إجراء جديد`);
     }
 
-    // Conflict resolution: court data takes priority
     if (existingProcs && existingProcs.length > 0) {
       const manualProcs = (await supabaseAdmin
         .from('case_procedures')
@@ -244,7 +278,6 @@ async function applyFieldMapping(
     }
   }
 
-  // 3. Auto-create court session from next_session_date
   const nextDateStr = parsed.next_session_date as string | undefined;
   if (nextDateStr && nextDateStr.match(/\d{2}\/\d{2}\/\d{4}/)) {
     const [d, m, y] = nextDateStr.split('/');
@@ -274,7 +307,7 @@ async function applyFieldMapping(
   return { nextDateISO: null, log };
 }
 
-/* ── ScrapingBee Scraper ── */
+/* ── ScrapingBee Scraper (optimized for Angular SPA) ── */
 async function scrapeWithScrapingBee(
   caseNumber: string,
   appealCourt?: string,
@@ -289,29 +322,27 @@ async function scrapeWithScrapingBee(
   const mark = parts[1] || '';
   const annee = parts[2] || '';
 
-  const jsScript = buildScrapingBeeJS(numero, mark, annee, appealCourt);
-  const jsScriptBase64 = btoa(unescape(encodeURIComponent(jsScript)));
+  const jsScenario = buildJsScenario(numero, mark, annee, appealCourt);
 
   const params = new URLSearchParams({
     api_key: SCRAPINGBEE_API_KEY,
     url: 'https://www.mahakim.ma/#/suivi/dossier-suivi',
     render_js: 'true',
-    js_scenario: JSON.stringify({
-      instructions: [
-        { wait: 5000 },
-        { evaluate: jsScript },
-        { wait: 10000 },
-      ],
-    }),
-    wait: '15000',
-    timeout: '60000',
+    js_scenario: JSON.stringify(jsScenario),
+    // Key optimizations:
+    timeout: '90000',           // 90s instead of 60s
+    block_resources: 'false',   // Per ScrapingBee's recommendation
     block_ads: 'true',
     premium_proxy: 'true',
+    wait_browser: 'networkidle', // Wait until network is idle
+    // Don't set 'wait' param — let js_scenario handle timing
   });
 
   try {
+    console.log(`[ScrapingBee] Starting scrape for case ${caseNumber} with 90s timeout`);
     const response = await fetch(`https://app.scrapingbee.com/api/v1?${params.toString()}`, {
       method: 'GET',
+      signal: AbortSignal.timeout(100000), // 100s client-side timeout
     });
 
     if (!response.ok) {
@@ -321,6 +352,7 @@ async function scrapeWithScrapingBee(
     }
 
     const html = await response.text();
+    console.log(`[ScrapingBee] Got ${html.length} chars response`);
     return { html, success: true };
   } catch (err) {
     console.error('[ScrapingBee] Fetch error:', err);
@@ -336,10 +368,9 @@ async function scheduleRetry(
   maxRetries: number,
 ) {
   if (retryCount >= maxRetries) {
-    return false; // No more retries
+    return false;
   }
 
-  // Schedule retry by updating the job status back to pending
   await supabaseAdmin.from('mahakim_sync_jobs').update({
     status: 'pending',
     retry_count: retryCount + 1,
@@ -359,7 +390,6 @@ async function processSyncJob(
   caseNumber: string,
   appealCourt?: string,
 ) {
-  // Get current job to check retry count
   const { data: jobData } = await supabaseAdmin
     .from('mahakim_sync_jobs')
     .select('retry_count, max_retries')
@@ -369,7 +399,6 @@ async function processSyncJob(
   const retryCount = (jobData as any)?.retry_count || 0;
   const maxRetries = (jobData as any)?.max_retries || 2;
 
-  // Update to scraping
   await supabaseAdmin.from('mahakim_sync_jobs').update({
     status: 'scraping',
     updated_at: new Date().toISOString(),
@@ -377,13 +406,11 @@ async function processSyncJob(
 
   console.log(`[sync] Job ${jobId}: scraping ${caseNumber} (attempt ${retryCount + 1}/${maxRetries + 1})`);
 
-  // Use ScrapingBee
   const { html, success, error: scrapeError } = await scrapeWithScrapingBee(caseNumber, appealCourt);
 
   if (!success) {
     console.error(`[sync] ScrapingBee failed for job ${jobId}:`, scrapeError);
 
-    // Try retry
     const retryScheduled = await scheduleRetry(supabaseAdmin, jobId, retryCount, maxRetries);
 
     if (!retryScheduled) {
@@ -398,7 +425,6 @@ async function processSyncJob(
     return { success: false, retryScheduled, error: scrapeError };
   }
 
-  // Parse results
   const parsed = parseResults(html);
   const hasError = parsed.error && !parsed.court;
 
@@ -418,10 +444,8 @@ async function processSyncJob(
     return { success: false, retryScheduled, data: parsed };
   }
 
-  // Apply field mapping
   const { nextDateISO, log } = await applyFieldMapping(supabaseAdmin, caseId, userId, parsed);
 
-  // Mark completed
   await supabaseAdmin.from('mahakim_sync_jobs').update({
     status: 'completed',
     result_data: { ...parsed, mapping_log: log },
@@ -478,7 +502,6 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Check if a job already exists (could be from DB trigger)
       const { data: existingJobs } = await supabaseAdmin
         .from('mahakim_sync_jobs')
         .select('id, status')
@@ -510,9 +533,67 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── ACTION: bulkSync ── Sync all active cases with case numbers
+    if (action === 'bulkSync') {
+      const { userId } = body;
+      
+      const { data: cases } = await supabaseAdmin
+        .from('cases')
+        .select('id, case_number, court')
+        .neq('case_number', '')
+        .not('case_number', 'is', null)
+        .eq('status', 'active');
+
+      if (!cases || cases.length === 0) {
+        return new Response(JSON.stringify({ success: true, message: 'لا توجد ملفات نشطة للمزامنة', processed: 0 }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const results = [];
+      for (const c of cases) {
+        // Check if already has a pending/scraping job
+        const { data: existingJobs } = await supabaseAdmin
+          .from('mahakim_sync_jobs')
+          .select('id')
+          .eq('case_id', c.id)
+          .in('status', ['pending', 'scraping'])
+          .limit(1);
+
+        if (existingJobs && existingJobs.length > 0) {
+          results.push({ caseId: c.id, skipped: true, reason: 'job already active' });
+          continue;
+        }
+
+        const jobId = crypto.randomUUID();
+        await supabaseAdmin.from('mahakim_sync_jobs').insert({
+          id: jobId,
+          case_id: c.id,
+          user_id: userId || '00000000-0000-0000-0000-000000000000',
+          case_number: c.case_number!,
+          status: 'pending',
+          request_payload: { auto_triggered: true, bulk: true },
+        });
+
+        // Process sequentially to avoid overloading ScrapingBee
+        const result = await processSyncJob(
+          supabaseAdmin, jobId, c.id,
+          userId || '00000000-0000-0000-0000-000000000000',
+          c.case_number!, undefined
+        );
+        results.push({ caseId: c.id, caseNumber: c.case_number, ...result });
+
+        // Small delay between requests to be nice to ScrapingBee
+        await new Promise(r => setTimeout(r, 2000));
+      }
+
+      return new Response(JSON.stringify({ success: true, processed: results.length, results }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // ── ACTION: retryFailedJobs ──
     if (action === 'retryFailedJobs') {
-      // Find pending retry jobs (status = 'pending', retry_count > 0)
       const { data: retryJobs } = await supabaseAdmin
         .from('mahakim_sync_jobs')
         .select('*')
@@ -557,7 +638,7 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       success: false,
-      error: 'إجراء غير معروف. الإجراءات المتاحة: submitSyncJob, autoSyncNewCase, retryFailedJobs, getLatestSync',
+      error: 'إجراء غير معروف. الإجراءات المتاحة: submitSyncJob, autoSyncNewCase, bulkSync, retryFailedJobs, getLatestSync',
     }), {
       status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
