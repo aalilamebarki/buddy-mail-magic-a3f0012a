@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 const CaseDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [caseData, setCaseData] = useState<any>(null);
   const [documents, setDocuments] = useState<any[]>([]);
@@ -57,6 +58,15 @@ const CaseDetail = () => {
   };
 
   useEffect(() => { fetchData(); }, [id, navigate]);
+
+  // Auto-open add session dialog when navigating from notification
+  useEffect(() => {
+    if (!loading && caseData && (location.state as any)?.openAddSession) {
+      openAddSession();
+      // Clear the state so it doesn't re-trigger
+      window.history.replaceState({}, '');
+    }
+  }, [loading, caseData, location.state]);
 
   const needsCaseNumber = caseData && !caseData.case_number;
 
