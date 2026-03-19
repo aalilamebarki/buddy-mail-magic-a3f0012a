@@ -97,6 +97,7 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
         description: editingCase.description || '',
         client_id: editingCase.client_id || '',
         court: editingCase.court || '',
+        case_number: editingCase.case_number || '',
       });
       // Load opponents
       supabase.from('case_opponents').select('*').eq('case_id', editingCase.id).order('sort_order').then(({ data }) => {
