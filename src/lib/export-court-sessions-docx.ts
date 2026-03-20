@@ -281,6 +281,8 @@ export const exportCourtSessionsWord = async ({
         caseNumber: s.cases?.case_number || '—',
         opponentName: s.cases?.opposing_party || '—',
         requiredAction: s.required_action || '—',
+        sessionTime: s.session_time || '',
+        courtRoom: s.court_room || '',
         notes: s.notes || '',
       }));
 
