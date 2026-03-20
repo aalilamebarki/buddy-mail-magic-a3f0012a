@@ -267,7 +267,7 @@ async function fcRequest(apiKey: string, method: string, path: string, body?: un
       'Content-Type': 'application/json',
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
-    signal: AbortSignal.timeout(60000),
+    signal: AbortSignal.timeout(90000),
   });
   const data = await resp.json();
   return { ok: resp.ok, status: resp.status, data };
