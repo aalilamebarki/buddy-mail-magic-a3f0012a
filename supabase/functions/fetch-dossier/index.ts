@@ -420,13 +420,20 @@ async function fetchViaFirecrawl(
     const data = await resp.json();
     log(`🔥 [Firecrawl] ${caseLabel}: success (${elapsed}ms)`);
     const jsReturns = data?.data?.javascriptReturns || data?.javascriptReturns;
-    if (jsReturns) log(`🔥 [Firecrawl] JS returns: ${JSON.stringify(jsReturns).substring(0, 500)}`);
+    if (jsReturns) log(`🔥 [Firecrawl] JS returns: ${JSON.stringify(jsReturns).substring(0, 800)}`);
+    const screenshot = data?.data?.screenshot || data?.screenshot;
+    if (screenshot) log(`🔥 [Firecrawl] Screenshot captured (${screenshot.length} chars)`);
+    const actionsResult = data?.data?.actions || data?.actions;
+    if (actionsResult) log(`🔥 [Firecrawl] Actions result: ${JSON.stringify(actionsResult).substring(0, 500)}`);
 
     const html = data?.data?.html || '';
     const markdown = data?.data?.markdown || '';
+    
+    log(`🔥 [Firecrawl] ${caseLabel}: html=${html.length} chars, md=${markdown.length} chars`);
+    if (markdown) log(`🔥 [Firecrawl] MD preview: ${markdown.substring(0, 300)}`);
 
     if (!html && !markdown) {
-      log(`🔥 [Firecrawl] ${caseLabel}: empty response`);
+      log(`🔥 [Firecrawl] ${caseLabel}: empty response — keys: ${JSON.stringify(Object.keys(data?.data || data || {}))}`);
       return null;
     }
 
