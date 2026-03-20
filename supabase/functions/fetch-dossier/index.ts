@@ -263,37 +263,41 @@ function buildJsScenario(numero: string, code: string, annee: string, appealCour
 
   if (appealCourt) {
     instructions.push(
-      { click: 'p-dropdown:first-of-type .p-dropdown-trigger, .p-dropdown:first-of-type' },
-      { wait: 1200 },
+      // Use evaluate to click the dropdown trigger more reliably
       {
-        evaluate: `(()=>{var t='${esc(appealCourt)}',a=[...document.querySelectorAll('li.p-dropdown-item,.p-dropdown-item')];for(const e of a){const s=(e.textContent||'').trim();if(s.includes(t)){e.click();return s}}return 'appeal-miss'})()`
+        evaluate: `(()=>{var dd=document.querySelectorAll('p-dropdown');if(dd[0]){var trigger=dd[0].querySelector('.p-dropdown-trigger')||dd[0];trigger.click();return 'appeal-dd-opened:'+dd.length}return 'no-dropdown'})()`
       },
-      { wait: 1500 },
+      { wait: 2000 },
+      {
+        evaluate: `(()=>{var t='${esc(appealCourt)}',items=document.querySelectorAll('.p-dropdown-item,li.p-dropdown-item');var found=[];for(var i=0;i<items.length;i++){var txt=(items[i].textContent||'').trim();found.push(txt);if(txt.includes(t)||t.includes(txt)){items[i].click();return 'selected:'+txt}}return 'appeal-miss:'+found.slice(0,5).join('|')})()`
+      },
+      { wait: 2000 },
     );
   }
 
   if (firstInstanceCourt) {
     instructions.push(
       {
-        evaluate: `(()=>{var d=document.querySelectorAll('p-dropdown,.p-dropdown');var el=d[1];if(el){(el.querySelector('.p-dropdown-trigger')||el).click();return 'opened'}return 'fic-open-miss'})()`
+        evaluate: `(()=>{var dd=document.querySelectorAll('p-dropdown');if(dd[1]){var trigger=dd[1].querySelector('.p-dropdown-trigger')||dd[1];trigger.click();return 'fic-dd-opened'}return 'no-second-dropdown:'+document.querySelectorAll('p-dropdown').length})()`
       },
-      { wait: 1200 },
+      { wait: 2000 },
       {
-        evaluate: `(()=>{var t='${esc(firstInstanceCourt)}',a=[...document.querySelectorAll('li.p-dropdown-item,.p-dropdown-item')];for(const e of a){const s=(e.textContent||'').trim();if(s.includes(t)){e.click();return s}}return 'fic-miss'})()`
+        evaluate: `(()=>{var t='${esc(firstInstanceCourt)}',items=document.querySelectorAll('.p-dropdown-item,li.p-dropdown-item');for(var i=0;i<items.length;i++){var txt=(items[i].textContent||'').trim();if(txt.includes(t)||t.includes(txt)){items[i].click();return 'fic-selected:'+txt}}return 'fic-miss'})()`
       },
-      { wait: 1500 },
+      { wait: 2000 },
     );
   }
 
+  // Fill inputs — use "mark" not "code" (actual formcontrolname on mahakim.ma)
   instructions.push(
     {
-      evaluate: `(()=>{const set=(s,v)=>{const e=document.querySelector(s);if(!e)return 'miss:'+s;const d=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');d&&d.set?d.set.call(e,v):e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));return 'ok:'+s+'='+e.value};var r1=set('input[formcontrolname="numero"]','${esc(numero)}');var r2=set('input[formcontrolname="code"]','${esc(code)}');var r3=set('input[formcontrolname="annee"]','${esc(annee)}');return JSON.stringify({r1:r1,r2:r2,r3:r3})})()`
+      evaluate: `(()=>{const set=(s,v)=>{const e=document.querySelector(s);if(!e)return 'miss:'+s;const d=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');d&&d.set?d.set.call(e,v):e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));return 'ok:'+s+'='+e.value};var r1=set('input[formcontrolname="numero"]','${esc(numero)}');var r2=set('input[formcontrolname="mark"]','${esc(code)}');var r3=set('input[formcontrolname="annee"]','${esc(annee)}');return JSON.stringify({r1:r1,r2:r2,r3:r3})})()`
     },
-    { wait: 600 },
+    { wait: 1000 },
     {
-      evaluate: `(()=>{const b=[...document.querySelectorAll('button,p-button button')].find(x=>/بحث|عرض|تتبع/.test((x.textContent||'').trim()));if(b){b.click();return 'submitted:'+b.textContent.trim()}return 'no-btn:'+[...document.querySelectorAll('button')].map(x=>x.textContent.trim()).join('|')})()`
+      evaluate: `(()=>{const b=[...document.querySelectorAll('button,p-button button')].find(x=>/بحث/.test((x.textContent||'').trim()));if(b){b.click();return 'submitted:'+b.textContent.trim()}return 'no-btn:'+[...document.querySelectorAll('button')].map(x=>x.textContent.trim()).join('|')})()`
     },
-    { wait: 10000 },
+    { wait: 12000 },
     // Final diagnostic: inject debug data INTO the page HTML so we can read it
     {
       evaluate: `(()=>{var inputs=document.querySelectorAll('input[formcontrolname]');var vals={};inputs.forEach(function(i){vals[i.getAttribute('formcontrolname')]=i.value});var dropdowns=document.querySelectorAll('.p-dropdown-label');var ddVals=[];dropdowns.forEach(function(d){ddVals.push(d.textContent.trim())});var hasTable=!!document.querySelector('.p-datatable,.p-table,table.p-datatable-table');var noResultEl=document.querySelector('.p-datatable-emptymessage,.empty-message');var noResultVisible=noResultEl?noResultEl.offsetParent!==null:false;var allBtns=[...document.querySelectorAll('button')].map(function(b){return b.textContent.trim()}).filter(Boolean);var bodyText=document.body.innerText.substring(0,1000);var div=document.createElement('div');div.id='__debug__';div.style.display='none';div.setAttribute('data-debug',JSON.stringify({inputValues:vals,dropdownValues:ddVals,hasTable:hasTable,noResultVisible:noResultVisible,buttons:allBtns.slice(0,10),bodySnippet:bodyText.substring(0,400)}));document.body.appendChild(div);return 'injected'})()`
