@@ -287,13 +287,17 @@ function buildJsScenario(numero: string, code: string, annee: string, appealCour
 
   instructions.push(
     {
-      evaluate: `(()=>{const set=(s,v)=>{const e=document.querySelector(s);if(!e)return;const d=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');d&&d.set?d.set.call(e,v):e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}))};set('input[formcontrolname="numero"]','${esc(numero)}');set('input[formcontrolname="code"]','${esc(code)}');set('input[formcontrolname="annee"]','${esc(annee)}');return 'filled'})()`
+      evaluate: `(()=>{const set=(s,v)=>{const e=document.querySelector(s);if(!e)return 'miss:'+s;const d=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');d&&d.set?d.set.call(e,v):e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));return 'ok:'+s+'='+e.value};var r1=set('input[formcontrolname="numero"]','${esc(numero)}');var r2=set('input[formcontrolname="code"]','${esc(code)}');var r3=set('input[formcontrolname="annee"]','${esc(annee)}');return JSON.stringify({r1:r1,r2:r2,r3:r3})})()`
     },
     { wait: 600 },
     {
-      evaluate: `(()=>{const b=[...document.querySelectorAll('button,p-button button')].find(x=>/بحث|عرض|تتبع/.test((x.textContent||'').trim()));if(b){b.click();return 'submitted'}return 'no-btn'})()`
+      evaluate: `(()=>{const b=[...document.querySelectorAll('button,p-button button')].find(x=>/بحث|عرض|تتبع/.test((x.textContent||'').trim()));if(b){b.click();return 'submitted:'+b.textContent.trim()}return 'no-btn:'+[...document.querySelectorAll('button')].map(x=>x.textContent.trim()).join('|')})()`
     },
     { wait: 10000 },
+    // Final diagnostic step: check what's on page after search
+    {
+      evaluate: `(()=>{var inputs=document.querySelectorAll('input[formcontrolname]');var vals={};inputs.forEach(function(i){vals[i.getAttribute('formcontrolname')]=i.value});var dropdowns=document.querySelectorAll('.p-dropdown-label');var ddVals=[];dropdowns.forEach(function(d){ddVals.push(d.textContent.trim())});var hasResult=document.querySelector('.p-datatable,.p-table,table');var noResult=document.body.innerText.includes('لا توجد أية نتيجة');var bodyText=document.body.innerText.substring(0,2000);return JSON.stringify({inputValues:vals,dropdownValues:ddVals,hasTable:!!hasResult,noResult:noResult,bodySnippet:bodyText.substring(0,500)})})()`
+    },
   );
 
   return { instructions };
