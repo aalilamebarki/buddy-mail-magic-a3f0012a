@@ -139,13 +139,12 @@ const buildCourtSection = (
     ),
   });
 
-  // Data rows — sorted by session time
-  const sortedRows = [...rows].sort((a, b) => {
-    if (!a.sessionTime && !b.sessionTime) return 0;
-    if (!a.sessionTime) return 1;
-    if (!b.sessionTime) return -1;
-    return a.sessionTime.localeCompare(b.sessionTime);
-  });
+  // Data rows — sorted by session time (morning first)
+  const parseTime = (t: string): number => {
+    const m = t.match(/(\d{1,2}):(\d{2})/);
+    return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) : 9999;
+  };
+  const sortedRows = [...rows].sort((a, b) => parseTime(a.sessionTime) - parseTime(b.sessionTime));
 
   const dataRows = sortedRows.map(row =>
     new TableRow({
