@@ -45,6 +45,211 @@ function randomDelay(minMs = 2000, maxMs = 4000): Promise<void> {
 }
 
 /* ══════════════════════════════════════════════════════════════════
+   Court hierarchy auto-resolution
+   Maps primary court names to their portal labels
+   ══════════════════════════════════════════════════════════════════ */
+interface CourtMapping {
+  appealPortal: string;
+  primaries: { name: string; portal: string }[];
+}
+
+const CIVIL_COURTS: CourtMapping[] = [
+  { appealPortal: 'الرباط', primaries: [
+    { name: 'الرباط', portal: 'الرباط' }, { name: 'تمارة', portal: 'تمارة' },
+    { name: 'سلا', portal: 'سلا' }, { name: 'الخميسات', portal: 'الخميسات' },
+    { name: 'تيفلت', portal: 'تيفلت' }, { name: 'الرماني', portal: 'الرماني' },
+    { name: 'قسم قضاء الأسرة بالرباط', portal: 'قسم قضاء الأسرة بالرباط' },
+    { name: 'قسم قضاء الأسرة بسلا', portal: 'قسم قضاء الأسرة بسلا' },
+  ]},
+  { appealPortal: 'القنيطرة', primaries: [
+    { name: 'القنيطرة', portal: 'القنيطرة' }, { name: 'سيدي قاسم', portal: 'سيدي قاسم' },
+    { name: 'مشرع بلقصيري', portal: 'مشرع بلقصيري' }, { name: 'سيدي سليمان', portal: 'سيدي سليمان' },
+    { name: 'سوق أربعاء الغرب', portal: 'سوق أربعاء الغرب' },
+  ]},
+  { appealPortal: 'الدار البيضاء', primaries: [
+    { name: 'المدنية بالدار البيضاء', portal: 'المدنية بالدار البيضاء' },
+    { name: 'الزجرية بالدار البيضاء', portal: 'الزجرية بالدار البيضاء' },
+    { name: 'الاجتماعية بالدار البيضاء', portal: 'الاجتماعية بالدار البيضاء' },
+    { name: 'المحمدية', portal: 'المحمدية' }, { name: 'بنسليمان', portal: 'بنسليمان' },
+    { name: 'بوزنيقة', portal: 'بوزنيقة' },
+  ]},
+  { appealPortal: 'الجديدة', primaries: [
+    { name: 'الجديدة', portal: 'الجديدة' }, { name: 'سيدي بنور', portal: 'سيدي بنور' },
+  ]},
+  { appealPortal: 'فاس', primaries: [
+    { name: 'فاس', portal: 'فاس' }, { name: 'تاونات', portal: 'تاونات' },
+    { name: 'صفرو', portal: 'صفرو' }, { name: 'بولمان', portal: 'بولمان' },
+  ]},
+  { appealPortal: 'تازة', primaries: [
+    { name: 'تازة', portal: 'تازة' }, { name: 'جرسيف', portal: 'جرسيف' },
+  ]},
+  { appealPortal: 'مراكش', primaries: [
+    { name: 'مراكش', portal: 'مراكش' }, { name: 'تحناوت', portal: 'تحناوت' },
+    { name: 'شيشاوة', portal: 'شيشاوة' }, { name: 'امنتانوت', portal: 'امنتانوت' },
+    { name: 'قلعة السراغنة', portal: 'قلعة السراغنة' }, { name: 'ابن جرير', portal: 'ابن جرير' },
+  ]},
+  { appealPortal: 'ورزازات', primaries: [
+    { name: 'ورزازات', portal: 'ورزازات' }, { name: 'زاكورة', portal: 'زاكورة' },
+    { name: 'تنغير', portal: 'تنغير' },
+  ]},
+  { appealPortal: 'آسفي', primaries: [
+    { name: 'آسفي', portal: 'آسفي' }, { name: 'اليوسفية', portal: 'اليوسفية' },
+    { name: 'الصويرة', portal: 'الصويرة' },
+  ]},
+  { appealPortal: 'مكناس', primaries: [
+    { name: 'مكناس', portal: 'مكناس' }, { name: 'أزرو', portal: 'أزرو' },
+    { name: 'الحاجب', portal: 'الحاجب' }, { name: 'إفران', portal: 'إفران' },
+  ]},
+  { appealPortal: 'طنجة', primaries: [
+    { name: 'طنجة', portal: 'طنجة' }, { name: 'أصيلة', portal: 'أصيلة' },
+    { name: 'العرائش', portal: 'العرائش' }, { name: 'القصر الكبير', portal: 'القصر الكبير' },
+  ]},
+  { appealPortal: 'تطوان', primaries: [
+    { name: 'تطوان', portal: 'تطوان' }, { name: 'شفشاون', portal: 'شفشاون' },
+    { name: 'الحسيمة', portal: 'الحسيمة' },
+  ]},
+  { appealPortal: 'وجدة', primaries: [
+    { name: 'وجدة', portal: 'وجدة' }, { name: 'الناظور', portal: 'الناظور' },
+    { name: 'بركان', portal: 'بركان' }, { name: 'فجيج', portal: 'فجيج' },
+    { name: 'تاوريرت', portal: 'تاوريرت' }, { name: 'الدريوش', portal: 'الدريوش' },
+  ]},
+  { appealPortal: 'بني ملال', primaries: [
+    { name: 'بني ملال', portal: 'بني ملال' }, { name: 'الفقيه بن صالح', portal: 'الفقيه بن صالح' },
+    { name: 'أزيلال', portal: 'أزيلال' }, { name: 'خريبكة', portal: 'خريبكة' },
+    { name: 'واد زم', portal: 'واد زم' },
+  ]},
+  { appealPortal: 'سطات', primaries: [
+    { name: 'سطات', portal: 'سطات' }, { name: 'برشيد', portal: 'برشيد' },
+    { name: 'بن أحمد', portal: 'بن أحمد' },
+  ]},
+  { appealPortal: 'أكادير', primaries: [
+    { name: 'أكادير', portal: 'أكادير' }, { name: 'إنزكان', portal: 'إنزكان' },
+    { name: 'تارودانت', portal: 'تارودانت' }, { name: 'تيزنيت', portal: 'تيزنيت' },
+  ]},
+  { appealPortal: 'العيون', primaries: [
+    { name: 'العيون', portal: 'العيون' }, { name: 'السمارة', portal: 'السمارة' },
+    { name: 'بوجدور', portal: 'بوجدور' },
+  ]},
+  { appealPortal: 'الراشيدية', primaries: [
+    { name: 'الراشيدية', portal: 'الراشيدية' }, { name: 'ميدلت', portal: 'ميدلت' },
+    { name: 'كلميمة', portal: 'كلميمة' },
+  ]},
+  { appealPortal: 'خنيفرة', primaries: [
+    { name: 'خنيفرة', portal: 'خنيفرة' }, { name: 'مريرت', portal: 'مريرت' },
+  ]},
+  { appealPortal: 'الحسيمة', primaries: [
+    { name: 'الحسيمة', portal: 'الحسيمة' },
+  ]},
+  { appealPortal: 'كلميم', primaries: [
+    { name: 'كلميم', portal: 'كلميم' }, { name: 'طانطان', portal: 'طانطان' },
+    { name: 'أسا الزاك', portal: 'أسا الزاك' },
+  ]},
+  { appealPortal: 'الداخلة', primaries: [
+    { name: 'الداخلة', portal: 'الداخلة' },
+  ]},
+];
+
+const COMMERCIAL_COURTS: CourtMapping[] = [
+  { appealPortal: 'الدار البيضاء', primaries: [
+    { name: 'الدار البيضاء', portal: 'الدار البيضاء' },
+  ]},
+  { appealPortal: 'فاس', primaries: [
+    { name: 'فاس', portal: 'فاس' },
+  ]},
+  { appealPortal: 'مراكش', primaries: [
+    { name: 'مراكش', portal: 'مراكش' }, { name: 'أكادير', portal: 'أكادير' },
+  ]},
+  { appealPortal: 'طنجة', primaries: [
+    { name: 'طنجة', portal: 'طنجة' },
+  ]},
+  { appealPortal: 'وجدة', primaries: [
+    { name: 'وجدة', portal: 'وجدة' },
+  ]},
+];
+
+const ADMIN_COURTS: CourtMapping[] = [
+  { appealPortal: 'الرباط', primaries: [
+    { name: 'الرباط', portal: 'الرباط' }, { name: 'الدار البيضاء', portal: 'الدار البيضاء' },
+    { name: 'مكناس', portal: 'مكناس' },
+  ]},
+  { appealPortal: 'فاس', primaries: [
+    { name: 'فاس', portal: 'فاس' }, { name: 'وجدة', portal: 'وجدة' },
+  ]},
+  { appealPortal: 'مراكش', primaries: [
+    { name: 'مراكش', portal: 'مراكش' }, { name: 'أكادير', portal: 'أكادير' },
+  ]},
+  { appealPortal: 'طنجة', primaries: [
+    { name: 'طنجة', portal: 'طنجة' },
+  ]},
+  { appealPortal: 'أكادير', primaries: [
+    { name: 'أكادير', portal: 'أكادير' },
+  ]},
+];
+
+type CourtCategory = 'civil' | 'commercial' | 'administrative';
+
+function getCategoryFromCode(code: string): CourtCategory {
+  if (!code || code.length < 2) return 'civil';
+  const prefix = code.substring(0, 2);
+  if (['81','82','83','84','85'].includes(prefix)) return 'commercial';
+  if (['71','72','73','74','75','76'].includes(prefix)) return 'administrative';
+  return 'civil';
+}
+
+function resolveCourtFromName(courtName: string | null, code: string): { appeal: string | null; primary: string | null } {
+  if (!courtName) return { appeal: null, primary: null };
+  
+  const category = getCategoryFromCode(code);
+  const hierarchy = category === 'commercial' ? COMMERCIAL_COURTS
+    : category === 'administrative' ? ADMIN_COURTS
+    : CIVIL_COURTS;
+  
+  const normalized = courtName.trim();
+  
+  for (const ac of hierarchy) {
+    for (const pc of ac.primaries) {
+      if (normalized.includes(pc.name) || pc.name.includes(normalized.replace(/المحكمة الابتدائية ب/g, '').replace(/محكمة الاستئناف /g, ''))) {
+        return { appeal: ac.appealPortal, primary: pc.portal };
+      }
+    }
+    // Check if the court name matches the appeal court itself
+    if (normalized.includes(ac.appealPortal) || normalized.includes('الاستئناف')) {
+      const cityMatch = normalized.match(/ب([^\s]+)/);
+      if (cityMatch && ac.appealPortal.includes(cityMatch[1])) {
+        return { appeal: ac.appealPortal, primary: null };
+      }
+      if (normalized.includes(ac.appealPortal)) {
+        return { appeal: ac.appealPortal, primary: null };
+      }
+    }
+  }
+  
+  return { appeal: null, primary: null };
+}
+
+/**
+ * Auto-resolve court from DB case record
+ */
+async function resolveCourtForCase(
+  supabase: ReturnType<typeof createClient>,
+  caseId: string,
+  code: string,
+): Promise<{ appeal: string | null; primary: string | null }> {
+  const { data } = await supabase
+    .from('cases')
+    .select('court')
+    .eq('id', caseId)
+    .limit(1)
+    .single();
+  
+  if (!data?.court) return { appeal: null, primary: null };
+  
+  const resolved = resolveCourtFromName(data.court, code);
+  log(`⚖ Court auto-resolved: "${data.court}" → appeal="${resolved.appeal}", primary="${resolved.primary}"`);
+  return resolved;
+}
+
+/* ══════════════════════════════════════════════════════════════════
    Build ScrapingBee js_scenario for form filling
    
    TESTED format — uses only valid ScrapingBee instructions:
@@ -572,7 +777,17 @@ Deno.serve(async (req) => {
 
         try {
           const payload = job.request_payload as Record<string, unknown> || {};
-          const result = await fetchSingleCase(SCRAPINGBEE_API_KEY, input, payload.appealCourt as string | undefined, payload.firstInstanceCourt as string | undefined);
+          let appealCourt = payload.appealCourt as string | undefined;
+          let firstInstanceCourt = payload.firstInstanceCourt as string | undefined;
+          
+          // Auto-resolve courts from case record if not provided
+          if (!appealCourt) {
+            const resolved = await resolveCourtForCase(supabase, job.case_id, input.code);
+            appealCourt = resolved.appeal || undefined;
+            firstInstanceCourt = firstInstanceCourt || resolved.primary || undefined;
+          }
+          
+          const result = await fetchSingleCase(SCRAPINGBEE_API_KEY, input, appealCourt, firstInstanceCourt);
           await persistResults(supabase, job.case_id, job.user_id, result);
 
           await supabase.from('mahakim_sync_jobs').update({
@@ -615,7 +830,17 @@ Deno.serve(async (req) => {
       const input: CaseInput = { numero: parts[0] || '', code: parts[1] || '', annee: parts[2] || '' };
 
       try {
-        const result = await fetchSingleCase(SCRAPINGBEE_API_KEY, input, body.appealCourt, body.firstInstanceCourt);
+        let appealCourt = body.appealCourt as string | undefined;
+        let firstInstanceCourt = body.firstInstanceCourt as string | undefined;
+        
+        // Auto-resolve courts from case record if not provided
+        if (!appealCourt) {
+          const resolved = await resolveCourtForCase(supabase, jCaseId, input.code);
+          appealCourt = resolved.appeal || undefined;
+          firstInstanceCourt = firstInstanceCourt || resolved.primary || undefined;
+        }
+        
+        const result = await fetchSingleCase(SCRAPINGBEE_API_KEY, input, appealCourt, firstInstanceCourt);
         const persistLog = await persistResults(supabase, jCaseId, body.userId, result);
 
         await supabase.from('mahakim_sync_jobs').update({
@@ -669,7 +894,17 @@ Deno.serve(async (req) => {
 
     for (let i = 0; i < batch.length; i++) {
       if (i > 0) await randomDelay();
-      const result = await fetchSingleCase(SCRAPINGBEE_API_KEY, batch[i]);
+      
+      // Auto-resolve courts if caseId is provided
+      let appealCourt = batch[i].courtType === 'appeal' ? undefined : undefined;
+      let primaryCourt: string | undefined;
+      if (caseId) {
+        const resolved = await resolveCourtForCase(supabase, caseId, batch[i].code);
+        appealCourt = resolved.appeal || undefined;
+        primaryCourt = resolved.primary || undefined;
+      }
+      
+      const result = await fetchSingleCase(SCRAPINGBEE_API_KEY, batch[i], appealCourt, primaryCourt);
       results.push(result);
       if (caseId || userId) {
         await persistResults(supabase, caseId, userId, result);
