@@ -466,8 +466,10 @@ async function fetchSingleCase(apiKey: string, input: CaseInput, appealCourt?: s
 
   const scenario = buildJsScenario(input.numero, input.code, input.annee, appealCourt, firstInstanceCourt);
 
+  const requestUrl = new URL('https://app.scrapingbee.com/api/v1/');
+  requestUrl.searchParams.set('api_key', apiKey);
+
   const formData = new URLSearchParams();
-  formData.append('api_key', apiKey);
   formData.append('url', 'https://www.mahakim.ma/#/suivi/dossier-suivi');
   formData.append('render_js', 'true');
   formData.append('premium_proxy', 'true');
@@ -476,7 +478,7 @@ async function fetchSingleCase(apiKey: string, input: CaseInput, appealCourt?: s
   formData.append('timeout', '60000');
 
   try {
-    const resp = await fetch('https://app.scrapingbee.com/api/v1/', {
+    const resp = await fetch(requestUrl.toString(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: formData.toString(),
