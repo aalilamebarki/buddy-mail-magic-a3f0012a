@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useClients } from '@/hooks/useClients';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { CaseNumberInput } from '@/components/cases/CaseNumberInput';
 
 /* ─── Types ─── */
 export interface Opponent {
