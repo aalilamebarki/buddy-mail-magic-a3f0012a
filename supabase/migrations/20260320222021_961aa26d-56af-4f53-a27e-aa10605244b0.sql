@@ -1,0 +1,1 @@
+ALTER TABLE public.google_calendar_tokens ADD CONSTRAINT google_calendar_tokens_user_id_unique UNIQUE (user_id);
