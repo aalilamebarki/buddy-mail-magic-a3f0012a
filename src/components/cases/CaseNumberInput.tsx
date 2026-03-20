@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { getCategoryFromCode } from '@/lib/court-mapping';
+import { getCategoryFromCode, getCodeSubCategory } from '@/lib/court-mapping';
 
 const categoryLabels: Record<string, string> = {
   civil: 'مدني / جنائي / أسري',
