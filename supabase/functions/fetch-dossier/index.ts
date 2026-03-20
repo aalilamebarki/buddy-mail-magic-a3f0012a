@@ -297,8 +297,8 @@ function buildFirecrawlActions(numero: string, code: string, annee: string, appe
     // The second dropdown should now be visible for primary courts
     // Use a more specific selector: the last p-dropdown trigger
     actions.push({
-      type: 'execute_js',
-      code: `document.querySelectorAll('p-dropdown .p-dropdown-trigger')[document.querySelectorAll('p-dropdown .p-dropdown-trigger').length - 1]?.click()`,
+      type: 'executeJavascript',
+      script: `document.querySelectorAll('p-dropdown .p-dropdown-trigger')[document.querySelectorAll('p-dropdown .p-dropdown-trigger').length - 1]?.click()`,
     });
     actions.push({ type: 'wait', milliseconds: 1500 });
     actions.push({ type: 'click', selector: '.p-dropdown-panel .p-dropdown-filter, .p-dropdown-filter-container input' });
