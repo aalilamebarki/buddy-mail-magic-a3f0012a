@@ -253,7 +253,7 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       success: false,
-      error: 'إجراء غير معروف. الإجراءات المتاحة: submitSyncJob, getLatestSync, bulkSync, processQueue, retryFailed',
+      error: 'إجراء غير معروف. الإجراءات المتاحة: submitSyncJob, getLatestSync, bulkSync, processQueue, retryFailed, autoRefresh48h',
     }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
