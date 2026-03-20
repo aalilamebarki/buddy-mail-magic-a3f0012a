@@ -263,37 +263,45 @@ function buildJsScenario(numero: string, code: string, annee: string, appealCour
 
   if (appealCourt) {
     instructions.push(
-      { click: 'p-dropdown:first-of-type .p-dropdown-trigger, .p-dropdown:first-of-type' },
-      { wait: 1200 },
+      // Use ScrapingBee native click (real browser click, not DOM event)
+      { click: 'p-dropdown:first-of-type' },
+      { wait: 2500 },
+      // Now try to find and click the item in the overlay panel
       {
-        evaluate: `(()=>{var t='${esc(appealCourt)}',a=[...document.querySelectorAll('li.p-dropdown-item,.p-dropdown-item')];for(const e of a){const s=(e.textContent||'').trim();if(s.includes(t)){e.click();return s}}return 'appeal-miss'})()`
+        evaluate: `(()=>{var t='${esc(appealCourt)}';var items=document.querySelectorAll('li.p-dropdown-item,.p-dropdown-item,p-dropdownitem li');var found=[];for(var i=0;i<items.length;i++){var txt=(items[i].textContent||'').trim();found.push(txt);if(txt===t||txt.includes(t)){items[i].click();return 'selected:'+txt}}var overlays=document.querySelectorAll('.p-overlay,.p-connected-overlay,.cdk-overlay-pane');return 'miss:items='+items.length+',overlays='+overlays.length+',found='+found.slice(0,10).join('|')})()`
       },
-      { wait: 1500 },
+      { wait: 2500 },
     );
   }
 
   if (firstInstanceCourt) {
     instructions.push(
+      // Click the second dropdown
       {
-        evaluate: `(()=>{var d=document.querySelectorAll('p-dropdown,.p-dropdown');var el=d[1];if(el){(el.querySelector('.p-dropdown-trigger')||el).click();return 'opened'}return 'fic-open-miss'})()`
+        evaluate: `(()=>{var dds=document.querySelectorAll('p-dropdown');if(dds.length>=2){dds[1].click();return 'fic-clicked:'+dds.length}return 'no-2nd:'+dds.length})()`
       },
-      { wait: 1200 },
+      { wait: 2500 },
       {
-        evaluate: `(()=>{var t='${esc(firstInstanceCourt)}',a=[...document.querySelectorAll('li.p-dropdown-item,.p-dropdown-item')];for(const e of a){const s=(e.textContent||'').trim();if(s.includes(t)){e.click();return s}}return 'fic-miss'})()`
+        evaluate: `(()=>{var t='${esc(firstInstanceCourt)}';var items=document.querySelectorAll('li.p-dropdown-item,.p-dropdown-item');for(var i=0;i<items.length;i++){var txt=(items[i].textContent||'').trim();if(txt===t||txt.includes(t)){items[i].click();return 'fic-selected:'+txt}}return 'fic-miss:'+items.length})()`
       },
-      { wait: 1500 },
+      { wait: 2500 },
     );
   }
 
+  // Fill inputs — use "mark" not "code" (actual formcontrolname on mahakim.ma)
   instructions.push(
     {
-      evaluate: `(()=>{const set=(s,v)=>{const e=document.querySelector(s);if(!e)return;const d=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');d&&d.set?d.set.call(e,v):e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}))};set('input[formcontrolname="numero"]','${esc(numero)}');set('input[formcontrolname="code"]','${esc(code)}');set('input[formcontrolname="annee"]','${esc(annee)}');return 'filled'})()`
+      evaluate: `(()=>{const set=(s,v)=>{const e=document.querySelector(s);if(!e)return 'miss:'+s;const d=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');d&&d.set?d.set.call(e,v):e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));return 'ok:'+s+'='+e.value};var r1=set('input[formcontrolname="numero"]','${esc(numero)}');var r2=set('input[formcontrolname="mark"]','${esc(code)}');var r3=set('input[formcontrolname="annee"]','${esc(annee)}');return JSON.stringify({r1:r1,r2:r2,r3:r3})})()`
     },
-    { wait: 600 },
+    { wait: 1000 },
     {
-      evaluate: `(()=>{const b=[...document.querySelectorAll('button,p-button button')].find(x=>/بحث|عرض|تتبع/.test((x.textContent||'').trim()));if(b){b.click();return 'submitted'}return 'no-btn'})()`
+      evaluate: `(()=>{const b=[...document.querySelectorAll('button,p-button button')].find(x=>/بحث/.test((x.textContent||'').trim()));if(b){b.click();return 'submitted:'+b.textContent.trim()}return 'no-btn:'+[...document.querySelectorAll('button')].map(x=>x.textContent.trim()).join('|')})()`
     },
-    { wait: 10000 },
+    { wait: 12000 },
+    // Final diagnostic: inject debug data INTO the page HTML so we can read it
+    {
+      evaluate: `(()=>{var inputs=document.querySelectorAll('input[formcontrolname]');var vals={};inputs.forEach(function(i){vals[i.getAttribute('formcontrolname')]=i.value});var dropdowns=document.querySelectorAll('.p-dropdown-label');var ddVals=[];dropdowns.forEach(function(d){ddVals.push(d.textContent.trim())});var hasTable=!!document.querySelector('.p-datatable,.p-table,table.p-datatable-table');var noResultEl=document.querySelector('.p-datatable-emptymessage,.empty-message');var noResultVisible=noResultEl?noResultEl.offsetParent!==null:false;var allBtns=[...document.querySelectorAll('button')].map(function(b){return b.textContent.trim()}).filter(Boolean);var bodyText=document.body.innerText.substring(0,1000);var div=document.createElement('div');div.id='__debug__';div.style.display='none';div.setAttribute('data-debug',JSON.stringify({inputValues:vals,dropdownValues:ddVals,hasTable:hasTable,noResultVisible:noResultVisible,buttons:allBtns.slice(0,10),bodySnippet:bodyText.substring(0,400)}));document.body.appendChild(div);return 'injected'})()`
+    },
   );
 
   return { instructions };
@@ -306,7 +314,11 @@ async function fetchSingleCase(apiKey: string, input: CaseInput, appealCourt?: s
   const caseLabel = `${input.numero}/${input.code}/${input.annee}`;
   const start = Date.now();
 
+  log(`🚀 Starting fetch for ${caseLabel} | appealCourt="${appealCourt}" | firstInstanceCourt="${firstInstanceCourt}"`);
+
   const scenario = buildJsScenario(input.numero, input.code, input.annee, appealCourt, firstInstanceCourt);
+  log(`📋 Scenario steps: ${scenario.instructions.length} | Total JSON length: ${JSON.stringify(scenario).length}`);
+  log(`📋 Scenario detail: ${JSON.stringify(scenario).substring(0, 600)}`);
 
   const params = new URLSearchParams({
     api_key: apiKey,
@@ -318,12 +330,16 @@ async function fetchSingleCase(apiKey: string, input: CaseInput, appealCourt?: s
     timeout: '60000',
   });
 
+  const fullUrl = `https://app.scrapingbee.com/api/v1/?${params.toString()}`;
+  log(`🌐 Request URL length: ${fullUrl.length} chars`);
+
   try {
-    const resp = await fetch(`https://app.scrapingbee.com/api/v1/?${params.toString()}`, {
+    const resp = await fetch(fullUrl, {
       signal: AbortSignal.timeout(65000),
     });
 
     const elapsed = Date.now() - start;
+    log(`📡 ScrapingBee response: status=${resp.status} (${elapsed}ms)`);
 
     if (!resp.ok) {
       const errText = await resp.text();
@@ -340,6 +356,36 @@ async function fetchSingleCase(apiKey: string, input: CaseInput, appealCourt?: s
 
     const html = await resp.text();
     log(`✓ ${caseLabel}: got ${html.length} chars (${elapsed}ms)`);
+
+    // ── DEBUG: Save first 5000 chars of HTML + key indicators ──
+    const debugSnippet = html.substring(0, 5000);
+    const hasDropdown = html.includes('p-dropdown');
+    const hasNoResult = html.includes('لا توجد أية نتيجة');
+    const hasTable = html.includes('<table') || html.includes('p-table');
+    const hasFormControl = html.includes('formcontrolname');
+    const hasCaseData = html.includes('القاضي') || html.includes('الشعبة') || html.includes('المحكمة');
+    const hasSearchBtn = html.includes('بحث') || html.includes('عرض') || html.includes('تتبع');
+    const hasResultSection = html.includes('app-dossier-detail') || html.includes('app-procedure') || html.includes('نتيجة');
+    
+    log(`🔍 DEBUG HTML indicators: dropdown=${hasDropdown}, noResult=${hasNoResult}, table=${hasTable}, formControl=${hasFormControl}, caseData=${hasCaseData}, searchBtn=${hasSearchBtn}, resultSection=${hasResultSection}`);
+    
+    // Extract injected debug data from the page
+    const debugMatch = html.match(/data-debug="([^"]*)"/);
+    if (debugMatch) {
+      try {
+        const debugData = JSON.parse(debugMatch[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&'));
+        log(`🔍 DEBUG INJECTED: ${JSON.stringify(debugData)}`);
+      } catch (e) {
+        log(`🔍 DEBUG INJECTED raw: ${debugMatch[1].substring(0, 500)}`);
+      }
+    } else {
+      log(`🔍 DEBUG: No injected debug div found — scenario may not have executed`);
+    }
+    
+    // Log ScrapingBee headers for scenario execution info
+    const scenarioResult = resp.headers.get('Spb-Js-Scenario-Result');
+    const resolvedUrl = resp.headers.get('Spb-Resolved-Url');
+    log(`🔍 DEBUG ScrapingBee headers: scenario-result=${scenarioResult?.substring(0, 500)}, resolved-url=${resolvedUrl}`);
 
     // Check for anti-bot
     const lower = html.toLowerCase();
@@ -361,17 +407,19 @@ async function fetchSingleCase(apiKey: string, input: CaseInput, appealCourt?: s
     // Parse extracted data from the evaluate step
     let parsed = { caseInfo: {} as Record<string, string>, procedures: [] as Array<Record<string, string>>, hasData: false, noResult: false };
     
-    // Look for the JSON result in the HTML (last evaluate dumps it)
-    // ScrapingBee evaluate results may be in response headers or embedded
     if (jsResult) {
+      log(`🔍 DEBUG jsResult raw: ${jsResult.substring(0, 500)}`);
       try {
         parsed = JSON.parse(jsResult);
+        log(`🔍 DEBUG jsResult parsed: hasData=${parsed.hasData}, caseInfo keys=${Object.keys(parsed.caseInfo).join(',')}, procedures=${parsed.procedures?.length}`);
       } catch { /* fallback to HTML parsing */ }
     }
 
     // Fallback: parse HTML directly if evaluate didn't return clean data
     if (!parsed.hasData && !parsed.noResult) {
+      log(`🔍 DEBUG: falling back to HTML parsing`);
       parsed = parseHtmlFallback(html);
+      log(`🔍 DEBUG HTML parse result: hasData=${parsed.hasData}, noResult=${parsed.noResult}, caseInfo=${JSON.stringify(parsed.caseInfo)}`);
     }
 
     if (parsed.noResult) {
@@ -388,6 +436,12 @@ async function fetchSingleCase(apiKey: string, input: CaseInput, appealCourt?: s
 
     if (!parsed.hasData) {
       log(`○ ${caseLabel}: no data extracted from ${html.length} chars`);
+      // Save debug HTML to storage for analysis
+      try {
+        const debugBlob = new Blob([html], { type: 'text/html' });
+        // Store in a temporary debug field in the sync job
+        log(`🔍 Full HTML body keywords: ${[...html.matchAll(/[\u0600-\u06FF]+/g)].slice(0, 50).map(m => m[0]).join(', ')}`);
+      } catch {}
       return {
         ...input,
         status: 'no_data',
