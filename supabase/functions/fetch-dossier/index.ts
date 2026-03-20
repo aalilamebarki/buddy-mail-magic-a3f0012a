@@ -953,11 +953,29 @@ Deno.serve(async (req) => {
     };
 
     const SCRAPINGBEE_API_KEY = Deno.env.get('SCRAPINGBEE_API_KEY');
-    if (!SCRAPINGBEE_API_KEY) {
+    const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
+    if (!SCRAPINGBEE_API_KEY && !FIRECRAWL_API_KEY) {
       return new Response(JSON.stringify({
         status: 'error',
-        error: 'مفتاح ScrapingBee غير مُعدّ',
+        error: 'لم يتم تعيين أي مفتاح للجلب (Firecrawl أو ScrapingBee)',
       }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    /** Unified fetch: Firecrawl first, ScrapingBee fallback */
+    async function fetchCase(input: CaseInput, ac?: string, pc?: string): Promise<CaseResult> {
+      // 1. Try Firecrawl (primary — no monthly limits)
+      if (FIRECRAWL_API_KEY) {
+        log('🔀 Trying Firecrawl (primary path)...');
+        const fcResult = await fetchViaFirecrawl(FIRECRAWL_API_KEY, input, ac, pc);
+        if (fcResult) return fcResult;
+        log('🔀 Firecrawl returned null — falling back to ScrapingBee');
+      }
+      // 2. Fallback to ScrapingBee
+      if (SCRAPINGBEE_API_KEY) {
+        log('🔀 Using ScrapingBee (fallback path)...');
+        return await fetchSingleCase(SCRAPINGBEE_API_KEY, input, ac, pc);
+      }
+      return { ...input, status: 'error', caseInfo: {}, procedures: [], nextSessionDate: null, error: 'لا يوجد مفتاح متاح للجلب' };
     }
 
     const supabase = createClient(
