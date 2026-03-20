@@ -311,8 +311,8 @@ function buildFirecrawlActions(numero: string, code: string, annee: string, appe
   // Click the search button — use execute_js to find the right one
   // The main search button contains "بحث" but NOT "المحاكم"
   actions.push({
-    type: 'execute_js',
-    code: `(function(){var bs=[].slice.call(document.querySelectorAll('button'));var b=bs.find(function(x){var t=x.textContent.trim();return t==='بحث'||t==='بحث '});if(!b)b=bs.find(function(x){return x.textContent.indexOf('بحث')>=0&&x.textContent.indexOf('المحاكم')<0});if(b)b.click();return !!b})()`,
+    type: 'executeJavascript',
+    script: `(function(){var bs=[].slice.call(document.querySelectorAll('button'));var b=bs.find(function(x){var t=x.textContent.trim();return t==='بحث'||t==='بحث '});if(!b)b=bs.find(function(x){return x.textContent.indexOf('بحث')>=0&&x.textContent.indexOf('المحاكم')<0});if(b)b.click();return !!b})()`,
   });
   actions.push({ type: 'wait', milliseconds: 10000 });
   // Scrape the results
