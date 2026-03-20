@@ -259,61 +259,60 @@ async function resolveCourtForCase(
    ══════════════════════════════════════════════════════════════════ */
 function buildJsScenario(numero: string, code: string, annee: string, appealCourt?: string, firstInstanceCourt?: string) {
   const esc = (value?: string) => (value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+  // Single mega-evaluate that handles: fill mark → wait for dropdown → select appeal → wait for 2nd dropdown → select primary → fill fields → search
+  // This avoids multiple wait steps and keeps ScrapingBee under its 60s timeout
+  const megaScript = `(()=>{
+window.__L=[];
+var set=function(q,v){var e=document.querySelector(q);if(!e){window.__L.push('miss:'+q);return 0}var d=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');d&&d.set?d.set.call(e,v):e.value=v;e.dispatchEvent(new Event('input',{bubbles:1}));e.dispatchEvent(new Event('change',{bubbles:1}));return 1};
+set('input[formcontrolname="mark"]','${esc(code)}');
+window.__L.push('mark-set');
+var ac='${esc(appealCourt||'')}';
+var pc='${esc(firstInstanceCourt||'')}';
+var num='${esc(numero)}';
+var ann='${esc(annee)}';
+function selectDD(idx,target,cb){
+  var a=0;
+  function poll(){
+    var dds=document.querySelectorAll('p-dropdown .p-dropdown-trigger');
+    if(dds.length<=idx){if(++a<40){setTimeout(poll,400);return}window.__L.push('dd'+idx+'-timeout:'+dds.length);cb();return}
+    dds[idx].click();
+    setTimeout(function(){
+      var panel=document.querySelector('.p-dropdown-panel');
+      var li=panel?panel.querySelectorAll('li.p-dropdown-item,.p-dropdown-items li'):document.querySelectorAll('li.p-dropdown-item');
+      if(li.length<2&&a<40){a++;setTimeout(poll,400);return}
+      var f=[];
+      for(var i=0;i<li.length;i++){var x=li[i].textContent.trim();f.push(x);if(x.indexOf(target)>=0){li[i].click();window.__L.push('dd'+idx+'-ok:'+x);setTimeout(cb,600);return}}
+      window.__L.push('dd'+idx+'-miss:'+li.length+':'+f.slice(0,5).join(','));
+      cb();
+    },600);
+  }
+  poll();
+}
+function fillAndSearch(){
+  set('input[formcontrolname="numero"]',num);
+  set('input[formcontrolname="annee"]',ann);
+  window.__L.push('fields-done');
+  setTimeout(function(){
+    var b=[].slice.call(document.querySelectorAll('button')).find(function(x){return x.textContent.indexOf('بحث')>=0});
+    if(b){b.click();window.__L.push('search-clicked')}else{window.__L.push('search-miss')}
+  },500);
+}
+function step2(){
+  if(pc){selectDD(1,pc,fillAndSearch)}else{fillAndSearch()}
+}
+if(ac){selectDD(0,ac,step2)}else{step2()}
+return 1;
+})()`;
+
   const instructions: Array<Record<string, unknown>> = [
     { wait: 4000 },
-    { evaluate: `(()=>{window.__L=[];return 1})()` },
-  ];
-
-  // ── Step 1: Fill the CODE (mark) field FIRST — this triggers the appeal court dropdown to load ──
-  instructions.push(
-    {
-      evaluate: `(()=>{var s=function(q,v){var e=document.querySelector(q);if(!e){window.__L.push('miss:'+q);return 0}var d=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');d&&d.set?d.set.call(e,v):e.value=v;e.dispatchEvent(new Event('input',{bubbles:1}));e.dispatchEvent(new Event('change',{bubbles:1}));window.__L.push('set:'+q+'='+v);return 1};return s('input[formcontrolname="mark"]','${esc(code)}')})()`
-    },
-    { wait: 1500 },
-  );
-
-  // ── Step 2: Poll until first dropdown has loaded items (max ~15s) then select appeal court ──
-  if (appealCourt) {
-    instructions.push(
-      {
-        evaluate: `(()=>{var a=0;var max=30;function poll(){var dds=document.querySelectorAll('p-dropdown .p-dropdown-trigger');var dd=dds[0];if(!dd){if(++a<max){setTimeout(poll,500);return}window.__L.push('dd1-timeout');return}dd.click();setTimeout(function(){var li=document.querySelectorAll('li.p-dropdown-item,.p-dropdown-items li');if(li.length<2&&a<max){dd.click();a++;setTimeout(poll,500);return}var t='${esc(appealCourt)}';var f=[];for(var i=0;i<li.length;i++){var x=li[i].textContent.trim();f.push(x);if(x.includes(t)){li[i].click();window.__L.push('appeal-ok:'+x+' @'+a);return}}window.__L.push('appeal-miss:'+li.length+':'+f.slice(0,8).join(','))},800)}poll();return 1})()`
-      },
-      { wait: 8000 },
-    );
-  }
-
-  // ── Step 2b: Select first-instance court from the SECOND dropdown (appears after appeal court selection) ──
-  if (firstInstanceCourt) {
-    instructions.push(
-      {
-        evaluate: `(()=>{var a=0;var max=30;function poll(){var dds=document.querySelectorAll('p-dropdown .p-dropdown-trigger');if(dds.length<2){if(++a<max){setTimeout(poll,500);return}window.__L.push('dd2-timeout:found='+dds.length);return}var dd=dds[1];dd.click();setTimeout(function(){var li=document.querySelectorAll('li.p-dropdown-item,.p-dropdown-items li');if(li.length<2&&a<max){dd.click();a++;setTimeout(poll,500);return}var t='${esc(firstInstanceCourt)}';var f=[];for(var i=0;i<li.length;i++){var x=li[i].textContent.trim();f.push(x);if(x.includes(t)){li[i].click();window.__L.push('primary-ok:'+x+' @'+a);return}}window.__L.push('primary-miss:'+li.length+':'+f.slice(0,8).join(','))},800)}poll();return 1})()`
-      },
-      { wait: 8000 },
-    );
-  }
-
-  // ── Step 3: Fill remaining fields (numero + annee) ──
-  instructions.push(
-    {
-      evaluate: `(()=>{var s=function(q,v){var e=document.querySelector(q);if(!e){window.__L.push('miss:'+q);return 0}var d=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');d&&d.set?d.set.call(e,v):e.value=v;e.dispatchEvent(new Event('input',{bubbles:1}));e.dispatchEvent(new Event('change',{bubbles:1}));return 1};s('input[formcontrolname="numero"]','${esc(numero)}');s('input[formcontrolname="annee"]','${esc(annee)}');window.__L.push('fields-done');return 1})()`
-    },
-    { wait: 800 },
-  );
-
-  // ── Step 4: Click search button ──
-  instructions.push(
-    {
-      evaluate: `(()=>{var b=[...document.querySelectorAll('button')].find(function(x){return/بحث/.test(x.textContent)});if(b){b.click();window.__L.push('search-clicked');return 1}window.__L.push('search-miss');return 0})()`
-    },
-    { wait: 12000 },
-  );
-
-  // ── Step 5: Debug snapshot ──
-  instructions.push(
+    { evaluate: megaScript.replace(/\n/g, '') },
+    { wait: 25000 }, // Wait for all async operations to complete
     {
       evaluate: `(()=>{var v={};document.querySelectorAll('input[formcontrolname]').forEach(function(i){v[i.getAttribute('formcontrolname')]=i.value});var dd=[];document.querySelectorAll('.p-dropdown-label').forEach(function(d){dd.push(d.textContent.trim())});var d=document.createElement('div');d.id='__debug__';d.style.display='none';d.setAttribute('data-debug',JSON.stringify({s:window.__L||[],i:v,d:dd,t:!!document.querySelector('table,.p-datatable'),n:document.body.innerText.includes('لا توجد'),b:document.body.innerText.substring(0,250)}));document.body.appendChild(d);return 1})()`
     },
-  );
+  ];
 
   return { instructions };
 }
