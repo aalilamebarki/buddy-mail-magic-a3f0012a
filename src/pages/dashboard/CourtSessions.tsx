@@ -309,8 +309,8 @@ const CourtSessions = () => {
           </h1>
           <p className="text-sm text-muted-foreground">إدارة مواعيد الجلسات لجميع الملفات</p>
         </div>
-        <GoogleCalendarQuickAction />
-          {/* View toggle */}
+        <div className="flex gap-2 flex-wrap items-center">
+          <GoogleCalendarQuickAction />
           <div className="flex gap-1 bg-muted rounded-lg p-1">
             <Button
               variant={viewMode === 'table' ? 'default' : 'ghost'}
