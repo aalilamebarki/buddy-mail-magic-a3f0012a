@@ -230,25 +230,46 @@ const CaseDetail = () => {
               <span className="text-muted-foreground">رقم الملف:</span>
               {editingCaseNumber ? (
                 <div className="flex items-center gap-1">
-                  <Input
-                    value={caseNumberEdit}
-                    onChange={e => setCaseNumberEdit(e.target.value)}
-                    className="h-7 w-40 text-sm"
-                    dir="ltr"
-                    placeholder="رقم/رمز/سنة"
-                    autoFocus
-                    onKeyDown={async e => {
-                      if (e.key === 'Enter') {
-                        const val = caseNumberEdit.trim();
-                        if (!val) { toast.error('رقم الملف مطلوب'); return; }
-                        await supabase.from('cases').update({ case_number: val }).eq('id', id);
-                        toast.success('تم تحديث رقم الملف');
-                        setEditingCaseNumber(false);
-                        fetchData();
-                      }
-                      if (e.key === 'Escape') setEditingCaseNumber(false);
-                    }}
-                  />
+                  <div className="flex gap-1" dir="ltr">
+                    <Input
+                      value={caseNumberEdit.split('/')[0] || ''}
+                      onChange={e => {
+                        const parts = caseNumberEdit.split('/');
+                        parts[0] = e.target.value.replace(/\D/g, '');
+                        setCaseNumberEdit(parts.join('/'));
+                      }}
+                      className="h-7 w-14 text-xs text-center font-mono"
+                      dir="ltr"
+                      placeholder="رقم"
+                      autoFocus
+                    />
+                    <span className="text-muted-foreground self-center">/</span>
+                    <Input
+                      value={caseNumberEdit.split('/')[1] || ''}
+                      onChange={e => {
+                        const parts = caseNumberEdit.split('/');
+                        parts[1] = e.target.value.replace(/\D/g, '').slice(0, 4);
+                        setCaseNumberEdit(parts.join('/'));
+                      }}
+                      className="h-7 w-16 text-xs text-center font-mono"
+                      dir="ltr"
+                      placeholder="رمز"
+                      maxLength={4}
+                    />
+                    <span className="text-muted-foreground self-center">/</span>
+                    <Input
+                      value={caseNumberEdit.split('/')[2] || ''}
+                      onChange={e => {
+                        const parts = caseNumberEdit.split('/');
+                        parts[2] = e.target.value.replace(/\D/g, '').slice(0, 4);
+                        setCaseNumberEdit(parts.join('/'));
+                      }}
+                      className="h-7 w-16 text-xs text-center font-mono"
+                      dir="ltr"
+                      placeholder="سنة"
+                      maxLength={4}
+                    />
+                  </div>
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={async () => {
                     const val = caseNumberEdit.trim();
                     if (!val) { toast.error('رقم الملف مطلوب'); return; }
@@ -266,7 +287,7 @@ const CaseDetail = () => {
               ) : (
                 <div className="flex items-center gap-1">
                   <span dir="ltr">{caseData.case_number || '—'}</span>
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setCaseNumberEdit(caseData.case_number || ''); setEditingCaseNumber(true); }}>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setCaseNumberEdit(caseData.case_number || '//'); setEditingCaseNumber(true); }}>
                     <Pencil className="h-3 w-3" />
                   </Button>
                 </div>
