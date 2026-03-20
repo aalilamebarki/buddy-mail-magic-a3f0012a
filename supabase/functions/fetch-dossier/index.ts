@@ -309,8 +309,9 @@ function selectDD(idx,target,cb){
 function clickPrimarySearchBtn(cb){
   var a=0;
   function poll(){
-    var btns=[].slice.call(document.querySelectorAll('button'));
-    var b=btns.find(function(x){return x.textContent.indexOf('المحاكم الابتدائية')>=0||x.textContent.indexOf('البحث في المحاكم')>=0});
+    var btns=[].slice.call(document.querySelectorAll('button,a.btn,a[class*=btn],span[class*=click],.p-button'));
+    if(a===0){window.__L.push('btns:'+btns.map(function(x){return x.textContent.trim().substring(0,30)}).join('|'))}
+    var b=btns.find(function(x){var t=x.textContent||'';return t.indexOf('المحاكم الابتدائية')>=0||t.indexOf('البحث في المحاكم')>=0||t.indexOf('ابتدائية')>=0||t.indexOf('الإبتدائية')>=0});
     if(b){b.click();window.__L.push('primary-search-clicked');setTimeout(cb,1500);return}
     if(++a<30){setTimeout(poll,400);return}
     window.__L.push('primary-search-btn-miss');
