@@ -259,65 +259,53 @@ async function resolveCourtForCase(
    ══════════════════════════════════════════════════════════════════ */
 function buildJsScenario(numero: string, code: string, annee: string, appealCourt?: string, firstInstanceCourt?: string) {
   const esc = (value?: string) => (value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-  const instructions: Array<Record<string, unknown>> = [{ wait: 4000 }];
+  const instructions: Array<Record<string, unknown>> = [
+    { wait: 4000 },
+    { evaluate: `(()=>{window.__log=[];return 'init'})()` },
+  ];
 
-  // Step 1: Select appeal court dropdown (REQUIRED by the portal)
   if (appealCourt) {
+    // Strategy A: ScrapingBee native click on trigger arrow
     instructions.push(
-      // First: discover the exact DOM structure of the dropdown
-      {
-        evaluate: `(()=>{var dd=document.querySelector('p-dropdown');if(!dd)return 'no-p-dropdown';var html=dd.outerHTML.substring(0,500);var classes=dd.className;var trigger=dd.querySelector('.p-dropdown-trigger');var label=dd.querySelector('.p-dropdown-label');return JSON.stringify({tag:dd.tagName,classes:classes,hasTrigger:!!trigger,triggerTag:trigger?trigger.tagName:'none',labelText:label?label.textContent.trim():'none',snippet:html.substring(0,300)})})()`
-      },
-      { wait: 500 },
-      // Try multiple click strategies in sequence
-      {
-        evaluate: `(()=>{var dd=document.querySelector('p-dropdown');if(!dd)return 'no-dd';var trigger=dd.querySelector('.p-dropdown-trigger')||dd.querySelector('[role="button"]')||dd.querySelector('.p-dropdown');var target=trigger||dd;['pointerdown','mousedown','pointerup','mouseup','click'].forEach(function(evt){target.dispatchEvent(new PointerEvent(evt,{bubbles:true,cancelable:true,view:window}))});return 'clicked:'+target.tagName+'.'+target.className.substring(0,50)})()`
-      },
-      { wait: 2500 },
-      // Check if overlay appeared and select item
-      {
-        evaluate: `(()=>{var t='${esc(appealCourt)}';var overlay=document.querySelector('.p-dropdown-panel,.p-overlay,.p-connected-overlay');var items=document.querySelectorAll('.p-dropdown-item,li.p-dropdown-item,.p-dropdown-items li,ul[role="listbox"] li');var found=[];for(var i=0;i<items.length;i++){var txt=(items[i].textContent||'').trim();found.push(txt);if(txt===t||txt.includes(t)){['pointerdown','mousedown','pointerup','mouseup','click'].forEach(function(evt){items[i].dispatchEvent(new PointerEvent(evt,{bubbles:true,cancelable:true,view:window}))});return 'appeal-ok:'+txt}}return 'appeal-miss:overlay='+(overlay?'yes':'no')+',items='+items.length+',found='+found.slice(0,20).join('|')})()`
-      },
+      { click: '.p-dropdown-trigger' },
       { wait: 2000 },
+      {
+        evaluate: `(()=>{var t='${esc(appealCourt)}';var items=document.querySelectorAll('.p-dropdown-item,li[role="option"],.p-dropdown-items li');var found=[];for(var i=0;i<items.length;i++){var txt=(items[i].textContent||'').trim();found.push(txt);if(txt===t||txt.includes(t)){items[i].click();window.__log.push('A-ok:'+txt);return 'A-ok'}}window.__log.push('A-miss:'+items.length+','+found.slice(0,10).join('|'));return 'A-miss'})()`
+      },
+      { wait: 1500 },
     );
-  }
 
-  // Step 2: Select first instance court dropdown (optional, 2nd dropdown)
-  if (firstInstanceCourt) {
+    // Strategy B: pointer events on div.p-dropdown
     instructions.push(
       {
-        evaluate: `(()=>{var dds=document.querySelectorAll('p-dropdown');if(dds.length<2)return 'no-2nd:'+dds.length;var dd2=dds[1].querySelector('.p-dropdown')||dds[1];dd2.dispatchEvent(new MouseEvent('mousedown',{bubbles:true,cancelable:true}));dd2.dispatchEvent(new MouseEvent('click',{bubbles:true}));return 'dd2-opened:'+dds.length})()`
+        evaluate: `(()=>{var label=document.querySelector('p-dropdown .p-dropdown-label');if(label&&!label.textContent.trim().includes('اختيار')){window.__log.push('B-skip');return 'set'}var div=document.querySelector('p-dropdown div.p-dropdown')||document.querySelector('p-dropdown');if(!div){window.__log.push('B-no-div');return 'no'}div.focus&&div.focus();['pointerdown','mousedown','pointerup','mouseup','click'].forEach(function(e){div.dispatchEvent(new PointerEvent(e,{bubbles:true,cancelable:true,view:window,pointerId:1,pointerType:'mouse'}))});window.__log.push('B-dispatched');return 'ok'})()`
       },
       { wait: 2000 },
       {
-        evaluate: `(()=>{var t='${esc(firstInstanceCourt)}';var items=document.querySelectorAll('.p-dropdown-item,li.p-dropdown-item');for(var i=0;i<items.length;i++){var txt=(items[i].textContent||'').trim();if(txt===t||txt.includes(t)){items[i].dispatchEvent(new MouseEvent('mousedown',{bubbles:true}));items[i].dispatchEvent(new MouseEvent('click',{bubbles:true}));return 'fic-ok:'+txt}}return 'fic-miss:'+items.length})()`
+        evaluate: `(()=>{var t='${esc(appealCourt)}';var items=document.querySelectorAll('.p-dropdown-item,li[role="option"],.p-dropdown-items li');if(!items.length){window.__log.push('B-no-items');return 'no'}for(var i=0;i<items.length;i++){if((items[i].textContent||'').trim().includes(t)){items[i].click();window.__log.push('B-ok');return 'ok'}}window.__log.push('B-miss');return 'miss'})()`
       },
-      { wait: 2000 },
+      { wait: 1500 },
     );
-  }
 
-  // Fallback: try Angular form manipulation if dropdown UI didn't work
-  if (appealCourt) {
+    // Strategy C: Angular ng.getComponent
     instructions.push({
-      evaluate: `(()=>{try{var label=document.querySelector('p-dropdown .p-dropdown-label');if(label&&label.textContent.trim()&&label.textContent.trim()!=='اختر'&&label.textContent.trim()!=='-- اختر --'&&label.textContent.trim()!=='')return 'dd-already-set:'+label.textContent.trim();var dds=document.querySelectorAll('p-dropdown');if(!dds.length)return 'no-dd-elements';for(var j=0;j<dds.length;j++){var dd=dds[j];var keys=Object.keys(dd);for(var k=0;k<keys.length;k++){if(keys[k].startsWith('__ng')){var ctx=dd[keys[k]];if(ctx&&typeof ctx==='object'){return 'ng-found:key='+keys[k]+',type='+(typeof ctx)}}}}return 'no-ng-keys:'+Object.keys(dds[0]).slice(0,10).join(',')}catch(e){return 'ng-err:'+e.message}})()`
+      evaluate: `(()=>{try{var label=document.querySelector('p-dropdown .p-dropdown-label');if(label&&!label.textContent.trim().includes('اختيار')){window.__log.push('C-skip');return 'set'}var dd=document.querySelector('p-dropdown');if(!dd){window.__log.push('C-no-dd');return 'no'}var comp=typeof ng!=='undefined'&&ng.getComponent?ng.getComponent(dd):null;if(comp){var opts=comp.options||[];var t='${esc(appealCourt)}';for(var i=0;i<opts.length;i++){var lbl=opts[i].label||opts[i].name||opts[i];if(typeof lbl==='string'&&lbl.includes(t)){comp.value=opts[i].value!==undefined?opts[i].value:opts[i];comp.onChange&&comp.onChange.emit({value:comp.value});comp.onModelChange&&comp.onModelChange(comp.value);comp.cd&&comp.cd.markForCheck&&comp.cd.markForCheck();window.__log.push('C-ok:'+lbl);return 'ok'}}window.__log.push('C-no-match:'+opts.length);return 'miss'}var keys=Object.keys(dd).filter(function(k){return k.startsWith('__')});window.__log.push('C-no-ng:'+keys.join(','));return 'no-ng'}catch(e){window.__log.push('C-err:'+e.message);return 'err'}})()`
     });
     instructions.push({ wait: 1000 });
   }
 
-  // Step 3: Fill text inputs
+  // Fill text inputs
   instructions.push(
     {
-      evaluate: `(()=>{const set=(s,v)=>{const e=document.querySelector(s);if(!e)return 'miss:'+s;const d=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');d&&d.set?d.set.call(e,v):e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));return 'ok:'+s+'='+e.value};var r1=set('input[formcontrolname="numero"]','${esc(numero)}');var r2=set('input[formcontrolname="mark"]','${esc(code)}');var r3=set('input[formcontrolname="annee"]','${esc(annee)}');return JSON.stringify({r1:r1,r2:r2,r3:r3})})()`
+      evaluate: `(()=>{const set=(s,v)=>{const e=document.querySelector(s);if(!e)return 'miss';const d=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');d&&d.set?d.set.call(e,v):e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));return 'ok'};var r1=set('input[formcontrolname="numero"]','${esc(numero)}');var r2=set('input[formcontrolname="mark"]','${esc(code)}');var r3=set('input[formcontrolname="annee"]','${esc(annee)}');window.__log.push('inputs:'+r1+','+r2+','+r3);return 'done'})()`
     },
     { wait: 1000 },
-    // Step 4: Click search button
     {
-      evaluate: `(()=>{const b=[...document.querySelectorAll('button,p-button button')].find(x=>/بحث|تتبع/.test((x.textContent||'').trim()));if(b){b.dispatchEvent(new MouseEvent('click',{bubbles:true}));return 'submitted:'+b.textContent.trim()}return 'no-btn:'+[...document.querySelectorAll('button')].map(x=>x.textContent.trim()).join('|')})()`
+      evaluate: `(()=>{const b=[...document.querySelectorAll('button,p-button button')].find(x=>/بحث|تتبع/.test((x.textContent||'').trim()));if(b){b.click();window.__log.push('search-clicked');return 'ok'}window.__log.push('no-btn');return 'no'})()`
     },
     { wait: 12000 },
-    // Step 5: Debug diagnostics
     {
-      evaluate: `(()=>{var inputs=document.querySelectorAll('input[formcontrolname]');var vals={};inputs.forEach(function(i){vals[i.getAttribute('formcontrolname')]=i.value});var dropdowns=document.querySelectorAll('.p-dropdown-label');var ddVals=[];dropdowns.forEach(function(d){ddVals.push(d.textContent.trim())});var hasTable=!!document.querySelector('.p-datatable,.p-table,table');var noResult=document.body.innerText.includes('لا توجد أية نتيجة');var bodyText=document.body.innerText.substring(0,800);var div=document.createElement('div');div.id='__debug__';div.style.display='none';div.setAttribute('data-debug',JSON.stringify({inputValues:vals,dropdownValues:ddVals,hasTable:hasTable,noResult:noResult,bodySnippet:bodyText.substring(0,300)}));document.body.appendChild(div);return 'injected'})()`
+      evaluate: `(()=>{var inputs=document.querySelectorAll('input[formcontrolname]');var vals={};inputs.forEach(function(i){vals[i.getAttribute('formcontrolname')]=i.value});var dds=document.querySelectorAll('.p-dropdown-label');var ddVals=[];dds.forEach(function(d){ddVals.push(d.textContent.trim())});var div=document.createElement('div');div.id='__debug__';div.style.display='none';div.setAttribute('data-debug',JSON.stringify({steps:window.__log||[],inputValues:vals,dropdownValues:ddVals,hasTable:!!document.querySelector('.p-datatable,table'),noResult:document.body.innerText.includes('لا توجد أية نتيجة'),bodySnippet:document.body.innerText.substring(0,300)}));document.body.appendChild(div);return 'done'})()`
     },
   );
 
