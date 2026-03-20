@@ -4,17 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { Loader2, RefreshCw, ExternalLink, CheckCircle2, XCircle, Clock, AlertTriangle, Info } from 'lucide-react';
 import { SyncJob } from '@/hooks/useMahakimSync';
 import { formatDistanceToNow } from 'date-fns';
 import { ar } from 'date-fns/locale';
-import {
-  parseCaseNumber,
-  resolvePortalCourts,
-  getCategoryFromCode,
-  type CourtCategory,
-} from '@/lib/court-mapping';
+import { resolvePortalCourts, parseCaseNumber } from '@/lib/court-mapping';
+import { CaseNumberInput } from '@/components/cases/CaseNumberInput';
 
 interface MahakimSyncStatusProps {
   caseNumber: string;
@@ -33,12 +28,6 @@ const statusConfig: Record<string, { label: string; icon: React.ReactNode; color
   failed: { label: 'فشل', icon: <XCircle className="h-3.5 w-3.5" />, color: 'text-destructive' },
 };
 
-const categoryLabels: Record<CourtCategory, string> = {
-  civil: 'مدني / جنائي / أسري',
-  commercial: 'تجاري',
-  administrative: 'إداري',
-};
-
 export const MahakimSyncStatus = ({
   caseNumber,
   courtName,
@@ -52,32 +41,28 @@ export const MahakimSyncStatus = ({
   const isActive = syncing || latestJob?.status === 'pending' || latestJob?.status === 'scraping';
 
   const [dialogOpen, setDialogOpen] = useState(false);
-
-  // Parse case number into 3 parts
-  const parsed = useMemo(() => parseCaseNumber(caseNumber), [caseNumber]);
-
-  // Override fields for sync dialog
-  const [numero, setNumero] = useState('');
-  const [code, setCode] = useState('');
-  const [annee, setAnnee] = useState('');
+  const [caseNumRaw, setCaseNumRaw] = useState('');
 
   // Auto-resolve courts from stored court name
-  const resolved = useMemo(() => resolvePortalCourts(courtName, code), [courtName, code]);
-  const codeCategory = useMemo(() => getCategoryFromCode(code), [code]);
+  const parsedCode = useMemo(() => {
+    const parts = caseNumRaw.split('/');
+    return parts[1] || '';
+  }, [caseNumRaw]);
+  const resolved = useMemo(() => resolvePortalCourts(courtName, parsedCode), [courtName, parsedCode]);
 
   const handleOpenDialog = () => {
-    setNumero(parsed.numero);
-    setCode(parsed.code);
-    setAnnee(parsed.annee);
+    setCaseNumRaw(caseNumber || '');
     setDialogOpen(true);
   };
 
   const isFormValid = useMemo(() => {
-    return numero.trim() !== '' &&
-      code.length === 4 && /^\d{4}$/.test(code) &&
-      annee.length === 4 && /^\d{4}$/.test(annee) &&
+    const parts = caseNumRaw.split('/');
+    return parts.length === 3 &&
+      parts[0].trim() !== '' &&
+      parts[1].trim().length === 4 && /^\d{4}$/.test(parts[1].trim()) &&
+      parts[2].trim().length === 4 && /^\d{4}$/.test(parts[2].trim()) &&
       resolved.appealPortalLabel !== null;
-  }, [numero, code, annee, resolved.appealPortalLabel]);
+  }, [caseNumRaw, resolved.appealPortalLabel]);
 
   const handleConfirmSync = () => {
     if (!isFormValid || !resolved.appealPortalLabel) return;
@@ -114,58 +99,21 @@ export const MahakimSyncStatus = ({
         <DialogContent className="max-w-md" dir="rtl">
           <DialogHeader>
             <DialogTitle>مزامنة الملف من بوابة محاكم</DialogTitle>
-            <DialogDescription>تأكد من بيانات الملف قبل المزامنة</DialogDescription>
+            <DialogDescription>تأكد من رقم الملف قبل المزامنة</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            {/* 3-field case number input */}
+            {/* Single smart case number input */}
             <div className="space-y-2">
               <Label className="font-medium">رقم الملف *</Label>
-              <div className="grid grid-cols-3 gap-2" dir="ltr">
-                <div>
-                  <Label className="text-[10px] text-muted-foreground">رقم الملف</Label>
-                  <Input
-                    value={numero}
-                    onChange={e => setNumero(e.target.value.replace(/\D/g, ''))}
-                    placeholder="مثال: 1"
-                    className="text-center font-mono"
-                    dir="ltr"
-                    autoFocus
-                  />
-                </div>
-                <div>
-                  <Label className="text-[10px] text-muted-foreground">رمز الملف (4 أرقام)</Label>
-                  <Input
-                    value={code}
-                    onChange={e => {
-                      const v = e.target.value.replace(/\D/g, '').slice(0, 4);
-                      setCode(v);
-                    }}
-                    placeholder="1401"
-                    className={`text-center font-mono ${code.length > 0 && code.length !== 4 ? 'border-destructive' : ''}`}
-                    dir="ltr"
-                    maxLength={4}
-                  />
-                </div>
-                <div>
-                  <Label className="text-[10px] text-muted-foreground">سنة الملف (4 أرقام)</Label>
-                  <Input
-                    value={annee}
-                    onChange={e => {
-                      const v = e.target.value.replace(/\D/g, '').slice(0, 4);
-                      setAnnee(v);
-                    }}
-                    placeholder="2025"
-                    className={`text-center font-mono ${annee.length > 0 && annee.length !== 4 ? 'border-destructive' : ''}`}
-                    dir="ltr"
-                    maxLength={4}
-                  />
-                </div>
-              </div>
-              {code.length === 4 && (
-                <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                  النوع المكتشف: <Badge variant="outline" className="text-[10px] px-1.5 py-0">{categoryLabels[codeCategory]}</Badge>
-                </p>
-              )}
+              <CaseNumberInput
+                value={caseNumRaw}
+                onChange={setCaseNumRaw}
+                autoFocus
+                placeholder="رقم/رمز/سنة — مثال: 1/1401/2025"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                اكتب الرقم ثم / ثم الرمز (4 أرقام) ثم السنة
+              </p>
             </div>
 
             {/* Auto-resolved court info */}
@@ -186,14 +134,13 @@ export const MahakimSyncStatus = ({
               </div>
             )}
 
-            {/* Court not resolved warning */}
             {!resolved.appealPortalLabel && courtName && (
               <div className="flex items-start gap-2 p-2.5 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
                 <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                 <div className="text-xs">
                   <p className="font-medium text-amber-700 dark:text-amber-400">لم يتم التعرف على المحكمة</p>
                   <p className="text-muted-foreground">
-                    المحكمة المسجلة "{courtName}" غير موجودة في خريطة المحاكم. تأكد من اختيار المحكمة الصحيحة في بيانات الملف.
+                    المحكمة المسجلة "{courtName}" غير موجودة في خريطة المحاكم.
                   </p>
                 </div>
               </div>
@@ -203,7 +150,7 @@ export const MahakimSyncStatus = ({
               <div className="flex items-start gap-2 p-2.5 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
                 <Info className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                 <p className="text-xs text-amber-700 dark:text-amber-400">
-                  يرجى تحديد المحكمة في بيانات الملف أولاً ليتم اكتشاف محكمة الاستئناف تلقائياً.
+                  يرجى تحديد المحكمة في بيانات الملف أولاً.
                 </p>
               </div>
             )}

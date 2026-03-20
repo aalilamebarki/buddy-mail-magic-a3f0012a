@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useClients } from '@/hooks/useClients';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { CaseNumberInput } from '@/components/cases/CaseNumberInput';
 
 /* ─── Types ─── */
 export interface Opponent {
@@ -34,13 +35,11 @@ export interface CaseForm {
   description: string;
   client_id: string;
   court: string;
-  case_numero: string;
-  case_code: string;
-  case_annee: string;
+  case_number_raw: string; // composite "numero/code/annee"
 }
 
 /* ─── Constants ─── */
-const emptyForm: CaseForm = { title: '', case_type: '', description: '', client_id: '', court: '', case_numero: '', case_code: '', case_annee: '' };
+const emptyForm: CaseForm = { title: '', case_type: '', description: '', client_id: '', court: '', case_number_raw: '' };
 const emptyOpponent: Opponent = { name: '', address: '', phone: '' };
 const NIYABA = 'النيابة العامة';
 const HIDDEN_ADDRESS_PARTIES = [NIYABA, 'قاضي التوثيق', 'قاضي شؤون القاصرين'];
@@ -94,16 +93,13 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
   useEffect(() => {
     if (!open) return;
     if (editingCase) {
-      const parsed = editingCase.case_number ? editingCase.case_number.split('/') : ['', '', ''];
       setForm({
         title: editingCase.title || '',
         case_type: editingCase.case_type || '',
         description: editingCase.description || '',
         client_id: editingCase.client_id || '',
         court: editingCase.court || '',
-        case_numero: parsed[0] || '',
-        case_code: parsed[1] || '',
-        case_annee: parsed[2] || '',
+        case_number_raw: editingCase.case_number || '',
       });
       // Load opponents
       supabase.from('case_opponents').select('*').eq('case_id', editingCase.id).order('sort_order').then(({ data }) => {
@@ -251,9 +247,9 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
         opposingSummary = NIYABA;
       }
 
-      const caseNum = (form.case_numero.trim() && form.case_code.trim() && form.case_annee.trim())
-        ? `${form.case_numero.trim()}/${form.case_code.trim()}/${form.case_annee.trim()}`
-        : null;
+      const cnParts = form.case_number_raw.split('/');
+      const hasFullNumber = cnParts.length === 3 && cnParts[0].trim() && cnParts[1].trim().length === 4 && cnParts[2].trim().length === 4;
+      const caseNum = hasFullNumber ? form.case_number_raw.trim() : null;
       const payload = {
         title: form.title.trim(),
         case_type: form.case_type,
@@ -359,45 +355,16 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
               <Input value={form.title} onChange={e => updateField('title', e.target.value)} placeholder="مثال: نزاع عقاري - الدار البيضاء" />
             </div>
 
-            {/* Case Number — 3 fields */}
+            {/* Case Number — single smart input */}
             <div className="space-y-2">
               <Label>رقم الملف</Label>
-              <div className="grid grid-cols-3 gap-2" dir="ltr">
-                <div>
-                  <Label className="text-[10px] text-muted-foreground">الرقم</Label>
-                  <Input
-                    value={form.case_numero}
-                    onChange={e => updateField('case_numero', e.target.value.replace(/\D/g, ''))}
-                    placeholder="1"
-                    className="text-center font-mono"
-                    dir="ltr"
-                  />
-                </div>
-                <div>
-                  <Label className="text-[10px] text-muted-foreground">الرمز (4 أرقام)</Label>
-                  <Input
-                    value={form.case_code}
-                    onChange={e => updateField('case_code', e.target.value.replace(/\D/g, '').slice(0, 4))}
-                    placeholder="1401"
-                    className={`text-center font-mono ${form.case_code.length > 0 && form.case_code.length !== 4 ? 'border-destructive' : ''}`}
-                    dir="ltr"
-                    maxLength={4}
-                  />
-                </div>
-                <div>
-                  <Label className="text-[10px] text-muted-foreground">السنة (4 أرقام)</Label>
-                  <Input
-                    value={form.case_annee}
-                    onChange={e => updateField('case_annee', e.target.value.replace(/\D/g, '').slice(0, 4))}
-                    placeholder="2025"
-                    className={`text-center font-mono ${form.case_annee.length > 0 && form.case_annee.length !== 4 ? 'border-destructive' : ''}`}
-                    dir="ltr"
-                    maxLength={4}
-                  />
-                </div>
-              </div>
+              <CaseNumberInput
+                value={form.case_number_raw}
+                onChange={v => updateField('case_number_raw', v)}
+                placeholder="رقم/رمز/سنة — مثال: 1/1401/2025"
+              />
               <p className="text-[10px] text-muted-foreground">
-                إذا أدخلت رقم الملف كاملاً، سيتم جلب الإجراءات والجلسات تلقائياً من بوابة محاكم
+                اكتب الرقم ثم / ثم الرمز (4 أرقام) ثم السنة — السلاش يُضاف تلقائياً بعد الرمز
               </p>
             </div>
 
