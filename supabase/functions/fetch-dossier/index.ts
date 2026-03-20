@@ -250,12 +250,269 @@ async function resolveCourtForCase(
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   Build ScrapingBee js_scenario for form filling
+   Build Firecrawl actions for form filling
    
-   TESTED format — uses only valid ScrapingBee instructions:
-   - { wait: ms }
-   - { click: "selector" }
-   - { evaluate: "js expression" }
+   Firecrawl actions: click, write, wait, screenshot, scrape
+   This is the PRIMARY path — no monthly limits like ScrapingBee
+   ══════════════════════════════════════════════════════════════════ */
+function buildFirecrawlActions(numero: string, code: string, annee: string, appealCourt?: string, firstInstanceCourt?: string) {
+  const actions: Array<Record<string, unknown>> = [
+    // Wait for Angular app to load
+    { type: 'wait', milliseconds: 5000 },
+    // Fill the code field (mark) — this triggers appeal court dropdown loading
+    { type: 'click', selector: 'input[formcontrolname="mark"]' },
+    { type: 'write', text: code },
+    { type: 'wait', milliseconds: 3000 },
+    // Fill numero
+    { type: 'click', selector: 'input[formcontrolname="numero"]' },
+    { type: 'write', text: numero },
+    // Fill annee
+    { type: 'click', selector: 'input[formcontrolname="annee"]' },
+    { type: 'write', text: annee },
+    { type: 'wait', milliseconds: 2000 },
+  ];
+
+  // If appeal court specified, select it from dropdown
+  if (appealCourt) {
+    // Click the first p-dropdown trigger to open appeal court list
+    actions.push({ type: 'click', selector: 'p-dropdown .p-dropdown-trigger' });
+    actions.push({ type: 'wait', milliseconds: 1500 });
+    // Type in the filter to find the court
+    actions.push({ type: 'click', selector: '.p-dropdown-filter' });
+    actions.push({ type: 'write', text: appealCourt });
+    actions.push({ type: 'wait', milliseconds: 1000 });
+    // Click the first matching item
+    actions.push({ type: 'click', selector: '.p-dropdown-items li' });
+    actions.push({ type: 'wait', milliseconds: 1500 });
+  }
+
+  // If primary court specified, check the checkbox and select
+  if (firstInstanceCourt) {
+    // Click the checkbox "هل تريد البحث بالمحاكم الابتدائية"
+    actions.push({ type: 'click', selector: 'p-checkbox .p-checkbox-box' });
+    actions.push({ type: 'wait', milliseconds: 2500 });
+    // Click the second dropdown (primary courts)
+    actions.push({ type: 'click', selector: 'p-dropdown:nth-of-type(2) .p-dropdown-trigger' });
+    actions.push({ type: 'wait', milliseconds: 1500 });
+    // Filter for the primary court
+    actions.push({ type: 'click', selector: '.p-dropdown-filter' });
+    actions.push({ type: 'write', text: firstInstanceCourt });
+    actions.push({ type: 'wait', milliseconds: 1000 });
+    actions.push({ type: 'click', selector: '.p-dropdown-items li' });
+    actions.push({ type: 'wait', milliseconds: 1500 });
+  }
+
+  // Click the search button
+  actions.push({ type: 'click', selector: 'button' });
+  actions.push({ type: 'wait', milliseconds: 8000 });
+  // Scrape the results
+  actions.push({ type: 'scrape' });
+
+  return actions;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Fetch case via Firecrawl (PRIMARY PATH — no monthly call limits)
+   ══════════════════════════════════════════════════════════════════ */
+async function fetchViaFirecrawl(
+  apiKey: string,
+  input: CaseInput,
+  appealCourt?: string,
+  firstInstanceCourt?: string,
+): Promise<CaseResult | null> {
+  const caseLabel = `${input.numero}/${input.code}/${input.annee}`;
+  const start = Date.now();
+  log(`🔥 [Firecrawl] Starting fetch for ${caseLabel}`);
+
+  const actions = buildFirecrawlActions(input.numero, input.code, input.annee, appealCourt, firstInstanceCourt);
+
+  try {
+    const resp = await fetch('https://api.firecrawl.dev/v1/scrape', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url: 'https://www.mahakim.ma/#/suivi/dossier-suivi',
+        formats: ['html', 'markdown'],
+        actions,
+        waitFor: 5000,
+        timeout: 60000,
+      }),
+      signal: AbortSignal.timeout(90000),
+    });
+
+    const elapsed = Date.now() - start;
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      log(`🔥 [Firecrawl] ${caseLabel}: HTTP ${resp.status} (${elapsed}ms) — ${errText.substring(0, 200)}`);
+      return null; // Signal to try ScrapingBee fallback
+    }
+
+    const data = await resp.json();
+    log(`🔥 [Firecrawl] ${caseLabel}: success (${elapsed}ms)`);
+
+    const html = data?.data?.html || '';
+    const markdown = data?.data?.markdown || '';
+
+    if (!html && !markdown) {
+      log(`🔥 [Firecrawl] ${caseLabel}: empty response`);
+      return null;
+    }
+
+    // Check for no results
+    if (html.includes('لا توجد أية نتيجة') || markdown.includes('لا توجد')) {
+      log(`🔥 [Firecrawl] ${caseLabel}: no results found`);
+      return {
+        ...input,
+        status: 'no_data',
+        caseInfo: {},
+        procedures: [],
+        nextSessionDate: null,
+        error: 'لم يتم العثور على بيانات — تأكد من صحة رقم الملف واختيار المحكمة',
+      };
+    }
+
+    // Parse the HTML for case data
+    const parsed = parseHtmlFallback(html);
+    
+    // Also try parsing from markdown (often cleaner)
+    if (!parsed.hasData && markdown) {
+      const mdParsed = parseMarkdownResult(markdown);
+      if (mdParsed.hasData) {
+        log(`🔥 [Firecrawl] ${caseLabel}: extracted from markdown — ${Object.keys(mdParsed.caseInfo).length} fields, ${mdParsed.procedures.length} procedures`);
+        
+        const now = new Date();
+        let nextSessionDate: string | null = null;
+        for (const proc of mdParsed.procedures) {
+          const d = proc.next_session_date;
+          if (d && /\d{2}\/\d{2}\/\d{4}/.test(d)) {
+            const [day, month, year] = d.split('/');
+            const dateObj = new Date(`${year}-${month}-${day}`);
+            if (dateObj >= now && (!nextSessionDate || dateObj < new Date(nextSessionDate))) {
+              nextSessionDate = `${year}-${month}-${day}`;
+            }
+          }
+        }
+
+        return {
+          ...input,
+          status: 'success',
+          caseInfo: mdParsed.caseInfo,
+          procedures: mdParsed.procedures,
+          nextSessionDate,
+        };
+      }
+    }
+
+    if (parsed.hasData) {
+      log(`🔥 [Firecrawl] ${caseLabel}: extracted from HTML — ${Object.keys(parsed.caseInfo).length} fields`);
+      
+      const now = new Date();
+      let nextSessionDate: string | null = null;
+      for (const proc of parsed.procedures) {
+        const d = proc.next_session_date;
+        if (d && /\d{2}\/\d{2}\/\d{4}/.test(d)) {
+          const [day, month, year] = d.split('/');
+          const dateObj = new Date(`${year}-${month}-${day}`);
+          if (dateObj >= now && (!nextSessionDate || dateObj < new Date(nextSessionDate))) {
+            nextSessionDate = `${year}-${month}-${day}`;
+          }
+        }
+      }
+
+      return {
+        ...input,
+        status: 'success',
+        caseInfo: parsed.caseInfo,
+        procedures: parsed.procedures,
+        nextSessionDate,
+      };
+    }
+
+    log(`🔥 [Firecrawl] ${caseLabel}: no data extracted from ${html.length} chars HTML + ${markdown.length} chars MD`);
+    return null; // Fall through to ScrapingBee
+
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown';
+    log(`🔥 [Firecrawl] ${caseLabel}: error — ${msg}`);
+    return null; // Fall through to ScrapingBee
+  }
+}
+
+/* ── Parse markdown results from Firecrawl ── */
+function parseMarkdownResult(markdown: string): {
+  caseInfo: Record<string, string>;
+  procedures: Array<Record<string, string>>;
+  hasData: boolean;
+} {
+  const caseInfo: Record<string, string> = {};
+  const procedures: Array<Record<string, string>> = [];
+
+  // Parse table-like patterns from markdown
+  // Pattern: "| المحكمة | المحكمة الابتدائية بتمارة |"
+  // Or: "المحكمة: المحكمة الابتدائية بتمارة"
+  const fieldMap: [string, string[]][] = [
+    ['court', ['المحكمة']],
+    ['judge', ['القاضي المقرر', 'المستشار', 'القاضي']],
+    ['department', ['الشعبة']],
+    ['case_type', ['نوع الملف', 'نوع القضية']],
+    ['status', ['الحالة']],
+    ['registration_date', ['تاريخ التسجيل']],
+    ['national_number', ['الرقم الوطني']],
+    ['subject', ['الموضوع']],
+    ['last_decision', ['آخر حكم', 'أخر حكم']],
+  ];
+
+  for (const [key, labels] of fieldMap) {
+    for (const label of labels) {
+      // Try table format: | label | value |
+      const tableRegex = new RegExp(`\\|\\s*${label}\\s*\\|\\s*([^|]+)\\|`);
+      const tableMatch = markdown.match(tableRegex);
+      if (tableMatch) {
+        const val = tableMatch[1].trim();
+        if (val && val !== label && val.length > 1) {
+          caseInfo[key] = val;
+          break;
+        }
+      }
+      // Try colon format: label: value or label : value
+      const colonRegex = new RegExp(`${label}\\s*[:|]\\s*([^\\n|]{2,100})`);
+      const colonMatch = markdown.match(colonRegex);
+      if (colonMatch) {
+        const val = colonMatch[1].trim();
+        if (val && val !== label) {
+          caseInfo[key] = val;
+          break;
+        }
+      }
+    }
+  }
+
+  // Parse procedures table
+  // Look for rows with date patterns
+  const procRegex = /\|\s*(\d{2}\/\d{2}\/\d{4}[\s\d:]*)\s*\|\s*([^|]+)\|\s*([^|]*)\|\s*(\d{2}\/\d{2}\/\d{4}[\s\d:]*)?/g;
+  let procMatch;
+  while ((procMatch = procRegex.exec(markdown)) !== null) {
+    procedures.push({
+      action_date: procMatch[1]?.trim().substring(0, 10) || '',
+      action_type: procMatch[2]?.trim() || '',
+      decision: procMatch[3]?.trim() || '',
+      next_session_date: procMatch[4]?.trim().substring(0, 10) || '',
+    });
+  }
+
+  return {
+    caseInfo,
+    procedures,
+    hasData: Object.keys(caseInfo).length > 0,
+  };
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Build ScrapingBee js_scenario for form filling (FALLBACK PATH)
    ══════════════════════════════════════════════════════════════════ */
 function buildJsScenario(numero: string, code: string, annee: string, appealCourt?: string, firstInstanceCourt?: string) {
   const esc = (value?: string) => (value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
