@@ -38,6 +38,7 @@ const CourtSessions = () => {
   const { sessions, loading: sessionsLoading, refetch: refetchSessions } = useSessions();
   const { cases, loading: casesLoading, refetch: refetchCases } = useCases({ status: 'active' });
   const loading = sessionsLoading || casesLoading;
+  const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
 
   const fetchData = () => { refetchSessions(); refetchCases(); };
 
