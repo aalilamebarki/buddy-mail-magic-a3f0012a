@@ -54,7 +54,10 @@ export const KNOWN_CIVIL_CODES = [
    ══════════════════════════════════════════════════════════════════ */
 
 export const COURT_HIERARCHY: AppellateCourt[] = [
-  // ─────────── CIVIL / STANDARD APPELLATE COURTS ───────────
+  // ═══════════════════════════════════════════════════════════
+  // CIVIL / STANDARD APPELLATE COURTS (22)
+  // Source: مرسوم 2.23.665 — الجدول رقم 1
+  // ═══════════════════════════════════════════════════════════
   {
     label: 'محكمة الاستئناف بالرباط',
     portalLabel: 'الرباط',
@@ -63,11 +66,25 @@ export const COURT_HIERARCHY: AppellateCourt[] = [
       { label: 'المحكمة الابتدائية بالرباط', portalLabel: 'الرباط' },
       { label: 'المحكمة الابتدائية بتمارة', portalLabel: 'تمارة' },
       { label: 'المحكمة الابتدائية بسلا', portalLabel: 'سلا' },
-      { label: 'المحكمة الابتدائية بالرماني', portalLabel: 'الرماني' },
       { label: 'المحكمة الابتدائية بالخميسات', portalLabel: 'الخميسات' },
+      { label: 'المحكمة الابتدائية بتيفلت', portalLabel: 'تيفلت' },
+      { label: 'المحكمة الابتدائية بالرماني', portalLabel: 'الرماني' },
       { label: 'قسم قضاء الأسرة بالرباط', portalLabel: 'قسم قضاء الأسرة بالرباط' },
       { label: 'قسم قضاء الأسرة بسلا', portalLabel: 'قسم قضاء الأسرة بسلا' },
       { label: 'قسم قضاء الأسرة بالخميسات', portalLabel: 'قسم قضاء الأسرة بالخميسات' },
+    ],
+  },
+  {
+    label: 'محكمة الاستئناف بالقنيطرة',
+    portalLabel: 'القنيطرة',
+    category: 'civil',
+    primaryCourts: [
+      { label: 'المحكمة الابتدائية بالقنيطرة', portalLabel: 'القنيطرة' },
+      { label: 'المحكمة الابتدائية بسيدي قاسم', portalLabel: 'سيدي قاسم' },
+      { label: 'المحكمة الابتدائية بمشرع بلقصيري', portalLabel: 'مشرع بلقصيري' },
+      { label: 'المحكمة الابتدائية بسيدي سليمان', portalLabel: 'سيدي سليمان' },
+      { label: 'المحكمة الابتدائية بسوق أربعاء الغرب', portalLabel: 'سوق أربعاء الغرب' },
+      { label: 'قسم قضاء الأسرة بالقنيطرة', portalLabel: 'قسم قضاء الأسرة بالقنيطرة' },
     ],
   },
   {
@@ -78,12 +95,20 @@ export const COURT_HIERARCHY: AppellateCourt[] = [
       { label: 'المحكمة الابتدائية المدنية بالدار البيضاء', portalLabel: 'المدنية بالدار البيضاء' },
       { label: 'المحكمة الابتدائية الزجرية بالدار البيضاء', portalLabel: 'الزجرية بالدار البيضاء' },
       { label: 'المحكمة الاجتماعية بالدار البيضاء', portalLabel: 'الاجتماعية بالدار البيضاء' },
-      { label: 'المحكمة الابتدائية عين السبع', portalLabel: 'عين السبع' },
-      { label: 'المحكمة الابتدائية بن مسيك', portalLabel: 'بن مسيك' },
       { label: 'المحكمة الابتدائية بالمحمدية', portalLabel: 'المحمدية' },
       { label: 'المحكمة الابتدائية ببنسليمان', portalLabel: 'بنسليمان' },
-      { label: 'المحكمة الابتدائية ببرشيد', portalLabel: 'برشيد' },
+      { label: 'المحكمة الابتدائية ببوزنيقة', portalLabel: 'بوزنيقة' },
       { label: 'قسم قضاء الأسرة بالدار البيضاء', portalLabel: 'قسم قضاء الأسرة بالدار البيضاء' },
+    ],
+  },
+  {
+    label: 'محكمة الاستئناف بالجديدة',
+    portalLabel: 'الجديدة',
+    category: 'civil',
+    primaryCourts: [
+      { label: 'المحكمة الابتدائية بالجديدة', portalLabel: 'الجديدة' },
+      { label: 'المحكمة الابتدائية بسيدي بنور', portalLabel: 'سيدي بنور' },
+      { label: 'قسم قضاء الأسرة بالجديدة', portalLabel: 'قسم قضاء الأسرة بالجديدة' },
     ],
   },
   {
@@ -92,10 +117,20 @@ export const COURT_HIERARCHY: AppellateCourt[] = [
     category: 'civil',
     primaryCourts: [
       { label: 'المحكمة الابتدائية بفاس', portalLabel: 'فاس' },
+      { label: 'المحكمة الابتدائية بتاونات', portalLabel: 'تاونات' },
       { label: 'المحكمة الابتدائية بصفرو', portalLabel: 'صفرو' },
       { label: 'المحكمة الابتدائية ببولمان', portalLabel: 'بولمان' },
-      { label: 'المحكمة الابتدائية بمولاي يعقوب', portalLabel: 'مولاي يعقوب' },
       { label: 'قسم قضاء الأسرة بفاس', portalLabel: 'قسم قضاء الأسرة بفاس' },
+    ],
+  },
+  {
+    label: 'محكمة الاستئناف بتازة',
+    portalLabel: 'تازة',
+    category: 'civil',
+    primaryCourts: [
+      { label: 'المحكمة الابتدائية بتازة', portalLabel: 'تازة' },
+      { label: 'المحكمة الابتدائية بجرسيف', portalLabel: 'جرسيف' },
+      { label: 'قسم قضاء الأسرة بتازة', portalLabel: 'قسم قضاء الأسرة بتازة' },
     ],
   },
   {
@@ -104,12 +139,34 @@ export const COURT_HIERARCHY: AppellateCourt[] = [
     category: 'civil',
     primaryCourts: [
       { label: 'المحكمة الابتدائية بمراكش', portalLabel: 'مراكش' },
-      { label: 'المحكمة الابتدائية بابن جرير', portalLabel: 'ابن جرير' },
-      { label: 'المحكمة الابتدائية بقلعة السراغنة', portalLabel: 'قلعة السراغنة' },
-      { label: 'المحكمة الابتدائية بالصويرة', portalLabel: 'الصويرة' },
-      { label: 'المحكمة الابتدائية بالحوز', portalLabel: 'الحوز' },
+      { label: 'المحكمة الابتدائية بتحناوت', portalLabel: 'تحناوت' },
       { label: 'المحكمة الابتدائية بشيشاوة', portalLabel: 'شيشاوة' },
+      { label: 'المحكمة الابتدائية بامنتانوت', portalLabel: 'امنتانوت' },
+      { label: 'المحكمة الابتدائية بقلعة السراغنة', portalLabel: 'قلعة السراغنة' },
+      { label: 'المحكمة الابتدائية بابن جرير', portalLabel: 'ابن جرير' },
       { label: 'قسم قضاء الأسرة بمراكش', portalLabel: 'قسم قضاء الأسرة بمراكش' },
+    ],
+  },
+  {
+    label: 'محكمة الاستئناف بورزازات',
+    portalLabel: 'ورزازات',
+    category: 'civil',
+    primaryCourts: [
+      { label: 'المحكمة الابتدائية بورزازات', portalLabel: 'ورزازات' },
+      { label: 'المحكمة الابتدائية بزاكورة', portalLabel: 'زاكورة' },
+      { label: 'المحكمة الابتدائية بتنغير', portalLabel: 'تنغير' },
+      { label: 'قسم قضاء الأسرة بورزازات', portalLabel: 'قسم قضاء الأسرة بورزازات' },
+    ],
+  },
+  {
+    label: 'محكمة الاستئناف بآسفي',
+    portalLabel: 'آسفي',
+    category: 'civil',
+    primaryCourts: [
+      { label: 'المحكمة الابتدائية بآسفي', portalLabel: 'آسفي' },
+      { label: 'المحكمة الابتدائية باليوسفية', portalLabel: 'اليوسفية' },
+      { label: 'المحكمة الابتدائية بالصويرة', portalLabel: 'الصويرة' },
+      { label: 'قسم قضاء الأسرة بآسفي', portalLabel: 'قسم قضاء الأسرة بآسفي' },
     ],
   },
   {
@@ -118,10 +175,60 @@ export const COURT_HIERARCHY: AppellateCourt[] = [
     category: 'civil',
     primaryCourts: [
       { label: 'المحكمة الابتدائية بمكناس', portalLabel: 'مكناس' },
-      { label: 'المحكمة الابتدائية بإفران', portalLabel: 'إفران' },
-      { label: 'المحكمة الابتدائية بالحاجب', portalLabel: 'الحاجب' },
       { label: 'المحكمة الابتدائية بأزرو', portalLabel: 'أزرو' },
+      { label: 'المحكمة الابتدائية بالحاجب', portalLabel: 'الحاجب' },
+      { label: 'المحكمة الابتدائية بإفران', portalLabel: 'إفران' },
       { label: 'قسم قضاء الأسرة بمكناس', portalLabel: 'قسم قضاء الأسرة بمكناس' },
+    ],
+  },
+  {
+    label: 'محكمة الاستئناف بالراشيدية',
+    portalLabel: 'الراشيدية',
+    category: 'civil',
+    primaryCourts: [
+      { label: 'المحكمة الابتدائية بالراشيدية', portalLabel: 'الراشيدية' },
+      { label: 'المحكمة الابتدائية بأرفود', portalLabel: 'أرفود' },
+      { label: 'المحكمة الابتدائية بميدلت', portalLabel: 'ميدلت' },
+      { label: 'المحكمة الابتدائية بالريش', portalLabel: 'الريش' },
+      { label: 'قسم قضاء الأسرة بالراشيدية', portalLabel: 'قسم قضاء الأسرة بالراشيدية' },
+    ],
+  },
+  {
+    label: 'محكمة الاستئناف بأكادير',
+    portalLabel: 'أكادير',
+    category: 'civil',
+    primaryCourts: [
+      { label: 'المحكمة الابتدائية بأكادير', portalLabel: 'أكادير' },
+      { label: 'المحكمة الابتدائية بإنزكان', portalLabel: 'إنزكان' },
+      { label: 'المحكمة الابتدائية ببيوكرى', portalLabel: 'بيوكرى' },
+      { label: 'المحكمة الابتدائية بتارودانت', portalLabel: 'تارودانت' },
+      { label: 'المحكمة الابتدائية بتيزنيت', portalLabel: 'تيزنيت' },
+      { label: 'المحكمة الابتدائية بطاطا', portalLabel: 'طاطا' },
+      { label: 'قسم قضاء الأسرة بأكادير', portalLabel: 'قسم قضاء الأسرة بأكادير' },
+    ],
+  },
+  {
+    label: 'محكمة الاستئناف بكلميم',
+    portalLabel: 'كلميم',
+    category: 'civil',
+    primaryCourts: [
+      { label: 'المحكمة الابتدائية بكلميم', portalLabel: 'كلميم' },
+      { label: 'المحكمة الابتدائية بطانطان', portalLabel: 'طانطان' },
+      { label: 'المحكمة الابتدائية بأسا الزاك', portalLabel: 'أسا الزاك' },
+      { label: 'المحكمة الابتدائية بسيدي إفني', portalLabel: 'سيدي إفني' },
+      { label: 'قسم قضاء الأسرة بكلميم', portalLabel: 'قسم قضاء الأسرة بكلميم' },
+    ],
+  },
+  {
+    label: 'محكمة الاستئناف بالعيون',
+    portalLabel: 'العيون',
+    category: 'civil',
+    primaryCourts: [
+      { label: 'المحكمة الابتدائية بالعيون', portalLabel: 'العيون' },
+      { label: 'المحكمة الابتدائية ببوجدور', portalLabel: 'بوجدور' },
+      { label: 'المحكمة الابتدائية بالسمارة', portalLabel: 'السمارة' },
+      { label: 'المحكمة الابتدائية بالداخلة', portalLabel: 'الداخلة' },
+      { label: 'قسم قضاء الأسرة بالعيون', portalLabel: 'قسم قضاء الأسرة بالعيون' },
     ],
   },
   {
@@ -137,50 +244,14 @@ export const COURT_HIERARCHY: AppellateCourt[] = [
     ],
   },
   {
-    label: 'محكمة الاستئناف بوجدة',
-    portalLabel: 'وجدة',
-    category: 'civil',
-    primaryCourts: [
-      { label: 'المحكمة الابتدائية بوجدة', portalLabel: 'وجدة' },
-      { label: 'المحكمة الابتدائية ببركان', portalLabel: 'بركان' },
-      { label: 'المحكمة الابتدائية بجرادة', portalLabel: 'جرادة' },
-      { label: 'المحكمة الابتدائية بفجيج', portalLabel: 'فجيج' },
-      { label: 'المحكمة الابتدائية بتاوريرت', portalLabel: 'تاوريرت' },
-      { label: 'قسم قضاء الأسرة بوجدة', portalLabel: 'قسم قضاء الأسرة بوجدة' },
-    ],
-  },
-  {
-    label: 'محكمة الاستئناف بأكادير',
-    portalLabel: 'أكادير',
-    category: 'civil',
-    primaryCourts: [
-      { label: 'المحكمة الابتدائية بأكادير', portalLabel: 'أكادير' },
-      { label: 'المحكمة الابتدائية بإنزكان', portalLabel: 'إنزكان' },
-      { label: 'المحكمة الابتدائية بتارودانت', portalLabel: 'تارودانت' },
-      { label: 'المحكمة الابتدائية بتيزنيت', portalLabel: 'تيزنيت' },
-      { label: 'قسم قضاء الأسرة بأكادير', portalLabel: 'قسم قضاء الأسرة بأكادير' },
-    ],
-  },
-  {
-    label: 'محكمة الاستئناف بالقنيطرة',
-    portalLabel: 'القنيطرة',
-    category: 'civil',
-    primaryCourts: [
-      { label: 'المحكمة الابتدائية بالقنيطرة', portalLabel: 'القنيطرة' },
-      { label: 'المحكمة الابتدائية بسيدي قاسم', portalLabel: 'سيدي قاسم' },
-      { label: 'المحكمة الابتدائية بسيدي سليمان', portalLabel: 'سيدي سليمان' },
-      { label: 'المحكمة الابتدائية بسوق أربعاء الغرب', portalLabel: 'سوق أربعاء الغرب' },
-      { label: 'قسم قضاء الأسرة بالقنيطرة', portalLabel: 'قسم قضاء الأسرة بالقنيطرة' },
-    ],
-  },
-  {
     label: 'محكمة الاستئناف بتطوان',
     portalLabel: 'تطوان',
     category: 'civil',
     primaryCourts: [
       { label: 'المحكمة الابتدائية بتطوان', portalLabel: 'تطوان' },
-      { label: 'المحكمة الابتدائية بشفشاون', portalLabel: 'شفشاون' },
       { label: 'المحكمة الابتدائية بالمضيق', portalLabel: 'المضيق' },
+      { label: 'المحكمة الابتدائية بشفشاون', portalLabel: 'شفشاون' },
+      { label: 'المحكمة الابتدائية بوزان', portalLabel: 'وزان' },
       { label: 'قسم قضاء الأسرة بتطوان', portalLabel: 'قسم قضاء الأسرة بتطوان' },
     ],
   },
@@ -190,8 +261,8 @@ export const COURT_HIERARCHY: AppellateCourt[] = [
     category: 'civil',
     primaryCourts: [
       { label: 'المحكمة الابتدائية بسطات', portalLabel: 'سطات' },
-      { label: 'المحكمة الابتدائية بالجديدة', portalLabel: 'الجديدة' },
-      { label: 'المحكمة الابتدائية بسيدي بنور', portalLabel: 'سيدي بنور' },
+      { label: 'المحكمة الابتدائية ببن أحمد', portalLabel: 'بن أحمد' },
+      { label: 'المحكمة الابتدائية ببرشيد', portalLabel: 'برشيد' },
       { label: 'قسم قضاء الأسرة بسطات', portalLabel: 'قسم قضاء الأسرة بسطات' },
     ],
   },
@@ -201,19 +272,13 @@ export const COURT_HIERARCHY: AppellateCourt[] = [
     category: 'civil',
     primaryCourts: [
       { label: 'المحكمة الابتدائية ببني ملال', portalLabel: 'بني ملال' },
-      { label: 'المحكمة الابتدائية بأزيلال', portalLabel: 'أزيلال' },
+      { label: 'المحكمة الابتدائية بقصبة تادلة', portalLabel: 'قصبة تادلة' },
       { label: 'المحكمة الابتدائية بالفقيه بن صالح', portalLabel: 'الفقيه بن صالح' },
+      { label: 'المحكمة الابتدائية بسوق السبت', portalLabel: 'سوق السبت أولاد النمة' },
+      { label: 'المحكمة الابتدائية بأزيلال', portalLabel: 'أزيلال' },
+      { label: 'المحكمة الابتدائية بدمنات', portalLabel: 'دمنات' },
+      { label: 'المحكمة الابتدائية بخنيفرة', portalLabel: 'خنيفرة' },
       { label: 'قسم قضاء الأسرة ببني ملال', portalLabel: 'قسم قضاء الأسرة ببني ملال' },
-    ],
-  },
-  {
-    label: 'محكمة الاستئناف بالجديدة',
-    portalLabel: 'الجديدة',
-    category: 'civil',
-    primaryCourts: [
-      { label: 'المحكمة الابتدائية بالجديدة', portalLabel: 'الجديدة' },
-      { label: 'المحكمة الابتدائية بسيدي بنور', portalLabel: 'سيدي بنور' },
-      { label: 'قسم قضاء الأسرة بالجديدة', portalLabel: 'قسم قضاء الأسرة بالجديدة' },
     ],
   },
   {
@@ -223,17 +288,21 @@ export const COURT_HIERARCHY: AppellateCourt[] = [
     primaryCourts: [
       { label: 'المحكمة الابتدائية بخريبكة', portalLabel: 'خريبكة' },
       { label: 'المحكمة الابتدائية بوادي زم', portalLabel: 'وادي زم' },
+      { label: 'المحكمة الابتدائية بأبي الجعد', portalLabel: 'أبي الجعد' },
       { label: 'قسم قضاء الأسرة بخريبكة', portalLabel: 'قسم قضاء الأسرة بخريبكة' },
     ],
   },
   {
-    label: 'محكمة الاستئناف بتازة',
-    portalLabel: 'تازة',
+    label: 'محكمة الاستئناف بوجدة',
+    portalLabel: 'وجدة',
     category: 'civil',
     primaryCourts: [
-      { label: 'المحكمة الابتدائية بتازة', portalLabel: 'تازة' },
-      { label: 'المحكمة الابتدائية بجرسيف', portalLabel: 'جرسيف' },
-      { label: 'قسم قضاء الأسرة بتازة', portalLabel: 'قسم قضاء الأسرة بتازة' },
+      { label: 'المحكمة الابتدائية بوجدة', portalLabel: 'وجدة' },
+      { label: 'المحكمة الابتدائية بجرادة', portalLabel: 'جرادة' },
+      { label: 'المحكمة الابتدائية بتاوريرت', portalLabel: 'تاوريرت' },
+      { label: 'المحكمة الابتدائية ببركان', portalLabel: 'بركان' },
+      { label: 'المحكمة الابتدائية بفجيج', portalLabel: 'فجيج' },
+      { label: 'قسم قضاء الأسرة بوجدة', portalLabel: 'قسم قضاء الأسرة بوجدة' },
     ],
   },
   {
@@ -252,70 +321,22 @@ export const COURT_HIERARCHY: AppellateCourt[] = [
     category: 'civil',
     primaryCourts: [
       { label: 'المحكمة الابتدائية بالحسيمة', portalLabel: 'الحسيمة' },
+      { label: 'المحكمة الابتدائية بتارجيست', portalLabel: 'تارجيست' },
       { label: 'قسم قضاء الأسرة بالحسيمة', portalLabel: 'قسم قضاء الأسرة بالحسيمة' },
     ],
   },
-  {
-    label: 'محكمة الاستئناف بآسفي',
-    portalLabel: 'آسفي',
-    category: 'civil',
-    primaryCourts: [
-      { label: 'المحكمة الابتدائية بآسفي', portalLabel: 'آسفي' },
-      { label: 'المحكمة الابتدائية باليوسفية', portalLabel: 'اليوسفية' },
-      { label: 'قسم قضاء الأسرة بآسفي', portalLabel: 'قسم قضاء الأسرة بآسفي' },
-    ],
-  },
-  {
-    label: 'محكمة الاستئناف بالراشيدية',
-    portalLabel: 'الراشيدية',
-    category: 'civil',
-    primaryCourts: [
-      { label: 'المحكمة الابتدائية بالراشيدية', portalLabel: 'الراشيدية' },
-      { label: 'المحكمة الابتدائية بميدلت', portalLabel: 'ميدلت' },
-      { label: 'قسم قضاء الأسرة بالراشيدية', portalLabel: 'قسم قضاء الأسرة بالراشيدية' },
-    ],
-  },
-  {
-    label: 'محكمة الاستئناف بورزازات',
-    portalLabel: 'ورزازات',
-    category: 'civil',
-    primaryCourts: [
-      { label: 'المحكمة الابتدائية بورزازات', portalLabel: 'ورزازات' },
-      { label: 'المحكمة الابتدائية بزاكورة', portalLabel: 'زاكورة' },
-      { label: 'المحكمة الابتدائية بتنغير', portalLabel: 'تنغير' },
-      { label: 'قسم قضاء الأسرة بورزازات', portalLabel: 'قسم قضاء الأسرة بورزازات' },
-    ],
-  },
-  {
-    label: 'محكمة الاستئناف بالعيون',
-    portalLabel: 'العيون',
-    category: 'civil',
-    primaryCourts: [
-      { label: 'المحكمة الابتدائية بالعيون', portalLabel: 'العيون' },
-      { label: 'المحكمة الابتدائية بالسمارة', portalLabel: 'السمارة' },
-      { label: 'المحكمة الابتدائية بالداخلة', portalLabel: 'الداخلة' },
-      { label: 'قسم قضاء الأسرة بالعيون', portalLabel: 'قسم قضاء الأسرة بالعيون' },
-    ],
-  },
-  {
-    label: 'محكمة الاستئناف بكلميم',
-    portalLabel: 'كلميم',
-    category: 'civil',
-    primaryCourts: [
-      { label: 'المحكمة الابتدائية بكلميم', portalLabel: 'كلميم' },
-      { label: 'المحكمة الابتدائية بطانطان', portalLabel: 'طانطان' },
-      { label: 'قسم قضاء الأسرة بكلميم', portalLabel: 'قسم قضاء الأسرة بكلميم' },
-    ],
-  },
 
-  // ─────────── COMMERCIAL APPELLATE COURTS ───────────
+  // ═══════════════════════════════════════════════════════════
+  // COMMERCIAL APPELLATE COURTS (5)
+  // Source: مرسوم 2.23.665 — الجدول رقم 2
+  // ═══════════════════════════════════════════════════════════
   {
     label: 'محكمة الاستئناف التجارية بالدار البيضاء',
     portalLabel: 'التجارية بالدار البيضاء',
     category: 'commercial',
     primaryCourts: [
-      { label: 'المحكمة التجارية بالدار البيضاء', portalLabel: 'الدار البيضاء' },
       { label: 'المحكمة التجارية بالرباط', portalLabel: 'الرباط' },
+      { label: 'المحكمة التجارية بالدار البيضاء', portalLabel: 'الدار البيضاء' },
     ],
   },
   {
@@ -324,9 +345,7 @@ export const COURT_HIERARCHY: AppellateCourt[] = [
     category: 'commercial',
     primaryCourts: [
       { label: 'المحكمة التجارية بفاس', portalLabel: 'فاس' },
-      { label: 'المحكمة التجارية بمكناس', portalLabel: 'مكناس' },
       { label: 'المحكمة التجارية بوجدة', portalLabel: 'وجدة' },
-      { label: 'المحكمة التجارية بطنجة', portalLabel: 'طنجة' },
     ],
   },
   {
@@ -335,11 +354,32 @@ export const COURT_HIERARCHY: AppellateCourt[] = [
     category: 'commercial',
     primaryCourts: [
       { label: 'المحكمة التجارية بمراكش', portalLabel: 'مراكش' },
+      { label: 'المحكمة التجارية ببني ملال', portalLabel: 'بني ملال' },
+    ],
+  },
+  {
+    label: 'محكمة الاستئناف التجارية بطنجة',
+    portalLabel: 'التجارية بطنجة',
+    category: 'commercial',
+    primaryCourts: [
+      { label: 'المحكمة التجارية بطنجة', portalLabel: 'طنجة' },
+    ],
+  },
+  {
+    label: 'محكمة الاستئناف التجارية بأكادير',
+    portalLabel: 'التجارية بأكادير',
+    category: 'commercial',
+    primaryCourts: [
       { label: 'المحكمة التجارية بأكادير', portalLabel: 'أكادير' },
+      { label: 'المحكمة التجارية بالعيون', portalLabel: 'العيون' },
+      { label: 'المحكمة التجارية بالداخلة', portalLabel: 'الداخلة' },
     ],
   },
 
-  // ─────────── ADMINISTRATIVE APPELLATE COURTS ───────────
+  // ═══════════════════════════════════════════════════════════
+  // ADMINISTRATIVE APPELLATE COURTS (5)
+  // Source: مرسوم 2.23.665 — الجدول رقم 3
+  // ═══════════════════════════════════════════════════════════
   {
     label: 'محكمة الاستئناف الإدارية بالرباط',
     portalLabel: 'الإدارية بالرباط',
@@ -347,8 +387,14 @@ export const COURT_HIERARCHY: AppellateCourt[] = [
     primaryCourts: [
       { label: 'المحكمة الإدارية بالرباط', portalLabel: 'الرباط' },
       { label: 'المحكمة الإدارية بالدار البيضاء', portalLabel: 'الدار البيضاء' },
+    ],
+  },
+  {
+    label: 'محكمة الاستئناف الإدارية بفاس',
+    portalLabel: 'الإدارية بفاس',
+    category: 'administrative',
+    primaryCourts: [
       { label: 'المحكمة الإدارية بفاس', portalLabel: 'فاس' },
-      { label: 'المحكمة الإدارية بمكناس', portalLabel: 'مكناس' },
       { label: 'المحكمة الإدارية بوجدة', portalLabel: 'وجدة' },
     ],
   },
@@ -358,6 +404,21 @@ export const COURT_HIERARCHY: AppellateCourt[] = [
     category: 'administrative',
     primaryCourts: [
       { label: 'المحكمة الإدارية بمراكش', portalLabel: 'مراكش' },
+    ],
+  },
+  {
+    label: 'محكمة الاستئناف الإدارية بطنجة',
+    portalLabel: 'الإدارية بطنجة',
+    category: 'administrative',
+    primaryCourts: [
+      { label: 'المحكمة الإدارية بطنجة', portalLabel: 'طنجة' },
+    ],
+  },
+  {
+    label: 'محكمة الاستئناف الإدارية بأكادير',
+    portalLabel: 'الإدارية بأكادير',
+    category: 'administrative',
+    primaryCourts: [
       { label: 'المحكمة الإدارية بأكادير', portalLabel: 'أكادير' },
     ],
   },
