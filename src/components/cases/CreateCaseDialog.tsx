@@ -94,13 +94,16 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
   useEffect(() => {
     if (!open) return;
     if (editingCase) {
+      const parsed = editingCase.case_number ? editingCase.case_number.split('/') : ['', '', ''];
       setForm({
         title: editingCase.title || '',
         case_type: editingCase.case_type || '',
         description: editingCase.description || '',
         client_id: editingCase.client_id || '',
         court: editingCase.court || '',
-        case_number: editingCase.case_number || '',
+        case_numero: parsed[0] || '',
+        case_code: parsed[1] || '',
+        case_annee: parsed[2] || '',
       });
       // Load opponents
       supabase.from('case_opponents').select('*').eq('case_id', editingCase.id).order('sort_order').then(({ data }) => {
