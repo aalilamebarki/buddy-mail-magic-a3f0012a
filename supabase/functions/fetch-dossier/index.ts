@@ -261,51 +261,31 @@ function buildJsScenario(numero: string, code: string, annee: string, appealCour
   const esc = (value?: string) => (value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
   const instructions: Array<Record<string, unknown>> = [
     { wait: 4000 },
-    { evaluate: `(()=>{window.__log=[];return 'init'})()` },
+    { evaluate: `(()=>{window.__L=[];return 1})()` },
   ];
 
   if (appealCourt) {
-    // Strategy A: ScrapingBee native click on trigger arrow
     instructions.push(
-      { click: '.p-dropdown-trigger' },
-      { wait: 2000 },
+      { click: 'p-dropdown .p-dropdown-trigger' },
+      { wait: 2500 },
       {
-        evaluate: `(()=>{var t='${esc(appealCourt)}';var items=document.querySelectorAll('.p-dropdown-item,li[role="option"],.p-dropdown-items li');var found=[];for(var i=0;i<items.length;i++){var txt=(items[i].textContent||'').trim();found.push(txt);if(txt===t||txt.includes(t)){items[i].click();window.__log.push('A-ok:'+txt);return 'A-ok'}}window.__log.push('A-miss:'+items.length+','+found.slice(0,10).join('|'));return 'A-miss'})()`
-      },
-      { wait: 1500 },
-    );
-
-    // Strategy B: pointer events on div.p-dropdown
-    instructions.push(
-      {
-        evaluate: `(()=>{var label=document.querySelector('p-dropdown .p-dropdown-label');if(label&&!label.textContent.trim().includes('اختيار')){window.__log.push('B-skip');return 'set'}var div=document.querySelector('p-dropdown div.p-dropdown')||document.querySelector('p-dropdown');if(!div){window.__log.push('B-no-div');return 'no'}div.focus&&div.focus();['pointerdown','mousedown','pointerup','mouseup','click'].forEach(function(e){div.dispatchEvent(new PointerEvent(e,{bubbles:true,cancelable:true,view:window,pointerId:1,pointerType:'mouse'}))});window.__log.push('B-dispatched');return 'ok'})()`
+        evaluate: `(()=>{var t='${esc(appealCourt)}';var li=document.querySelectorAll('li.p-dropdown-item,.p-dropdown-items li');var f=[];for(var i=0;i<li.length;i++){var x=li[i].textContent.trim();f.push(x);if(x.includes(t)){li[i].click();window.__L.push('ok:'+x);return 1}}window.__L.push('miss:'+li.length+':'+f.slice(0,8).join(','));return 0})()`
       },
       { wait: 2000 },
-      {
-        evaluate: `(()=>{var t='${esc(appealCourt)}';var items=document.querySelectorAll('.p-dropdown-item,li[role="option"],.p-dropdown-items li');if(!items.length){window.__log.push('B-no-items');return 'no'}for(var i=0;i<items.length;i++){if((items[i].textContent||'').trim().includes(t)){items[i].click();window.__log.push('B-ok');return 'ok'}}window.__log.push('B-miss');return 'miss'})()`
-      },
-      { wait: 1500 },
     );
-
-    // Strategy C: Angular ng.getComponent
-    instructions.push({
-      evaluate: `(()=>{try{var label=document.querySelector('p-dropdown .p-dropdown-label');if(label&&!label.textContent.trim().includes('اختيار')){window.__log.push('C-skip');return 'set'}var dd=document.querySelector('p-dropdown');if(!dd){window.__log.push('C-no-dd');return 'no'}var comp=typeof ng!=='undefined'&&ng.getComponent?ng.getComponent(dd):null;if(comp){var opts=comp.options||[];var t='${esc(appealCourt)}';for(var i=0;i<opts.length;i++){var lbl=opts[i].label||opts[i].name||opts[i];if(typeof lbl==='string'&&lbl.includes(t)){comp.value=opts[i].value!==undefined?opts[i].value:opts[i];comp.onChange&&comp.onChange.emit({value:comp.value});comp.onModelChange&&comp.onModelChange(comp.value);comp.cd&&comp.cd.markForCheck&&comp.cd.markForCheck();window.__log.push('C-ok:'+lbl);return 'ok'}}window.__log.push('C-no-match:'+opts.length);return 'miss'}var keys=Object.keys(dd).filter(function(k){return k.startsWith('__')});window.__log.push('C-no-ng:'+keys.join(','));return 'no-ng'}catch(e){window.__log.push('C-err:'+e.message);return 'err'}})()`
-    });
-    instructions.push({ wait: 1000 });
   }
 
-  // Fill text inputs
   instructions.push(
     {
-      evaluate: `(()=>{const set=(s,v)=>{const e=document.querySelector(s);if(!e)return 'miss';const d=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');d&&d.set?d.set.call(e,v):e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));return 'ok'};var r1=set('input[formcontrolname="numero"]','${esc(numero)}');var r2=set('input[formcontrolname="mark"]','${esc(code)}');var r3=set('input[formcontrolname="annee"]','${esc(annee)}');window.__log.push('inputs:'+r1+','+r2+','+r3);return 'done'})()`
+      evaluate: `(()=>{var s=function(q,v){var e=document.querySelector(q);if(!e)return 0;var d=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');d&&d.set?d.set.call(e,v):e.value=v;e.dispatchEvent(new Event('input',{bubbles:1}));e.dispatchEvent(new Event('change',{bubbles:1}));return 1};s('input[formcontrolname="numero"]','${esc(numero)}');s('input[formcontrolname="mark"]','${esc(code)}');s('input[formcontrolname="annee"]','${esc(annee)}');return 1})()`
     },
-    { wait: 1000 },
+    { wait: 800 },
     {
-      evaluate: `(()=>{const b=[...document.querySelectorAll('button,p-button button')].find(x=>/بحث|تتبع/.test((x.textContent||'').trim()));if(b){b.click();window.__log.push('search-clicked');return 'ok'}window.__log.push('no-btn');return 'no'})()`
+      evaluate: `(()=>{var b=[...document.querySelectorAll('button')].find(function(x){return/بحث/.test(x.textContent)});if(b){b.click();return 1}return 0})()`
     },
     { wait: 12000 },
     {
-      evaluate: `(()=>{var inputs=document.querySelectorAll('input[formcontrolname]');var vals={};inputs.forEach(function(i){vals[i.getAttribute('formcontrolname')]=i.value});var dds=document.querySelectorAll('.p-dropdown-label');var ddVals=[];dds.forEach(function(d){ddVals.push(d.textContent.trim())});var div=document.createElement('div');div.id='__debug__';div.style.display='none';div.setAttribute('data-debug',JSON.stringify({steps:window.__log||[],inputValues:vals,dropdownValues:ddVals,hasTable:!!document.querySelector('.p-datatable,table'),noResult:document.body.innerText.includes('لا توجد أية نتيجة'),bodySnippet:document.body.innerText.substring(0,300)}));document.body.appendChild(div);return 'done'})()`
+      evaluate: `(()=>{var v={};document.querySelectorAll('input[formcontrolname]').forEach(function(i){v[i.getAttribute('formcontrolname')]=i.value});var dd=[];document.querySelectorAll('.p-dropdown-label').forEach(function(d){dd.push(d.textContent.trim())});var d=document.createElement('div');d.id='__debug__';d.style.display='none';d.setAttribute('data-debug',JSON.stringify({s:window.__L||[],i:v,d:dd,t:!!document.querySelector('table,.p-datatable'),n:document.body.innerText.includes('لا توجد'),b:document.body.innerText.substring(0,250)}));document.body.appendChild(d);return 1})()`
     },
   );
 
