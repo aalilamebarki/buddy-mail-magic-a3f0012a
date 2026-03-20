@@ -73,23 +73,29 @@ export function CaseNumberInput({ value, onChange, placeholder, autoFocus, showC
   const code = parts[1] || '';
   const category = code.length === 4 ? getCategoryFromCode(code) : null;
   const subCategory = code.length === 4 ? getCodeSubCategory(code) : '';
+  const displayValue = rawInput
+    ? `\u202B${rawInput
+        .split('/')
+        .map((part) => `\u202A${part}\u202C`)
+        .join('\u200F/\u200F')}\u202C`
+    : '';
 
   return (
     <div className="space-y-1.5">
       <div className="relative">
         <Input
-          value={rawInput}
+          value={displayValue}
           onChange={handleChange}
           placeholder=""
           className="text-right text-base tracking-wider"
-          dir="ltr"
-          style={{ direction: 'ltr', textAlign: 'right' }}
+          dir="rtl"
+          style={{ direction: 'rtl', textAlign: 'right' }}
           autoFocus={autoFocus}
         />
         {!rawInput && (
           <div className="pointer-events-none absolute inset-y-0 right-3 left-3 flex items-center justify-end gap-2 text-sm text-muted-foreground md:text-base" dir="rtl">
             <span className="whitespace-nowrap">رقم/رمز/سنة — مثال:</span>
-            <span className="whitespace-nowrap" dir="ltr">41/1201/2025</span>
+            <span className="whitespace-nowrap" dir="rtl">2025/1201/41</span>
           </div>
         )}
       </div>
