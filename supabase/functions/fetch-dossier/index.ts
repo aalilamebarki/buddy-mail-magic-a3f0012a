@@ -255,11 +255,11 @@ function buildJsScenario(numero: string, code: string, annee: string, appealCour
 /* ══════════════════════════════════════════════════════════════════
    Core: Fetch single case via ScrapingBee
    ══════════════════════════════════════════════════════════════════ */
-async function fetchSingleCase(apiKey: string, input: CaseInput): Promise<CaseResult> {
+async function fetchSingleCase(apiKey: string, input: CaseInput, appealCourt?: string, firstInstanceCourt?: string): Promise<CaseResult> {
   const caseLabel = `${input.numero}/${input.code}/${input.annee}`;
   const start = Date.now();
 
-  const scenario = buildJsScenario(input.numero, input.code, input.annee);
+  const scenario = buildJsScenario(input.numero, input.code, input.annee, appealCourt, firstInstanceCourt);
 
   const params = new URLSearchParams({
     api_key: apiKey,
