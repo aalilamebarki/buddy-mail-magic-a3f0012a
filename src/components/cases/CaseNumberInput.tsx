@@ -80,7 +80,7 @@ export function CaseNumberInput({ value, onChange, placeholder, autoFocus, showC
       <Input
         value={displayValue}
         onChange={handleChange}
-        placeholder={placeholder || 'رقم/رمز/سنة — مثال: \u200F1\u200F/\u200F1401\u200F/\u200F2025'}
+        placeholder={placeholder || '‏رقم‏/‏رمز‏/‏سنة — مثال: 2025‏/‏1401‏/‏1'}
         className="text-right text-base tracking-wider"
         dir="rtl"
         style={{ unicodeBidi: 'plaintext' }}
