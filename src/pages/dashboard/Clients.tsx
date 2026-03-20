@@ -13,6 +13,7 @@ import { Plus, Search, Pencil, Trash2, FolderOpen, DollarSign, ChevronDown } fro
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { formatPhoneMA } from '@/lib/formatters';
 import { useInvoices } from '@/hooks/useInvoices';
 import { useFeeStatements } from '@/hooks/useFeeStatements';
 import ClientFinanceSection from '@/components/clients/ClientFinanceSection';
@@ -109,7 +110,7 @@ const Clients = () => {
         const { error } = await supabase.from('clients').update({
           full_name: form.full_name.trim(),
           email: form.email.trim() || null,
-          phone: form.phone.trim() || null,
+          phone: formatPhoneMA(form.phone.trim()) || null,
           cin: form.cin.trim() || null,
           address: form.address.trim() || null,
           notes: form.notes.trim() || null,
@@ -120,7 +121,7 @@ const Clients = () => {
         const { error } = await supabase.from('clients').insert({
           full_name: form.full_name.trim(),
           email: form.email.trim() || null,
-          phone: form.phone.trim() || null,
+          phone: formatPhoneMA(form.phone.trim()) || null,
           cin: form.cin.trim() || null,
           address: form.address.trim() || null,
           notes: form.notes.trim() || null,
