@@ -8,20 +8,18 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { RefreshCw, Link2, CheckCircle2, Unlink } from 'lucide-react';
 
-const GoogleCalendarIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
-  <svg viewBox="0 0 200 200" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="40" y="40" width="120" height="120" rx="12" fill="#fff" stroke="#4285F4" strokeWidth="8"/>
-    <rect x="40" y="40" width="120" height="36" rx="12" fill="#4285F4"/>
-    <circle cx="80" cy="56" r="4" fill="#fff"/>
-    <circle cx="120" cy="56" r="4" fill="#fff"/>
-    <rect x="72" y="28" width="4" height="24" rx="2" fill="#4285F4"/>
-    <rect x="124" y="28" width="4" height="24" rx="2" fill="#4285F4"/>
-    <rect x="64" y="92" width="16" height="14" rx="2" fill="#EA4335"/>
-    <rect x="92" y="92" width="16" height="14" rx="2" fill="#34A853"/>
-    <rect x="120" y="92" width="16" height="14" rx="2" fill="#FBBC04"/>
-    <rect x="64" y="118" width="16" height="14" rx="2" fill="#FBBC04"/>
-    <rect x="92" y="118" width="16" height="14" rx="2" fill="#4285F4"/>
-    <rect x="120" y="118" width="16" height="14" rx="2" fill="#EA4335"/>
+const GoogleCalendarIcon = ({ className = "h-6 w-6" }: { className?: string }) => (
+  <svg viewBox="0 0 48 48" className={className} xmlns="http://www.w3.org/2000/svg">
+    <path d="M36 8H12a4 4 0 0 0-4 4v24a4 4 0 0 0 4 4h24a4 4 0 0 0 4-4V12a4 4 0 0 0-4-4Z" fill="#fff"/>
+    <path d="M36 8H12a4 4 0 0 0-4 4v4h32v-4a4 4 0 0 0-4-4Z" fill="#4285F4"/>
+    <rect x="16" y="5" width="3" height="8" rx="1.5" fill="#1A73E8"/>
+    <rect x="29" y="5" width="3" height="8" rx="1.5" fill="#1A73E8"/>
+    <rect x="13" y="22" width="6" height="5" rx="1" fill="#EA4335"/>
+    <rect x="21" y="22" width="6" height="5" rx="1" fill="#FBBC04"/>
+    <rect x="29" y="22" width="6" height="5" rx="1" fill="#34A853"/>
+    <rect x="13" y="30" width="6" height="5" rx="1" fill="#4285F4"/>
+    <rect x="21" y="30" width="6" height="5" rx="1" fill="#EA4335"/>
+    <rect x="29" y="30" width="6" height="5" rx="1" fill="#FBBC04"/>
   </svg>
 );
 
@@ -143,8 +141,8 @@ const GoogleCalendarQuickAction = () => {
                     : 'hover:border-primary/30'
                 )}
               >
-                <GoogleCalendarIcon className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
-                <span className="hidden sm:inline text-xs font-medium">
+                <GoogleCalendarIcon className="h-6 w-6 sm:h-7 sm:w-7 shrink-0" />
+                <span className="hidden sm:inline text-xs font-semibold">
                   {connected ? 'مربوط' : 'ربط التقويم'}
                 </span>
                 {connected && (
