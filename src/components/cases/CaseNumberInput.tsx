@@ -73,28 +73,24 @@ export function CaseNumberInput({ value, onChange, placeholder, autoFocus, showC
   const code = parts[1] || '';
   const category = code.length === 4 ? getCategoryFromCode(code) : null;
   const subCategory = code.length === 4 ? getCodeSubCategory(code) : '';
-  const displayValue = rawInput ? `\u200F${rawInput.replace(/\//g, '\u200F/\u200F')}` : '';
 
   return (
     <div className="space-y-1.5">
       <div className="relative">
         <Input
-          value={displayValue}
+          value={rawInput}
           onChange={handleChange}
           placeholder=""
           className="text-right text-base tracking-wider"
-          dir="rtl"
-          style={{ unicodeBidi: 'bidi-override' }}
+          dir="ltr"
+          style={{ direction: 'ltr', textAlign: 'right' }}
           autoFocus={autoFocus}
         />
         {!rawInput && (
-          <span
-            className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground md:text-base"
-            dir="rtl"
-            style={{ unicodeBidi: 'bidi-override' }}
-          >
-            رقم/رمز/سنة — مثال: 1/1401/2025
-          </span>
+          <div className="pointer-events-none absolute inset-y-0 right-3 left-3 flex items-center justify-end gap-2 text-sm text-muted-foreground md:text-base" dir="rtl">
+            <span className="whitespace-nowrap">رقم/رمز/سنة — مثال:</span>
+            <span className="whitespace-nowrap" dir="ltr">41/1201/2025</span>
+          </div>
         )}
       </div>
       {showCategory && category && (
