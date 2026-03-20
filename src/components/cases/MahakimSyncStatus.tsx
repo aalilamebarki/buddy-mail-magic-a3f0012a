@@ -234,6 +234,21 @@ export const MahakimSyncStatus = ({
         </Card>
       )}
 
+      {/* Auto-sync message when pending */}
+      {latestJob && (latestJob.status === 'pending' || latestJob.status === 'scraping') && (
+        <div className="flex items-center gap-2 p-2.5 rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 animate-pulse">
+          <Loader2 className="h-4 w-4 text-blue-600 animate-spin shrink-0" />
+          <div className="text-xs">
+            <p className="font-medium text-blue-700 dark:text-blue-400">
+              {latestJob.status === 'pending' ? 'سيتم الجلب تلقائياً...' : 'جاري جلب البيانات من بوابة محاكم...'}
+            </p>
+            <p className="text-muted-foreground text-[10px]">
+              سيتم إدراج الجلسات والبيانات تلقائياً عند الانتهاء
+            </p>
+          </div>
+        </div>
+      )}
+
       <p className="text-[10px] text-muted-foreground text-center">
         رقم الملف: <span dir="ltr" className="font-mono font-bold">{caseNumber}</span>
       </p>
