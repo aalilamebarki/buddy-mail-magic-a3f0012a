@@ -234,7 +234,7 @@ export const MahakimSyncStatus = ({
         </Card>
       )}
 
-      {/* Auto-sync message when pending */}
+      {/* Auto-sync message when pending/scraping */}
       {latestJob && (latestJob.status === 'pending' || latestJob.status === 'scraping') && (
         <div className="flex items-center gap-2 p-2.5 rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 animate-pulse">
           <Loader2 className="h-4 w-4 text-blue-600 animate-spin shrink-0" />
@@ -246,6 +246,35 @@ export const MahakimSyncStatus = ({
               سيتم إدراج الجلسات والبيانات تلقائياً عند الانتهاء
             </p>
           </div>
+        </div>
+      )}
+
+      {/* Success notification after completion */}
+      {latestJob && latestJob.status === 'completed' && latestJob.completed_at && 
+        (Date.now() - new Date(latestJob.completed_at).getTime() < 60000) && (
+        <div className="flex items-center gap-2 p-2.5 rounded-md bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
+          <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+          <div className="text-xs">
+            <p className="font-medium text-emerald-700 dark:text-emerald-400">
+              ✓ تم جلب البيانات بنجاح من بوابة محاكم
+            </p>
+            {latestJob.next_session_date && (
+              <p className="text-muted-foreground text-[10px]">
+                الجلسة المقبلة: {new Date(latestJob.next_session_date + 'T00:00:00').toLocaleDateString('ar-MA', { year: 'numeric', month: 'long', day: 'numeric' })}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Failure notification */}
+      {latestJob && latestJob.status === 'failed' && latestJob.completed_at &&
+        (Date.now() - new Date(latestJob.completed_at).getTime() < 60000) && (
+        <div className="flex items-center gap-2 p-2.5 rounded-md bg-destructive/10 border border-destructive/30">
+          <XCircle className="h-4 w-4 text-destructive shrink-0" />
+          <p className="text-xs font-medium text-destructive">
+            فشل الجلب: {latestJob.error_message || 'خطأ غير معروف'}
+          </p>
         </div>
       )}
 
