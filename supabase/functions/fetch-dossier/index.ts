@@ -401,7 +401,10 @@ ${firstInstanceCourt ? `
 } catch(e) {
   L.push('FATAL:'+e.message);
 }
-console.log(JSON.stringify({log:L,result}));
+// Return as the script's result value (Firecrawl captures this, not console.log)
+const __output = JSON.stringify({log:L,result});
+console.log(__output);
+__output;
 `;
 }
 
