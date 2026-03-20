@@ -263,28 +263,28 @@ function buildJsScenario(numero: string, code: string, annee: string, appealCour
 
   if (appealCourt) {
     instructions.push(
-      // Use evaluate to click the dropdown trigger more reliably
+      // PrimeNG dropdowns need mousedown+click on the trigger, then select item
       {
-        evaluate: `(()=>{var dd=document.querySelectorAll('p-dropdown');if(dd[0]){var trigger=dd[0].querySelector('.p-dropdown-trigger')||dd[0];trigger.click();return 'appeal-dd-opened:'+dd.length}return 'no-dropdown'})()`
+        evaluate: `(()=>{var dd=document.querySelectorAll('p-dropdown');if(!dd[0])return 'no-dropdown';var trigger=dd[0].querySelector('.p-dropdown-trigger')||dd[0].querySelector('.p-dropdown-label')||dd[0];trigger.dispatchEvent(new MouseEvent('mousedown',{bubbles:true}));trigger.dispatchEvent(new MouseEvent('click',{bubbles:true}));return 'appeal-dd-clicked:'+dd.length})()`
       },
-      { wait: 2000 },
+      { wait: 2500 },
       {
-        evaluate: `(()=>{var t='${esc(appealCourt)}',items=document.querySelectorAll('.p-dropdown-item,li.p-dropdown-item');var found=[];for(var i=0;i<items.length;i++){var txt=(items[i].textContent||'').trim();found.push(txt);if(txt.includes(t)||t.includes(txt)){items[i].click();return 'selected:'+txt}}return 'appeal-miss:'+found.slice(0,5).join('|')})()`
+        evaluate: `(()=>{var t='${esc(appealCourt)}';var panel=document.querySelector('.p-dropdown-panel,.p-dropdown-items-wrapper');if(!panel)return 'no-panel-visible';var items=panel.querySelectorAll('.p-dropdown-item,li');var found=[];for(var i=0;i<items.length;i++){var txt=(items[i].textContent||'').trim();found.push(txt);if(txt.includes(t)||t.includes(txt)){items[i].dispatchEvent(new MouseEvent('mousedown',{bubbles:true}));items[i].dispatchEvent(new MouseEvent('click',{bubbles:true}));return 'selected:'+txt}}return 'appeal-miss:'+found.slice(0,8).join('|')})()`
       },
-      { wait: 2000 },
+      { wait: 2500 },
     );
   }
 
   if (firstInstanceCourt) {
     instructions.push(
       {
-        evaluate: `(()=>{var dd=document.querySelectorAll('p-dropdown');if(dd[1]){var trigger=dd[1].querySelector('.p-dropdown-trigger')||dd[1];trigger.click();return 'fic-dd-opened'}return 'no-second-dropdown:'+document.querySelectorAll('p-dropdown').length})()`
+        evaluate: `(()=>{var dd=document.querySelectorAll('p-dropdown');if(!dd[1])return 'no-2nd-dropdown:'+dd.length;var trigger=dd[1].querySelector('.p-dropdown-trigger')||dd[1].querySelector('.p-dropdown-label')||dd[1];trigger.dispatchEvent(new MouseEvent('mousedown',{bubbles:true}));trigger.dispatchEvent(new MouseEvent('click',{bubbles:true}));return 'fic-dd-clicked'})()`
       },
-      { wait: 2000 },
+      { wait: 2500 },
       {
-        evaluate: `(()=>{var t='${esc(firstInstanceCourt)}',items=document.querySelectorAll('.p-dropdown-item,li.p-dropdown-item');for(var i=0;i<items.length;i++){var txt=(items[i].textContent||'').trim();if(txt.includes(t)||t.includes(txt)){items[i].click();return 'fic-selected:'+txt}}return 'fic-miss'})()`
+        evaluate: `(()=>{var t='${esc(firstInstanceCourt)}';var panel=document.querySelector('.p-dropdown-panel,.p-dropdown-items-wrapper');if(!panel)return 'no-panel';var items=panel.querySelectorAll('.p-dropdown-item,li');for(var i=0;i<items.length;i++){var txt=(items[i].textContent||'').trim();if(txt.includes(t)||t.includes(txt)){items[i].dispatchEvent(new MouseEvent('mousedown',{bubbles:true}));items[i].dispatchEvent(new MouseEvent('click',{bubbles:true}));return 'fic-selected:'+txt}}return 'fic-miss'})()`
       },
-      { wait: 2000 },
+      { wait: 2500 },
     );
   }
 
