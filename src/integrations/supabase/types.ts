@@ -475,6 +475,7 @@ export type Database = {
           case_id: string
           court_room: string | null
           created_at: string
+          gcal_event_id: string | null
           id: string
           notes: string | null
           required_action: string
@@ -488,6 +489,7 @@ export type Database = {
           case_id: string
           court_room?: string | null
           created_at?: string
+          gcal_event_id?: string | null
           id?: string
           notes?: string | null
           required_action?: string
@@ -501,6 +503,7 @@ export type Database = {
           case_id?: string
           court_room?: string | null
           created_at?: string
+          gcal_event_id?: string | null
           id?: string
           notes?: string | null
           required_action?: string
@@ -856,6 +859,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      google_calendar_tokens: {
+        Row: {
+          access_token: string
+          calendar_id: string
+          connected_at: string
+          id: string
+          refresh_token: string
+          token_expires_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          calendar_id?: string
+          connected_at?: string
+          id?: string
+          refresh_token: string
+          token_expires_at: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          calendar_id?: string
+          connected_at?: string
+          id?: string
+          refresh_token?: string
+          token_expires_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       invoices: {
         Row: {
