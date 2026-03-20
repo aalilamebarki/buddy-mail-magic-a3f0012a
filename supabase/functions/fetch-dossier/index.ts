@@ -341,6 +341,24 @@ async function fetchSingleCase(apiKey: string, input: CaseInput, appealCourt?: s
     const html = await resp.text();
     log(`✓ ${caseLabel}: got ${html.length} chars (${elapsed}ms)`);
 
+    // ── DEBUG: Save first 5000 chars of HTML + key indicators ──
+    const debugSnippet = html.substring(0, 5000);
+    const hasDropdown = html.includes('p-dropdown');
+    const hasNoResult = html.includes('لا توجد أية نتيجة');
+    const hasTable = html.includes('<table') || html.includes('p-table');
+    const hasFormControl = html.includes('formcontrolname');
+    const hasCaseData = html.includes('القاضي') || html.includes('الشعبة') || html.includes('المحكمة');
+    const hasSearchBtn = html.includes('بحث') || html.includes('عرض') || html.includes('تتبع');
+    const hasResultSection = html.includes('app-dossier-detail') || html.includes('app-procedure') || html.includes('نتيجة');
+    
+    log(`🔍 DEBUG HTML indicators: dropdown=${hasDropdown}, noResult=${hasNoResult}, table=${hasTable}, formControl=${hasFormControl}, caseData=${hasCaseData}, searchBtn=${hasSearchBtn}, resultSection=${hasResultSection}`);
+    log(`🔍 DEBUG HTML snippet (first 800): ${debugSnippet.substring(0, 800).replace(/\n/g, ' ')}`);
+    
+    // Log ScrapingBee headers for scenario execution info
+    const scenarioResult = resp.headers.get('Spb-Js-Scenario-Result');
+    const resolvedUrl = resp.headers.get('Spb-Resolved-Url');
+    log(`🔍 DEBUG ScrapingBee headers: scenario-result=${scenarioResult?.substring(0, 500)}, resolved-url=${resolvedUrl}`);
+
     // Check for anti-bot
     const lower = html.toLowerCase();
     if ((lower.includes('captcha') || lower.includes('challenge-platform') || lower.includes('access denied')) && !lower.includes('p-dropdown')) {
@@ -361,17 +379,19 @@ async function fetchSingleCase(apiKey: string, input: CaseInput, appealCourt?: s
     // Parse extracted data from the evaluate step
     let parsed = { caseInfo: {} as Record<string, string>, procedures: [] as Array<Record<string, string>>, hasData: false, noResult: false };
     
-    // Look for the JSON result in the HTML (last evaluate dumps it)
-    // ScrapingBee evaluate results may be in response headers or embedded
     if (jsResult) {
+      log(`🔍 DEBUG jsResult raw: ${jsResult.substring(0, 500)}`);
       try {
         parsed = JSON.parse(jsResult);
+        log(`🔍 DEBUG jsResult parsed: hasData=${parsed.hasData}, caseInfo keys=${Object.keys(parsed.caseInfo).join(',')}, procedures=${parsed.procedures?.length}`);
       } catch { /* fallback to HTML parsing */ }
     }
 
     // Fallback: parse HTML directly if evaluate didn't return clean data
     if (!parsed.hasData && !parsed.noResult) {
+      log(`🔍 DEBUG: falling back to HTML parsing`);
       parsed = parseHtmlFallback(html);
+      log(`🔍 DEBUG HTML parse result: hasData=${parsed.hasData}, noResult=${parsed.noResult}, caseInfo=${JSON.stringify(parsed.caseInfo)}`);
     }
 
     if (parsed.noResult) {
@@ -388,6 +408,12 @@ async function fetchSingleCase(apiKey: string, input: CaseInput, appealCourt?: s
 
     if (!parsed.hasData) {
       log(`○ ${caseLabel}: no data extracted from ${html.length} chars`);
+      // Save debug HTML to storage for analysis
+      try {
+        const debugBlob = new Blob([html], { type: 'text/html' });
+        // Store in a temporary debug field in the sync job
+        log(`🔍 Full HTML body keywords: ${[...html.matchAll(/[\u0600-\u06FF]+/g)].slice(0, 50).map(m => m[0]).join(', ')}`);
+      } catch {}
       return {
         ...input,
         status: 'no_data',
