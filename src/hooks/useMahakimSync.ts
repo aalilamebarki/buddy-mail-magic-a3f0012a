@@ -79,13 +79,19 @@ export const useMahakimSync = (caseId: string | undefined) => {
     };
   }, [caseId]);
 
-  // Submit a new sync job
+  // Submit a new sync job — uses fetch-dossier endpoint
   const startSync = useCallback(async (caseNumber: string, appealCourt?: string) => {
     if (!caseId || !user) return;
 
     setSyncing(true);
 
-    // Create the job record first (client-side insert)
+    // Parse case number into components (numero/code/annee)
+    const parts = caseNumber.split('/');
+    const numero = parts[0] || '';
+    const code = parts[1] || '';
+    const annee = parts[2] || '';
+
+    // Create the job record first (client-side insert for realtime tracking)
     const jobId = crypto.randomUUID();
     const { error: insertError } = await supabase
       .from('mahakim_sync_jobs')
@@ -95,7 +101,7 @@ export const useMahakimSync = (caseId: string | undefined) => {
         user_id: user.id,
         case_number: caseNumber,
         status: 'pending',
-        request_payload: { appealCourt },
+        request_payload: { appealCourt, numero, code, annee },
       } as any);
 
     if (insertError) {
@@ -121,28 +127,44 @@ export const useMahakimSync = (caseId: string | undefined) => {
       completed_at: null,
     });
 
-    // Fire the edge function (don't await the full result — realtime will update us)
+    // Call fetch-dossier endpoint
     try {
-      const { data, error } = await supabase.functions.invoke('scrape-mahakim', {
+      const { data, error } = await supabase.functions.invoke('fetch-dossier', {
         body: {
-          action: 'submitSyncJob',
-          jobId,
-          caseId,
+          cases: [{ numero, annee, code }],
           userId: user.id,
-          caseNumber,
-          appealCourt,
+          caseId,
         },
       });
 
       if (error) {
         console.error('Edge function error:', error);
-        // Job status will be updated via realtime from the edge function
+        await supabase.from('mahakim_sync_jobs').update({
+          status: 'failed',
+          error_message: 'خطأ في الاتصال بخدمة الجلب',
+          completed_at: new Date().toISOString(),
+        }).eq('id', jobId);
+        setSyncing(false);
+        return;
       }
 
-      // If we got a direct response (within timeout), update state
-      if (data?.status === 'completed' || data?.status === 'failed') {
-        setSyncing(false);
+      // Update job based on result
+      const firstResult = data?.results?.[0];
+      if (firstResult?.status === 'success') {
+        await supabase.from('mahakim_sync_jobs').update({
+          status: 'completed',
+          result_data: firstResult.details,
+          next_session_date: firstResult.next_session_date,
+          completed_at: new Date().toISOString(),
+        }).eq('id', jobId);
+      } else {
+        await supabase.from('mahakim_sync_jobs').update({
+          status: 'failed',
+          error_message: firstResult?.error || 'لم يتم العثور على بيانات',
+          completed_at: new Date().toISOString(),
+        }).eq('id', jobId);
       }
+      setSyncing(false);
     } catch (err) {
       console.error('Sync invoke error:', err);
       setSyncing(false);
