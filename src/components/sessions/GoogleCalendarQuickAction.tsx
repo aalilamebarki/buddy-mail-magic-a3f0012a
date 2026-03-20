@@ -141,8 +141,8 @@ const GoogleCalendarQuickAction = () => {
                     : 'hover:border-primary/30'
                 )}
               >
-                <GoogleCalendarIcon className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
-                <span className="hidden sm:inline text-xs font-medium">
+                <GoogleCalendarIcon className="h-6 w-6 sm:h-7 sm:w-7 shrink-0" />
+                <span className="hidden sm:inline text-xs font-semibold">
                   {connected ? 'مربوط' : 'ربط التقويم'}
                 </span>
                 {connected && (
