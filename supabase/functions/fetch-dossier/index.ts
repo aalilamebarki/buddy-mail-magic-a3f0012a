@@ -250,136 +250,237 @@ async function resolveCourtForCase(
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   Build Firecrawl actions for form filling
+   Firecrawl Browser Sessions v2 — Full Playwright control
    
-   Uses executeJavascript to interact with Angular Reactive Forms
-   properly (native value setters + dispatching input/change events).
-   This mirrors the ScrapingBee js_scenario approach.
+   Creates a browser session, runs Playwright code to fill the
+   Angular form, extract data, and close the session.
+   This is the PRIMARY path — handles Angular SPAs perfectly.
    ══════════════════════════════════════════════════════════════════ */
-function buildFirecrawlActions(numero: string, code: string, annee: string, appealCourt?: string, firstInstanceCourt?: string) {
-  const esc = (v?: string) => (v ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-  
-  // Reuse the same proven script from ScrapingBee path
-  const megaScript = `(function(){
-var L=[];
-var set=function(q,v){var e=document.querySelector(q);if(!e){L.push('miss:'+q);return 0}var d=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');d&&d.set?d.set.call(e,v):e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));return 1};
-set('input[formcontrolname="mark"]','${esc(code)}');
+
+const FC_API = 'https://api.firecrawl.dev/v2';
+
+async function fcRequest(apiKey: string, method: string, path: string, body?: unknown) {
+  const resp = await fetch(`${FC_API}${path}`, {
+    method,
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+    signal: AbortSignal.timeout(60000),
+  });
+  const data = await resp.json();
+  return { ok: resp.ok, status: resp.status, data };
+}
+
+function buildPlaywrightScript(
+  numero: string, code: string, annee: string,
+  appealCourt?: string, firstInstanceCourt?: string,
+): string {
+  const esc = (v?: string) => (v ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
+
+  // Playwright Node.js script that runs in the Firecrawl sandbox
+  // `page` is pre-loaded by Firecrawl
+  return `
+const L = [];
+
+// Navigate to the portal
+await page.goto('https://www.mahakim.ma/#/suivi/dossier-suivi', { waitUntil: 'networkidle', timeout: 30000 });
+L.push('page-loaded');
+
+// Wait for Angular form to render
+await page.waitForSelector('input[formcontrolname="mark"]', { timeout: 15000 });
+L.push('form-ready');
+
+// Helper: set Angular input value via native setter + events
+async function setField(selector, value) {
+  await page.evaluate(({sel, val}) => {
+    const el = document.querySelector(sel);
+    if (!el) return false;
+    const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+    if (desc && desc.set) desc.set.call(el, val);
+    else el.value = val;
+    el.dispatchEvent(new Event('input', {bubbles: true}));
+    el.dispatchEvent(new Event('change', {bubbles: true}));
+    return true;
+  }, {sel: selector, val: value});
+}
+
+// Step 1: Fill code (mark) — triggers appeal court dropdown loading
+await setField('input[formcontrolname="mark"]', '${esc(code)}');
 L.push('mark-set');
-return JSON.stringify(L);
-})()`;
+await page.waitForTimeout(3000);
 
-  const fillAndSearchScript = `(function(){
-var L=[];
-var set=function(q,v){var e=document.querySelector(q);if(!e){L.push('miss:'+q);return 0}var d=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');d&&d.set?d.set.call(e,v):e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));return 1};
-set('input[formcontrolname="numero"]','${esc(numero)}');
-set('input[formcontrolname="annee"]','${esc(annee)}');
+// Step 2: Fill numero and annee
+await setField('input[formcontrolname="numero"]', '${esc(numero)}');
+await setField('input[formcontrolname="annee"]', '${esc(annee)}');
 L.push('fields-set');
+await page.waitForTimeout(1000);
+
 ${appealCourt ? `
-var dds=document.querySelectorAll('p-dropdown .p-dropdown-trigger');
-if(dds.length>0){dds[0].click();L.push('dd0-clicked:'+dds.length)}
+// Step 3: Select appeal court from dropdown
+try {
+  const ddTriggers = await page.$$('p-dropdown .p-dropdown-trigger');
+  if (ddTriggers.length > 0) {
+    await ddTriggers[0].click();
+    L.push('dd0-opened');
+    await page.waitForTimeout(1000);
+    
+    // Find and click the matching item
+    const selected = await page.evaluate((target) => {
+      const items = document.querySelectorAll('.p-dropdown-panel li.p-dropdown-item, .p-dropdown-items li');
+      for (const li of items) {
+        if (li.textContent.trim().includes(target)) {
+          li.click();
+          return li.textContent.trim();
+        }
+      }
+      return null;
+    }, '${esc(appealCourt)}');
+    
+    if (selected) L.push('dd0-ok:' + selected);
+    else L.push('dd0-miss');
+    await page.waitForTimeout(1500);
+  } else {
+    L.push('dd0-no-triggers');
+  }
+} catch (e) {
+  L.push('dd0-error:' + e.message);
+}
 ` : ''}
-return JSON.stringify(L);
-})()`;
 
-  const selectAppealScript = appealCourt ? `(function(){
-var L=[];
-var panel=document.querySelector('.p-dropdown-panel');
-var li=panel?panel.querySelectorAll('li.p-dropdown-item,.p-dropdown-items li'):document.querySelectorAll('li.p-dropdown-item');
-var found=false;
-for(var i=0;i<li.length;i++){
-  var t=li[i].textContent.trim();
-  if(t.indexOf('${esc(appealCourt)}')>=0){li[i].click();L.push('dd0-ok:'+t);found=true;break}
-}
-if(!found)L.push('dd0-miss:'+li.length);
-return JSON.stringify(L);
-})()` : null;
-
-  const checkboxScript = firstInstanceCourt ? `(function(){
-var L=[];
-var labels=[].slice.call(document.querySelectorAll('label,span'));
-var found=null;
-for(var i=0;i<labels.length;i++){
-  var t=labels[i].textContent||'';
-  if(t.indexOf('الابتدائية')>=0||t.indexOf('البحث بالمحاكم')>=0){
-    var cb=labels[i].querySelector('.p-checkbox-box,input[type="checkbox"]');
-    if(!cb){var p=labels[i].closest('div');if(p)cb=p.querySelector('.p-checkbox-box,input[type="checkbox"]')}
-    if(cb){found=cb;break}
-    found=labels[i];break;
+${firstInstanceCourt ? `
+// Step 4: Click checkbox for primary court search
+try {
+  const cbClicked = await page.evaluate(() => {
+    const labels = Array.from(document.querySelectorAll('label, span'));
+    for (const label of labels) {
+      const t = label.textContent || '';
+      if (t.includes('الابتدائية') || t.includes('البحث بالمحاكم')) {
+        let cb = label.querySelector('.p-checkbox-box, input[type="checkbox"]');
+        if (!cb) {
+          const parent = label.closest('div');
+          if (parent) cb = parent.querySelector('.p-checkbox-box, input[type="checkbox"]');
+        }
+        if (cb) { cb.click(); return 'checkbox-ok'; }
+        label.click(); return 'label-clicked';
+      }
+    }
+    const cbs = document.querySelectorAll('.p-checkbox-box');
+    if (cbs.length > 0) { cbs[0].click(); return 'fallback-checkbox'; }
+    return 'miss';
+  });
+  L.push(cbClicked);
+  await page.waitForTimeout(3000);
+  
+  // Step 5: Select primary court from the new dropdown
+  const ddTriggers2 = await page.$$('p-dropdown .p-dropdown-trigger');
+  if (ddTriggers2.length > 1) {
+    await ddTriggers2[ddTriggers2.length - 1].click();
+    L.push('dd1-opened');
+    await page.waitForTimeout(1000);
+    
+    const selected2 = await page.evaluate((target) => {
+      const items = document.querySelectorAll('.p-dropdown-panel li.p-dropdown-item, .p-dropdown-items li');
+      for (const li of items) {
+        if (li.textContent.trim().includes(target)) {
+          li.click();
+          return li.textContent.trim();
+        }
+      }
+      return null;
+    }, '${esc(firstInstanceCourt)}');
+    
+    if (selected2) L.push('dd1-ok:' + selected2);
+    else L.push('dd1-miss');
+    await page.waitForTimeout(1500);
+  } else {
+    L.push('dd1-no-triggers:' + ddTriggers2.length);
   }
+} catch (e) {
+  L.push('cb-error:' + e.message);
 }
-if(!found){var cbs=document.querySelectorAll('.p-checkbox-box');if(cbs.length>0)found=cbs[0]}
-if(found){found.click();L.push('checkbox-ok')}else{L.push('checkbox-miss')}
-return JSON.stringify(L);
-})()` : null;
+` : ''}
 
-  const selectPrimaryScript = firstInstanceCourt ? `(function(){
-var L=[];
-var dds=document.querySelectorAll('p-dropdown .p-dropdown-trigger');
-if(dds.length>1){dds[dds.length-1].click();L.push('dd1-clicked')}else{L.push('dd1-miss:'+dds.length)}
-return JSON.stringify(L);
-})()` : null;
+// Step 6: Click search button
+const searchResult = await page.evaluate(() => {
+  const bs = Array.from(document.querySelectorAll('button'));
+  let b = bs.find(x => x.textContent.trim() === 'بحث');
+  if (!b) b = bs.find(x => x.textContent.includes('بحث') && !x.textContent.includes('المحاكم'));
+  if (b) { b.click(); return 'search-clicked'; }
+  return 'search-miss:' + bs.length;
+});
+L.push(searchResult);
 
-  const selectPrimaryItemScript = firstInstanceCourt ? `(function(){
-var L=[];
-var panel=document.querySelector('.p-dropdown-panel');
-var li=panel?panel.querySelectorAll('li.p-dropdown-item,.p-dropdown-items li'):document.querySelectorAll('li.p-dropdown-item');
-for(var i=0;i<li.length;i++){
-  var t=li[i].textContent.trim();
-  if(t.indexOf('${esc(firstInstanceCourt)}')>=0){li[i].click();L.push('dd1-ok:'+t);break}
-}
-return JSON.stringify(L);
-})()` : null;
+// Wait for results
+await page.waitForTimeout(8000);
 
-  const searchScript = `(function(){
-var L=[];
-var bs=[].slice.call(document.querySelectorAll('button'));
-var b=bs.find(function(x){var t=x.textContent.trim();return t==='بحث'});
-if(!b)b=bs.find(function(x){return x.textContent.indexOf('بحث')>=0&&x.textContent.indexOf('المحاكم')<0});
-if(b){b.click();L.push('search-clicked')}else{L.push('search-miss:'+bs.length)}
-return JSON.stringify(L);
-})()`;
-
-  const actions: Array<Record<string, unknown>> = [
-    { type: 'wait', milliseconds: 6000 },
-    // Step 1: Fill code (mark) to trigger dropdown loading
-    { type: 'executeJavascript', script: megaScript },
-    { type: 'wait', milliseconds: 3000 },
-    // Step 2: Fill numero + annee, open appeal dropdown if needed
-    { type: 'executeJavascript', script: fillAndSearchScript },
-    { type: 'wait', milliseconds: 1500 },
+// Step 7: Extract data
+const result = await page.evaluate(() => {
+  const body = document.body.innerText;
+  const html = document.body.innerHTML;
+  
+  if (body.includes('لا توجد أية نتيجة') || body.includes('لا توجد')) {
+    return { noResult: true, caseInfo: {}, procedures: [], hasData: false };
+  }
+  
+  const caseInfo = {};
+  const patterns = [
+    ['court', ['المحكمة']],
+    ['judge', ['القاضي المقرر', 'المستشار', 'القاضي']],
+    ['department', ['الشعبة']],
+    ['case_type', ['نوع الملف', 'نوع القضية']],
+    ['status', ['الحالة']],
+    ['registration_date', ['تاريخ التسجيل']],
+    ['national_number', ['الرقم الوطني']],
+    ['subject', ['الموضوع']],
   ];
-
-  if (appealCourt && selectAppealScript) {
-    actions.push({ type: 'wait', milliseconds: 1000 });
-    actions.push({ type: 'executeJavascript', script: selectAppealScript });
-    actions.push({ type: 'wait', milliseconds: 2000 });
+  
+  for (const [key, labels] of patterns) {
+    for (const label of labels) {
+      const idx = html.indexOf(label);
+      if (idx === -1) continue;
+      const after = html.substring(idx, idx + 500);
+      const m = after.match(/>([^<]{2,100})</);
+      if (m && m[1].trim() !== label && m[1].trim().length > 1) {
+        caseInfo[key] = m[1].trim();
+        break;
+      }
+    }
   }
-
-  if (firstInstanceCourt && checkboxScript) {
-    actions.push({ type: 'executeJavascript', script: checkboxScript });
-    actions.push({ type: 'wait', milliseconds: 3000 });
+  
+  // Extract procedures from table
+  const procedures = [];
+  const rows = document.querySelectorAll('table tbody tr, .p-datatable-tbody tr');
+  for (const row of rows) {
+    const cells = row.querySelectorAll('td');
+    if (cells.length >= 2) {
+      const proc = {
+        action_date: cells[0]?.textContent?.trim() || '',
+        action_type: cells[1]?.textContent?.trim() || '',
+        decision: cells[2]?.textContent?.trim() || '',
+        next_session_date: cells[3]?.textContent?.trim() || '',
+      };
+      if (proc.action_date || proc.action_type) procedures.push(proc);
+    }
   }
+  
+  return {
+    noResult: false,
+    caseInfo,
+    procedures,
+    hasData: Object.keys(caseInfo).length > 0 || procedures.length > 0,
+    bodyPreview: body.substring(0, 500),
+  };
+});
 
-  if (firstInstanceCourt && selectPrimaryScript) {
-    actions.push({ type: 'executeJavascript', script: selectPrimaryScript });
-    actions.push({ type: 'wait', milliseconds: 1500 });
-  }
+L.push('extracted:' + Object.keys(result.caseInfo).length + 'fields,' + result.procedures.length + 'procs');
 
-  if (firstInstanceCourt && selectPrimaryItemScript) {
-    actions.push({ type: 'executeJavascript', script: selectPrimaryItemScript });
-    actions.push({ type: 'wait', milliseconds: 2000 });
-  }
-
-  // Click search
-  actions.push({ type: 'executeJavascript', script: searchScript });
-  actions.push({ type: 'wait', milliseconds: 10000 });
-  // Take screenshot for debugging
-  actions.push({ type: 'screenshot' });
-  actions.push({ type: 'scrape' });
-
-  return actions;
+console.log(JSON.stringify({ log: L, result }));
+`;
 }
-/* Fetch case via Firecrawl (PRIMARY PATH — no monthly call limits) */
+
+/* Fetch case via Firecrawl Browser Sessions (PRIMARY PATH) */
 async function fetchViaFirecrawl(
   apiKey: string,
   input: CaseInput,
@@ -388,65 +489,61 @@ async function fetchViaFirecrawl(
 ): Promise<CaseResult | null> {
   const caseLabel = `${input.numero}/${input.code}/${input.annee}`;
   const start = Date.now();
-  log(`🔥 [Firecrawl] Starting fetch for ${caseLabel}`);
+  log(`🔥 [FC-Browser] Starting for ${caseLabel} | ac="${appealCourt}" pc="${firstInstanceCourt}"`);
 
-  const actions = buildFirecrawlActions(input.numero, input.code, input.annee, appealCourt, firstInstanceCourt);
+  let sessionId: string | null = null;
 
   try {
-    const resp = await fetch('https://api.firecrawl.dev/v1/scrape', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        url: 'https://www.mahakim.ma/#/suivi/dossier-suivi',
-        formats: ['html', 'markdown'],
-        actions,
-        waitFor: 5000,
-        timeout: 60000,
-      }),
-      signal: AbortSignal.timeout(90000),
+    // 1. Create browser session
+    const createResp = await fcRequest(apiKey, 'POST', '/browser', { ttl: 90, activityTtl: 60 });
+    if (!createResp.ok || !createResp.data?.id) {
+      log(`🔥 [FC-Browser] Failed to create session: ${createResp.status} — ${JSON.stringify(createResp.data).substring(0, 200)}`);
+      return null;
+    }
+    sessionId = createResp.data.id;
+    log(`🔥 [FC-Browser] Session created: ${sessionId} (${Date.now() - start}ms)`);
+
+    // 2. Execute Playwright script
+    const script = buildPlaywrightScript(input.numero, input.code, input.annee, appealCourt, firstInstanceCourt);
+    const execResp = await fcRequest(apiKey, 'POST', `/browser/${sessionId}/execute`, {
+      code: script,
+      language: 'node',
     });
 
     const elapsed = Date.now() - start;
 
-    if (!resp.ok) {
-      const errText = await resp.text();
-      log(`🔥 [Firecrawl] ${caseLabel}: HTTP ${resp.status} (${elapsed}ms) — ${errText.substring(0, 200)}`);
-      return null; // Signal to try ScrapingBee fallback
-    }
-
-    const data = await resp.json();
-    log(`🔥 [Firecrawl] ${caseLabel}: success (${elapsed}ms)`);
-    const jsReturns = data?.data?.javascriptReturns || data?.javascriptReturns;
-    if (jsReturns) log(`🔥 [Firecrawl] JS returns: ${JSON.stringify(jsReturns).substring(0, 800)}`);
-    const screenshot = data?.data?.screenshot || data?.screenshot;
-    if (screenshot) log(`🔥 [Firecrawl] Screenshot captured (${screenshot.length} chars)`);
-    const actionsResult = data?.data?.actions || data?.actions;
-    if (actionsResult) log(`🔥 [Firecrawl] Actions result: ${JSON.stringify(actionsResult).substring(0, 500)}`);
-
-    const html = data?.data?.html || '';
-    const markdown = data?.data?.markdown || '';
-    
-    log(`🔥 [Firecrawl] ${caseLabel}: html=${html.length} chars, md=${markdown.length} chars`);
-    if (markdown) log(`🔥 [Firecrawl] MD preview: ${markdown.substring(0, 300)}`);
-
-    if (!html && !markdown) {
-      log(`🔥 [Firecrawl] ${caseLabel}: empty response — keys: ${JSON.stringify(Object.keys(data?.data || data || {}))}`);
+    if (!execResp.ok) {
+      log(`🔥 [FC-Browser] Execute failed: ${execResp.status} — ${JSON.stringify(execResp.data).substring(0, 300)}`);
       return null;
     }
 
-    // Check if we're still on the initial form page (JS didn't fill the form)
-    const isInitialPage = markdown.includes('تتبع الملفات') && !markdown.includes('القاضي') && !markdown.includes('الشعبة');
-    if (isInitialPage) {
-      log(`🔥 [Firecrawl] ${caseLabel}: still on initial form page — JS actions failed, falling back`);
-      return null; // Fall through to ScrapingBee
+    // Parse stdout (console.log output)
+    const stdout = execResp.data?.stdout || '';
+    const resultStr = execResp.data?.result || '';
+    log(`🔥 [FC-Browser] Execute done (${elapsed}ms) | stdout=${stdout.length} chars`);
+
+    let parsed: { log: string[]; result: { noResult: boolean; caseInfo: Record<string, string>; procedures: Array<Record<string, string>>; hasData: boolean; bodyPreview?: string } } | null = null;
+
+    // Try parsing from stdout (console.log output)
+    try {
+      const jsonMatch = stdout.match(/\{[\s\S]*\}/);
+      if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
+    } catch {}
+
+    // Try parsing from result
+    if (!parsed && resultStr) {
+      try { parsed = JSON.parse(resultStr); } catch {}
     }
 
-    // Check for explicit "no results" from the portal
-    if (html.includes('لا توجد أية نتيجة')) {
-      log(`🔥 [Firecrawl] ${caseLabel}: portal returned no results`);
+    if (!parsed) {
+      log(`🔥 [FC-Browser] Could not parse output. stdout: ${stdout.substring(0, 300)}`);
+      return null;
+    }
+
+    log(`🔥 [FC-Browser] Script log: ${parsed.log?.join(' → ')}`);
+
+    if (parsed.result.noResult) {
+      log(`🔥 [FC-Browser] ${caseLabel}: portal returned no results`);
       return {
         ...input,
         status: 'no_data',
@@ -457,65 +554,49 @@ async function fetchViaFirecrawl(
       };
     }
 
-    // Parse the HTML for case data
-    const parsed = parseHtmlFallback(html);
-    
-    // Also try parsing from markdown (often cleaner)
-    if (!parsed.hasData && markdown) {
-      const mdParsed = parseMarkdownResult(markdown);
-      if (mdParsed.hasData) {
-        log(`🔥 [Firecrawl] ${caseLabel}: extracted from markdown — ${Object.keys(mdParsed.caseInfo).length} fields, ${mdParsed.procedures.length} procedures`);
-        
-        const now = new Date();
-        let nextSessionDate: string | null = null;
-        for (const proc of mdParsed.procedures) {
-          const d = proc.next_session_date;
-          if (d && /\d{2}\/\d{2}\/\d{4}/.test(d)) {
-            const [day, month, year] = d.split('/');
-            const dateObj = new Date(`${year}-${month}-${day}`);
-            if (dateObj >= now && (!nextSessionDate || dateObj < new Date(nextSessionDate))) {
-              nextSessionDate = `${year}-${month}-${day}`;
-            }
-          }
-        }
+    if (!parsed.result.hasData) {
+      log(`🔥 [FC-Browser] ${caseLabel}: no data extracted. Body: ${parsed.result.bodyPreview?.substring(0, 200)}`);
+      return null; // Fall through to ScrapingBee
+    }
 
-        return {
-          ...input,
-          status: 'success',
-          caseInfo: mdParsed.caseInfo,
-          procedures: mdParsed.procedures,
-          nextSessionDate,
-        };
+    // Find next session date
+    const now = new Date();
+    let nextSessionDate: string | null = null;
+    for (const proc of parsed.result.procedures) {
+      const d = proc.next_session_date;
+      if (d && /\d{2}\/\d{2}\/\d{4}/.test(d)) {
+        const [day, month, year] = d.split('/');
+        const dateObj = new Date(`${year}-${month}-${day}`);
+        if (dateObj >= now && (!nextSessionDate || dateObj < new Date(nextSessionDate))) {
+          nextSessionDate = `${year}-${month}-${day}`;
+        }
       }
     }
 
-    if (parsed.hasData) {
-      log(`🔥 [Firecrawl] ${caseLabel}: extracted from HTML — ${Object.keys(parsed.caseInfo).length} fields`);
-      
-      const now = new Date();
-      let nextSessionDate: string | null = null;
-      for (const proc of parsed.procedures) {
-        const d = proc.next_session_date;
-        if (d && /\d{2}\/\d{2}\/\d{4}/.test(d)) {
-          const [day, month, year] = d.split('/');
-          const dateObj = new Date(`${year}-${month}-${day}`);
-          if (dateObj >= now && (!nextSessionDate || dateObj < new Date(nextSessionDate))) {
-            nextSessionDate = `${year}-${month}-${day}`;
-          }
-        }
-      }
+    log(`🔥 [FC-Browser] ${caseLabel}: ✓ ${Object.keys(parsed.result.caseInfo).length} fields, ${parsed.result.procedures.length} procedures`);
 
-      return {
-        ...input,
-        status: 'success',
-        caseInfo: parsed.caseInfo,
-        procedures: parsed.procedures,
-        nextSessionDate,
-      };
+    return {
+      ...input,
+      status: 'success',
+      caseInfo: parsed.result.caseInfo,
+      procedures: parsed.result.procedures,
+      nextSessionDate,
+    };
+
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown';
+    log(`🔥 [FC-Browser] ${caseLabel}: error — ${msg}`);
+    return null;
+  } finally {
+    // 3. Always close the session
+    if (sessionId) {
+      try {
+        await fcRequest(apiKey, 'DELETE', `/browser/${sessionId}`);
+        log(`🔥 [FC-Browser] Session ${sessionId} closed`);
+      } catch {}
     }
-
-    log(`🔥 [Firecrawl] ${caseLabel}: no data extracted from ${html.length} chars HTML + ${markdown.length} chars MD`);
-    return null; // Fall through to ScrapingBee
+  }
+}
 
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown';
