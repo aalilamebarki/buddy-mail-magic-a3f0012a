@@ -104,6 +104,8 @@ const buildCourtSection = (
     caseNumber: string;
     opponentName: string;
     requiredAction: string;
+    sessionTime: string;
+    courtRoom: string;
     notes: string;
   }>,
 ): Array<Paragraph | Table> => {
