@@ -373,6 +373,8 @@ return JSON.stringify(L);
   // Click search
   actions.push({ type: 'executeJavascript', script: searchScript });
   actions.push({ type: 'wait', milliseconds: 10000 });
+  // Take screenshot for debugging
+  actions.push({ type: 'screenshot' });
   actions.push({ type: 'scrape' });
 
   return actions;
