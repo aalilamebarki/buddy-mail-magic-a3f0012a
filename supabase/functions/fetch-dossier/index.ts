@@ -520,8 +520,10 @@ async function fetchViaFirecrawl(
     // Parse execution result
     const execData = execResp.data || {};
     const stdout = execData.stdout || '';
-    const resultStr = typeof execData.result === 'string' ? execData.result : JSON.stringify(execData.result || '');
-    log(`🔥 [FC-Browser] Execute done (${elapsed}ms) | stdout=${stdout.length} chars | result=${resultStr.substring(0, 200)} | keys=${Object.keys(execData).join(',')}`);
+    const stderr = execData.stderr || '';
+    const resultVal = execData.result;
+    const resultStr = typeof resultVal === 'string' ? resultVal : JSON.stringify(resultVal || '');
+    log(`🔥 [FC-Browser] Execute done (${elapsed}ms) | stdout=${stdout.length} | stderr=${stderr.substring(0, 300)} | result=${resultStr.substring(0, 200)} | exitCode=${execData.exitCode}`);
 
     let parsed: { log: string[]; result: { noResult: boolean; caseInfo: Record<string, string>; procedures: Array<Record<string, string>>; hasData: boolean; bodyPreview?: string } } | null = null;
 
