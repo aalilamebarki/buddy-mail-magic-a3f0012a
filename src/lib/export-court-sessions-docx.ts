@@ -139,15 +139,24 @@ const buildCourtSection = (
     ),
   });
 
-  // Data rows
-  const dataRows = rows.map(row =>
+  // Data rows — sorted by session time
+  const sortedRows = [...rows].sort((a, b) => {
+    if (!a.sessionTime && !b.sessionTime) return 0;
+    if (!a.sessionTime) return 1;
+    if (!b.sessionTime) return -1;
+    return a.sessionTime.localeCompare(b.sessionTime);
+  });
+
+  const dataRows = sortedRows.map(row =>
     new TableRow({
       children: [
         makeCell(row.clientName, COLS[0].width),
         makeCell(row.caseNumber, COLS[1].width),
         makeCell(row.opponentName, COLS[2].width),
         makeCell(row.requiredAction, COLS[3].width),
-        makeCell(row.notes, COLS[4].width, { size: 20 }),
+        makeCell(row.sessionTime || '—', COLS[4].width),
+        makeCell(row.courtRoom || '—', COLS[5].width),
+        makeCell(row.notes, COLS[6].width, { size: 20 }),
       ],
     }),
   );
