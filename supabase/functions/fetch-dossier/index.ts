@@ -446,29 +446,41 @@ async function fetchViaFirecrawl(
       return null;
     }
 
-    // Parse execution result
+    // Parse execution result — Firecrawl may return data in different fields
     const execData = execResp.data || {};
     const stdout = execData.stdout || '';
     const stderr = execData.stderr || '';
     const resultVal = execData.result;
+    const output = execData.output || '';
+    const returnValue = execData.returnValue || execData.return_value || '';
     const resultStr = typeof resultVal === 'string' ? resultVal : JSON.stringify(resultVal || '');
-    log(`🔥 [FC-Browser] Execute done (${elapsed}ms) | stdout=${stdout.length} | stderr=${stderr.substring(0, 300)} | result=${resultStr.substring(0, 200)} | exitCode=${execData.exitCode}`);
+    
+    // Log all available fields for debugging
+    const allKeys = Object.keys(execData).join(',');
+    log(`🔥 [FC-Browser] Execute done (${elapsed}ms) | keys=[${allKeys}] | stdout=${stdout.length} | stderr=${(stderr||'').substring(0, 200)} | result=${resultStr.substring(0, 300)} | output=${String(output).substring(0, 200)} | returnValue=${String(returnValue).substring(0, 200)} | exitCode=${execData.exitCode}`);
 
     let parsed: { log: string[]; result: { noResult: boolean; caseInfo: Record<string, string>; procedures: Array<Record<string, string>>; hasData: boolean; bodyPreview?: string } } | null = null;
 
-    // Try parsing from stdout (console.log output)
-    try {
-      const jsonMatch = stdout.match(/\{[\s\S]*\}/);
-      if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
-    } catch {}
+    // Try all possible output sources
+    const candidates = [stdout, resultStr, String(output), String(returnValue)];
+    for (const candidate of candidates) {
+      if (!candidate || candidate === 'null' || candidate === '""' || candidate.length < 5) continue;
+      try {
+        const jsonMatch = candidate.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const attempt = JSON.parse(jsonMatch[0]);
+          if (attempt && (attempt.log || attempt.result)) { parsed = attempt; break; }
+        }
+      } catch {}
+    }
 
-    // Try parsing from result
-    if (!parsed && resultStr) {
-      try { parsed = JSON.parse(resultStr); } catch {}
+    // If resultVal is already an object
+    if (!parsed && resultVal && typeof resultVal === 'object') {
+      if (resultVal.log || resultVal.result) parsed = resultVal as any;
     }
 
     if (!parsed) {
-      log(`🔥 [FC-Browser] Could not parse output. stdout: ${stdout.substring(0, 300)}`);
+      log(`🔥 [FC-Browser] Could not parse output. Full response: ${JSON.stringify(execData).substring(0, 500)}`);
       return null;
     }
 
