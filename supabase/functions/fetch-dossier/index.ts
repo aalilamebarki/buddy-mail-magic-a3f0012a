@@ -294,9 +294,9 @@ function buildJsScenario(numero: string, code: string, annee: string, appealCour
       evaluate: `(()=>{const b=[...document.querySelectorAll('button,p-button button')].find(x=>/بحث|عرض|تتبع/.test((x.textContent||'').trim()));if(b){b.click();return 'submitted:'+b.textContent.trim()}return 'no-btn:'+[...document.querySelectorAll('button')].map(x=>x.textContent.trim()).join('|')})()`
     },
     { wait: 10000 },
-    // Final diagnostic step: check what's on page after search
+    // Final diagnostic: inject debug data INTO the page HTML so we can read it
     {
-      evaluate: `(()=>{var inputs=document.querySelectorAll('input[formcontrolname]');var vals={};inputs.forEach(function(i){vals[i.getAttribute('formcontrolname')]=i.value});var dropdowns=document.querySelectorAll('.p-dropdown-label');var ddVals=[];dropdowns.forEach(function(d){ddVals.push(d.textContent.trim())});var hasResult=document.querySelector('.p-datatable,.p-table,table');var noResult=document.body.innerText.includes('لا توجد أية نتيجة');var bodyText=document.body.innerText.substring(0,2000);return JSON.stringify({inputValues:vals,dropdownValues:ddVals,hasTable:!!hasResult,noResult:noResult,bodySnippet:bodyText.substring(0,500)})})()`
+      evaluate: `(()=>{var inputs=document.querySelectorAll('input[formcontrolname]');var vals={};inputs.forEach(function(i){vals[i.getAttribute('formcontrolname')]=i.value});var dropdowns=document.querySelectorAll('.p-dropdown-label');var ddVals=[];dropdowns.forEach(function(d){ddVals.push(d.textContent.trim())});var hasTable=!!document.querySelector('.p-datatable,.p-table,table.p-datatable-table');var noResultEl=document.querySelector('.p-datatable-emptymessage,.empty-message');var noResultVisible=noResultEl?noResultEl.offsetParent!==null:false;var allBtns=[...document.querySelectorAll('button')].map(function(b){return b.textContent.trim()}).filter(Boolean);var bodyText=document.body.innerText.substring(0,1000);var div=document.createElement('div');div.id='__debug__';div.style.display='none';div.setAttribute('data-debug',JSON.stringify({inputValues:vals,dropdownValues:ddVals,hasTable:hasTable,noResultVisible:noResultVisible,buttons:allBtns.slice(0,10),bodySnippet:bodyText.substring(0,400)}));document.body.appendChild(div);return 'injected'})()`
     },
   );
 
