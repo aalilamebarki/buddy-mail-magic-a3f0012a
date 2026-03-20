@@ -77,15 +77,26 @@ export function CaseNumberInput({ value, onChange, placeholder, autoFocus, showC
 
   return (
     <div className="space-y-1.5">
-      <Input
-        value={displayValue}
-        onChange={handleChange}
-        placeholder={placeholder || '‏رقم‏/‏رمز‏/‏سنة — مثال: 2025‏/‏1401‏/‏1'}
-        className="text-right text-base tracking-wider"
-        dir="rtl"
-        style={{ unicodeBidi: 'plaintext' }}
-        autoFocus={autoFocus}
-      />
+      <div className="relative">
+        <Input
+          value={displayValue}
+          onChange={handleChange}
+          placeholder=""
+          className="text-right text-base tracking-wider"
+          dir="rtl"
+          style={{ unicodeBidi: 'bidi-override' }}
+          autoFocus={autoFocus}
+        />
+        {!rawInput && (
+          <span
+            className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground md:text-base"
+            dir="rtl"
+            style={{ unicodeBidi: 'bidi-override' }}
+          >
+            رقم/رمز/سنة — مثال: 1/1401/2025
+          </span>
+        )}
+      </div>
       {showCategory && category && (
         <div className="text-[10px] text-muted-foreground flex items-center gap-1 flex-wrap">
           <Badge variant="outline" className="text-[10px] px-1.5 py-0">{categoryLabels[category]}</Badge>
