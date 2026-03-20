@@ -264,26 +264,44 @@ function buildJsScenario(numero: string, code: string, annee: string, appealCour
     { evaluate: `(()=>{window.__L=[];return 1})()` },
   ];
 
+  // ── Step 1: Fill the CODE (mark) field FIRST — this triggers the appeal court dropdown to load ──
+  instructions.push(
+    {
+      evaluate: `(()=>{var s=function(q,v){var e=document.querySelector(q);if(!e){window.__L.push('miss:'+q);return 0}var d=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');d&&d.set?d.set.call(e,v):e.value=v;e.dispatchEvent(new Event('input',{bubbles:1}));e.dispatchEvent(new Event('change',{bubbles:1}));window.__L.push('set:'+q+'='+v);return 1};return s('input[formcontrolname="mark"]','${esc(code)}')})()`
+    },
+    { wait: 3000 }, // Wait for the dropdown to populate based on the code
+  );
+
+  // ── Step 2: Now select appeal court from the loaded dropdown ──
   if (appealCourt) {
     instructions.push(
       { click: 'p-dropdown .p-dropdown-trigger' },
       { wait: 2500 },
       {
-        evaluate: `(()=>{var t='${esc(appealCourt)}';var li=document.querySelectorAll('li.p-dropdown-item,.p-dropdown-items li');var f=[];for(var i=0;i<li.length;i++){var x=li[i].textContent.trim();f.push(x);if(x.includes(t)){li[i].click();window.__L.push('ok:'+x);return 1}}window.__L.push('miss:'+li.length+':'+f.slice(0,8).join(','));return 0})()`
+        evaluate: `(()=>{var t='${esc(appealCourt)}';var li=document.querySelectorAll('li.p-dropdown-item,.p-dropdown-items li');var f=[];for(var i=0;i<li.length;i++){var x=li[i].textContent.trim();f.push(x);if(x.includes(t)){li[i].click();window.__L.push('court-ok:'+x);return 1}}window.__L.push('court-miss:'+li.length+':'+f.slice(0,8).join(','));return 0})()`
       },
       { wait: 2000 },
     );
   }
 
+  // ── Step 3: Fill remaining fields (numero + annee) ──
   instructions.push(
     {
-      evaluate: `(()=>{var s=function(q,v){var e=document.querySelector(q);if(!e)return 0;var d=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');d&&d.set?d.set.call(e,v):e.value=v;e.dispatchEvent(new Event('input',{bubbles:1}));e.dispatchEvent(new Event('change',{bubbles:1}));return 1};s('input[formcontrolname="numero"]','${esc(numero)}');s('input[formcontrolname="mark"]','${esc(code)}');s('input[formcontrolname="annee"]','${esc(annee)}');return 1})()`
+      evaluate: `(()=>{var s=function(q,v){var e=document.querySelector(q);if(!e){window.__L.push('miss:'+q);return 0}var d=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');d&&d.set?d.set.call(e,v):e.value=v;e.dispatchEvent(new Event('input',{bubbles:1}));e.dispatchEvent(new Event('change',{bubbles:1}));return 1};s('input[formcontrolname="numero"]','${esc(numero)}');s('input[formcontrolname="annee"]','${esc(annee)}');window.__L.push('fields-done');return 1})()`
     },
     { wait: 800 },
+  );
+
+  // ── Step 4: Click search button ──
+  instructions.push(
     {
-      evaluate: `(()=>{var b=[...document.querySelectorAll('button')].find(function(x){return/بحث/.test(x.textContent)});if(b){b.click();return 1}return 0})()`
+      evaluate: `(()=>{var b=[...document.querySelectorAll('button')].find(function(x){return/بحث/.test(x.textContent)});if(b){b.click();window.__L.push('search-clicked');return 1}window.__L.push('search-miss');return 0})()`
     },
     { wait: 12000 },
+  );
+
+  // ── Step 5: Debug snapshot ──
+  instructions.push(
     {
       evaluate: `(()=>{var v={};document.querySelectorAll('input[formcontrolname]').forEach(function(i){v[i.getAttribute('formcontrolname')]=i.value});var dd=[];document.querySelectorAll('.p-dropdown-label').forEach(function(d){dd.push(d.textContent.trim())});var d=document.createElement('div');d.id='__debug__';d.style.display='none';d.setAttribute('data-debug',JSON.stringify({s:window.__L||[],i:v,d:dd,t:!!document.querySelector('table,.p-datatable'),n:document.body.innerText.includes('لا توجد'),b:document.body.innerText.substring(0,250)}));document.body.appendChild(d);return 1})()`
     },
