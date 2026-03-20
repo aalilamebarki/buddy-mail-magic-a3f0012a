@@ -6,7 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/comp
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-import { RefreshCw, Link2, CheckCircle2, Unlink } from 'lucide-react';
+import { RefreshCw, CheckCircle2, Unlink } from 'lucide-react';
 
 const GoogleCalendarIcon = ({ className = "h-6 w-6" }: { className?: string }) => (
   <svg viewBox="0 0 48 48" className={className} xmlns="http://www.w3.org/2000/svg">
@@ -23,6 +23,8 @@ const GoogleCalendarIcon = ({ className = "h-6 w-6" }: { className?: string }) =
   </svg>
 );
 
+const CALLBACK_STATUS_PARAM = 'googleCalendar';
+
 const GoogleCalendarQuickAction = () => {
   const { user } = useAuth();
   const [connected, setConnected] = useState(false);
@@ -31,29 +33,85 @@ const GoogleCalendarQuickAction = () => {
   const [connecting, setConnecting] = useState(false);
   const [open, setOpen] = useState(false);
 
-  useEffect(() => {
-    if (user) checkConnection();
-  }, [user]);
-
   const checkConnection = async () => {
-    if (!user) return;
+    if (!user) {
+      setConnected(false);
+      setLoading(false);
+      return false;
+    }
+
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('google_calendar_tokens')
       .select('id')
       .eq('user_id', user.id)
       .maybeSingle();
-    setConnected(!!data);
+
+    const isConnected = !error && !!data;
+    setConnected(isConnected);
     setLoading(false);
+    return isConnected;
   };
+
+  useEffect(() => {
+    if (user) {
+      void checkConnection();
+    }
+
+    const url = new URL(window.location.href);
+    const callbackStatus = url.searchParams.get(CALLBACK_STATUS_PARAM);
+
+    if (callbackStatus === 'connected') {
+      void checkConnection().then(() => {
+        setConnected(true);
+        setConnecting(false);
+        setOpen(false);
+        toast.success('تم ربط Google Calendar بنجاح!');
+      });
+
+      url.searchParams.delete(CALLBACK_STATUS_PARAM);
+      window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+    }
+
+    if (callbackStatus === 'error') {
+      setConnecting(false);
+      toast.error('تعذر إكمال ربط Google Calendar');
+      url.searchParams.delete(CALLBACK_STATUS_PARAM);
+      window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+    }
+
+    const handleMessage = async (event: MessageEvent) => {
+      if (event.data?.type === 'google-calendar-connected') {
+        await checkConnection();
+        setConnected(true);
+        setConnecting(false);
+        setOpen(false);
+        toast.success('تم ربط Google Calendar بنجاح!');
+      }
+
+      if (event.data?.type === 'google-calendar-error') {
+        setConnecting(false);
+        toast.error('تعذر إكمال ربط Google Calendar');
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [user]);
 
   const handleConnect = async () => {
     setConnecting(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { toast.error('يجب تسجيل الدخول أولاً'); return; }
+      if (!session) {
+        toast.error('يجب تسجيل الدخول أولاً');
+        setConnecting(false);
+        return;
+      }
 
+      const redirectTo = `${window.location.origin}/dashboard/court-sessions`;
       const res = await supabase.functions.invoke('google-calendar-auth', {
+        body: { redirectTo },
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
 
@@ -63,23 +121,21 @@ const GoogleCalendarQuickAction = () => {
         return;
       }
 
-      const popup = window.open(res.data.url, 'google-calendar-auth', 'width=600,height=700');
+      const authWindow = window.open(res.data.url, '_blank');
 
-      const pollInterval = setInterval(async () => {
-        if (popup?.closed) {
-          clearInterval(pollInterval);
+      if (!authWindow) {
+        setConnecting(false);
+        toast.error('تعذر فتح صفحة Google. اسمح بفتح النوافذ المنبثقة ثم أعد المحاولة');
+        return;
+      }
+
+      const pollInterval = window.setInterval(async () => {
+        if (authWindow.closed) {
+          window.clearInterval(pollInterval);
           setConnecting(false);
-          const { data } = await supabase
-            .from('google_calendar_tokens')
-            .select('id')
-            .eq('user_id', user!.id)
-            .maybeSingle();
-          if (data) {
-            setConnected(true);
-            toast.success('تم ربط Google Calendar بنجاح!');
-          }
+          await checkConnection();
         }
-      }, 1000);
+      }, 1200);
     } catch {
       toast.error('حدث خطأ غير متوقع');
       setConnecting(false);
@@ -90,7 +146,11 @@ const GoogleCalendarQuickAction = () => {
     setSyncing(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { toast.error('يجب تسجيل الدخول'); return; }
+      if (!session) {
+        toast.error('يجب تسجيل الدخول');
+        setSyncing(false);
+        return;
+      }
 
       const res = await supabase.functions.invoke('google-calendar-sync', {
         headers: { Authorization: `Bearer ${session.access_token}` },
@@ -110,6 +170,7 @@ const GoogleCalendarQuickAction = () => {
 
   const handleDisconnect = async () => {
     if (!user) return;
+
     const { error } = await supabase
       .from('google_calendar_tokens')
       .delete()
@@ -135,7 +196,7 @@ const GoogleCalendarQuickAction = () => {
                 variant="outline"
                 size="sm"
                 className={cn(
-                  "relative gap-1.5 px-2 sm:px-3 h-9",
+                  'relative gap-2 px-2.5 sm:px-3 h-9',
                   connected
                     ? 'border-green-500/40 bg-green-50/50 dark:bg-green-950/20 hover:bg-green-50 dark:hover:bg-green-950/30'
                     : 'hover:border-primary/30'
@@ -197,7 +258,7 @@ const GoogleCalendarQuickAction = () => {
             ) : (
               <>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  اربط تقويم Google لمزامنة جلساتك تلقائياً والحصول على تنبيهات
+                  سيتم فتح Google في تبويب مستقل ثم العودة تلقائياً بعد نجاح الربط
                 </p>
                 <Button
                   size="sm"
@@ -206,7 +267,7 @@ const GoogleCalendarQuickAction = () => {
                   disabled={connecting}
                 >
                   <GoogleCalendarIcon className="h-4 w-4" />
-                  {connecting ? 'جاري الربط...' : 'ربط Google Calendar'}
+                  {connecting ? 'جاري فتح Google...' : 'متابعة ربط Google Calendar'}
                 </Button>
               </>
             )}
@@ -217,7 +278,6 @@ const GoogleCalendarQuickAction = () => {
   );
 };
 
-// Helper
 function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(' ');
 }
