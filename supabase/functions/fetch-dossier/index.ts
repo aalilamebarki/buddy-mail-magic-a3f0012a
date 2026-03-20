@@ -1029,39 +1029,42 @@ async function persistResults(
     }
   }
 
-  // Schedule ALL future court sessions from procedures
+  // Schedule ALL future court sessions from procedures with time & room
   if (userId && result.procedures.length > 0) {
     const now = new Date();
-    const futureDates = new Set<string>();
+    const futureSessionMap = new Map<string, { time: string; room: string }>();
 
-    // Collect all future session dates from procedures
     for (const proc of result.procedures) {
       const d = proc.next_session_date;
       if (d && /\d{2}\/\d{2}\/\d{4}/.test(d)) {
         const [day, month, year] = d.split('/');
         const dateObj = new Date(`${year}-${month}-${day}`);
         if (dateObj >= now) {
-          futureDates.add(`${year}-${month}-${day}`);
+          const key = `${year}-${month}-${day}`;
+          if (!futureSessionMap.has(key)) {
+            futureSessionMap.set(key, { time: proc.session_time || '', room: proc.court_room || '' });
+          }
         }
       }
-      // Also check action_date for future dates (some procedures list the session date here)
       const ad = proc.action_date;
       if (ad && /\d{2}\/\d{2}\/\d{4}/.test(ad)) {
         const [day, month, year] = ad.split('/');
         const dateObj = new Date(`${year}-${month}-${day}`);
         if (dateObj >= now) {
-          futureDates.add(`${year}-${month}-${day}`);
+          const key = `${year}-${month}-${day}`;
+          if (!futureSessionMap.has(key)) {
+            futureSessionMap.set(key, { time: proc.session_time || '', room: proc.court_room || '' });
+          }
         }
       }
     }
 
-    // Also add the computed nextSessionDate if present
     if (result.nextSessionDate) {
-      futureDates.add(result.nextSessionDate.substring(0, 10));
+      const key = result.nextSessionDate.substring(0, 10);
+      if (!futureSessionMap.has(key)) futureSessionMap.set(key, { time: '', room: '' });
     }
 
-    if (futureDates.size > 0) {
-      // Fetch existing sessions for this case to avoid duplicates
+    if (futureSessionMap.size > 0) {
       const { data: existingSessions } = await supabase
         .from('court_sessions')
         .select('session_date')
@@ -1071,20 +1074,22 @@ async function persistResults(
         (existingSessions || []).map((s: any) => s.session_date)
       );
 
-      const newSessions = [...futureDates]
-        .filter(d => !existingDates.has(d))
-        .map(d => ({
+      const newSessions = [...futureSessionMap.entries()]
+        .filter(([d]) => !existingDates.has(d))
+        .map(([d, info]) => ({
           case_id: caseId,
           session_date: d,
           user_id: userId,
           required_action: '',
           notes: 'تم الجلب تلقائياً من بوابة محاكم',
           status: 'scheduled',
+          session_time: info.time || null,
+          court_room: info.room || null,
         }));
 
       if (newSessions.length > 0) {
         await supabase.from('court_sessions').insert(newSessions);
-        persistLog.push(`تم إنشاء ${newSessions.length} جلسة مقبلة: ${newSessions.map(s => s.session_date).join(', ')}`);
+        persistLog.push(`تم إنشاء ${newSessions.length} جلسة مقبلة: ${newSessions.map(s => `${s.session_date}${s.session_time ? ' ' + s.session_time : ''}`).join(', ')}`);
       }
     }
   }
