@@ -260,22 +260,39 @@ async function resolveCourtForCase(
 function buildJsScenario(numero: string, code: string, annee: string, appealCourt?: string, firstInstanceCourt?: string) {
   const esc = (value?: string) => (value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
-  // Single mega-evaluate that handles: fill mark → wait for dropdown → select appeal → wait for 2nd dropdown → select primary → fill fields → search
-  // This avoids multiple wait steps and keeps ScrapingBee under its 60s timeout
+  // Flow for primary court search:
+  // 1. Fill mark (code) → triggers appeal court dropdown load
+  // 2. Wait & select appeal court from dropdown
+  // 3. Fill numero + annee
+  // 4. Click "البحث في المحاكم الابتدائية" button to load primary courts dropdown
+  // 5. Wait & select primary court from the new dropdown
+  // 6. Click main search button (the one that says just "بحث", not "المحاكم")
   const megaScript = `(()=>{
 window.__L=[];
 var set=function(q,v){var e=document.querySelector(q);if(!e){window.__L.push('miss:'+q);return 0}var d=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');d&&d.set?d.set.call(e,v):e.value=v;e.dispatchEvent(new Event('input',{bubbles:1}));e.dispatchEvent(new Event('change',{bubbles:1}));return 1};
-set('input[formcontrolname="mark"]','${esc(code)}');
-window.__L.push('mark-set');
 var ac='${esc(appealCourt||'')}';
 var pc='${esc(firstInstanceCourt||'')}';
 var num='${esc(numero)}';
 var ann='${esc(annee)}';
+var code='${esc(code)}';
+function waitForForm(cb){
+  var a=0;
+  function poll(){
+    var m=document.querySelector('input[formcontrolname="mark"]');
+    if(m){window.__L.push('form-ready');cb();return}
+    if(++a<30){setTimeout(poll,300);return}
+    window.__L.push('form-timeout');
+  }
+  poll();
+}
+waitForForm(function(){
+  set('input[formcontrolname="mark"]',code);
+  window.__L.push('mark-set');
 function selectDD(idx,target,cb){
   var a=0;
   function poll(){
     var dds=document.querySelectorAll('p-dropdown .p-dropdown-trigger');
-    if(dds.length<=idx){if(++a<40){setTimeout(poll,400);return}window.__L.push('dd'+idx+'-timeout:'+dds.length);cb();return}
+    if(dds.length<=idx){if(++a<40){setTimeout(poll,400);return}window.__L.push('dd'+idx+'-timeout:found='+dds.length);cb();return}
     dds[idx].click();
     setTimeout(function(){
       var panel=document.querySelector('.p-dropdown-panel');
@@ -289,19 +306,45 @@ function selectDD(idx,target,cb){
   }
   poll();
 }
-function fillAndSearch(){
-  set('input[formcontrolname="numero"]',num);
-  set('input[formcontrolname="annee"]',ann);
+function clickPrimarySearchBtn(cb){
+  var a=0;
+  function poll(){
+    var btns=[].slice.call(document.querySelectorAll('button,a.btn,a[class*=btn],span[class*=click],.p-button'));
+    if(a===0){window.__L.push('btns:'+btns.map(function(x){return x.textContent.trim().substring(0,30)}).join('|'))}
+    var b=btns.find(function(x){var t=x.textContent||'';return t.indexOf('المحاكم الابتدائية')>=0||t.indexOf('البحث في المحاكم')>=0||t.indexOf('ابتدائية')>=0||t.indexOf('الإبتدائية')>=0});
+    if(b){b.click();window.__L.push('primary-search-clicked');setTimeout(cb,1500);return}
+    if(++a<30){setTimeout(poll,400);return}
+    window.__L.push('primary-search-btn-miss');
+    cb();
+  }
+  poll();
+}
+function finalSearch(){
   window.__L.push('fields-done');
   setTimeout(function(){
-    var b=[].slice.call(document.querySelectorAll('button')).find(function(x){return x.textContent.indexOf('بحث')>=0});
+    var btns=[].slice.call(document.querySelectorAll('button'));
+    var b=btns.find(function(x){var t=x.textContent.trim();return t==='بحث'||t==='بحث '});
+    if(!b){b=btns.find(function(x){return x.textContent.indexOf('بحث')>=0&&x.textContent.indexOf('المحاكم')<0})}
     if(b){b.click();window.__L.push('search-clicked')}else{window.__L.push('search-miss')}
   },500);
 }
-function step2(){
-  if(pc){selectDD(1,pc,fillAndSearch)}else{fillAndSearch()}
+function fillFields(){
+  set('input[formcontrolname="numero"]',num);
+  set('input[formcontrolname="annee"]',ann);
 }
-if(ac){selectDD(0,ac,step2)}else{step2()}
+function step2(){
+  if(pc){
+    fillFields();
+    clickPrimarySearchBtn(function(){
+      selectDD(1,pc,finalSearch);
+    });
+  }else{
+    fillFields();
+    finalSearch();
+  }
+}
+  if(ac){selectDD(0,ac,step2)}else{fillFields();finalSearch()}
+});
 return 1;
 })()`;
 
