@@ -1,21 +1,17 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, RefreshCw, ExternalLink, CheckCircle2, XCircle, Clock, AlertTriangle } from 'lucide-react';
+import { Loader2, RefreshCw, ExternalLink, CheckCircle2, XCircle, Clock, AlertTriangle, Info } from 'lucide-react';
 import { SyncJob } from '@/hooks/useMahakimSync';
 import { formatDistanceToNow } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import {
-  COURT_HIERARCHY,
-  filterAppellateByCode,
-  detectCourtsFromName,
-  validateHierarchy,
   parseCaseNumber,
+  resolvePortalCourts,
   getCategoryFromCode,
   type CourtCategory,
 } from '@/lib/court-mapping';
@@ -64,72 +60,28 @@ export const MahakimSyncStatus = ({
   const [numero, setNumero] = useState('');
   const [code, setCode] = useState('');
   const [annee, setAnnee] = useState('');
-  const [selectedAppealIdx, setSelectedAppealIdx] = useState<string>('');
-  const [selectedPrimaryIdx, setSelectedPrimaryIdx] = useState<string>('');
 
-  // Derived: filtered appellate courts based on code
+  // Auto-resolve courts from stored court name
+  const resolved = useMemo(() => resolvePortalCourts(courtName, code), [courtName, code]);
   const codeCategory = useMemo(() => getCategoryFromCode(code), [code]);
-  const filteredAppellate = useMemo(() => {
-    if (code.length === 4) return filterAppellateByCode(code);
-    return COURT_HIERARCHY;
-  }, [code]);
-
-  // Selected appellate court object
-  const selectedAppeal = selectedAppealIdx !== '' ? COURT_HIERARCHY[parseInt(selectedAppealIdx)] : null;
-
-  // Hierarchy mismatch validation
-  const hierarchyError = useMemo(() => {
-    if (code.length !== 4 || selectedAppealIdx === '') return null;
-    return validateHierarchy(code, parseInt(selectedAppealIdx));
-  }, [code, selectedAppealIdx]);
-
-  // Whether to show primary court dropdown
-  const showPrimary = selectedAppeal && selectedAppeal.primaryCourts.length > 0 &&
-    (courtLevel === 'ابتدائية' || courtLevel === 'تجارية' || courtLevel === 'إدارية' || !courtLevel);
 
   const handleOpenDialog = () => {
     setNumero(parsed.numero);
     setCode(parsed.code);
     setAnnee(parsed.annee);
-
-    // Auto-detect from court name
-    const detected = detectCourtsFromName(courtName);
-    if (detected.appealIdx >= 0) {
-      setSelectedAppealIdx(String(detected.appealIdx));
-      setSelectedPrimaryIdx(detected.primaryIdx >= 0 ? String(detected.primaryIdx) : '');
-    } else {
-      setSelectedAppealIdx('');
-      setSelectedPrimaryIdx('');
-    }
     setDialogOpen(true);
   };
-
-  // When code changes and has 4 digits, auto-filter and reset appeal if mismatched
-  useEffect(() => {
-    if (code.length === 4 && selectedAppealIdx !== '') {
-      const err = validateHierarchy(code, parseInt(selectedAppealIdx));
-      if (err) {
-        setSelectedAppealIdx('');
-        setSelectedPrimaryIdx('');
-      }
-    }
-  }, [code]);
 
   const isFormValid = useMemo(() => {
     return numero.trim() !== '' &&
       code.length === 4 && /^\d{4}$/.test(code) &&
       annee.length === 4 && /^\d{4}$/.test(annee) &&
-      selectedAppealIdx !== '' &&
-      !hierarchyError;
-  }, [numero, code, annee, selectedAppealIdx, hierarchyError]);
+      resolved.appealPortalLabel !== null;
+  }, [numero, code, annee, resolved.appealPortalLabel]);
 
   const handleConfirmSync = () => {
-    if (!isFormValid) return;
-    const ac = COURT_HIERARCHY[parseInt(selectedAppealIdx)];
-    const primaryLabel = selectedPrimaryIdx !== '' && ac
-      ? ac.primaryCourts[parseInt(selectedPrimaryIdx)]?.portalLabel
-      : undefined;
-    onSync(ac.portalLabel, primaryLabel);
+    if (!isFormValid || !resolved.appealPortalLabel) return;
+    onSync(resolved.appealPortalLabel, resolved.primaryPortalLabel || undefined);
     setDialogOpen(false);
   };
 
@@ -157,12 +109,12 @@ export const MahakimSyncStatus = ({
         </Button>
       </div>
 
-      {/* Court Selection Dialog */}
+      {/* Sync Confirmation Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md" dir="rtl">
           <DialogHeader>
             <DialogTitle>مزامنة الملف من بوابة محاكم</DialogTitle>
-            <DialogDescription>أدخل بيانات الملف واختر المحكمة المختصة</DialogDescription>
+            <DialogDescription>تأكد من بيانات الملف قبل المزامنة</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             {/* 3-field case number input */}
@@ -216,72 +168,44 @@ export const MahakimSyncStatus = ({
               )}
             </div>
 
-            {/* Appellate Court */}
-            <div className="space-y-2">
-              <Label className="font-medium">محكمة الاستئناف *</Label>
-              <Select
-                value={selectedAppealIdx}
-                onValueChange={(v) => { setSelectedAppealIdx(v); setSelectedPrimaryIdx(''); }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="اختر محكمة الاستئناف..." />
-                </SelectTrigger>
-                <SelectContent className="max-h-60">
-                  {filteredAppellate.map((ac) => {
-                    const globalIdx = COURT_HIERARCHY.indexOf(ac);
-                    return (
-                      <SelectItem key={globalIdx} value={String(globalIdx)}>
-                        {ac.label}
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-              {code.length === 4 && filteredAppellate.length < COURT_HIERARCHY.length && (
-                <p className="text-[10px] text-muted-foreground">
-                  تمت تصفية المحاكم حسب الرمز ({categoryLabels[codeCategory]})
-                </p>
-              )}
-            </div>
-
-            {/* Hierarchy Mismatch Error */}
-            {hierarchyError && (
-              <div className="flex items-start gap-2 p-2.5 rounded-md bg-destructive/10 border border-destructive/30">
-                <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
-                <p className="text-xs text-destructive font-medium">{hierarchyError}</p>
-              </div>
-            )}
-
-            {/* Primary Court */}
-            {showPrimary && selectedAppeal && (
-              <div className="space-y-2">
-                <Label>المحكمة الابتدائية</Label>
-                <Select
-                  value={selectedPrimaryIdx}
-                  onValueChange={setSelectedPrimaryIdx}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="اختر المحكمة الابتدائية..." />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-60">
-                    {selectedAppeal.primaryCourts.map((pc, j) => (
-                      <SelectItem key={j} value={String(j)}>{pc.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {courtName && (
-                  <p className="text-[10px] text-muted-foreground">
-                    المحكمة المسجلة في الملف: {courtName}
+            {/* Auto-resolved court info */}
+            {resolved.appealPortalLabel && (
+              <div className="flex items-start gap-2 p-2.5 rounded-md bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div className="space-y-1 text-xs">
+                  <p className="font-medium text-emerald-700 dark:text-emerald-400">تم تحديد المحكمة تلقائياً</p>
+                  <p className="text-muted-foreground">
+                    محكمة الاستئناف: <span className="font-semibold">{resolved.appealLabel}</span>
                   </p>
-                )}
+                  {resolved.primaryLabel && (
+                    <p className="text-muted-foreground">
+                      المحكمة الابتدائية: <span className="font-semibold">{resolved.primaryLabel}</span>
+                    </p>
+                  )}
+                </div>
               </div>
             )}
 
-            {/* Auto-detection note */}
-            {detectCourtsFromName(courtName).appealIdx >= 0 && (
-              <p className="text-xs text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 rounded p-2">
-                تم اكتشاف المحكمة تلقائياً من بيانات الملف
-              </p>
+            {/* Court not resolved warning */}
+            {!resolved.appealPortalLabel && courtName && (
+              <div className="flex items-start gap-2 p-2.5 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="text-xs">
+                  <p className="font-medium text-amber-700 dark:text-amber-400">لم يتم التعرف على المحكمة</p>
+                  <p className="text-muted-foreground">
+                    المحكمة المسجلة "{courtName}" غير موجودة في خريطة المحاكم. تأكد من اختيار المحكمة الصحيحة في بيانات الملف.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {!resolved.appealPortalLabel && !courtName && (
+              <div className="flex items-start gap-2 p-2.5 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                <Info className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  يرجى تحديد المحكمة في بيانات الملف أولاً ليتم اكتشاف محكمة الاستئناف تلقائياً.
+                </p>
+              </div>
             )}
           </div>
           <DialogFooter className="gap-2">

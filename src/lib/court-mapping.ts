@@ -458,6 +458,30 @@ export function detectCourtsFromName(courtName: string | null | undefined): {
 }
 
 /**
+ * Auto-resolve appellate court portal label and primary court portal label
+ * from the court name stored in the case. Returns both for the sync engine.
+ */
+export function resolvePortalCourts(courtName: string | null | undefined, code?: string): {
+  appealPortalLabel: string | null;
+  primaryPortalLabel: string | null;
+  appealLabel: string | null;
+  primaryLabel: string | null;
+} {
+  const detected = detectCourtsFromName(courtName);
+  if (detected.appealIdx < 0) return { appealPortalLabel: null, primaryPortalLabel: null, appealLabel: null, primaryLabel: null };
+
+  const ac = COURT_HIERARCHY[detected.appealIdx];
+  const pc = detected.primaryIdx >= 0 ? ac.primaryCourts[detected.primaryIdx] : null;
+
+  return {
+    appealPortalLabel: ac.portalLabel,
+    primaryPortalLabel: pc?.portalLabel || null,
+    appealLabel: ac.label,
+    primaryLabel: pc?.label || null,
+  };
+}
+
+/**
  * Validate that a case code matches the selected appellate court category.
  * Returns an error message if mismatched, or null if valid.
  */
