@@ -259,48 +259,33 @@ async function resolveCourtForCase(
    ══════════════════════════════════════════════════════════════════ */
 function buildJsScenario(numero: string, code: string, annee: string, appealCourt?: string, firstInstanceCourt?: string) {
   const esc = (value?: string) => (value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-  const instructions: Array<Record<string, unknown>> = [{ wait: 3500 }];
+  const instructions: Array<Record<string, unknown>> = [
+    { wait: 4000 },
+    { evaluate: `(()=>{window.__L=[];return 1})()` },
+  ];
 
   if (appealCourt) {
     instructions.push(
-      // Use ScrapingBee native click (real browser click, not DOM event)
-      { click: 'p-dropdown:first-of-type' },
+      { click: 'p-dropdown .p-dropdown-trigger' },
       { wait: 2500 },
-      // Now try to find and click the item in the overlay panel
       {
-        evaluate: `(()=>{var t='${esc(appealCourt)}';var items=document.querySelectorAll('li.p-dropdown-item,.p-dropdown-item,p-dropdownitem li');var found=[];for(var i=0;i<items.length;i++){var txt=(items[i].textContent||'').trim();found.push(txt);if(txt===t||txt.includes(t)){items[i].click();return 'selected:'+txt}}var overlays=document.querySelectorAll('.p-overlay,.p-connected-overlay,.cdk-overlay-pane');return 'miss:items='+items.length+',overlays='+overlays.length+',found='+found.slice(0,10).join('|')})()`
+        evaluate: `(()=>{var t='${esc(appealCourt)}';var li=document.querySelectorAll('li.p-dropdown-item,.p-dropdown-items li');var f=[];for(var i=0;i<li.length;i++){var x=li[i].textContent.trim();f.push(x);if(x.includes(t)){li[i].click();window.__L.push('ok:'+x);return 1}}window.__L.push('miss:'+li.length+':'+f.slice(0,8).join(','));return 0})()`
       },
-      { wait: 2500 },
+      { wait: 2000 },
     );
   }
 
-  if (firstInstanceCourt) {
-    instructions.push(
-      // Click the second dropdown
-      {
-        evaluate: `(()=>{var dds=document.querySelectorAll('p-dropdown');if(dds.length>=2){dds[1].click();return 'fic-clicked:'+dds.length}return 'no-2nd:'+dds.length})()`
-      },
-      { wait: 2500 },
-      {
-        evaluate: `(()=>{var t='${esc(firstInstanceCourt)}';var items=document.querySelectorAll('li.p-dropdown-item,.p-dropdown-item');for(var i=0;i<items.length;i++){var txt=(items[i].textContent||'').trim();if(txt===t||txt.includes(t)){items[i].click();return 'fic-selected:'+txt}}return 'fic-miss:'+items.length})()`
-      },
-      { wait: 2500 },
-    );
-  }
-
-  // Fill inputs — use "mark" not "code" (actual formcontrolname on mahakim.ma)
   instructions.push(
     {
-      evaluate: `(()=>{const set=(s,v)=>{const e=document.querySelector(s);if(!e)return 'miss:'+s;const d=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');d&&d.set?d.set.call(e,v):e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));return 'ok:'+s+'='+e.value};var r1=set('input[formcontrolname="numero"]','${esc(numero)}');var r2=set('input[formcontrolname="mark"]','${esc(code)}');var r3=set('input[formcontrolname="annee"]','${esc(annee)}');return JSON.stringify({r1:r1,r2:r2,r3:r3})})()`
+      evaluate: `(()=>{var s=function(q,v){var e=document.querySelector(q);if(!e)return 0;var d=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');d&&d.set?d.set.call(e,v):e.value=v;e.dispatchEvent(new Event('input',{bubbles:1}));e.dispatchEvent(new Event('change',{bubbles:1}));return 1};s('input[formcontrolname="numero"]','${esc(numero)}');s('input[formcontrolname="mark"]','${esc(code)}');s('input[formcontrolname="annee"]','${esc(annee)}');return 1})()`
     },
-    { wait: 1000 },
+    { wait: 800 },
     {
-      evaluate: `(()=>{const b=[...document.querySelectorAll('button,p-button button')].find(x=>/بحث/.test((x.textContent||'').trim()));if(b){b.click();return 'submitted:'+b.textContent.trim()}return 'no-btn:'+[...document.querySelectorAll('button')].map(x=>x.textContent.trim()).join('|')})()`
+      evaluate: `(()=>{var b=[...document.querySelectorAll('button')].find(function(x){return/بحث/.test(x.textContent)});if(b){b.click();return 1}return 0})()`
     },
     { wait: 12000 },
-    // Final diagnostic: inject debug data INTO the page HTML so we can read it
     {
-      evaluate: `(()=>{var inputs=document.querySelectorAll('input[formcontrolname]');var vals={};inputs.forEach(function(i){vals[i.getAttribute('formcontrolname')]=i.value});var dropdowns=document.querySelectorAll('.p-dropdown-label');var ddVals=[];dropdowns.forEach(function(d){ddVals.push(d.textContent.trim())});var hasTable=!!document.querySelector('.p-datatable,.p-table,table.p-datatable-table');var noResultEl=document.querySelector('.p-datatable-emptymessage,.empty-message');var noResultVisible=noResultEl?noResultEl.offsetParent!==null:false;var allBtns=[...document.querySelectorAll('button')].map(function(b){return b.textContent.trim()}).filter(Boolean);var bodyText=document.body.innerText.substring(0,1000);var div=document.createElement('div');div.id='__debug__';div.style.display='none';div.setAttribute('data-debug',JSON.stringify({inputValues:vals,dropdownValues:ddVals,hasTable:hasTable,noResultVisible:noResultVisible,buttons:allBtns.slice(0,10),bodySnippet:bodyText.substring(0,400)}));document.body.appendChild(div);return 'injected'})()`
+      evaluate: `(()=>{var v={};document.querySelectorAll('input[formcontrolname]').forEach(function(i){v[i.getAttribute('formcontrolname')]=i.value});var dd=[];document.querySelectorAll('.p-dropdown-label').forEach(function(d){dd.push(d.textContent.trim())});var d=document.createElement('div');d.id='__debug__';d.style.display='none';d.setAttribute('data-debug',JSON.stringify({s:window.__L||[],i:v,d:dd,t:!!document.querySelector('table,.p-datatable'),n:document.body.innerText.includes('لا توجد'),b:document.body.innerText.substring(0,250)}));document.body.appendChild(d);return 1})()`
     },
   );
 
@@ -326,15 +311,18 @@ async function fetchSingleCase(apiKey: string, input: CaseInput, appealCourt?: s
     render_js: 'true',
     premium_proxy: 'true',
     country_code: 'ma',
-    js_scenario: JSON.stringify(scenario),
     timeout: '60000',
   });
 
+  // Use POST to send js_scenario in body (avoids URL length limits with Arabic text)
   const fullUrl = `https://app.scrapingbee.com/api/v1/?${params.toString()}`;
-  log(`🌐 Request URL length: ${fullUrl.length} chars`);
+  log(`🌐 Request URL length: ${fullUrl.length} chars (scenario sent via POST body)`);
 
   try {
     const resp = await fetch(fullUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ js_scenario: scenario }),
       signal: AbortSignal.timeout(65000),
     });
 
