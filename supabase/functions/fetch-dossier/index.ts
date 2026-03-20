@@ -420,7 +420,7 @@ async function fetchViaFirecrawl(
 
   try {
     // 1. Create browser session
-    const createResp = await fcRequest(apiKey, 'POST', '/browser', { ttl: 90, activityTtl: 60 });
+    const createResp = await fcRequest(apiKey, 'POST', '/browser', { ttl: 120, activityTtl: 90 });
     if (!createResp.ok || !createResp.data?.id) {
       log(`🔥 [FC-Browser] Failed to create session: ${createResp.status} — ${JSON.stringify(createResp.data).substring(0, 200)}`);
       return null;
