@@ -473,33 +473,39 @@ export type Database = {
       court_sessions: {
         Row: {
           case_id: string
+          court_room: string | null
           created_at: string
           id: string
           notes: string | null
           required_action: string
           session_date: string
+          session_time: string | null
           status: string
           updated_at: string
           user_id: string
         }
         Insert: {
           case_id: string
+          court_room?: string | null
           created_at?: string
           id?: string
           notes?: string | null
           required_action?: string
           session_date: string
+          session_time?: string | null
           status?: string
           updated_at?: string
           user_id: string
         }
         Update: {
           case_id?: string
+          court_room?: string | null
           created_at?: string
           id?: string
           notes?: string | null
           required_action?: string
           session_date?: string
+          session_time?: string | null
           status?: string
           updated_at?: string
           user_id?: string
