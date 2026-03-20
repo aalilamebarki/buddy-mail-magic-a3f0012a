@@ -318,96 +318,105 @@ const CourtSessions = () => {
           <p className="text-sm text-muted-foreground">إدارة مواعيد الجلسات لجميع الملفات</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {/* Export Word */}
-          <Popover open={exportMode !== null} onOpenChange={(open) => { if (!open) setExportMode(null); }}>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-1" onClick={() => setExportMode('day')}>
-                <FileDown className="h-4 w-4" /> تحميل Word
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-72 p-4 pointer-events-auto" align="end">
-              <div className="space-y-3">
-                <p className="text-sm font-medium text-foreground">تصدير جدول الجلسات إلى Word</p>
-                <div className="flex gap-2">
-                  <Button
-                    variant={exportMode === 'day' ? 'default' : 'outline'}
-                    size="sm"
-                    className="flex-1 gap-1"
-                    onClick={() => setExportMode('day')}
-                  >
-                    <CalendarDays className="h-3.5 w-3.5" /> يوم
-                  </Button>
-                  <Button
-                    variant={exportMode === 'week' ? 'default' : 'outline'}
-                    size="sm"
-                    className="flex-1 gap-1"
-                    onClick={() => setExportMode('week')}
-                  >
-                    <CalendarRange className="h-3.5 w-3.5" /> أسبوع
-                  </Button>
-                </div>
-                <Calendar
-                  mode="single"
-                  selected={exportDate}
-                  onSelect={(d) => d && setExportDate(d)}
-                  className="p-2 pointer-events-auto"
-                />
-                {exportMode === 'week' && (
-                  <p className="text-xs text-muted-foreground text-center">
-                    الأسبوع: {format(startOfWeek(exportDate, { weekStartsOn: 1 }), 'dd/MM')} — {format(endOfWeek(exportDate, { weekStartsOn: 1 }), 'dd/MM/yyyy')}
-                  </p>
-                )}
-                <Button className="w-full gap-1" size="sm" onClick={() => handleExportWord(exportMode || 'day')}>
-                  <FileDown className="h-4 w-4" /> تحميل ملف Word
-                </Button>
-              </div>
-            </PopoverContent>
-          </Popover>
+          {/* View toggle */}
+          <div className="flex gap-1 bg-muted rounded-lg p-1">
+            <Button
+              variant={viewMode === 'table' ? 'default' : 'ghost'}
+              size="sm"
+              className="gap-1 h-8 text-xs"
+              onClick={() => setViewMode('table')}
+            >
+              <List className="h-3.5 w-3.5" /> جدول
+            </Button>
+            <Button
+              variant={viewMode === 'calendar' ? 'default' : 'ghost'}
+              size="sm"
+              className="gap-1 h-8 text-xs"
+              onClick={() => setViewMode('calendar')}
+            >
+              <CalendarRange className="h-3.5 w-3.5" /> تقويم
+            </Button>
+          </div>
 
-          {/* Filter by date */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-1">
-                <Search className="h-4 w-4" />
-                {filterDate ? format(filterDate, 'dd/MM/yyyy') : 'تصفية بالتاريخ'}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
-              <Calendar
-                mode="single"
-                selected={filterDate}
-                onSelect={(d) => setFilterDate(d)}
-                className={cn("p-3 pointer-events-auto")}
-              />
-              {filterDate && (
-                <div className="p-2 border-t">
-                  <Button variant="ghost" size="sm" className="w-full" onClick={() => setFilterDate(undefined)}>
-                    مسح التصفية
+          {viewMode === 'table' && (
+            <>
+              {/* Export Word */}
+              <Popover open={exportMode !== null} onOpenChange={(open) => { if (!open) setExportMode(null); }}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1" onClick={() => setExportMode('day')}>
+                    <FileDown className="h-4 w-4" /> تحميل Word
                   </Button>
-                </div>
-              )}
-            </PopoverContent>
-          </Popover>
+                </PopoverTrigger>
+                <PopoverContent className="w-72 p-4 pointer-events-auto" align="end">
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium text-foreground">تصدير جدول الجلسات إلى Word</p>
+                    <div className="flex gap-2">
+                      <Button variant={exportMode === 'day' ? 'default' : 'outline'} size="sm" className="flex-1 gap-1" onClick={() => setExportMode('day')}>
+                        <CalendarDays className="h-3.5 w-3.5" /> يوم
+                      </Button>
+                      <Button variant={exportMode === 'week' ? 'default' : 'outline'} size="sm" className="flex-1 gap-1" onClick={() => setExportMode('week')}>
+                        <CalendarRange className="h-3.5 w-3.5" /> أسبوع
+                      </Button>
+                    </div>
+                    <Calendar mode="single" selected={exportDate} onSelect={(d) => d && setExportDate(d)} className="p-2 pointer-events-auto" />
+                    {exportMode === 'week' && (
+                      <p className="text-xs text-muted-foreground text-center">
+                        الأسبوع: {format(startOfWeek(exportDate, { weekStartsOn: 1 }), 'dd/MM')} — {format(endOfWeek(exportDate, { weekStartsOn: 1 }), 'dd/MM/yyyy')}
+                      </p>
+                    )}
+                    <Button className="w-full gap-1" size="sm" onClick={() => handleExportWord(exportMode || 'day')}>
+                      <FileDown className="h-4 w-4" /> تحميل ملف Word
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              {/* Filter by date */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1">
+                    <Search className="h-4 w-4" />
+                    {filterDate ? format(filterDate, 'dd/MM/yyyy') : 'تصفية بالتاريخ'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar mode="single" selected={filterDate} onSelect={(d) => setFilterDate(d)} className={cn("p-3 pointer-events-auto")} />
+                  {filterDate && (
+                    <div className="p-2 border-t">
+                      <Button variant="ghost" size="sm" className="w-full" onClick={() => setFilterDate(undefined)}>مسح التصفية</Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
+            </>
+          )}
+
           <Button size="sm" onClick={openAddSession} className="gap-1">
             <Plus className="h-4 w-4" /> إضافة جلسة
           </Button>
         </div>
       </div>
 
-      {/* Sessions */}
-      {displayedSessions.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <CalendarDays className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
-            <p className="text-muted-foreground">لا توجد جلسات {filterDate ? 'في هذا التاريخ' : 'بعد'}</p>
-            <Button variant="outline" className="mt-3" onClick={() => setDialogOpen(true)}>إضافة أول جلسة</Button>
-          </CardContent>
-        </Card>
+      {/* Content */}
+      {viewMode === 'calendar' ? (
+        <CalendarView sessions={sessions} />
       ) : (
-        <div className="space-y-4">
-          {renderSessionTable(upcomingSessions, 'الجلسات القادمة')}
-          {renderSessionTable(pastSessions, 'الجلسات السابقة')}
-        </div>
+        <>
+          {displayedSessions.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <CalendarDays className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
+                <p className="text-muted-foreground">لا توجد جلسات {filterDate ? 'في هذا التاريخ' : 'بعد'}</p>
+                <Button variant="outline" className="mt-3" onClick={() => setDialogOpen(true)}>إضافة أول جلسة</Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {renderSessionTable(upcomingSessions, 'الجلسات القادمة')}
+              {renderSessionTable(pastSessions, 'الجلسات السابقة')}
+            </div>
+          )}
+        </>
       )}
 
       {/* Session Dialog */}
