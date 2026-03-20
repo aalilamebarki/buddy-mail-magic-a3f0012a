@@ -237,7 +237,7 @@ async function resolveCourtForCase(
 ): Promise<{ appeal: string | null; primary: string | null }> {
   const { data } = await supabase
     .from('cases')
-    .select('court')
+    .select('court, court_level')
     .eq('id', caseId)
     .limit(1)
     .single();
@@ -245,6 +245,15 @@ async function resolveCourtForCase(
   if (!data?.court) return { appeal: null, primary: null };
   
   const resolved = resolveCourtFromName(data.court, code);
+  
+  // If the case is registered at the appeal court level,
+  // only search at appeal level — do NOT set primary court
+  if (data.court_level === 'استئناف') {
+    log(`⚖ Court (appeal-level case): "${data.court}" → appeal="${resolved.appeal}", primary=null`);
+    return { appeal: resolved.appeal, primary: null };
+  }
+  
+  // For primary court cases, resolve both appeal + primary
   log(`⚖ Court auto-resolved: "${data.court}" → appeal="${resolved.appeal}", primary="${resolved.primary}"`);
   return resolved;
 }
