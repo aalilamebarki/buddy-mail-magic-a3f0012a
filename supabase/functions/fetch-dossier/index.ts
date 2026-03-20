@@ -399,24 +399,30 @@ ${firstInstanceCourt ? `
         for(const l of ls){const i=html.indexOf(l);if(i===-1)continue;const m=html.substring(i,i+500).match(/>([^<]{2,100})</);if(m&&m[1].trim()!==l&&m[1].trim().length>1){ci[k]=m[1].trim();break;}}
       });
       const procs=[];
+      function parseCompositeField(raw){
+        if(!raw)return{date:'',time:'',room:''};
+        let date='',time='',room='';
+        const dm=raw.match(/(\d{2}\/\d{2}\/\d{4})/);
+        if(dm)date=dm[1];
+        const tm=raw.match(/(?:الساعة\s*)?(\d{1,2}:\d{2})/);
+        if(tm)time=tm[1];
+        const rm=raw.match(/(?:بالقاعة|القاعة|غرفة)\s*(.+?)$/);
+        if(rm)room=rm[1].trim();
+        return{date,time,room};
+      }
       document.querySelectorAll('table tbody tr, .p-datatable-tbody tr').forEach(r=>{
         const c=r.querySelectorAll('td');
         if(c.length>=2){
-          const proc={action_date:c[0]?.textContent?.trim()||'',action_type:c[1]?.textContent?.trim()||'',decision:c[2]?.textContent?.trim()||'',next_session_date:c[3]?.textContent?.trim()||'',session_time:'',court_room:''};
-          // Extract time (HH:MM pattern) and room from additional columns
-          for(let i=2;i<c.length;i++){
+          const rawNsd=c[3]?.textContent?.trim()||'';
+          const rawAd=c[0]?.textContent?.trim()||'';
+          const nsdP=parseCompositeField(rawNsd);
+          const adP=parseCompositeField(rawAd);
+          const proc={action_date:adP.date||rawAd,action_type:c[1]?.textContent?.trim()||'',decision:c[2]?.textContent?.trim()||'',next_session_date:nsdP.date,session_time:nsdP.time||adP.time||'',court_room:nsdP.room||''};
+          // Check additional columns for time/room
+          for(let i=4;i<c.length;i++){
             const txt=(c[i]?.textContent||'').trim();
-            if(/^\d{1,2}[h:]\d{2}$/i.test(txt)||/^\d{1,2}:\d{2}$/.test(txt)){proc.session_time=txt;}
-            else if(txt&&(txt.includes('قاعة')||txt.includes('غرفة')||/^[\d\s]+$/.test(txt)&&txt.length<=5)){proc.court_room=txt;}
-          }
-          // Also try to find time in next_session_date field (sometimes "01/04/2026 09:00")
-          if(!proc.session_time&&proc.next_session_date){
-            const tm=proc.next_session_date.match(/(\d{1,2}:\d{2})/);
-            if(tm){proc.session_time=tm[1];proc.next_session_date=proc.next_session_date.replace(/\s*\d{1,2}:\d{2}.*/,'').trim();}
-          }
-          if(!proc.session_time&&proc.action_date){
-            const tm2=proc.action_date.match(/(\d{1,2}:\d{2})/);
-            if(tm2){proc.session_time=tm2[1];}
+            if(!proc.session_time&&(/^\d{1,2}:\d{2}$/.test(txt)))proc.session_time=txt;
+            if(!proc.court_room&&(txt.includes('قاعة')||txt.includes('غرفة')))proc.court_room=txt;
           }
           procs.push(proc);
         }
@@ -535,11 +541,14 @@ async function fetchViaFirecrawl(
     let nextSessionDate: string | null = null;
     for (const proc of parsed.result.procedures) {
       const d = proc.next_session_date;
-      if (d && /\d{2}\/\d{2}\/\d{4}/.test(d)) {
-        const [day, month, year] = d.split('/');
-        const dateObj = new Date(`${year}-${month}-${day}`);
-        if (dateObj >= now && (!nextSessionDate || dateObj < new Date(nextSessionDate))) {
-          nextSessionDate = `${year}-${month}-${day}`;
+      if (d) {
+        const dm = d.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+        if (dm) {
+          const [, day, month, year] = dm;
+          const dateObj = new Date(`${year}-${month}-${day}`);
+          if (dateObj >= now && (!nextSessionDate || dateObj < new Date(nextSessionDate))) {
+            nextSessionDate = `${year}-${month}-${day}`;
+          }
         }
       }
     }
@@ -1044,15 +1053,21 @@ async function persistResults(
     now.setHours(0, 0, 0, 0);
     const futureSessionMap = new Map<string, { time: string; room: string }>();
 
-    /** Parse "dd/mm/yyyy" or "dd/mm/yyyy HH:MM" — returns {dateKey, time} or null */
-    function parseDateField(raw: string | undefined): { dateKey: string; time: string } | null {
+    /** Parse composite field like "dd/mm/yyyy على الساعة HH:MM بالقاعة ..." */
+    function parseDateField(raw: string | undefined): { dateKey: string; time: string; room: string } | null {
       if (!raw) return null;
-      const m = raw.match(/(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{1,2}:\d{2}))?/);
+      const m = raw.match(/(\d{2})\/(\d{2})\/(\d{4})/);
       if (!m) return null;
-      const [, day, month, year, time] = m;
+      const [, day, month, year] = m;
       const dateObj = new Date(`${year}-${month}-${day}`);
       if (isNaN(dateObj.getTime()) || dateObj < now) return null;
-      return { dateKey: `${year}-${month}-${day}`, time: time || '' };
+      // Extract time
+      const tm = raw.match(/(?:الساعة\s*)?(\d{1,2}:\d{2})/);
+      const time = tm ? tm[1] : '';
+      // Extract room
+      const rm = raw.match(/(?:بالقاعة|القاعة|غرفة)\s*(.+?)$/);
+      const room = rm ? rm[1].trim() : '';
+      return { dateKey: `${year}-${month}-${day}`, time, room };
     }
 
     for (const proc of result.procedures) {
@@ -1060,11 +1075,11 @@ async function persistResults(
       const nsd = parseDateField(proc.next_session_date);
       if (nsd) {
         const sessionTime = proc.session_time || nsd.time || '';
+        const sessionRoom = proc.court_room || nsd.room || '';
         if (!futureSessionMap.has(nsd.dateKey)) {
-          futureSessionMap.set(nsd.dateKey, { time: sessionTime, room: proc.court_room || '' });
+          futureSessionMap.set(nsd.dateKey, { time: sessionTime, room: sessionRoom });
         }
       }
-      // Also check action_date for future dates (but only add to sessions from next_session_date primarily)
     }
 
     if (result.nextSessionDate) {
