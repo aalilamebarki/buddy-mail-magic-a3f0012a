@@ -264,12 +264,19 @@ function buildJsScenario(numero: string, code: string, annee: string, appealCour
   // Step 1: Select appeal court dropdown (REQUIRED by the portal)
   if (appealCourt) {
     instructions.push(
-      // Use ScrapingBee NATIVE click (simulates real mouse, not JS dispatch)
-      { click: '.p-dropdown' },
-      { wait: 2500 },
-      // Try to select the item - ScrapingBee native click on the matching item
+      // First: discover the exact DOM structure of the dropdown
       {
-        evaluate: `(()=>{var t='${esc(appealCourt)}';var items=document.querySelectorAll('.p-dropdown-item,li.p-dropdown-item,p-dropdownitem li,.p-dropdown-items li,.p-dropdown-items-wrapper li');var found=[];for(var i=0;i<items.length;i++){var txt=(items[i].textContent||'').trim();found.push(txt);if(txt===t||txt.includes(t)){items[i].click();return 'appeal-ok:'+txt}}return 'appeal-miss:items='+items.length+',found='+found.slice(0,20).join('|')})()`
+        evaluate: `(()=>{var dd=document.querySelector('p-dropdown');if(!dd)return 'no-p-dropdown';var html=dd.outerHTML.substring(0,500);var classes=dd.className;var trigger=dd.querySelector('.p-dropdown-trigger');var label=dd.querySelector('.p-dropdown-label');return JSON.stringify({tag:dd.tagName,classes:classes,hasTrigger:!!trigger,triggerTag:trigger?trigger.tagName:'none',labelText:label?label.textContent.trim():'none',snippet:html.substring(0,300)})})()`
+      },
+      { wait: 500 },
+      // Try multiple click strategies in sequence
+      {
+        evaluate: `(()=>{var dd=document.querySelector('p-dropdown');if(!dd)return 'no-dd';var trigger=dd.querySelector('.p-dropdown-trigger')||dd.querySelector('[role="button"]')||dd.querySelector('.p-dropdown');var target=trigger||dd;['pointerdown','mousedown','pointerup','mouseup','click'].forEach(function(evt){target.dispatchEvent(new PointerEvent(evt,{bubbles:true,cancelable:true,view:window}))});return 'clicked:'+target.tagName+'.'+target.className.substring(0,50)})()`
+      },
+      { wait: 2500 },
+      // Check if overlay appeared and select item
+      {
+        evaluate: `(()=>{var t='${esc(appealCourt)}';var overlay=document.querySelector('.p-dropdown-panel,.p-overlay,.p-connected-overlay');var items=document.querySelectorAll('.p-dropdown-item,li.p-dropdown-item,.p-dropdown-items li,ul[role="listbox"] li');var found=[];for(var i=0;i<items.length;i++){var txt=(items[i].textContent||'').trim();found.push(txt);if(txt===t||txt.includes(t)){['pointerdown','mousedown','pointerup','mouseup','click'].forEach(function(evt){items[i].dispatchEvent(new PointerEvent(evt,{bubbles:true,cancelable:true,view:window}))});return 'appeal-ok:'+txt}}return 'appeal-miss:overlay='+(overlay?'yes':'no')+',items='+items.length+',found='+found.slice(0,20).join('|')})()`
       },
       { wait: 2000 },
     );
