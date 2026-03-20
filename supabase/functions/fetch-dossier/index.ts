@@ -264,13 +264,12 @@ function buildJsScenario(numero: string, code: string, annee: string, appealCour
   // Step 1: Select appeal court dropdown (REQUIRED by the portal)
   if (appealCourt) {
     instructions.push(
-      // PrimeNG dropdowns respond to mousedown, not click
+      // Use ScrapingBee NATIVE click (simulates real mouse, not JS dispatch)
+      { click: '.p-dropdown' },
+      { wait: 2500 },
+      // Try to select the item - ScrapingBee native click on the matching item
       {
-        evaluate: `(()=>{var dd=document.querySelector('p-dropdown .p-dropdown');if(!dd){dd=document.querySelector('p-dropdown')}if(!dd)return 'no-dd';dd.dispatchEvent(new MouseEvent('mousedown',{bubbles:true,cancelable:true}));dd.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true}));return 'dd-opened'})()`
-      },
-      { wait: 2000 },
-      {
-        evaluate: `(()=>{var t='${esc(appealCourt)}';var items=document.querySelectorAll('.p-dropdown-item,li.p-dropdown-item,p-dropdownitem li,.p-dropdown-items li');var found=[];for(var i=0;i<items.length;i++){var txt=(items[i].textContent||'').trim();found.push(txt);if(txt===t||txt.includes(t)){items[i].dispatchEvent(new MouseEvent('mousedown',{bubbles:true}));items[i].dispatchEvent(new MouseEvent('click',{bubbles:true}));return 'appeal-ok:'+txt}}return 'appeal-miss:items='+items.length+',found='+found.slice(0,15).join('|')})()`
+        evaluate: `(()=>{var t='${esc(appealCourt)}';var items=document.querySelectorAll('.p-dropdown-item,li.p-dropdown-item,p-dropdownitem li,.p-dropdown-items li,.p-dropdown-items-wrapper li');var found=[];for(var i=0;i<items.length;i++){var txt=(items[i].textContent||'').trim();found.push(txt);if(txt===t||txt.includes(t)){items[i].click();return 'appeal-ok:'+txt}}return 'appeal-miss:items='+items.length+',found='+found.slice(0,20).join('|')})()`
       },
       { wait: 2000 },
     );
