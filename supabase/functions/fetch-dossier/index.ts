@@ -1011,25 +1011,63 @@ async function persistResults(
     }
   }
 
-  // Schedule next court session
-  if (result.nextSessionDate && userId) {
-    const dateISO = result.nextSessionDate.substring(0, 10);
-    const { data: existingSession } = await supabase
-      .from('court_sessions')
-      .select('id')
-      .eq('case_id', caseId)
-      .eq('session_date', dateISO)
-      .limit(1);
+  // Schedule ALL future court sessions from procedures
+  if (userId && result.procedures.length > 0) {
+    const now = new Date();
+    const futureDates = new Set<string>();
 
-    if (!existingSession || existingSession.length === 0) {
-      await supabase.from('court_sessions').insert({
-        case_id: caseId,
-        session_date: dateISO,
-        user_id: userId,
-        notes: 'تم الجلب تلقائياً من بوابة محاكم',
-        status: 'scheduled',
-      });
-      persistLog.push(`تم إنشاء جلسة مقبلة: ${dateISO}`);
+    // Collect all future session dates from procedures
+    for (const proc of result.procedures) {
+      const d = proc.next_session_date;
+      if (d && /\d{2}\/\d{2}\/\d{4}/.test(d)) {
+        const [day, month, year] = d.split('/');
+        const dateObj = new Date(`${year}-${month}-${day}`);
+        if (dateObj >= now) {
+          futureDates.add(`${year}-${month}-${day}`);
+        }
+      }
+      // Also check action_date for future dates (some procedures list the session date here)
+      const ad = proc.action_date;
+      if (ad && /\d{2}\/\d{2}\/\d{4}/.test(ad)) {
+        const [day, month, year] = ad.split('/');
+        const dateObj = new Date(`${year}-${month}-${day}`);
+        if (dateObj >= now) {
+          futureDates.add(`${year}-${month}-${day}`);
+        }
+      }
+    }
+
+    // Also add the computed nextSessionDate if present
+    if (result.nextSessionDate) {
+      futureDates.add(result.nextSessionDate.substring(0, 10));
+    }
+
+    if (futureDates.size > 0) {
+      // Fetch existing sessions for this case to avoid duplicates
+      const { data: existingSessions } = await supabase
+        .from('court_sessions')
+        .select('session_date')
+        .eq('case_id', caseId);
+
+      const existingDates = new Set(
+        (existingSessions || []).map((s: any) => s.session_date)
+      );
+
+      const newSessions = [...futureDates]
+        .filter(d => !existingDates.has(d))
+        .map(d => ({
+          case_id: caseId,
+          session_date: d,
+          user_id: userId,
+          required_action: '',
+          notes: 'تم الجلب تلقائياً من بوابة محاكم',
+          status: 'scheduled',
+        }));
+
+      if (newSessions.length > 0) {
+        await supabase.from('court_sessions').insert(newSessions);
+        persistLog.push(`تم إنشاء ${newSessions.length} جلسة مقبلة: ${newSessions.map(s => s.session_date).join(', ')}`);
+      }
     }
   }
 
