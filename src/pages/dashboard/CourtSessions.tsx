@@ -48,6 +48,8 @@ const CourtSessions = () => {
   const [actionSearch, setActionSearch] = useState('');
   const [actionOptions, setActionOptions] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
+  const [sessionTime, setSessionTime] = useState('');
+  const [courtRoom, setCourtRoom] = useState('');
   const [saving, setSaving] = useState(false);
 
   // Fetch required actions from DB
