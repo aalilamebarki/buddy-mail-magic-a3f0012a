@@ -254,11 +254,16 @@ async function resolveCourtForCase(
    
    Firecrawl actions: click, write, wait, screenshot, scrape
    This is the PRIMARY path — no monthly limits like ScrapingBee
+   
+   IMPORTANT: Firecrawl's 'write' types into the currently focused 
+   element. We use 'click' to focus then 'write' to type.
+   The search button must be specifically targeted to avoid clicking
+   wrong buttons.
    ══════════════════════════════════════════════════════════════════ */
 function buildFirecrawlActions(numero: string, code: string, annee: string, appealCourt?: string, firstInstanceCourt?: string) {
   const actions: Array<Record<string, unknown>> = [
     // Wait for Angular app to load
-    { type: 'wait', milliseconds: 5000 },
+    { type: 'wait', milliseconds: 6000 },
     // Fill the code field (mark) — this triggers appeal court dropdown loading
     { type: 'click', selector: 'input[formcontrolname="mark"]' },
     { type: 'write', text: code },
@@ -266,7 +271,7 @@ function buildFirecrawlActions(numero: string, code: string, annee: string, appe
     // Fill numero
     { type: 'click', selector: 'input[formcontrolname="numero"]' },
     { type: 'write', text: numero },
-    // Fill annee
+    // Fill annee  
     { type: 'click', selector: 'input[formcontrolname="annee"]' },
     { type: 'write', text: annee },
     { type: 'wait', milliseconds: 2000 },
@@ -274,37 +279,42 @@ function buildFirecrawlActions(numero: string, code: string, annee: string, appe
 
   // If appeal court specified, select it from dropdown
   if (appealCourt) {
-    // Click the first p-dropdown trigger to open appeal court list
     actions.push({ type: 'click', selector: 'p-dropdown .p-dropdown-trigger' });
     actions.push({ type: 'wait', milliseconds: 1500 });
-    // Type in the filter to find the court
-    actions.push({ type: 'click', selector: '.p-dropdown-filter' });
+    // Type in the filter input inside the dropdown panel
+    actions.push({ type: 'click', selector: '.p-dropdown-panel .p-dropdown-filter, .p-dropdown-filter-container input' });
     actions.push({ type: 'write', text: appealCourt });
     actions.push({ type: 'wait', milliseconds: 1000 });
-    // Click the first matching item
-    actions.push({ type: 'click', selector: '.p-dropdown-items li' });
-    actions.push({ type: 'wait', milliseconds: 1500 });
+    actions.push({ type: 'click', selector: '.p-dropdown-items li, .p-dropdown-item' });
+    actions.push({ type: 'wait', milliseconds: 2000 });
   }
 
   // If primary court specified, check the checkbox and select
   if (firstInstanceCourt) {
     // Click the checkbox "هل تريد البحث بالمحاكم الابتدائية"
-    actions.push({ type: 'click', selector: 'p-checkbox .p-checkbox-box' });
-    actions.push({ type: 'wait', milliseconds: 2500 });
-    // Click the second dropdown (primary courts)
-    actions.push({ type: 'click', selector: 'p-dropdown:nth-of-type(2) .p-dropdown-trigger' });
+    actions.push({ type: 'click', selector: '.p-checkbox .p-checkbox-box, p-checkbox .p-checkbox-box' });
+    actions.push({ type: 'wait', milliseconds: 3000 });
+    // The second dropdown should now be visible for primary courts
+    // Use a more specific selector: the last p-dropdown trigger
+    actions.push({
+      type: 'execute_js',
+      code: `document.querySelectorAll('p-dropdown .p-dropdown-trigger')[document.querySelectorAll('p-dropdown .p-dropdown-trigger').length - 1]?.click()`,
+    });
     actions.push({ type: 'wait', milliseconds: 1500 });
-    // Filter for the primary court
-    actions.push({ type: 'click', selector: '.p-dropdown-filter' });
+    actions.push({ type: 'click', selector: '.p-dropdown-panel .p-dropdown-filter, .p-dropdown-filter-container input' });
     actions.push({ type: 'write', text: firstInstanceCourt });
     actions.push({ type: 'wait', milliseconds: 1000 });
-    actions.push({ type: 'click', selector: '.p-dropdown-items li' });
-    actions.push({ type: 'wait', milliseconds: 1500 });
+    actions.push({ type: 'click', selector: '.p-dropdown-items li, .p-dropdown-item' });
+    actions.push({ type: 'wait', milliseconds: 2000 });
   }
 
-  // Click the search button
-  actions.push({ type: 'click', selector: 'button' });
-  actions.push({ type: 'wait', milliseconds: 8000 });
+  // Click the search button — use execute_js to find the right one
+  // The main search button contains "بحث" but NOT "المحاكم"
+  actions.push({
+    type: 'execute_js',
+    code: `(function(){var bs=[].slice.call(document.querySelectorAll('button'));var b=bs.find(function(x){var t=x.textContent.trim();return t==='بحث'||t==='بحث '});if(!b)b=bs.find(function(x){return x.textContent.indexOf('بحث')>=0&&x.textContent.indexOf('المحاكم')<0});if(b)b.click();return !!b})()`,
+  });
+  actions.push({ type: 'wait', milliseconds: 10000 });
   // Scrape the results
   actions.push({ type: 'scrape' });
 
