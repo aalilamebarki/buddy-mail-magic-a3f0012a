@@ -93,9 +93,8 @@ export function CaseNumberInput({ value, onChange, placeholder, autoFocus, showC
           autoFocus={autoFocus}
         />
         {!rawInput && (
-          <div className="pointer-events-none absolute inset-y-0 right-3 left-3 flex items-center justify-end gap-2 text-sm text-muted-foreground md:text-base" dir="rtl">
-            <span className="whitespace-nowrap">رقم/رمز/سنة — مثال:</span>
-            <span className="whitespace-nowrap" dir="rtl">2025/1201/41</span>
+          <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground md:text-base" dir="rtl">
+            <span>رقم/رمز/سنة — مثال: 2025/1201/41</span>
           </div>
         )}
       </div>
