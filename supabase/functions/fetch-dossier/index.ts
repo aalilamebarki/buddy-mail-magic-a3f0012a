@@ -894,7 +894,17 @@ Deno.serve(async (req) => {
 
     for (let i = 0; i < batch.length; i++) {
       if (i > 0) await randomDelay();
-      const result = await fetchSingleCase(SCRAPINGBEE_API_KEY, batch[i]);
+      
+      // Auto-resolve courts if caseId is provided
+      let appealCourt = batch[i].courtType === 'appeal' ? undefined : undefined;
+      let primaryCourt: string | undefined;
+      if (caseId) {
+        const resolved = await resolveCourtForCase(supabase, caseId, batch[i].code);
+        appealCourt = resolved.appeal || undefined;
+        primaryCourt = resolved.primary || undefined;
+      }
+      
+      const result = await fetchSingleCase(SCRAPINGBEE_API_KEY, batch[i], appealCourt, primaryCourt);
       results.push(result);
       if (caseId || userId) {
         await persistResults(supabase, caseId, userId, result);
