@@ -22,15 +22,30 @@ export interface AppellateCourt {
   primaryCourts: PrimaryCourt[];
 }
 
-/* ── Code prefix → category mapping ── */
-const COMMERCIAL_PREFIXES = ['82', '83', '84', '85'];
-const ADMINISTRATIVE_PREFIXES = ['71', '72', '73', '74'];
+/* ── Code prefix → category mapping ── 
+ * Based on official Mahakim.ma codification:
+ * 11xx-17xx: مدني ابتدائي (رئاسة، مدني، أكرية، عقار، اجتماعي، أحوال شخصية، قرب)
+ * 21xx-29xx: زجري (جنحي، أحداث، تحقيق، سير، استئنافي جنحي، شكاية مباشرة)
+ * 31xx-32xx: شكايات ومحاضر
+ * 41xx: تنفيذ زجري
+ * 61xx-68xx: تنفيذات وتبليغات مدنية
+ * 71xx: محاكم إدارية ابتدائية
+ * 72xx: محاكم استئناف إدارية
+ * 73xx-76xx: تبليغات وتنفيذات إدارية
+ * 81xx: تجاري - مؤسسة الرئيس (استعجالي)
+ * 82xx: تجاري - شعبة الموضوع
+ * 83xx: تجاري - صعوبات المقاولة
+ * 84xx: تجاري - تبليغات
+ * 85xx: تجاري - تنفيذات
+ */
+const COMMERCIAL_PREFIXES = ['81', '82', '83', '84', '85'];
+const ADMINISTRATIVE_PREFIXES = ['71', '72', '73', '74', '75', '76'];
 
 /**
  * Determines court category from a 4-digit case code.
- * - 82xx → commercial
- * - 71xx → administrative
- * - everything else → civil (standard civil/penal/family)
+ * Commercial: 81xx-85xx
+ * Administrative: 71xx-76xx
+ * Civil/Penal/Family: everything else (11xx-68xx)
  */
 export function getCategoryFromCode(code: string): CourtCategory {
   if (!code || code.length < 2) return 'civil';
@@ -41,13 +56,64 @@ export function getCategoryFromCode(code: string): CourtCategory {
 }
 
 /**
- * Known civil case codes (common ones).
- * This is non-exhaustive; any code not matching commercial/admin is treated as civil.
+ * Determines if a code represents an appellate-level case at a primary court.
+ * E.g. 1251 = مدني مستأنف, 2801 = جنحي مستأنف
+ * These are heard at the primary court but in its appellate capacity.
  */
-export const KNOWN_CIVIL_CODES = [
-  '1401', '2601', '2645', '1645', '1101', '1102', '1201', '1301',
-  '2501', '2701', '2801', '2901', '3001', '3101', '3201',
-];
+export function isAppellateLevelCode(code: string): boolean {
+  if (!code || code.length !== 4) return false;
+  const num = parseInt(code);
+  // Civil appellate at primary: 12xx (1220+), 13xx (1351+), 14xx (1451+), 15xx (1551+), 16xx (1651+)
+  if (num >= 1220 && num <= 1258) return true;
+  if (num >= 1351 && num <= 1353) return true;
+  if (num >= 1451 && num <= 1456) return true;
+  if (num >= 1551 && num <= 1555) return true;
+  if (num >= 1651 && num <= 1653) return true;
+  // Criminal appellate at primary: 28xx
+  if (num >= 2801 && num <= 2824) return true;
+  // Commercial appellate codes: 82xx (8223-8232)
+  if (num >= 8223 && num <= 8232) return true;
+  return false;
+}
+
+/**
+ * Get detailed sub-category label for a case code.
+ */
+export function getCodeSubCategory(code: string): string {
+  if (!code || code.length !== 4) return '';
+  const prefix = code.substring(0, 2);
+  switch (prefix) {
+    case '11': return 'مؤسسة الرئيس وغرفة المشورة';
+    case '12': return parseInt(code) >= 1220 ? 'المدني المستأنف' : 'المدني';
+    case '13': return parseInt(code) >= 1351 ? 'الأكرية المستأنفة' : 'الأكرية';
+    case '14': return parseInt(code) >= 1451 ? 'العقار المستأنف' : 'العقار';
+    case '15': return parseInt(code) >= 1551 ? 'الاجتماعي المستأنف' : 'الاجتماعي';
+    case '16': return 'الأحوال الشخصية / قضاء الأسرة';
+    case '17': return 'قضاء القرب';
+    case '21': return 'الجنحي العادي والتلبسي';
+    case '22': return 'الجنحي أحداث';
+    case '23': return 'التحقيق';
+    case '24': return 'جنح وحوادث السير';
+    case '28': return 'الجنحي الاستئنافي';
+    case '29': return 'شكاية مباشرة';
+    case '31': return 'الشكايات';
+    case '32': return 'المحاضر';
+    case '41': return 'التنفيذ الزجري';
+    case '61': case '62': case '63': return 'تنفيذات مدنية';
+    case '64': case '65': case '66': case '67': case '68': return 'تبليغات';
+    case '71': return 'المحاكم الإدارية';
+    case '72': return 'محاكم الاستئناف الإدارية';
+    case '73': case '74': return 'تبليغات وتنفيذات إدارية ابتدائية';
+    case '75': case '76': return 'تبليغات وتنفيذات إدارية استئنافية';
+    case '81': return 'الاستعجالي التجاري (مؤسسة الرئيس)';
+    case '82': return 'شعبة الموضوع التجاري';
+    case '83': return 'صعوبات المقاولة';
+    case '84': return 'تبليغات تجارية';
+    case '85': return 'تنفيذات تجارية';
+    default: return '';
+  }
+}
+
 
 /* ══════════════════════════════════════════════════════════════════
    FULL COURT HIERARCHY

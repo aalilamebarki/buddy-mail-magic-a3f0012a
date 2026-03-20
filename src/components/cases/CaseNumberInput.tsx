@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { getCategoryFromCode } from '@/lib/court-mapping';
+import { getCategoryFromCode, getCodeSubCategory } from '@/lib/court-mapping';
 
 const categoryLabels: Record<string, string> = {
   civil: 'مدني / جنائي / أسري',
@@ -72,6 +72,7 @@ export function CaseNumberInput({ value, onChange, placeholder, autoFocus, showC
   const parts = rawInput.split('/');
   const code = parts[1] || '';
   const category = code.length === 4 ? getCategoryFromCode(code) : null;
+  const subCategory = code.length === 4 ? getCodeSubCategory(code) : '';
 
   return (
     <div className="space-y-1.5">
@@ -84,9 +85,10 @@ export function CaseNumberInput({ value, onChange, placeholder, autoFocus, showC
         autoFocus={autoFocus}
       />
       {showCategory && category && (
-        <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-          النوع المكتشف: <Badge variant="outline" className="text-[10px] px-1.5 py-0">{categoryLabels[category]}</Badge>
-        </p>
+        <div className="text-[10px] text-muted-foreground flex items-center gap-1 flex-wrap">
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0">{categoryLabels[category]}</Badge>
+          {subCategory && <span className="text-muted-foreground">— {subCategory}</span>}
+        </div>
       )}
     </div>
   );
