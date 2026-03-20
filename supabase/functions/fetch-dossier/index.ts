@@ -306,16 +306,26 @@ function selectDD(idx,target,cb){
   }
   poll();
 }
-function clickPrimarySearchBtn(cb){
+function clickPrimaryCheckbox(cb){
   var a=0;
   function poll(){
-    var btns=[].slice.call(document.querySelectorAll('button,a,div,span,label,.p-button'));
-    if(a===0){window.__L.push('all-els:'+btns.filter(function(x){return(x.textContent||'').trim().length>0&&(x.textContent||'').trim().length<40}).map(function(x){return x.tagName+':'+x.textContent.trim().substring(0,25)}).slice(0,20).join('|'))}
-    var b=btns.find(function(x){var t=x.textContent||'';return t.indexOf('المحاكم الابتدائية')>=0||t.indexOf('البحث في المحاكم')>=0||t.indexOf('ابتدائية')>=0||t.indexOf('الإبتدائية')>=0});
-    if(b){b.click();window.__L.push('primary-search-clicked:'+b.tagName);setTimeout(cb,1500);return}
-    if(++a<8){setTimeout(poll,400);return}
-    window.__L.push('primary-btn-miss-fallback-search');
-    cb();
+    var cbs=[].slice.call(document.querySelectorAll('p-checkbox,input[type="checkbox"],.p-checkbox'));
+    var labels=[].slice.call(document.querySelectorAll('label,span'));
+    var found=null;
+    for(var i=0;i<labels.length;i++){
+      var t=labels[i].textContent||'';
+      if(t.indexOf('الابتدائية')>=0||t.indexOf('الإبتدائية')>=0||t.indexOf('البحث بالمحاكم')>=0){
+        var cb2=labels[i].querySelector('input[type="checkbox"],.p-checkbox-box');
+        if(!cb2){var p=labels[i].closest('.p-field-checkbox,div');if(p)cb2=p.querySelector('input[type="checkbox"],.p-checkbox-box')}
+        if(!cb2){cb2=labels[i].previousElementSibling||labels[i].parentElement.querySelector('input[type="checkbox"],.p-checkbox-box,.p-checkbox')}
+        if(cb2){found=cb2;break}
+        found=labels[i];break;
+      }
+    }
+    if(!found&&cbs.length>0){found=cbs[0]}
+    if(found){found.click();window.__L.push('checkbox-clicked:'+found.tagName+':'+found.className);setTimeout(cb,2000);return}
+    if(++a<15){setTimeout(poll,400);return}
+    window.__L.push('checkbox-miss');cb();
   }
   poll();
 }
