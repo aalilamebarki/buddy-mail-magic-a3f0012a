@@ -162,6 +162,8 @@ const CourtSessions = () => {
           session_date: format(sessionDate, 'yyyy-MM-dd'),
           required_action: requiredAction.trim(),
           notes: notes || null,
+          session_time: sessionTime || null,
+          court_room: courtRoom || null,
         }).eq('id', editingSession.id);
         if (error) throw error;
         toast.success('تم تعديل الجلسة');
@@ -171,6 +173,8 @@ const CourtSessions = () => {
           session_date: format(sessionDate, 'yyyy-MM-dd'),
           required_action: requiredAction.trim(),
           notes: notes || null,
+          session_time: sessionTime || null,
+          court_room: courtRoom || null,
           user_id: user.id,
         });
         if (error) throw error;
