@@ -204,7 +204,7 @@ const GoogleCalendarQuickAction = () => {
               >
                 <GoogleCalendarIcon className="h-5 w-5 shrink-0" />
                 <span className="text-[11px] sm:text-xs font-semibold leading-tight">
-                  {connected ? 'التقويم مربوط' : 'ربط التقويم'}
+                  {connecting ? 'جاري الربط...' : connected ? '✓ تم الربط' : 'غير مربوط'}
                 </span>
                 {connected && (
                   <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-green-500 border-2 border-background animate-pulse" />
