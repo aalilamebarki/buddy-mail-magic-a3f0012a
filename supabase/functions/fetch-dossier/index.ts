@@ -1075,7 +1075,7 @@ Deno.serve(async (req) => {
           firstInstanceCourt = firstInstanceCourt || resolved.primary || undefined;
         }
         
-        const result = await fetchSingleCase(SCRAPINGBEE_API_KEY, input, appealCourt, firstInstanceCourt);
+        const result = await fetchCase(input, appealCourt, firstInstanceCourt);
         const persistLog = await persistResults(supabase, jCaseId, body.userId, result);
 
         await supabase.from('mahakim_sync_jobs').update({
