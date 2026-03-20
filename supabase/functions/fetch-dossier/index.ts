@@ -272,11 +272,21 @@ function buildJsScenario(numero: string, code: string, annee: string, appealCour
     { wait: 1500 },
   );
 
-  // ── Step 2: Poll until dropdown has loaded items (max ~15s) then select appeal court ──
+  // ── Step 2: Poll until first dropdown has loaded items (max ~15s) then select appeal court ──
   if (appealCourt) {
     instructions.push(
       {
-        evaluate: `(()=>{var a=0;var max=30;function poll(){var dd=document.querySelector('p-dropdown .p-dropdown-trigger');if(!dd){if(++a<max){setTimeout(poll,500);return}window.__L.push('dd-timeout');return}dd.click();setTimeout(function(){var li=document.querySelectorAll('li.p-dropdown-item,.p-dropdown-items li');if(li.length<2&&a<max){dd.click();a++;setTimeout(poll,500);return}var t='${esc(appealCourt)}';var f=[];for(var i=0;i<li.length;i++){var x=li[i].textContent.trim();f.push(x);if(x.includes(t)){li[i].click();window.__L.push('court-ok:'+x+' @'+a);return}}window.__L.push('court-miss:'+li.length+':'+f.slice(0,8).join(','))},800)}poll();return 1})()`
+        evaluate: `(()=>{var a=0;var max=30;function poll(){var dds=document.querySelectorAll('p-dropdown .p-dropdown-trigger');var dd=dds[0];if(!dd){if(++a<max){setTimeout(poll,500);return}window.__L.push('dd1-timeout');return}dd.click();setTimeout(function(){var li=document.querySelectorAll('li.p-dropdown-item,.p-dropdown-items li');if(li.length<2&&a<max){dd.click();a++;setTimeout(poll,500);return}var t='${esc(appealCourt)}';var f=[];for(var i=0;i<li.length;i++){var x=li[i].textContent.trim();f.push(x);if(x.includes(t)){li[i].click();window.__L.push('appeal-ok:'+x+' @'+a);return}}window.__L.push('appeal-miss:'+li.length+':'+f.slice(0,8).join(','))},800)}poll();return 1})()`
+      },
+      { wait: 8000 },
+    );
+  }
+
+  // ── Step 2b: Select first-instance court from the SECOND dropdown (appears after appeal court selection) ──
+  if (firstInstanceCourt) {
+    instructions.push(
+      {
+        evaluate: `(()=>{var a=0;var max=30;function poll(){var dds=document.querySelectorAll('p-dropdown .p-dropdown-trigger');if(dds.length<2){if(++a<max){setTimeout(poll,500);return}window.__L.push('dd2-timeout:found='+dds.length);return}var dd=dds[1];dd.click();setTimeout(function(){var li=document.querySelectorAll('li.p-dropdown-item,.p-dropdown-items li');if(li.length<2&&a<max){dd.click();a++;setTimeout(poll,500);return}var t='${esc(firstInstanceCourt)}';var f=[];for(var i=0;i<li.length;i++){var x=li[i].textContent.trim();f.push(x);if(x.includes(t)){li[i].click();window.__L.push('primary-ok:'+x+' @'+a);return}}window.__L.push('primary-miss:'+li.length+':'+f.slice(0,8).join(','))},800)}poll();return 1})()`
       },
       { wait: 8000 },
     );
