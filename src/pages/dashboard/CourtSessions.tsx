@@ -22,6 +22,7 @@ import { ar } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { exportCourtSessionsWord } from '@/lib/export-court-sessions-docx';
 import CalendarView from '@/components/sessions/CalendarView';
+import GoogleCalendarQuickAction from '@/components/sessions/GoogleCalendarQuickAction';
 
 const CourtSessions = () => {
   const navigate = useNavigate();
