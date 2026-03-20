@@ -34,13 +34,11 @@ export interface CaseForm {
   description: string;
   client_id: string;
   court: string;
-  case_numero: string;
-  case_code: string;
-  case_annee: string;
+  case_number_raw: string; // composite "numero/code/annee"
 }
 
 /* ─── Constants ─── */
-const emptyForm: CaseForm = { title: '', case_type: '', description: '', client_id: '', court: '', case_numero: '', case_code: '', case_annee: '' };
+const emptyForm: CaseForm = { title: '', case_type: '', description: '', client_id: '', court: '', case_number_raw: '' };
 const emptyOpponent: Opponent = { name: '', address: '', phone: '' };
 const NIYABA = 'النيابة العامة';
 const HIDDEN_ADDRESS_PARTIES = [NIYABA, 'قاضي التوثيق', 'قاضي شؤون القاصرين'];
