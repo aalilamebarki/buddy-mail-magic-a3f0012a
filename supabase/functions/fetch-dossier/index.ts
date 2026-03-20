@@ -269,18 +269,16 @@ function buildJsScenario(numero: string, code: string, annee: string, appealCour
     {
       evaluate: `(()=>{var s=function(q,v){var e=document.querySelector(q);if(!e){window.__L.push('miss:'+q);return 0}var d=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');d&&d.set?d.set.call(e,v):e.value=v;e.dispatchEvent(new Event('input',{bubbles:1}));e.dispatchEvent(new Event('change',{bubbles:1}));window.__L.push('set:'+q+'='+v);return 1};return s('input[formcontrolname="mark"]','${esc(code)}')})()`
     },
-    { wait: 3000 }, // Wait for the dropdown to populate based on the code
+    { wait: 1500 },
   );
 
-  // ── Step 2: Now select appeal court from the loaded dropdown ──
+  // ── Step 2: Poll until dropdown has loaded items (max ~15s) then select appeal court ──
   if (appealCourt) {
     instructions.push(
-      { click: 'p-dropdown .p-dropdown-trigger' },
-      { wait: 2500 },
       {
-        evaluate: `(()=>{var t='${esc(appealCourt)}';var li=document.querySelectorAll('li.p-dropdown-item,.p-dropdown-items li');var f=[];for(var i=0;i<li.length;i++){var x=li[i].textContent.trim();f.push(x);if(x.includes(t)){li[i].click();window.__L.push('court-ok:'+x);return 1}}window.__L.push('court-miss:'+li.length+':'+f.slice(0,8).join(','));return 0})()`
+        evaluate: `(()=>{var a=0;var max=30;function poll(){var dd=document.querySelector('p-dropdown .p-dropdown-trigger');if(!dd){if(++a<max){setTimeout(poll,500);return}window.__L.push('dd-timeout');return}dd.click();setTimeout(function(){var li=document.querySelectorAll('li.p-dropdown-item,.p-dropdown-items li');if(li.length<2&&a<max){dd.click();a++;setTimeout(poll,500);return}var t='${esc(appealCourt)}';var f=[];for(var i=0;i<li.length;i++){var x=li[i].textContent.trim();f.push(x);if(x.includes(t)){li[i].click();window.__L.push('court-ok:'+x+' @'+a);return}}window.__L.push('court-miss:'+li.length+':'+f.slice(0,8).join(','))},800)}poll();return 1})()`
       },
-      { wait: 2000 },
+      { wait: 8000 },
     );
   }
 
