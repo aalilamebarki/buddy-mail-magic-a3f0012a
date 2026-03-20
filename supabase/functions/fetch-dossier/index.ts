@@ -259,48 +259,59 @@ async function resolveCourtForCase(
    ══════════════════════════════════════════════════════════════════ */
 function buildJsScenario(numero: string, code: string, annee: string, appealCourt?: string, firstInstanceCourt?: string) {
   const esc = (value?: string) => (value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-  const instructions: Array<Record<string, unknown>> = [{ wait: 3500 }];
+  const instructions: Array<Record<string, unknown>> = [{ wait: 4000 }];
 
+  // Step 1: Select appeal court dropdown (REQUIRED by the portal)
   if (appealCourt) {
     instructions.push(
-      // Use ScrapingBee native click (real browser click, not DOM event)
-      { click: 'p-dropdown:first-of-type' },
-      { wait: 2500 },
-      // Now try to find and click the item in the overlay panel
+      // PrimeNG dropdowns respond to mousedown, not click
       {
-        evaluate: `(()=>{var t='${esc(appealCourt)}';var items=document.querySelectorAll('li.p-dropdown-item,.p-dropdown-item,p-dropdownitem li');var found=[];for(var i=0;i<items.length;i++){var txt=(items[i].textContent||'').trim();found.push(txt);if(txt===t||txt.includes(t)){items[i].click();return 'selected:'+txt}}var overlays=document.querySelectorAll('.p-overlay,.p-connected-overlay,.cdk-overlay-pane');return 'miss:items='+items.length+',overlays='+overlays.length+',found='+found.slice(0,10).join('|')})()`
+        evaluate: `(()=>{var dd=document.querySelector('p-dropdown .p-dropdown');if(!dd){dd=document.querySelector('p-dropdown')}if(!dd)return 'no-dd';dd.dispatchEvent(new MouseEvent('mousedown',{bubbles:true,cancelable:true}));dd.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true}));return 'dd-opened'})()`
       },
-      { wait: 2500 },
+      { wait: 2000 },
+      {
+        evaluate: `(()=>{var t='${esc(appealCourt)}';var items=document.querySelectorAll('.p-dropdown-item,li.p-dropdown-item,p-dropdownitem li,.p-dropdown-items li');var found=[];for(var i=0;i<items.length;i++){var txt=(items[i].textContent||'').trim();found.push(txt);if(txt===t||txt.includes(t)){items[i].dispatchEvent(new MouseEvent('mousedown',{bubbles:true}));items[i].dispatchEvent(new MouseEvent('click',{bubbles:true}));return 'appeal-ok:'+txt}}return 'appeal-miss:items='+items.length+',found='+found.slice(0,15).join('|')})()`
+      },
+      { wait: 2000 },
     );
   }
 
+  // Step 2: Select first instance court dropdown (optional, 2nd dropdown)
   if (firstInstanceCourt) {
     instructions.push(
-      // Click the second dropdown
       {
-        evaluate: `(()=>{var dds=document.querySelectorAll('p-dropdown');if(dds.length>=2){dds[1].click();return 'fic-clicked:'+dds.length}return 'no-2nd:'+dds.length})()`
+        evaluate: `(()=>{var dds=document.querySelectorAll('p-dropdown');if(dds.length<2)return 'no-2nd:'+dds.length;var dd2=dds[1].querySelector('.p-dropdown')||dds[1];dd2.dispatchEvent(new MouseEvent('mousedown',{bubbles:true,cancelable:true}));dd2.dispatchEvent(new MouseEvent('click',{bubbles:true}));return 'dd2-opened:'+dds.length})()`
       },
-      { wait: 2500 },
+      { wait: 2000 },
       {
-        evaluate: `(()=>{var t='${esc(firstInstanceCourt)}';var items=document.querySelectorAll('li.p-dropdown-item,.p-dropdown-item');for(var i=0;i<items.length;i++){var txt=(items[i].textContent||'').trim();if(txt===t||txt.includes(t)){items[i].click();return 'fic-selected:'+txt}}return 'fic-miss:'+items.length})()`
+        evaluate: `(()=>{var t='${esc(firstInstanceCourt)}';var items=document.querySelectorAll('.p-dropdown-item,li.p-dropdown-item');for(var i=0;i<items.length;i++){var txt=(items[i].textContent||'').trim();if(txt===t||txt.includes(t)){items[i].dispatchEvent(new MouseEvent('mousedown',{bubbles:true}));items[i].dispatchEvent(new MouseEvent('click',{bubbles:true}));return 'fic-ok:'+txt}}return 'fic-miss:'+items.length})()`
       },
-      { wait: 2500 },
+      { wait: 2000 },
     );
   }
 
-  // Fill inputs — use "mark" not "code" (actual formcontrolname on mahakim.ma)
+  // Fallback: try Angular form manipulation if dropdown UI didn't work
+  if (appealCourt) {
+    instructions.push({
+      evaluate: `(()=>{try{var label=document.querySelector('p-dropdown .p-dropdown-label');if(label&&label.textContent.trim()&&label.textContent.trim()!=='اختر'&&label.textContent.trim()!=='-- اختر --'&&label.textContent.trim()!=='')return 'dd-already-set:'+label.textContent.trim();var dds=document.querySelectorAll('p-dropdown');if(!dds.length)return 'no-dd-elements';for(var j=0;j<dds.length;j++){var dd=dds[j];var keys=Object.keys(dd);for(var k=0;k<keys.length;k++){if(keys[k].startsWith('__ng')){var ctx=dd[keys[k]];if(ctx&&typeof ctx==='object'){return 'ng-found:key='+keys[k]+',type='+(typeof ctx)}}}}return 'no-ng-keys:'+Object.keys(dds[0]).slice(0,10).join(',')}catch(e){return 'ng-err:'+e.message}})()`
+    });
+    instructions.push({ wait: 1000 });
+  }
+
+  // Step 3: Fill text inputs
   instructions.push(
     {
       evaluate: `(()=>{const set=(s,v)=>{const e=document.querySelector(s);if(!e)return 'miss:'+s;const d=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');d&&d.set?d.set.call(e,v):e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));return 'ok:'+s+'='+e.value};var r1=set('input[formcontrolname="numero"]','${esc(numero)}');var r2=set('input[formcontrolname="mark"]','${esc(code)}');var r3=set('input[formcontrolname="annee"]','${esc(annee)}');return JSON.stringify({r1:r1,r2:r2,r3:r3})})()`
     },
     { wait: 1000 },
+    // Step 4: Click search button
     {
-      evaluate: `(()=>{const b=[...document.querySelectorAll('button,p-button button')].find(x=>/بحث/.test((x.textContent||'').trim()));if(b){b.click();return 'submitted:'+b.textContent.trim()}return 'no-btn:'+[...document.querySelectorAll('button')].map(x=>x.textContent.trim()).join('|')})()`
+      evaluate: `(()=>{const b=[...document.querySelectorAll('button,p-button button')].find(x=>/بحث|تتبع/.test((x.textContent||'').trim()));if(b){b.dispatchEvent(new MouseEvent('click',{bubbles:true}));return 'submitted:'+b.textContent.trim()}return 'no-btn:'+[...document.querySelectorAll('button')].map(x=>x.textContent.trim()).join('|')})()`
     },
     { wait: 12000 },
-    // Final diagnostic: inject debug data INTO the page HTML so we can read it
+    // Step 5: Debug diagnostics
     {
-      evaluate: `(()=>{var inputs=document.querySelectorAll('input[formcontrolname]');var vals={};inputs.forEach(function(i){vals[i.getAttribute('formcontrolname')]=i.value});var dropdowns=document.querySelectorAll('.p-dropdown-label');var ddVals=[];dropdowns.forEach(function(d){ddVals.push(d.textContent.trim())});var hasTable=!!document.querySelector('.p-datatable,.p-table,table.p-datatable-table');var noResultEl=document.querySelector('.p-datatable-emptymessage,.empty-message');var noResultVisible=noResultEl?noResultEl.offsetParent!==null:false;var allBtns=[...document.querySelectorAll('button')].map(function(b){return b.textContent.trim()}).filter(Boolean);var bodyText=document.body.innerText.substring(0,1000);var div=document.createElement('div');div.id='__debug__';div.style.display='none';div.setAttribute('data-debug',JSON.stringify({inputValues:vals,dropdownValues:ddVals,hasTable:hasTable,noResultVisible:noResultVisible,buttons:allBtns.slice(0,10),bodySnippet:bodyText.substring(0,400)}));document.body.appendChild(div);return 'injected'})()`
+      evaluate: `(()=>{var inputs=document.querySelectorAll('input[formcontrolname]');var vals={};inputs.forEach(function(i){vals[i.getAttribute('formcontrolname')]=i.value});var dropdowns=document.querySelectorAll('.p-dropdown-label');var ddVals=[];dropdowns.forEach(function(d){ddVals.push(d.textContent.trim())});var hasTable=!!document.querySelector('.p-datatable,.p-table,table');var noResult=document.body.innerText.includes('لا توجد أية نتيجة');var bodyText=document.body.innerText.substring(0,800);var div=document.createElement('div');div.id='__debug__';div.style.display='none';div.setAttribute('data-debug',JSON.stringify({inputValues:vals,dropdownValues:ddVals,hasTable:hasTable,noResult:noResult,bodySnippet:bodyText.substring(0,300)}));document.body.appendChild(div);return 'injected'})()`
     },
   );
 
