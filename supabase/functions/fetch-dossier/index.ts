@@ -270,12 +270,24 @@ function buildJsScenario(numero: string, code: string, annee: string, appealCour
   const megaScript = `(()=>{
 window.__L=[];
 var set=function(q,v){var e=document.querySelector(q);if(!e){window.__L.push('miss:'+q);return 0}var d=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');d&&d.set?d.set.call(e,v):e.value=v;e.dispatchEvent(new Event('input',{bubbles:1}));e.dispatchEvent(new Event('change',{bubbles:1}));return 1};
-set('input[formcontrolname="mark"]','${esc(code)}');
-window.__L.push('mark-set');
 var ac='${esc(appealCourt||'')}';
 var pc='${esc(firstInstanceCourt||'')}';
 var num='${esc(numero)}';
 var ann='${esc(annee)}';
+var code='${esc(code)}';
+function waitForForm(cb){
+  var a=0;
+  function poll(){
+    var m=document.querySelector('input[formcontrolname="mark"]');
+    if(m){window.__L.push('form-ready');cb();return}
+    if(++a<30){setTimeout(poll,300);return}
+    window.__L.push('form-timeout');
+  }
+  poll();
+}
+waitForForm(function(){
+  set('input[formcontrolname="mark"]',code);
+  window.__L.push('mark-set');
 function selectDD(idx,target,cb){
   var a=0;
   function poll(){
