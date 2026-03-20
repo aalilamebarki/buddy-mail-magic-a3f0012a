@@ -246,9 +246,9 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
         opposingSummary = NIYABA;
       }
 
-      const caseNum = (form.case_numero.trim() && form.case_code.trim() && form.case_annee.trim())
-        ? `${form.case_numero.trim()}/${form.case_code.trim()}/${form.case_annee.trim()}`
-        : null;
+      const cnParts = form.case_number_raw.split('/');
+      const hasFullNumber = cnParts.length === 3 && cnParts[0].trim() && cnParts[1].trim().length === 4 && cnParts[2].trim().length === 4;
+      const caseNum = hasFullNumber ? form.case_number_raw.trim() : null;
       const payload = {
         title: form.title.trim(),
         case_type: form.case_type,
