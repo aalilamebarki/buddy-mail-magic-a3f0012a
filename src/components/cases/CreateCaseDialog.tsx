@@ -354,45 +354,16 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
               <Input value={form.title} onChange={e => updateField('title', e.target.value)} placeholder="مثال: نزاع عقاري - الدار البيضاء" />
             </div>
 
-            {/* Case Number — 3 fields */}
+            {/* Case Number — single smart input */}
             <div className="space-y-2">
               <Label>رقم الملف</Label>
-              <div className="grid grid-cols-3 gap-2" dir="ltr">
-                <div>
-                  <Label className="text-[10px] text-muted-foreground">الرقم</Label>
-                  <Input
-                    value={form.case_numero}
-                    onChange={e => updateField('case_numero', e.target.value.replace(/\D/g, ''))}
-                    placeholder="1"
-                    className="text-center font-mono"
-                    dir="ltr"
-                  />
-                </div>
-                <div>
-                  <Label className="text-[10px] text-muted-foreground">الرمز (4 أرقام)</Label>
-                  <Input
-                    value={form.case_code}
-                    onChange={e => updateField('case_code', e.target.value.replace(/\D/g, '').slice(0, 4))}
-                    placeholder="1401"
-                    className={`text-center font-mono ${form.case_code.length > 0 && form.case_code.length !== 4 ? 'border-destructive' : ''}`}
-                    dir="ltr"
-                    maxLength={4}
-                  />
-                </div>
-                <div>
-                  <Label className="text-[10px] text-muted-foreground">السنة (4 أرقام)</Label>
-                  <Input
-                    value={form.case_annee}
-                    onChange={e => updateField('case_annee', e.target.value.replace(/\D/g, '').slice(0, 4))}
-                    placeholder="2025"
-                    className={`text-center font-mono ${form.case_annee.length > 0 && form.case_annee.length !== 4 ? 'border-destructive' : ''}`}
-                    dir="ltr"
-                    maxLength={4}
-                  />
-                </div>
-              </div>
+              <CaseNumberInput
+                value={form.case_number_raw}
+                onChange={v => updateField('case_number_raw', v)}
+                placeholder="رقم/رمز/سنة — مثال: 1/1401/2025"
+              />
               <p className="text-[10px] text-muted-foreground">
-                إذا أدخلت رقم الملف كاملاً، سيتم جلب الإجراءات والجلسات تلقائياً من بوابة محاكم
+                اكتب الرقم ثم / ثم الرمز (4 أرقام) ثم السنة — السلاش يُضاف تلقائياً بعد الرمز
               </p>
             </div>
 
