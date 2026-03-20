@@ -1,0 +1,1 @@
+UPDATE public.cases SET court = 'محكمة الاستئناف بالرباط' WHERE id = '648a1df8-9957-47aa-b9a2-e455009eae90';
