@@ -364,7 +364,19 @@ async function fetchSingleCase(apiKey: string, input: CaseInput, appealCourt?: s
     const hasResultSection = html.includes('app-dossier-detail') || html.includes('app-procedure') || html.includes('نتيجة');
     
     log(`🔍 DEBUG HTML indicators: dropdown=${hasDropdown}, noResult=${hasNoResult}, table=${hasTable}, formControl=${hasFormControl}, caseData=${hasCaseData}, searchBtn=${hasSearchBtn}, resultSection=${hasResultSection}`);
-    log(`🔍 DEBUG HTML snippet (first 800): ${debugSnippet.substring(0, 800).replace(/\n/g, ' ')}`);
+    
+    // Extract injected debug data from the page
+    const debugMatch = html.match(/data-debug="([^"]*)"/);
+    if (debugMatch) {
+      try {
+        const debugData = JSON.parse(debugMatch[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&'));
+        log(`🔍 DEBUG INJECTED: ${JSON.stringify(debugData)}`);
+      } catch (e) {
+        log(`🔍 DEBUG INJECTED raw: ${debugMatch[1].substring(0, 500)}`);
+      }
+    } else {
+      log(`🔍 DEBUG: No injected debug div found — scenario may not have executed`);
+    }
     
     // Log ScrapingBee headers for scenario execution info
     const scenarioResult = resp.headers.get('Spb-Js-Scenario-Result');
