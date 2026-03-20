@@ -331,15 +331,18 @@ async function fetchSingleCase(apiKey: string, input: CaseInput, appealCourt?: s
     render_js: 'true',
     premium_proxy: 'true',
     country_code: 'ma',
-    js_scenario: JSON.stringify(scenario),
     timeout: '60000',
   });
 
+  // Use POST to send js_scenario in body (avoids URL length limits with Arabic text)
   const fullUrl = `https://app.scrapingbee.com/api/v1/?${params.toString()}`;
-  log(`🌐 Request URL length: ${fullUrl.length} chars`);
+  log(`🌐 Request URL length: ${fullUrl.length} chars (scenario sent via POST body)`);
 
   try {
     const resp = await fetch(fullUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ js_scenario: scenario }),
       signal: AbortSignal.timeout(65000),
     });
 
