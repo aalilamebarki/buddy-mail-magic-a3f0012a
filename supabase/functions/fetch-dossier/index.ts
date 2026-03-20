@@ -1139,7 +1139,7 @@ Deno.serve(async (req) => {
         primaryCourt = resolved.primary || undefined;
       }
       
-      const result = await fetchSingleCase(SCRAPINGBEE_API_KEY, batch[i], appealCourt, primaryCourt);
+      const result = await fetchCase(batch[i], appealCourt, primaryCourt);
       results.push(result);
       if (caseId || userId) {
         await persistResults(supabase, caseId, userId, result);
