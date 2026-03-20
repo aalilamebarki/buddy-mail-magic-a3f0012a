@@ -22,15 +22,6 @@ import { ar } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { exportCourtSessionsWord } from '@/lib/export-court-sessions-docx';
 import CalendarView from '@/components/sessions/CalendarView';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { useSessions } from '@/hooks/useSessions';
-import { useCases } from '@/hooks/useCases';
-import { toast } from 'sonner';
-import { format, startOfWeek, endOfWeek } from 'date-fns';
-import { ar } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
-import { exportCourtSessionsWord } from '@/lib/export-court-sessions-docx';
 
 const CourtSessions = () => {
   const navigate = useNavigate();
