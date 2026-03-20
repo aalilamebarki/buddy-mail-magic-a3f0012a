@@ -1050,15 +1050,21 @@ async function persistResults(
     now.setHours(0, 0, 0, 0);
     const futureSessionMap = new Map<string, { time: string; room: string }>();
 
-    /** Parse "dd/mm/yyyy" or "dd/mm/yyyy HH:MM" — returns {dateKey, time} or null */
-    function parseDateField(raw: string | undefined): { dateKey: string; time: string } | null {
+    /** Parse composite field like "dd/mm/yyyy على الساعة HH:MM بالقاعة ..." */
+    function parseDateField(raw: string | undefined): { dateKey: string; time: string; room: string } | null {
       if (!raw) return null;
-      const m = raw.match(/(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{1,2}:\d{2}))?/);
+      const m = raw.match(/(\d{2})\/(\d{2})\/(\d{4})/);
       if (!m) return null;
-      const [, day, month, year, time] = m;
+      const [, day, month, year] = m;
       const dateObj = new Date(`${year}-${month}-${day}`);
       if (isNaN(dateObj.getTime()) || dateObj < now) return null;
-      return { dateKey: `${year}-${month}-${day}`, time: time || '' };
+      // Extract time
+      const tm = raw.match(/(?:الساعة\s*)?(\d{1,2}:\d{2})/);
+      const time = tm ? tm[1] : '';
+      // Extract room
+      const rm = raw.match(/(?:بالقاعة|القاعة|غرفة)\s*(.+?)$/);
+      const room = rm ? rm[1].trim() : '';
+      return { dateKey: `${year}-${month}-${day}`, time, room };
     }
 
     for (const proc of result.procedures) {
@@ -1066,11 +1072,11 @@ async function persistResults(
       const nsd = parseDateField(proc.next_session_date);
       if (nsd) {
         const sessionTime = proc.session_time || nsd.time || '';
+        const sessionRoom = proc.court_room || nsd.room || '';
         if (!futureSessionMap.has(nsd.dateKey)) {
-          futureSessionMap.set(nsd.dateKey, { time: sessionTime, room: proc.court_room || '' });
+          futureSessionMap.set(nsd.dateKey, { time: sessionTime, room: sessionRoom });
         }
       }
-      // Also check action_date for future dates (but only add to sessions from next_session_date primarily)
     }
 
     if (result.nextSessionDate) {
