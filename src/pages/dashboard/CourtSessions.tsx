@@ -253,6 +253,8 @@ const CourtSessions = () => {
                      <TableCell className="text-sm whitespace-nowrap">
                        {new Date(s.session_date + 'T00:00:00').toLocaleDateString('ar-u-nu-latn', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                      </TableCell>
+                     <TableCell className="text-sm font-medium" dir="ltr">{s.session_time || '—'}</TableCell>
+                     <TableCell className="text-sm">{s.court_room || '—'}</TableCell>
                      <TableCell className="text-sm font-medium">{s.cases?.clients?.full_name || '—'}</TableCell>
                      <TableCell className="text-sm">{s.cases?.opposing_party || '—'}</TableCell>
                      <TableCell className="text-sm" dir="ltr">{s.cases?.case_number || '—'}</TableCell>

@@ -6,6 +6,8 @@ export interface SessionRecord {
   id: string;
   case_id: string;
   session_date: string;
+  session_time: string | null;
+  court_room: string | null;
   notes: string | null;
   required_action: string;
   status: string;
