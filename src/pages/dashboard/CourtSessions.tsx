@@ -192,6 +192,8 @@ const CourtSessions = () => {
       setSessionDate(undefined);
       setRequiredAction('');
       setNotes('');
+      setSessionTime('');
+      setCourtRoom('');
       setCaseNumber('');
       fetchData();
     } catch {
