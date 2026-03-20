@@ -135,6 +135,30 @@ const CourtSessions = () => {
     setDialogOpen(true);
   };
 
+  const syncToGoogleCalendar = async () => {
+    try {
+      const { data: tokenRow } = await supabase
+        .from('google_calendar_tokens')
+        .select('id')
+        .eq('user_id', user!.id)
+        .maybeSingle();
+      if (!tokenRow) return; // not connected, skip silently
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const res = await supabase.functions.invoke('google-calendar-sync', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+
+      if (!res.error && res.data?.synced > 0) {
+        toast.success('تمت مزامنة الجلسة مع Google Calendar', { icon: '📅' });
+      }
+    } catch {
+      // Silent fail - don't block the main flow
+    }
+  };
+
   const handleSave = async () => {
     if (!sessionDate || !user) {
       toast.error('يرجى اختيار تاريخ الجلسة');
@@ -199,6 +223,9 @@ const CourtSessions = () => {
       setCourtRoom('');
       setCaseNumber('');
       fetchData();
+
+      // Auto-sync to Google Calendar in background
+      syncToGoogleCalendar();
     } catch {
       toast.error('خطأ في حفظ الجلسة');
     }
