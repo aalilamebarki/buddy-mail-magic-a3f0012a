@@ -392,7 +392,25 @@ ${firstInstanceCourt ? `
       const procs=[];
       document.querySelectorAll('table tbody tr, .p-datatable-tbody tr').forEach(r=>{
         const c=r.querySelectorAll('td');
-        if(c.length>=2)procs.push({action_date:c[0]?.textContent?.trim()||'',action_type:c[1]?.textContent?.trim()||'',decision:c[2]?.textContent?.trim()||'',next_session_date:c[3]?.textContent?.trim()||''});
+        if(c.length>=2){
+          const proc={action_date:c[0]?.textContent?.trim()||'',action_type:c[1]?.textContent?.trim()||'',decision:c[2]?.textContent?.trim()||'',next_session_date:c[3]?.textContent?.trim()||'',session_time:'',court_room:''};
+          // Extract time (HH:MM pattern) and room from additional columns
+          for(let i=2;i<c.length;i++){
+            const txt=(c[i]?.textContent||'').trim();
+            if(/^\d{1,2}[h:]\d{2}$/i.test(txt)||/^\d{1,2}:\d{2}$/.test(txt)){proc.session_time=txt;}
+            else if(txt&&(txt.includes('قاعة')||txt.includes('غرفة')||/^[\d\s]+$/.test(txt)&&txt.length<=5)){proc.court_room=txt;}
+          }
+          // Also try to find time in next_session_date field (sometimes "01/04/2026 09:00")
+          if(!proc.session_time&&proc.next_session_date){
+            const tm=proc.next_session_date.match(/(\d{1,2}:\d{2})/);
+            if(tm){proc.session_time=tm[1];proc.next_session_date=proc.next_session_date.replace(/\s*\d{1,2}:\d{2}.*/,'').trim();}
+          }
+          if(!proc.session_time&&proc.action_date){
+            const tm2=proc.action_date.match(/(\d{1,2}:\d{2})/);
+            if(tm2){proc.session_time=tm2[1];}
+          }
+          procs.push(proc);
+        }
       });
       return {noResult:false,caseInfo:ci,procedures:procs,hasData:Object.keys(ci).length>0||procs.length>0,bodyPreview:body.substring(0,300)};
     } catch(e) { return {noResult:false,caseInfo:{},procedures:[],hasData:false,bodyPreview:'err:'+e.message}; }
