@@ -6,7 +6,24 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/comp
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-import { CalendarDays, RefreshCw, Link2, CheckCircle2, Unlink } from 'lucide-react';
+import { RefreshCw, Link2, CheckCircle2, Unlink } from 'lucide-react';
+
+const GoogleCalendarIcon = ({ className = "h-5 w-5" }: { className?: string }) => (
+  <svg viewBox="0 0 200 200" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="40" y="40" width="120" height="120" rx="12" fill="#fff" stroke="#4285F4" strokeWidth="8"/>
+    <rect x="40" y="40" width="120" height="36" rx="12" fill="#4285F4"/>
+    <circle cx="80" cy="56" r="4" fill="#fff"/>
+    <circle cx="120" cy="56" r="4" fill="#fff"/>
+    <rect x="72" y="28" width="4" height="24" rx="2" fill="#4285F4"/>
+    <rect x="124" y="28" width="4" height="24" rx="2" fill="#4285F4"/>
+    <rect x="64" y="92" width="16" height="14" rx="2" fill="#EA4335"/>
+    <rect x="92" y="92" width="16" height="14" rx="2" fill="#34A853"/>
+    <rect x="120" y="92" width="16" height="14" rx="2" fill="#FBBC04"/>
+    <rect x="64" y="118" width="16" height="14" rx="2" fill="#FBBC04"/>
+    <rect x="92" y="118" width="16" height="14" rx="2" fill="#4285F4"/>
+    <rect x="120" y="118" width="16" height="14" rx="2" fill="#EA4335"/>
+  </svg>
+);
 
 const GoogleCalendarQuickAction = () => {
   const { user } = useAuth();
@@ -118,54 +135,82 @@ const GoogleCalendarQuickAction = () => {
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
-                size="icon"
-                className={`relative h-9 w-9 ${connected ? 'border-green-500/50 text-green-600 hover:text-green-700' : ''}`}
+                size="sm"
+                className={cn(
+                  "relative gap-1.5 px-2 sm:px-3 h-9",
+                  connected
+                    ? 'border-green-500/40 bg-green-50/50 dark:bg-green-950/20 hover:bg-green-50 dark:hover:bg-green-950/30'
+                    : 'hover:border-primary/30'
+                )}
               >
-                <CalendarDays className="h-4 w-4" />
+                <GoogleCalendarIcon className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
+                <span className="hidden sm:inline text-xs font-medium">
+                  {connected ? 'مربوط' : 'ربط التقويم'}
+                </span>
                 {connected && (
-                  <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-green-500 border-2 border-background" />
+                  <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-green-500 border-2 border-background animate-pulse" />
                 )}
               </Button>
             </PopoverTrigger>
           </TooltipTrigger>
-          <TooltipContent>
-            {connected ? 'Google Calendar مربوط' : 'ربط Google Calendar'}
+          <TooltipContent side="bottom">
+            {connected ? 'Google Calendar مربوط ✓' : 'ربط مع Google Calendar'}
           </TooltipContent>
         </Tooltip>
 
-        <PopoverContent className="w-64 p-3" align="end">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Google Calendar</span>
-              {connected ? (
-                <Badge className="bg-green-100 text-green-800 text-xs gap-1">
-                  <CheckCircle2 className="h-3 w-3" /> مربوط
-                </Badge>
-              ) : (
-                <Badge variant="secondary" className="text-xs">غير مربوط</Badge>
-              )}
-            </div>
-
+        <PopoverContent className="w-72 p-0" align="end">
+          <div className="p-3 border-b border-border flex items-center gap-2">
+            <GoogleCalendarIcon className="h-5 w-5" />
+            <span className="text-sm font-semibold flex-1">Google Calendar</span>
             {connected ? (
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">مزامنة جلساتك مع تقويم Google</p>
-                <Button size="sm" className="w-full gap-1.5" onClick={handleSync} disabled={syncing}>
+              <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 text-[10px] gap-1 px-1.5">
+                <CheckCircle2 className="h-3 w-3" /> مربوط
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="text-[10px] px-1.5">غير مربوط</Badge>
+            )}
+          </div>
+
+          <div className="p-3 space-y-2">
+            {connected ? (
+              <>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  مزامنة جلسات المحكمة تلقائياً مع تقويمك
+                </p>
+                <Button
+                  size="sm"
+                  className="w-full gap-1.5 h-8"
+                  onClick={handleSync}
+                  disabled={syncing}
+                >
                   <RefreshCw className={`h-3.5 w-3.5 ${syncing ? 'animate-spin' : ''}`} />
                   {syncing ? 'جاري المزامنة...' : 'مزامنة الآن'}
                 </Button>
-                <Button variant="ghost" size="sm" className="w-full gap-1.5 text-destructive hover:text-destructive text-xs" onClick={handleDisconnect}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10 text-xs h-7"
+                  onClick={handleDisconnect}
+                >
                   <Unlink className="h-3 w-3" />
                   فصل الربط
                 </Button>
-              </div>
+              </>
             ) : (
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">اربط تقويمك لمزامنة جلسات المحكمة تلقائياً</p>
-                <Button size="sm" className="w-full gap-1.5" onClick={handleConnect} disabled={connecting}>
-                  <Link2 className="h-3.5 w-3.5" />
+              <>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  اربط تقويم Google لمزامنة جلساتك تلقائياً والحصول على تنبيهات
+                </p>
+                <Button
+                  size="sm"
+                  className="w-full gap-2 h-9 bg-[#4285F4] hover:bg-[#3367D6] text-white"
+                  onClick={handleConnect}
+                  disabled={connecting}
+                >
+                  <GoogleCalendarIcon className="h-4 w-4" />
                   {connecting ? 'جاري الربط...' : 'ربط Google Calendar'}
                 </Button>
-              </div>
+              </>
             )}
           </div>
         </PopoverContent>
@@ -173,5 +218,10 @@ const GoogleCalendarQuickAction = () => {
     </TooltipProvider>
   );
 };
+
+// Helper
+function cn(...classes: (string | boolean | undefined)[]) {
+  return classes.filter(Boolean).join(' ');
+}
 
 export default GoogleCalendarQuickAction;
