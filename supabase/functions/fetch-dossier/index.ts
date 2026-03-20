@@ -517,10 +517,11 @@ async function fetchViaFirecrawl(
       return null;
     }
 
-    // Parse stdout (console.log output)
-    const stdout = execResp.data?.stdout || '';
-    const resultStr = execResp.data?.result || '';
-    log(`🔥 [FC-Browser] Execute done (${elapsed}ms) | stdout=${stdout.length} chars`);
+    // Parse execution result
+    const execData = execResp.data || {};
+    const stdout = execData.stdout || '';
+    const resultStr = typeof execData.result === 'string' ? execData.result : JSON.stringify(execData.result || '');
+    log(`🔥 [FC-Browser] Execute done (${elapsed}ms) | stdout=${stdout.length} chars | result=${resultStr.substring(0, 200)} | keys=${Object.keys(execData).join(',')}`);
 
     let parsed: { log: string[]; result: { noResult: boolean; caseInfo: Record<string, string>; procedures: Array<Record<string, string>>; hasData: boolean; bodyPreview?: string } } | null = null;
 
