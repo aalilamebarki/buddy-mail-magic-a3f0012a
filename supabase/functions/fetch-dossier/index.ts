@@ -615,7 +615,7 @@ Deno.serve(async (req) => {
       const input: CaseInput = { numero: parts[0] || '', code: parts[1] || '', annee: parts[2] || '' };
 
       try {
-        const result = await fetchSingleCase(SCRAPINGBEE_API_KEY, input);
+        const result = await fetchSingleCase(SCRAPINGBEE_API_KEY, input, body.appealCourt, body.firstInstanceCourt);
         const persistLog = await persistResults(supabase, jCaseId, body.userId, result);
 
         await supabase.from('mahakim_sync_jobs').update({
