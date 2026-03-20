@@ -79,9 +79,9 @@ export function CaseNumberInput({ value, onChange, placeholder, autoFocus, showC
       <Input
         value={rawInput}
         onChange={handleChange}
-        placeholder={placeholder || '1/1401/2025'}
-        className="text-center font-mono text-base tracking-wider"
-        dir="ltr"
+        placeholder={placeholder || 'رقم/رمز/سنة  —  مثال:  2025/1401/1'}
+        className="text-center text-base tracking-wider"
+        dir="rtl"
         autoFocus={autoFocus}
       />
       {showCategory && category && (
