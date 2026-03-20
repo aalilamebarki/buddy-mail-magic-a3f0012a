@@ -24,7 +24,6 @@ export const useMahakimSync = (caseId: string | undefined) => {
   const [latestJob, setLatestJob] = useState<SyncJob | null>(null);
   const [syncing, setSyncing] = useState(false);
 
-  // Fetch latest sync job for this case
   const fetchLatestJob = useCallback(async () => {
     if (!caseId) return;
     const { data } = await supabase
@@ -39,59 +38,49 @@ export const useMahakimSync = (caseId: string | undefined) => {
     }
   }, [caseId]);
 
-  useEffect(() => {
-    fetchLatestJob();
-  }, [fetchLatestJob]);
+  useEffect(() => { fetchLatestJob(); }, [fetchLatestJob]);
 
-  // Subscribe to realtime updates on mahakim_sync_jobs for this case
   useEffect(() => {
     if (!caseId) return;
-
     const channel = supabase
       .channel(`mahakim-sync-${caseId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'mahakim_sync_jobs',
-          filter: `case_id=eq.${caseId}`,
-        },
-        (payload) => {
-          const newJob = payload.new as unknown as SyncJob;
-          if (newJob && newJob.id) {
-            setLatestJob(newJob);
-
-            if (newJob.status === 'completed') {
-              setSyncing(false);
-              toast.success('تم جلب بيانات الملف من بوابة محاكم بنجاح');
-            } else if (newJob.status === 'failed') {
-              setSyncing(false);
-              toast.error(newJob.error_message || 'فشل جلب البيانات');
-            }
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'mahakim_sync_jobs',
+        filter: `case_id=eq.${caseId}`,
+      }, (payload) => {
+        const newJob = payload.new as unknown as SyncJob;
+        if (newJob && newJob.id) {
+          setLatestJob(newJob);
+          if (newJob.status === 'completed') {
+            setSyncing(false);
+            toast.success('تم جلب بيانات الملف من بوابة محاكم بنجاح');
+          } else if (newJob.status === 'failed') {
+            setSyncing(false);
+            toast.error(newJob.error_message || 'فشل جلب البيانات');
           }
         }
-      )
+      })
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [caseId]);
 
-  // Submit a new sync job — uses fetch-dossier endpoint
-  const startSync = useCallback(async (caseNumber: string, appealCourt?: string) => {
+  /** Start sync with court selection */
+  const startSync = useCallback(async (
+    caseNumber: string,
+    appealCourt?: string,
+    firstInstanceCourt?: string,
+  ) => {
     if (!caseId || !user) return;
-
     setSyncing(true);
 
-    // Parse case number into components (numero/code/annee)
     const parts = caseNumber.split('/');
     const numero = parts[0] || '';
     const code = parts[1] || '';
     const annee = parts[2] || '';
 
-    // Create the job record first (client-side insert for realtime tracking)
     const jobId = crypto.randomUUID();
     const { error: insertError } = await supabase
       .from('mahakim_sync_jobs')
@@ -101,7 +90,7 @@ export const useMahakimSync = (caseId: string | undefined) => {
         user_id: user.id,
         case_number: caseNumber,
         status: 'pending',
-        request_payload: { appealCourt, numero, code, annee },
+        request_payload: { appealCourt, firstInstanceCourt, numero, code, annee },
       } as any);
 
     if (insertError) {
@@ -127,13 +116,16 @@ export const useMahakimSync = (caseId: string | undefined) => {
       completed_at: null,
     });
 
-    // Call fetch-dossier endpoint
     try {
       const { data, error } = await supabase.functions.invoke('fetch-dossier', {
         body: {
-          cases: [{ numero, annee, code }],
-          userId: user.id,
+          action: 'submitSyncJob',
+          jobId,
           caseId,
+          userId: user.id,
+          caseNumber,
+          appealCourt,
+          firstInstanceCourt,
         },
       });
 
@@ -145,44 +137,18 @@ export const useMahakimSync = (caseId: string | undefined) => {
           completed_at: new Date().toISOString(),
         }).eq('id', jobId);
         setSyncing(false);
-        return;
       }
-
-      // Update job based on result
-      const firstResult = data?.results?.[0];
-      if (firstResult?.status === 'success') {
-        await supabase.from('mahakim_sync_jobs').update({
-          status: 'completed',
-          result_data: firstResult.details,
-          next_session_date: firstResult.next_session_date,
-          completed_at: new Date().toISOString(),
-        }).eq('id', jobId);
-      } else {
-        await supabase.from('mahakim_sync_jobs').update({
-          status: 'failed',
-          error_message: firstResult?.error || 'لم يتم العثور على بيانات',
-          completed_at: new Date().toISOString(),
-        }).eq('id', jobId);
-      }
-      setSyncing(false);
     } catch (err) {
       console.error('Sync invoke error:', err);
       setSyncing(false);
     }
   }, [caseId, user]);
 
-  // Open mahakim.ma portal as fallback
   const openPortal = useCallback(async (caseNumber: string) => {
     await navigator.clipboard.writeText(caseNumber);
     toast.info('تم نسخ رقم الملف — سيتم فتح بوابة محاكم');
     window.open('https://www.mahakim.ma/#/suivi/dossier-suivi', '_blank');
   }, []);
 
-  return {
-    latestJob,
-    syncing,
-    startSync,
-    openPortal,
-    refetch: fetchLatestJob,
-  };
+  return { latestJob, syncing, startSync, openPortal, refetch: fetchLatestJob };
 };

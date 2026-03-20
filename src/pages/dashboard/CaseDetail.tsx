@@ -278,9 +278,11 @@ const CaseDetail = () => {
               <div className="pt-2 border-t">
                 <MahakimSyncStatus
                   caseNumber={caseData.case_number}
+                  courtName={caseData.court}
+                  courtLevel={caseData.court_level}
                   latestJob={latestJob}
                   syncing={syncing}
-                  onSync={() => startSync(caseData.case_number)}
+                  onSync={(appealCourt, firstInstanceCourt) => startSync(caseData.case_number, appealCourt, firstInstanceCourt)}
                   onOpenPortal={() => openPortal(caseData.case_number)}
                 />
               </div>
