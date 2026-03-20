@@ -466,18 +466,20 @@ async function fetchSingleCase(apiKey: string, input: CaseInput, appealCourt?: s
 
   const scenario = buildJsScenario(input.numero, input.code, input.annee, appealCourt, firstInstanceCourt);
 
-  const params = new URLSearchParams({
-    api_key: apiKey,
-    url: 'https://www.mahakim.ma/#/suivi/dossier-suivi',
-    render_js: 'true',
-    premium_proxy: 'true',
-    country_code: 'ma',
-    js_scenario: JSON.stringify(scenario),
-    timeout: '60000',
-  });
+  const formData = new URLSearchParams();
+  formData.append('api_key', apiKey);
+  formData.append('url', 'https://www.mahakim.ma/#/suivi/dossier-suivi');
+  formData.append('render_js', 'true');
+  formData.append('premium_proxy', 'true');
+  formData.append('country_code', 'ma');
+  formData.append('js_scenario', JSON.stringify(scenario));
+  formData.append('timeout', '60000');
 
   try {
-    const resp = await fetch(`https://app.scrapingbee.com/api/v1/?${params.toString()}`, {
+    const resp = await fetch('https://app.scrapingbee.com/api/v1/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: formData.toString(),
       signal: AbortSignal.timeout(65000),
     });
 
