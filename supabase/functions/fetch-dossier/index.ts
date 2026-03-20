@@ -252,68 +252,134 @@ async function resolveCourtForCase(
 /* ══════════════════════════════════════════════════════════════════
    Build Firecrawl actions for form filling
    
-   Firecrawl actions: click, write, wait, screenshot, scrape
-   This is the PRIMARY path — no monthly limits like ScrapingBee
+   Uses executeJavascript to interact with Angular Reactive Forms
+   properly (native value setters + dispatching input/change events).
+   This mirrors the ScrapingBee js_scenario approach.
    ══════════════════════════════════════════════════════════════════ */
 function buildFirecrawlActions(numero: string, code: string, annee: string, appealCourt?: string, firstInstanceCourt?: string) {
+  const esc = (v?: string) => (v ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  
+  // Reuse the same proven script from ScrapingBee path
+  const megaScript = `(function(){
+var L=[];
+var set=function(q,v){var e=document.querySelector(q);if(!e){L.push('miss:'+q);return 0}var d=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');d&&d.set?d.set.call(e,v):e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));return 1};
+set('input[formcontrolname="mark"]','${esc(code)}');
+L.push('mark-set');
+return JSON.stringify(L);
+})()`;
+
+  const fillAndSearchScript = `(function(){
+var L=[];
+var set=function(q,v){var e=document.querySelector(q);if(!e){L.push('miss:'+q);return 0}var d=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');d&&d.set?d.set.call(e,v):e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));return 1};
+set('input[formcontrolname="numero"]','${esc(numero)}');
+set('input[formcontrolname="annee"]','${esc(annee)}');
+L.push('fields-set');
+${appealCourt ? `
+var dds=document.querySelectorAll('p-dropdown .p-dropdown-trigger');
+if(dds.length>0){dds[0].click();L.push('dd0-clicked:'+dds.length)}
+` : ''}
+return JSON.stringify(L);
+})()`;
+
+  const selectAppealScript = appealCourt ? `(function(){
+var L=[];
+var panel=document.querySelector('.p-dropdown-panel');
+var li=panel?panel.querySelectorAll('li.p-dropdown-item,.p-dropdown-items li'):document.querySelectorAll('li.p-dropdown-item');
+var found=false;
+for(var i=0;i<li.length;i++){
+  var t=li[i].textContent.trim();
+  if(t.indexOf('${esc(appealCourt)}')>=0){li[i].click();L.push('dd0-ok:'+t);found=true;break}
+}
+if(!found)L.push('dd0-miss:'+li.length);
+return JSON.stringify(L);
+})()` : null;
+
+  const checkboxScript = firstInstanceCourt ? `(function(){
+var L=[];
+var labels=[].slice.call(document.querySelectorAll('label,span'));
+var found=null;
+for(var i=0;i<labels.length;i++){
+  var t=labels[i].textContent||'';
+  if(t.indexOf('الابتدائية')>=0||t.indexOf('البحث بالمحاكم')>=0){
+    var cb=labels[i].querySelector('.p-checkbox-box,input[type="checkbox"]');
+    if(!cb){var p=labels[i].closest('div');if(p)cb=p.querySelector('.p-checkbox-box,input[type="checkbox"]')}
+    if(cb){found=cb;break}
+    found=labels[i];break;
+  }
+}
+if(!found){var cbs=document.querySelectorAll('.p-checkbox-box');if(cbs.length>0)found=cbs[0]}
+if(found){found.click();L.push('checkbox-ok')}else{L.push('checkbox-miss')}
+return JSON.stringify(L);
+})()` : null;
+
+  const selectPrimaryScript = firstInstanceCourt ? `(function(){
+var L=[];
+var dds=document.querySelectorAll('p-dropdown .p-dropdown-trigger');
+if(dds.length>1){dds[dds.length-1].click();L.push('dd1-clicked')}else{L.push('dd1-miss:'+dds.length)}
+return JSON.stringify(L);
+})()` : null;
+
+  const selectPrimaryItemScript = firstInstanceCourt ? `(function(){
+var L=[];
+var panel=document.querySelector('.p-dropdown-panel');
+var li=panel?panel.querySelectorAll('li.p-dropdown-item,.p-dropdown-items li'):document.querySelectorAll('li.p-dropdown-item');
+for(var i=0;i<li.length;i++){
+  var t=li[i].textContent.trim();
+  if(t.indexOf('${esc(firstInstanceCourt)}')>=0){li[i].click();L.push('dd1-ok:'+t);break}
+}
+return JSON.stringify(L);
+})()` : null;
+
+  const searchScript = `(function(){
+var L=[];
+var bs=[].slice.call(document.querySelectorAll('button'));
+var b=bs.find(function(x){var t=x.textContent.trim();return t==='بحث'});
+if(!b)b=bs.find(function(x){return x.textContent.indexOf('بحث')>=0&&x.textContent.indexOf('المحاكم')<0});
+if(b){b.click();L.push('search-clicked')}else{L.push('search-miss:'+bs.length)}
+return JSON.stringify(L);
+})()`;
+
   const actions: Array<Record<string, unknown>> = [
-    // Wait for Angular app to load
-    { type: 'wait', milliseconds: 5000 },
-    // Fill the code field (mark) — this triggers appeal court dropdown loading
-    { type: 'click', selector: 'input[formcontrolname="mark"]' },
-    { type: 'write', text: code },
+    { type: 'wait', milliseconds: 6000 },
+    // Step 1: Fill code (mark) to trigger dropdown loading
+    { type: 'executeJavascript', script: megaScript },
     { type: 'wait', milliseconds: 3000 },
-    // Fill numero
-    { type: 'click', selector: 'input[formcontrolname="numero"]' },
-    { type: 'write', text: numero },
-    // Fill annee
-    { type: 'click', selector: 'input[formcontrolname="annee"]' },
-    { type: 'write', text: annee },
-    { type: 'wait', milliseconds: 2000 },
+    // Step 2: Fill numero + annee, open appeal dropdown if needed
+    { type: 'executeJavascript', script: fillAndSearchScript },
+    { type: 'wait', milliseconds: 1500 },
   ];
 
-  // If appeal court specified, select it from dropdown
-  if (appealCourt) {
-    // Click the first p-dropdown trigger to open appeal court list
-    actions.push({ type: 'click', selector: 'p-dropdown .p-dropdown-trigger' });
-    actions.push({ type: 'wait', milliseconds: 1500 });
-    // Type in the filter to find the court
-    actions.push({ type: 'click', selector: '.p-dropdown-filter' });
-    actions.push({ type: 'write', text: appealCourt });
+  if (appealCourt && selectAppealScript) {
     actions.push({ type: 'wait', milliseconds: 1000 });
-    // Click the first matching item
-    actions.push({ type: 'click', selector: '.p-dropdown-items li' });
+    actions.push({ type: 'executeJavascript', script: selectAppealScript });
+    actions.push({ type: 'wait', milliseconds: 2000 });
+  }
+
+  if (firstInstanceCourt && checkboxScript) {
+    actions.push({ type: 'executeJavascript', script: checkboxScript });
+    actions.push({ type: 'wait', milliseconds: 3000 });
+  }
+
+  if (firstInstanceCourt && selectPrimaryScript) {
+    actions.push({ type: 'executeJavascript', script: selectPrimaryScript });
     actions.push({ type: 'wait', milliseconds: 1500 });
   }
 
-  // If primary court specified, check the checkbox and select
-  if (firstInstanceCourt) {
-    // Click the checkbox "هل تريد البحث بالمحاكم الابتدائية"
-    actions.push({ type: 'click', selector: 'p-checkbox .p-checkbox-box' });
-    actions.push({ type: 'wait', milliseconds: 2500 });
-    // Click the second dropdown (primary courts)
-    actions.push({ type: 'click', selector: 'p-dropdown:nth-of-type(2) .p-dropdown-trigger' });
-    actions.push({ type: 'wait', milliseconds: 1500 });
-    // Filter for the primary court
-    actions.push({ type: 'click', selector: '.p-dropdown-filter' });
-    actions.push({ type: 'write', text: firstInstanceCourt });
-    actions.push({ type: 'wait', milliseconds: 1000 });
-    actions.push({ type: 'click', selector: '.p-dropdown-items li' });
-    actions.push({ type: 'wait', milliseconds: 1500 });
+  if (firstInstanceCourt && selectPrimaryItemScript) {
+    actions.push({ type: 'executeJavascript', script: selectPrimaryItemScript });
+    actions.push({ type: 'wait', milliseconds: 2000 });
   }
 
-  // Click the search button
-  actions.push({ type: 'click', selector: 'button' });
-  actions.push({ type: 'wait', milliseconds: 8000 });
-  // Scrape the results
+  // Click search
+  actions.push({ type: 'executeJavascript', script: searchScript });
+  actions.push({ type: 'wait', milliseconds: 10000 });
+  // Take screenshot for debugging
+  actions.push({ type: 'screenshot' });
   actions.push({ type: 'scrape' });
 
   return actions;
 }
-
-/* ══════════════════════════════════════════════════════════════════
-   Fetch case via Firecrawl (PRIMARY PATH — no monthly call limits)
-   ══════════════════════════════════════════════════════════════════ */
+/* Fetch case via Firecrawl (PRIMARY PATH — no monthly call limits) */
 async function fetchViaFirecrawl(
   apiKey: string,
   input: CaseInput,
@@ -353,18 +419,34 @@ async function fetchViaFirecrawl(
 
     const data = await resp.json();
     log(`🔥 [Firecrawl] ${caseLabel}: success (${elapsed}ms)`);
+    const jsReturns = data?.data?.javascriptReturns || data?.javascriptReturns;
+    if (jsReturns) log(`🔥 [Firecrawl] JS returns: ${JSON.stringify(jsReturns).substring(0, 800)}`);
+    const screenshot = data?.data?.screenshot || data?.screenshot;
+    if (screenshot) log(`🔥 [Firecrawl] Screenshot captured (${screenshot.length} chars)`);
+    const actionsResult = data?.data?.actions || data?.actions;
+    if (actionsResult) log(`🔥 [Firecrawl] Actions result: ${JSON.stringify(actionsResult).substring(0, 500)}`);
 
     const html = data?.data?.html || '';
     const markdown = data?.data?.markdown || '';
+    
+    log(`🔥 [Firecrawl] ${caseLabel}: html=${html.length} chars, md=${markdown.length} chars`);
+    if (markdown) log(`🔥 [Firecrawl] MD preview: ${markdown.substring(0, 300)}`);
 
     if (!html && !markdown) {
-      log(`🔥 [Firecrawl] ${caseLabel}: empty response`);
+      log(`🔥 [Firecrawl] ${caseLabel}: empty response — keys: ${JSON.stringify(Object.keys(data?.data || data || {}))}`);
       return null;
     }
 
-    // Check for no results
-    if (html.includes('لا توجد أية نتيجة') || markdown.includes('لا توجد')) {
-      log(`🔥 [Firecrawl] ${caseLabel}: no results found`);
+    // Check if we're still on the initial form page (JS didn't fill the form)
+    const isInitialPage = markdown.includes('تتبع الملفات') && !markdown.includes('القاضي') && !markdown.includes('الشعبة');
+    if (isInitialPage) {
+      log(`🔥 [Firecrawl] ${caseLabel}: still on initial form page — JS actions failed, falling back`);
+      return null; // Fall through to ScrapingBee
+    }
+
+    // Check for explicit "no results" from the portal
+    if (html.includes('لا توجد أية نتيجة')) {
+      log(`🔥 [Firecrawl] ${caseLabel}: portal returned no results`);
       return {
         ...input,
         status: 'no_data',
