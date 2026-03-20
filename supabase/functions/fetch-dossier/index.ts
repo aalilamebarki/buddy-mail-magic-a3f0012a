@@ -377,7 +377,7 @@ return JSON.stringify(L);
 
   return actions;
 }
-   ══════════════════════════════════════════════════════════════════ */
+/* Fetch case via Firecrawl (PRIMARY PATH — no monthly call limits) */
 async function fetchViaFirecrawl(
   apiKey: string,
   input: CaseInput,
