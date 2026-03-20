@@ -321,6 +321,7 @@ async function fetchSingleCase(apiKey: string, input: CaseInput, appealCourt?: s
   log(`📋 Scenario steps: ${scenario.instructions.length} | Total JSON length: ${JSON.stringify(scenario).length}`);
   log(`📋 Scenario detail: ${JSON.stringify(scenario).substring(0, 600)}`);
 
+  const scenarioJson = JSON.stringify(scenario);
   const params = new URLSearchParams({
     api_key: apiKey,
     url: 'https://www.mahakim.ma/#/suivi/dossier-suivi',
@@ -328,18 +329,15 @@ async function fetchSingleCase(apiKey: string, input: CaseInput, appealCourt?: s
     premium_proxy: 'true',
     country_code: 'ma',
     timeout: '60000',
+    js_scenario: scenarioJson,
   });
 
-  // Use POST to send js_scenario in body (avoids URL length limits with Arabic text)
   const fullUrl = `https://app.scrapingbee.com/api/v1/?${params.toString()}`;
-  log(`🌐 Request URL length: ${fullUrl.length} chars (scenario sent via POST body)`);
+  log(`🌐 Request URL length: ${fullUrl.length} chars (js_scenario as URL param)`);
 
   try {
     const resp = await fetch(fullUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ js_scenario: scenario }),
-      signal: AbortSignal.timeout(65000),
+      signal: AbortSignal.timeout(70000),
     });
 
     const elapsed = Date.now() - start;
