@@ -437,9 +437,16 @@ async function fetchViaFirecrawl(
       return null;
     }
 
-    // Check for no results
-    if (html.includes('لا توجد أية نتيجة') || markdown.includes('لا توجد')) {
-      log(`🔥 [Firecrawl] ${caseLabel}: no results found`);
+    // Check if we're still on the initial form page (JS didn't fill the form)
+    const isInitialPage = markdown.includes('تتبع الملفات') && !markdown.includes('القاضي') && !markdown.includes('الشعبة');
+    if (isInitialPage) {
+      log(`🔥 [Firecrawl] ${caseLabel}: still on initial form page — JS actions failed, falling back`);
+      return null; // Fall through to ScrapingBee
+    }
+
+    // Check for explicit "no results" from the portal
+    if (html.includes('لا توجد أية نتيجة')) {
+      log(`🔥 [Firecrawl] ${caseLabel}: portal returned no results`);
       return {
         ...input,
         status: 'no_data',
