@@ -1075,29 +1075,50 @@ async function persistResults(
     if (futureSessionMap.size > 0) {
       const { data: existingSessions } = await supabase
         .from('court_sessions')
-        .select('session_date')
+        .select('id, session_date, session_time, court_room, notes')
         .eq('case_id', caseId);
 
-      const existingDates = new Set(
-        (existingSessions || []).map((s: any) => s.session_date)
+      const existingByDate = new Map(
+        (existingSessions || []).map((s: any) => [s.session_date, s])
       );
 
-      const newSessions = [...futureSessionMap.entries()]
-        .filter(([d]) => !existingDates.has(d))
-        .map(([d, info]) => ({
-          case_id: caseId,
-          session_date: d,
-          user_id: userId,
-          required_action: '',
-          notes: 'تم الجلب تلقائياً من بوابة محاكم',
-          status: 'scheduled',
-          session_time: info.time || null,
-          court_room: info.room || null,
-        }));
+      const newSessions: any[] = [];
+      const updatedSessions: string[] = [];
+
+      for (const [d, info] of futureSessionMap.entries()) {
+        const existing = existingByDate.get(d);
+        if (existing) {
+          // Update existing session with new time/room if changed
+          const needsUpdate = 
+            (info.time && info.time !== existing.session_time) ||
+            (info.room && info.room !== existing.court_room);
+          if (needsUpdate) {
+            const upd: Record<string, unknown> = {};
+            if (info.time) upd.session_time = info.time;
+            if (info.room) upd.court_room = info.room;
+            await supabase.from('court_sessions').update(upd).eq('id', existing.id);
+            updatedSessions.push(d);
+          }
+        } else {
+          newSessions.push({
+            case_id: caseId,
+            session_date: d,
+            user_id: userId,
+            required_action: '',
+            notes: 'تم الجلب تلقائياً من بوابة محاكم',
+            status: 'scheduled',
+            session_time: info.time || null,
+            court_room: info.room || null,
+          });
+        }
+      }
 
       if (newSessions.length > 0) {
         await supabase.from('court_sessions').insert(newSessions);
         persistLog.push(`تم إنشاء ${newSessions.length} جلسة مقبلة: ${newSessions.map(s => `${s.session_date}${s.session_time ? ' ' + s.session_time : ''}`).join(', ')}`);
+      }
+      if (updatedSessions.length > 0) {
+        persistLog.push(`تم تحديث ${updatedSessions.length} جلسة: ${updatedSessions.join(', ')}`);
       }
     }
   }
