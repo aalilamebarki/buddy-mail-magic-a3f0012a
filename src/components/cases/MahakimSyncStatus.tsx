@@ -1,287 +1,24 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, RefreshCw, ExternalLink, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { Loader2, RefreshCw, ExternalLink, CheckCircle2, XCircle, Clock, AlertTriangle } from 'lucide-react';
 import { SyncJob } from '@/hooks/useMahakimSync';
 import { formatDistanceToNow } from 'date-fns';
 import { ar } from 'date-fns/locale';
-
-/* ══════════════════════════════════════════════════════════════════
-   Moroccan Appeal Courts & their First-Instance Courts mapping
-   ══════════════════════════════════════════════════════════════════ */
-
-export interface AppealCourt {
-  label: string;
-  /** Text to match in the Mahakim portal dropdown */
-  portalLabel: string;
-  firstInstanceCourts: { label: string; portalLabel: string }[];
-}
-
-export const APPEAL_COURTS: AppealCourt[] = [
-  {
-    label: 'محكمة الاستئناف بالرباط',
-    portalLabel: 'الرباط',
-    firstInstanceCourts: [
-      { label: 'المحكمة الابتدائية بالرباط', portalLabel: 'الرباط' },
-      { label: 'المحكمة الابتدائية بسلا', portalLabel: 'سلا' },
-      { label: 'المحكمة الابتدائية بتمارة', portalLabel: 'تمارة' },
-      { label: 'المحكمة الابتدائية بالخميسات', portalLabel: 'الخميسات' },
-    ],
-  },
-  {
-    label: 'محكمة الاستئناف بالدار البيضاء',
-    portalLabel: 'الدار البيضاء',
-    firstInstanceCourts: [
-      { label: 'المحكمة الابتدائية بالدار البيضاء', portalLabel: 'الدار البيضاء' },
-      { label: 'المحكمة الابتدائية عين السبع', portalLabel: 'عين السبع' },
-      { label: 'المحكمة الابتدائية بن مسيك', portalLabel: 'بن مسيك' },
-      { label: 'المحكمة الابتدائية بالمحمدية', portalLabel: 'المحمدية' },
-      { label: 'المحكمة الابتدائية ببرشيد', portalLabel: 'برشيد' },
-    ],
-  },
-  {
-    label: 'محكمة الاستئناف بفاس',
-    portalLabel: 'فاس',
-    firstInstanceCourts: [
-      { label: 'المحكمة الابتدائية بفاس', portalLabel: 'فاس' },
-      { label: 'المحكمة الابتدائية بصفرو', portalLabel: 'صفرو' },
-      { label: 'المحكمة الابتدائية ببولمان', portalLabel: 'بولمان' },
-      { label: 'المحكمة الابتدائية بمولاي يعقوب', portalLabel: 'مولاي يعقوب' },
-    ],
-  },
-  {
-    label: 'محكمة الاستئناف بمراكش',
-    portalLabel: 'مراكش',
-    firstInstanceCourts: [
-      { label: 'المحكمة الابتدائية بمراكش', portalLabel: 'مراكش' },
-      { label: 'المحكمة الابتدائية بابن جرير', portalLabel: 'ابن جرير' },
-      { label: 'المحكمة الابتدائية بقلعة السراغنة', portalLabel: 'قلعة السراغنة' },
-      { label: 'المحكمة الابتدائية بالصويرة', portalLabel: 'الصويرة' },
-      { label: 'المحكمة الابتدائية بالحوز', portalLabel: 'الحوز' },
-    ],
-  },
-  {
-    label: 'محكمة الاستئناف بمكناس',
-    portalLabel: 'مكناس',
-    firstInstanceCourts: [
-      { label: 'المحكمة الابتدائية بمكناس', portalLabel: 'مكناس' },
-      { label: 'المحكمة الابتدائية بإفران', portalLabel: 'إفران' },
-      { label: 'المحكمة الابتدائية بالحاجب', portalLabel: 'الحاجب' },
-      { label: 'المحكمة الابتدائية بأزرو', portalLabel: 'أزرو' },
-    ],
-  },
-  {
-    label: 'محكمة الاستئناف بطنجة',
-    portalLabel: 'طنجة',
-    firstInstanceCourts: [
-      { label: 'المحكمة الابتدائية بطنجة', portalLabel: 'طنجة' },
-      { label: 'المحكمة الابتدائية بأصيلة', portalLabel: 'أصيلة' },
-      { label: 'المحكمة الابتدائية بالعرائش', portalLabel: 'العرائش' },
-      { label: 'المحكمة الابتدائية بالقصر الكبير', portalLabel: 'القصر الكبير' },
-    ],
-  },
-  {
-    label: 'محكمة الاستئناف بوجدة',
-    portalLabel: 'وجدة',
-    firstInstanceCourts: [
-      { label: 'المحكمة الابتدائية بوجدة', portalLabel: 'وجدة' },
-      { label: 'المحكمة الابتدائية ببركان', portalLabel: 'بركان' },
-      { label: 'المحكمة الابتدائية بجرادة', portalLabel: 'جرادة' },
-      { label: 'المحكمة الابتدائية بفجيج', portalLabel: 'فجيج' },
-      { label: 'المحكمة الابتدائية بتاوريرت', portalLabel: 'تاوريرت' },
-    ],
-  },
-  {
-    label: 'محكمة الاستئناف بأكادير',
-    portalLabel: 'أكادير',
-    firstInstanceCourts: [
-      { label: 'المحكمة الابتدائية بأكادير', portalLabel: 'أكادير' },
-      { label: 'المحكمة الابتدائية بإنزكان', portalLabel: 'إنزكان' },
-      { label: 'المحكمة الابتدائية بتارودانت', portalLabel: 'تارودانت' },
-      { label: 'المحكمة الابتدائية بتيزنيت', portalLabel: 'تيزنيت' },
-    ],
-  },
-  {
-    label: 'محكمة الاستئناف بالقنيطرة',
-    portalLabel: 'القنيطرة',
-    firstInstanceCourts: [
-      { label: 'المحكمة الابتدائية بالقنيطرة', portalLabel: 'القنيطرة' },
-      { label: 'المحكمة الابتدائية بسيدي قاسم', portalLabel: 'سيدي قاسم' },
-      { label: 'المحكمة الابتدائية بسيدي سليمان', portalLabel: 'سيدي سليمان' },
-      { label: 'المحكمة الابتدائية بسوق أربعاء الغرب', portalLabel: 'سوق أربعاء الغرب' },
-    ],
-  },
-  {
-    label: 'محكمة الاستئناف بتطوان',
-    portalLabel: 'تطوان',
-    firstInstanceCourts: [
-      { label: 'المحكمة الابتدائية بتطوان', portalLabel: 'تطوان' },
-      { label: 'المحكمة الابتدائية بشفشاون', portalLabel: 'شفشاون' },
-      { label: 'المحكمة الابتدائية بالمضيق', portalLabel: 'المضيق' },
-    ],
-  },
-  {
-    label: 'محكمة الاستئناف بسطات',
-    portalLabel: 'سطات',
-    firstInstanceCourts: [
-      { label: 'المحكمة الابتدائية بسطات', portalLabel: 'سطات' },
-      { label: 'المحكمة الابتدائية ببنسليمان', portalLabel: 'بنسليمان' },
-    ],
-  },
-  {
-    label: 'محكمة الاستئناف ببني ملال',
-    portalLabel: 'بني ملال',
-    firstInstanceCourts: [
-      { label: 'المحكمة الابتدائية ببني ملال', portalLabel: 'بني ملال' },
-      { label: 'المحكمة الابتدائية بأزيلال', portalLabel: 'أزيلال' },
-      { label: 'المحكمة الابتدائية بالفقيه بن صالح', portalLabel: 'الفقيه بن صالح' },
-    ],
-  },
-  {
-    label: 'محكمة الاستئناف بالجديدة',
-    portalLabel: 'الجديدة',
-    firstInstanceCourts: [
-      { label: 'المحكمة الابتدائية بالجديدة', portalLabel: 'الجديدة' },
-      { label: 'المحكمة الابتدائية بسيدي بنور', portalLabel: 'سيدي بنور' },
-    ],
-  },
-  {
-    label: 'محكمة الاستئناف بخريبكة',
-    portalLabel: 'خريبكة',
-    firstInstanceCourts: [
-      { label: 'المحكمة الابتدائية بخريبكة', portalLabel: 'خريبكة' },
-      { label: 'المحكمة الابتدائية بوادي زم', portalLabel: 'وادي زم' },
-    ],
-  },
-  {
-    label: 'محكمة الاستئناف بتازة',
-    portalLabel: 'تازة',
-    firstInstanceCourts: [
-      { label: 'المحكمة الابتدائية بتازة', portalLabel: 'تازة' },
-      { label: 'المحكمة الابتدائية بجرسيف', portalLabel: 'جرسيف' },
-    ],
-  },
-  {
-    label: 'محكمة الاستئناف بالناظور',
-    portalLabel: 'الناظور',
-    firstInstanceCourts: [
-      { label: 'المحكمة الابتدائية بالناظور', portalLabel: 'الناظور' },
-      { label: 'المحكمة الابتدائية بالدريوش', portalLabel: 'الدريوش' },
-    ],
-  },
-  {
-    label: 'محكمة الاستئناف بالحسيمة',
-    portalLabel: 'الحسيمة',
-    firstInstanceCourts: [
-      { label: 'المحكمة الابتدائية بالحسيمة', portalLabel: 'الحسيمة' },
-    ],
-  },
-  {
-    label: 'محكمة الاستئناف بآسفي',
-    portalLabel: 'آسفي',
-    firstInstanceCourts: [
-      { label: 'المحكمة الابتدائية بآسفي', portalLabel: 'آسفي' },
-      { label: 'المحكمة الابتدائية باليوسفية', portalLabel: 'اليوسفية' },
-    ],
-  },
-  {
-    label: 'محكمة الاستئناف بالراشيدية',
-    portalLabel: 'الراشيدية',
-    firstInstanceCourts: [
-      { label: 'المحكمة الابتدائية بالراشيدية', portalLabel: 'الراشيدية' },
-      { label: 'المحكمة الابتدائية بميدلت', portalLabel: 'ميدلت' },
-    ],
-  },
-  {
-    label: 'محكمة الاستئناف بورزازات',
-    portalLabel: 'ورزازات',
-    firstInstanceCourts: [
-      { label: 'المحكمة الابتدائية بورزازات', portalLabel: 'ورزازات' },
-      { label: 'المحكمة الابتدائية بزاكورة', portalLabel: 'زاكورة' },
-      { label: 'المحكمة الابتدائية بتنغير', portalLabel: 'تنغير' },
-    ],
-  },
-  {
-    label: 'محكمة الاستئناف بالعيون',
-    portalLabel: 'العيون',
-    firstInstanceCourts: [
-      { label: 'المحكمة الابتدائية بالعيون', portalLabel: 'العيون' },
-      { label: 'المحكمة الابتدائية بالسمارة', portalLabel: 'السمارة' },
-      { label: 'المحكمة الابتدائية بالداخلة', portalLabel: 'الداخلة' },
-    ],
-  },
-  {
-    label: 'محكمة الاستئناف بكلميم',
-    portalLabel: 'كلميم',
-    firstInstanceCourts: [
-      { label: 'المحكمة الابتدائية بكلميم', portalLabel: 'كلميم' },
-      { label: 'المحكمة الابتدائية بطانطان', portalLabel: 'طانطان' },
-    ],
-  },
-  // محاكم تجارية
-  {
-    label: 'محكمة الاستئناف التجارية بالدار البيضاء',
-    portalLabel: 'التجارية بالدار البيضاء',
-    firstInstanceCourts: [
-      { label: 'المحكمة التجارية بالدار البيضاء', portalLabel: 'الدار البيضاء' },
-    ],
-  },
-  {
-    label: 'محكمة الاستئناف التجارية بفاس',
-    portalLabel: 'التجارية بفاس',
-    firstInstanceCourts: [
-      { label: 'المحكمة التجارية بفاس', portalLabel: 'فاس' },
-    ],
-  },
-  {
-    label: 'محكمة الاستئناف التجارية بمراكش',
-    portalLabel: 'التجارية بمراكش',
-    firstInstanceCourts: [
-      { label: 'المحكمة التجارية بمراكش', portalLabel: 'مراكش' },
-    ],
-  },
-  // محاكم إدارية
-  {
-    label: 'محكمة الاستئناف الإدارية بالرباط',
-    portalLabel: 'الإدارية بالرباط',
-    firstInstanceCourts: [
-      { label: 'المحكمة الإدارية بالرباط', portalLabel: 'الرباط' },
-    ],
-  },
-  {
-    label: 'محكمة الاستئناف الإدارية بمراكش',
-    portalLabel: 'الإدارية بمراكش',
-    firstInstanceCourts: [
-      { label: 'المحكمة الإدارية بمراكش', portalLabel: 'مراكش' },
-    ],
-  },
-];
-
-/** Try to auto-detect appeal court from case court name */
-function detectAppealCourt(courtName: string | null | undefined): { appealIdx: number; firstInstanceIdx: number } {
-  if (!courtName) return { appealIdx: -1, firstInstanceIdx: -1 };
-  const name = courtName.trim();
-
-  for (let i = 0; i < APPEAL_COURTS.length; i++) {
-    const ac = APPEAL_COURTS[i];
-    // Check if the court name matches the appeal court itself
-    if (name.includes(ac.label) || name.includes(ac.portalLabel)) {
-      return { appealIdx: i, firstInstanceIdx: -1 };
-    }
-    // Check first-instance courts
-    for (let j = 0; j < ac.firstInstanceCourts.length; j++) {
-      const fic = ac.firstInstanceCourts[j];
-      if (name.includes(fic.label) || name.includes(fic.portalLabel)) {
-        return { appealIdx: i, firstInstanceIdx: j };
-      }
-    }
-  }
-  return { appealIdx: -1, firstInstanceIdx: -1 };
-}
+import {
+  COURT_HIERARCHY,
+  filterAppellateByCode,
+  detectCourtsFromName,
+  validateHierarchy,
+  parseCaseNumber,
+  getCategoryFromCode,
+  type CourtCategory,
+} from '@/lib/court-mapping';
 
 interface MahakimSyncStatusProps {
   caseNumber: string;
@@ -300,6 +37,12 @@ const statusConfig: Record<string, { label: string; icon: React.ReactNode; color
   failed: { label: 'فشل', icon: <XCircle className="h-3.5 w-3.5" />, color: 'text-destructive' },
 };
 
+const categoryLabels: Record<CourtCategory, string> = {
+  civil: 'مدني / جنائي / أسري',
+  commercial: 'تجاري',
+  administrative: 'إداري',
+};
+
 export const MahakimSyncStatus = ({
   caseNumber,
   courtName,
@@ -314,38 +57,79 @@ export const MahakimSyncStatus = ({
 
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  // Auto-detect from case court
-  const detected = useMemo(() => detectAppealCourt(courtName), [courtName]);
-  const [selectedAppeal, setSelectedAppeal] = useState<string>('');
-  const [selectedFirstInstance, setSelectedFirstInstance] = useState<string>('');
+  // Parse case number into 3 parts
+  const parsed = useMemo(() => parseCaseNumber(caseNumber), [caseNumber]);
 
-  const isFirstInstance = courtLevel === 'ابتدائية' || courtLevel === 'تجارية' || courtLevel === 'إدارية';
+  // Override fields for sync dialog
+  const [numero, setNumero] = useState('');
+  const [code, setCode] = useState('');
+  const [annee, setAnnee] = useState('');
+  const [selectedAppealIdx, setSelectedAppealIdx] = useState<string>('');
+  const [selectedPrimaryIdx, setSelectedPrimaryIdx] = useState<string>('');
 
-  const appealCourt = selectedAppeal ? APPEAL_COURTS[parseInt(selectedAppeal)] : null;
+  // Derived: filtered appellate courts based on code
+  const codeCategory = useMemo(() => getCategoryFromCode(code), [code]);
+  const filteredAppellate = useMemo(() => {
+    if (code.length === 4) return filterAppellateByCode(code);
+    return COURT_HIERARCHY;
+  }, [code]);
+
+  // Selected appellate court object
+  const selectedAppeal = selectedAppealIdx !== '' ? COURT_HIERARCHY[parseInt(selectedAppealIdx)] : null;
+
+  // Hierarchy mismatch validation
+  const hierarchyError = useMemo(() => {
+    if (code.length !== 4 || selectedAppealIdx === '') return null;
+    return validateHierarchy(code, parseInt(selectedAppealIdx));
+  }, [code, selectedAppealIdx]);
+
+  // Whether to show primary court dropdown
+  const showPrimary = selectedAppeal && selectedAppeal.primaryCourts.length > 0 &&
+    (courtLevel === 'ابتدائية' || courtLevel === 'تجارية' || courtLevel === 'إدارية' || !courtLevel);
 
   const handleOpenDialog = () => {
-    // Pre-select detected courts
+    setNumero(parsed.numero);
+    setCode(parsed.code);
+    setAnnee(parsed.annee);
+
+    // Auto-detect from court name
+    const detected = detectCourtsFromName(courtName);
     if (detected.appealIdx >= 0) {
-      setSelectedAppeal(String(detected.appealIdx));
-      if (detected.firstInstanceIdx >= 0) {
-        setSelectedFirstInstance(String(detected.firstInstanceIdx));
-      } else {
-        setSelectedFirstInstance('');
-      }
+      setSelectedAppealIdx(String(detected.appealIdx));
+      setSelectedPrimaryIdx(detected.primaryIdx >= 0 ? String(detected.primaryIdx) : '');
     } else {
-      setSelectedAppeal('');
-      setSelectedFirstInstance('');
+      setSelectedAppealIdx('');
+      setSelectedPrimaryIdx('');
     }
     setDialogOpen(true);
   };
 
+  // When code changes and has 4 digits, auto-filter and reset appeal if mismatched
+  useEffect(() => {
+    if (code.length === 4 && selectedAppealIdx !== '') {
+      const err = validateHierarchy(code, parseInt(selectedAppealIdx));
+      if (err) {
+        setSelectedAppealIdx('');
+        setSelectedPrimaryIdx('');
+      }
+    }
+  }, [code]);
+
+  const isFormValid = useMemo(() => {
+    return numero.trim() !== '' &&
+      code.length === 4 && /^\d{4}$/.test(code) &&
+      annee.length === 4 && /^\d{4}$/.test(annee) &&
+      selectedAppealIdx !== '' &&
+      !hierarchyError;
+  }, [numero, code, annee, selectedAppealIdx, hierarchyError]);
+
   const handleConfirmSync = () => {
-    if (!selectedAppeal) return;
-    const ac = APPEAL_COURTS[parseInt(selectedAppeal)];
-    const ficLabel = selectedFirstInstance && ac
-      ? ac.firstInstanceCourts[parseInt(selectedFirstInstance)]?.portalLabel
+    if (!isFormValid) return;
+    const ac = COURT_HIERARCHY[parseInt(selectedAppealIdx)];
+    const primaryLabel = selectedPrimaryIdx !== '' && ac
+      ? ac.primaryCourts[parseInt(selectedPrimaryIdx)]?.portalLabel
       : undefined;
-    onSync(ac.portalLabel, ficLabel);
+    onSync(ac.portalLabel, primaryLabel);
     setDialogOpen(false);
   };
 
@@ -377,44 +161,124 @@ export const MahakimSyncStatus = ({
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md" dir="rtl">
           <DialogHeader>
-            <DialogTitle>اختيار المحكمة للمزامنة</DialogTitle>
+            <DialogTitle>مزامنة الملف من بوابة محاكم</DialogTitle>
+            <DialogDescription>أدخل بيانات الملف واختر المحكمة المختصة</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {/* 3-field case number input */}
             <div className="space-y-2">
-              <Label>محكمة الاستئناف *</Label>
-              <Select value={selectedAppeal} onValueChange={(v) => { setSelectedAppeal(v); setSelectedFirstInstance(''); }}>
+              <Label className="font-medium">رقم الملف *</Label>
+              <div className="grid grid-cols-3 gap-2" dir="ltr">
+                <div>
+                  <Label className="text-[10px] text-muted-foreground">رقم الملف</Label>
+                  <Input
+                    value={numero}
+                    onChange={e => setNumero(e.target.value.replace(/\D/g, ''))}
+                    placeholder="مثال: 1"
+                    className="text-center font-mono"
+                    dir="ltr"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px] text-muted-foreground">رمز الملف (4 أرقام)</Label>
+                  <Input
+                    value={code}
+                    onChange={e => {
+                      const v = e.target.value.replace(/\D/g, '').slice(0, 4);
+                      setCode(v);
+                    }}
+                    placeholder="1401"
+                    className={`text-center font-mono ${code.length > 0 && code.length !== 4 ? 'border-destructive' : ''}`}
+                    dir="ltr"
+                    maxLength={4}
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px] text-muted-foreground">سنة الملف (4 أرقام)</Label>
+                  <Input
+                    value={annee}
+                    onChange={e => {
+                      const v = e.target.value.replace(/\D/g, '').slice(0, 4);
+                      setAnnee(v);
+                    }}
+                    placeholder="2025"
+                    className={`text-center font-mono ${annee.length > 0 && annee.length !== 4 ? 'border-destructive' : ''}`}
+                    dir="ltr"
+                    maxLength={4}
+                  />
+                </div>
+              </div>
+              {code.length === 4 && (
+                <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  النوع المكتشف: <Badge variant="outline" className="text-[10px] px-1.5 py-0">{categoryLabels[codeCategory]}</Badge>
+                </p>
+              )}
+            </div>
+
+            {/* Appellate Court */}
+            <div className="space-y-2">
+              <Label className="font-medium">محكمة الاستئناف *</Label>
+              <Select
+                value={selectedAppealIdx}
+                onValueChange={(v) => { setSelectedAppealIdx(v); setSelectedPrimaryIdx(''); }}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="اختر محكمة الاستئناف..." />
                 </SelectTrigger>
                 <SelectContent className="max-h-60">
-                  {APPEAL_COURTS.map((ac, i) => (
-                    <SelectItem key={i} value={String(i)}>{ac.label}</SelectItem>
-                  ))}
+                  {filteredAppellate.map((ac) => {
+                    const globalIdx = COURT_HIERARCHY.indexOf(ac);
+                    return (
+                      <SelectItem key={globalIdx} value={String(globalIdx)}>
+                        {ac.label}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
+              {code.length === 4 && filteredAppellate.length < COURT_HIERARCHY.length && (
+                <p className="text-[10px] text-muted-foreground">
+                  تمت تصفية المحاكم حسب الرمز ({categoryLabels[codeCategory]})
+                </p>
+              )}
             </div>
 
-            {/* Show first-instance dropdown if court level is ابتدائية and appeal court has FICs */}
-            {appealCourt && appealCourt.firstInstanceCourts.length > 0 && isFirstInstance && (
+            {/* Hierarchy Mismatch Error */}
+            {hierarchyError && (
+              <div className="flex items-start gap-2 p-2.5 rounded-md bg-destructive/10 border border-destructive/30">
+                <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                <p className="text-xs text-destructive font-medium">{hierarchyError}</p>
+              </div>
+            )}
+
+            {/* Primary Court */}
+            {showPrimary && selectedAppeal && (
               <div className="space-y-2">
                 <Label>المحكمة الابتدائية</Label>
-                <Select value={selectedFirstInstance} onValueChange={setSelectedFirstInstance}>
+                <Select
+                  value={selectedPrimaryIdx}
+                  onValueChange={setSelectedPrimaryIdx}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="اختر المحكمة الابتدائية..." />
                   </SelectTrigger>
                   <SelectContent className="max-h-60">
-                    {appealCourt.firstInstanceCourts.map((fic, j) => (
-                      <SelectItem key={j} value={String(j)}>{fic.label}</SelectItem>
+                    {selectedAppeal.primaryCourts.map((pc, j) => (
+                      <SelectItem key={j} value={String(j)}>{pc.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-[10px] text-muted-foreground">
-                  {courtName && `المحكمة المسجلة في الملف: ${courtName}`}
-                </p>
+                {courtName && (
+                  <p className="text-[10px] text-muted-foreground">
+                    المحكمة المسجلة في الملف: {courtName}
+                  </p>
+                )}
               </div>
             )}
 
-            {detected.appealIdx >= 0 && (
+            {/* Auto-detection note */}
+            {detectCourtsFromName(courtName).appealIdx >= 0 && (
               <p className="text-xs text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 rounded p-2">
                 تم اكتشاف المحكمة تلقائياً من بيانات الملف
               </p>
@@ -422,7 +286,7 @@ export const MahakimSyncStatus = ({
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>إلغاء</Button>
-            <Button onClick={handleConfirmSync} disabled={!selectedAppeal} className="gap-2">
+            <Button onClick={handleConfirmSync} disabled={!isFormValid} className="gap-2">
               <RefreshCw className="h-4 w-4" />
               بدء المزامنة
             </Button>
@@ -448,14 +312,13 @@ export const MahakimSyncStatus = ({
 
             {latestJob.status === 'pending' && latestJob.retry_count > 0 && (
               <p className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 rounded p-2">
-                إعادة المحاولة {latestJob.retry_count}/{latestJob.max_retries} — جاري المحاولة مجدداً...
+                إعادة المحاولة {latestJob.retry_count}/{latestJob.max_retries}
               </p>
             )}
 
             {latestJob.status === 'failed' && latestJob.error_message && (
               <p className="text-xs text-destructive bg-destructive/10 rounded p-2">
                 {latestJob.error_message}
-                {latestJob.retry_count > 0 && ` (بعد ${latestJob.retry_count + 1} محاولات)`}
               </p>
             )}
 
