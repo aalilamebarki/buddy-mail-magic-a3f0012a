@@ -263,13 +263,12 @@ function buildJsScenario(numero: string, code: string, annee: string, appealCour
 
   if (appealCourt) {
     instructions.push(
-      // PrimeNG dropdowns need mousedown+click on the trigger, then select item
-      {
-        evaluate: `(()=>{var dd=document.querySelectorAll('p-dropdown');if(!dd[0])return 'no-dropdown';var trigger=dd[0].querySelector('.p-dropdown-trigger')||dd[0].querySelector('.p-dropdown-label')||dd[0];trigger.dispatchEvent(new MouseEvent('mousedown',{bubbles:true}));trigger.dispatchEvent(new MouseEvent('click',{bubbles:true}));return 'appeal-dd-clicked:'+dd.length})()`
-      },
+      // Use ScrapingBee native click (real browser click, not DOM event)
+      { click: 'p-dropdown:first-of-type' },
       { wait: 2500 },
+      // Now try to find and click the item in the overlay panel
       {
-        evaluate: `(()=>{var t='${esc(appealCourt)}';var panel=document.querySelector('.p-dropdown-panel,.p-dropdown-items-wrapper');if(!panel)return 'no-panel-visible';var items=panel.querySelectorAll('.p-dropdown-item,li');var found=[];for(var i=0;i<items.length;i++){var txt=(items[i].textContent||'').trim();found.push(txt);if(txt.includes(t)||t.includes(txt)){items[i].dispatchEvent(new MouseEvent('mousedown',{bubbles:true}));items[i].dispatchEvent(new MouseEvent('click',{bubbles:true}));return 'selected:'+txt}}return 'appeal-miss:'+found.slice(0,8).join('|')})()`
+        evaluate: `(()=>{var t='${esc(appealCourt)}';var items=document.querySelectorAll('li.p-dropdown-item,.p-dropdown-item,p-dropdownitem li');var found=[];for(var i=0;i<items.length;i++){var txt=(items[i].textContent||'').trim();found.push(txt);if(txt===t||txt.includes(t)){items[i].click();return 'selected:'+txt}}var overlays=document.querySelectorAll('.p-overlay,.p-connected-overlay,.cdk-overlay-pane');return 'miss:items='+items.length+',overlays='+overlays.length+',found='+found.slice(0,10).join('|')})()`
       },
       { wait: 2500 },
     );
@@ -277,12 +276,13 @@ function buildJsScenario(numero: string, code: string, annee: string, appealCour
 
   if (firstInstanceCourt) {
     instructions.push(
+      // Click the second dropdown
       {
-        evaluate: `(()=>{var dd=document.querySelectorAll('p-dropdown');if(!dd[1])return 'no-2nd-dropdown:'+dd.length;var trigger=dd[1].querySelector('.p-dropdown-trigger')||dd[1].querySelector('.p-dropdown-label')||dd[1];trigger.dispatchEvent(new MouseEvent('mousedown',{bubbles:true}));trigger.dispatchEvent(new MouseEvent('click',{bubbles:true}));return 'fic-dd-clicked'})()`
+        evaluate: `(()=>{var dds=document.querySelectorAll('p-dropdown');if(dds.length>=2){dds[1].click();return 'fic-clicked:'+dds.length}return 'no-2nd:'+dds.length})()`
       },
       { wait: 2500 },
       {
-        evaluate: `(()=>{var t='${esc(firstInstanceCourt)}';var panel=document.querySelector('.p-dropdown-panel,.p-dropdown-items-wrapper');if(!panel)return 'no-panel';var items=panel.querySelectorAll('.p-dropdown-item,li');for(var i=0;i<items.length;i++){var txt=(items[i].textContent||'').trim();if(txt.includes(t)||t.includes(txt)){items[i].dispatchEvent(new MouseEvent('mousedown',{bubbles:true}));items[i].dispatchEvent(new MouseEvent('click',{bubbles:true}));return 'fic-selected:'+txt}}return 'fic-miss'})()`
+        evaluate: `(()=>{var t='${esc(firstInstanceCourt)}';var items=document.querySelectorAll('li.p-dropdown-item,.p-dropdown-item');for(var i=0;i<items.length;i++){var txt=(items[i].textContent||'').trim();if(txt===t||txt.includes(t)){items[i].click();return 'fic-selected:'+txt}}return 'fic-miss:'+items.length})()`
       },
       { wait: 2500 },
     );
