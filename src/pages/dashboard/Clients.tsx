@@ -13,6 +13,7 @@ import { Plus, Search, Pencil, Trash2, FolderOpen, DollarSign, ChevronDown } fro
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { formatPhoneMA } from '@/lib/formatters';
 import { useInvoices } from '@/hooks/useInvoices';
 import { useFeeStatements } from '@/hooks/useFeeStatements';
 import ClientFinanceSection from '@/components/clients/ClientFinanceSection';
