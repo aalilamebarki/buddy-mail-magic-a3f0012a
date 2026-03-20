@@ -22,6 +22,7 @@ import { ar } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { exportCourtSessionsWord } from '@/lib/export-court-sessions-docx';
 import CalendarView from '@/components/sessions/CalendarView';
+import GoogleCalendarQuickAction from '@/components/sessions/GoogleCalendarQuickAction';
 
 const CourtSessions = () => {
   const navigate = useNavigate();
@@ -308,8 +309,8 @@ const CourtSessions = () => {
           </h1>
           <p className="text-sm text-muted-foreground">إدارة مواعيد الجلسات لجميع الملفات</p>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          {/* View toggle */}
+        <div className="flex gap-2 flex-wrap items-center">
+          <GoogleCalendarQuickAction />
           <div className="flex gap-1 bg-muted rounded-lg p-1">
             <Button
               variant={viewMode === 'table' ? 'default' : 'ghost'}
