@@ -233,8 +233,10 @@ const CourtSessions = () => {
           <div className="w-full">
             <Table className="min-w-[960px]">
               <TableHeader>
-                <TableRow>
+                 <TableRow>
                    <TableHead className="text-right">التاريخ</TableHead>
+                   <TableHead className="text-right">الساعة</TableHead>
+                   <TableHead className="text-right">القاعة</TableHead>
                    <TableHead className="text-right">الموكل</TableHead>
                    <TableHead className="text-right">الخصم</TableHead>
                    <TableHead className="text-right">رقم الملف</TableHead>
