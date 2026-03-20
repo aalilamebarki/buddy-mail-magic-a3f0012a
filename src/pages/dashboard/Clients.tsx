@@ -109,7 +109,7 @@ const Clients = () => {
         const { error } = await supabase.from('clients').update({
           full_name: form.full_name.trim(),
           email: form.email.trim() || null,
-          phone: form.phone.trim() || null,
+          phone: formatPhoneMA(form.phone.trim()) || null,
           cin: form.cin.trim() || null,
           address: form.address.trim() || null,
           notes: form.notes.trim() || null,
