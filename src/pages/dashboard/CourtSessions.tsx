@@ -412,6 +412,7 @@ const CourtSessions = () => {
           <Button size="sm" onClick={openAddSession} className="gap-1">
             <Plus className="h-4 w-4" /> إضافة جلسة
           </Button>
+          <GoogleCalendarQuickAction />
         </div>
       </div>
 
