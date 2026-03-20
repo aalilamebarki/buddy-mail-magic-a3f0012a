@@ -433,6 +433,7 @@ async function fetchViaFirecrawl(
     const execResp = await fcRequest(apiKey, 'POST', `/browser/${sessionId}/execute`, {
       code: script,
       language: 'node',
+      timeout: 90,
     });
 
     const elapsed = Date.now() - start;
