@@ -342,7 +342,8 @@ function step2(){
     finalSearch();
   }
 }
-if(ac){selectDD(0,ac,step2)}else{fillFields();finalSearch()}
+  if(ac){selectDD(0,ac,step2)}else{fillFields();finalSearch()}
+});
 return 1;
 })()`;
 
