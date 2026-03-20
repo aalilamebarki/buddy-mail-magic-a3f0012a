@@ -114,6 +114,8 @@ const CourtSessions = () => {
     setSessionDate(new Date(session.session_date + 'T00:00:00'));
     setRequiredAction(session.required_action || '');
     setNotes(session.notes || '');
+    setSessionTime(session.session_time || '');
+    setCourtRoom(session.court_room || '');
     setCaseNumber('');
     setDialogOpen(true);
   };
@@ -124,6 +126,8 @@ const CourtSessions = () => {
     setSessionDate(undefined);
     setRequiredAction('');
     setNotes('');
+    setSessionTime('');
+    setCourtRoom('');
     setCaseNumber('');
     setDialogOpen(true);
   };
