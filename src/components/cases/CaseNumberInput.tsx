@@ -73,15 +73,17 @@ export function CaseNumberInput({ value, onChange, placeholder, autoFocus, showC
   const code = parts[1] || '';
   const category = code.length === 4 ? getCategoryFromCode(code) : null;
   const subCategory = code.length === 4 ? getCodeSubCategory(code) : '';
+  const displayValue = rawInput ? `\u200F${rawInput.replace(/\//g, '\u200F/\u200F')}` : '';
 
   return (
     <div className="space-y-1.5">
       <Input
-        value={rawInput}
+        value={displayValue}
         onChange={handleChange}
-        placeholder={placeholder || 'رقم/رمز/سنة  —  مثال:  2025/1401/1'}
-        className="text-center text-base tracking-wider"
+        placeholder={placeholder || 'رقم/رمز/سنة — مثال: \u200F1\u200F/\u200F1401\u200F/\u200F2025'}
+        className="text-right text-base tracking-wider"
         dir="rtl"
+        style={{ unicodeBidi: 'plaintext' }}
         autoFocus={autoFocus}
       />
       {showCategory && category && (
