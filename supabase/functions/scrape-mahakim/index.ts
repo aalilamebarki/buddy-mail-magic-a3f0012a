@@ -166,6 +166,69 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── autoRefresh48h: re-sync cases where 48h passed since last sync ──
+    if (action === 'autoRefresh48h') {
+      const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+
+      const { data: staleCases } = await supabase
+        .from('cases')
+        .select('id, case_number, assigned_to')
+        .neq('case_number', '')
+        .not('case_number', 'is', null)
+        .eq('status', 'active')
+        .or(`last_synced_at.is.null,last_synced_at.lt.${cutoff}`);
+
+      if (!staleCases || staleCases.length === 0) {
+        return new Response(JSON.stringify({ success: true, message: 'لا توجد ملفات تحتاج تحديثاً', refreshed: 0 }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      let triggered = 0;
+      for (const c of staleCases) {
+        // Skip if already has a pending/scraping job
+        const { data: existing } = await supabase
+          .from('mahakim_sync_jobs')
+          .select('id')
+          .eq('case_id', c.id)
+          .in('status', ['pending', 'scraping'])
+          .limit(1);
+
+        if (existing && existing.length > 0) continue;
+
+        const jobId = crypto.randomUUID();
+        await supabase.from('mahakim_sync_jobs').insert({
+          id: jobId,
+          case_id: c.id,
+          user_id: c.assigned_to || '00000000-0000-0000-0000-000000000000',
+          case_number: c.case_number!,
+          status: 'pending',
+          request_payload: { auto_triggered: true, refresh_48h: true },
+        });
+        triggered++;
+      }
+
+      // Trigger queue processing if any jobs were created
+      if (triggered > 0) {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+        const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+        fetch(`${supabaseUrl}/functions/v1/fetch-dossier`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${anonKey}`,
+            'apikey': anonKey,
+          },
+          body: JSON.stringify({ action: 'processQueue' }),
+        }).catch(() => {});
+      }
+
+      return new Response(JSON.stringify({ success: true, refreshed: triggered, total: staleCases.length }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // ── processQueue: forward to fetch-dossier ──
     if (action === 'processQueue') {
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
