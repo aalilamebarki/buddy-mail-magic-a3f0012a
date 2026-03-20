@@ -777,7 +777,17 @@ Deno.serve(async (req) => {
 
         try {
           const payload = job.request_payload as Record<string, unknown> || {};
-          const result = await fetchSingleCase(SCRAPINGBEE_API_KEY, input, payload.appealCourt as string | undefined, payload.firstInstanceCourt as string | undefined);
+          let appealCourt = payload.appealCourt as string | undefined;
+          let firstInstanceCourt = payload.firstInstanceCourt as string | undefined;
+          
+          // Auto-resolve courts from case record if not provided
+          if (!appealCourt) {
+            const resolved = await resolveCourtForCase(supabase, job.case_id, input.code);
+            appealCourt = resolved.appeal || undefined;
+            firstInstanceCourt = firstInstanceCourt || resolved.primary || undefined;
+          }
+          
+          const result = await fetchSingleCase(SCRAPINGBEE_API_KEY, input, appealCourt, firstInstanceCourt);
           await persistResults(supabase, job.case_id, job.user_id, result);
 
           await supabase.from('mahakim_sync_jobs').update({
