@@ -52,15 +52,44 @@ function randomDelay(minMs = 2000, maxMs = 4000): Promise<void> {
    - { click: "selector" }
    - { evaluate: "js expression" }
    ══════════════════════════════════════════════════════════════════ */
-function buildJsScenario(numero: string, code: string, annee: string) {
-  return {
-    instructions: [
-      // Wait for Angular SPA to render
-      { wait: 5000 },
-      // Open court dropdown
+function buildJsScenario(numero: string, code: string, annee: string, appealCourt?: string, firstInstanceCourt?: string) {
+  const instructions: Array<Record<string, unknown>> = [
+    // Wait for Angular SPA to render
+    { wait: 5000 },
+  ];
+
+  // ── Step 1: Select appeal court from first dropdown ──
+  if (appealCourt) {
+    instructions.push(
+      // Open the appeal court dropdown (first p-dropdown on page)
+      { click: 'p-dropdown:first-of-type .p-dropdown-trigger, .p-dropdown:first-of-type' },
+      { wait: 1500 },
+      // Search and select the matching court by text
+      {
+        evaluate: `(function(){
+          var target = '${appealCourt}';
+          var items = document.querySelectorAll('li.p-dropdown-item, .p-dropdown-item');
+          for (var i = 0; i < items.length; i++) {
+            var t = (items[i].textContent || '').trim();
+            if (t.indexOf(target) > -1) { items[i].click(); return 'appeal:' + t.substring(0,60); }
+          }
+          // Fuzzy: try partial match
+          for (var i = 0; i < items.length; i++) {
+            var t = (items[i].textContent || '').trim();
+            var parts = target.split(' ');
+            var match = parts.every(function(p) { return t.indexOf(p) > -1; });
+            if (match) { items[i].click(); return 'appeal-fuzzy:' + t.substring(0,60); }
+          }
+          return 'appeal-miss:' + items.length + ':' + target;
+        })()`
+      },
+      { wait: 2000 },
+    );
+  } else {
+    // Fallback: select first court
+    instructions.push(
       { click: '.p-dropdown' },
       { wait: 1500 },
-      // Select first real court option (index 1, 0 is placeholder)
       {
         evaluate: `(function(){
           var items = document.querySelectorAll('li.p-dropdown-item, .p-dropdown-item');
@@ -70,122 +99,157 @@ function buildJsScenario(numero: string, code: string, annee: string) {
         })()`
       },
       { wait: 2000 },
-      // Fill form fields using Angular's property setter pattern
+    );
+  }
+
+  // ── Step 2: If first-instance court provided, select from second dropdown ──
+  if (firstInstanceCourt) {
+    instructions.push(
+      // Wait for second dropdown to appear after appeal court selection
+      { wait: 1500 },
+      // Click the second p-dropdown (first-instance courts)
       {
         evaluate: `(function(){
-          var r = [];
-          function sv(sel, val, nm) {
-            var el = document.querySelector(sel);
-            if (!el) { r.push(nm + ':miss'); return; }
-            var s = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-            s.call(el, val);
-            el.dispatchEvent(new Event('input', {bubbles: true}));
-            el.dispatchEvent(new Event('change', {bubbles: true}));
-            r.push(nm + ':ok');
-          }
-          sv('input[formcontrolname="numero"]', '${numero}', 'num');
-          sv('input[formcontrolname="code"]', '${code}', 'code');
-          sv('input[formcontrolname="annee"]', '${annee}', 'year');
-          return r.join(',');
+          var dropdowns = document.querySelectorAll('p-dropdown .p-dropdown-trigger, .p-dropdown');
+          if (dropdowns.length >= 2) { dropdowns[1].click(); return 'opened-fic-dropdown'; }
+          // Try clicking any dropdown that's not already selected
+          var all = document.querySelectorAll('p-dropdown');
+          if (all.length >= 2) { all[1].querySelector('.p-dropdown-trigger')?.click(); return 'opened-fic-alt'; }
+          return 'fic-dropdown-miss:' + dropdowns.length;
         })()`
       },
-      { wait: 1000 },
-      // Click search/submit button
+      { wait: 1500 },
+      // Select the matching first-instance court
       {
         evaluate: `(function(){
-          var btn = document.querySelector('button[type="submit"]');
-          if (btn) { btn.click(); return 'submit'; }
-          var btns = document.querySelectorAll('button.p-button, p-button button, button');
-          for (var i = 0; i < btns.length; i++) {
-            var t = (btns[i].textContent || '').trim();
-            if (t.indexOf('بحث') > -1 || t.indexOf('عرض') > -1 || t.indexOf('تتبع') > -1) {
-              btns[i].click();
-              return 'clicked:' + t.substring(0, 30);
-            }
+          var target = '${firstInstanceCourt}';
+          var items = document.querySelectorAll('li.p-dropdown-item, .p-dropdown-item');
+          for (var i = 0; i < items.length; i++) {
+            var t = (items[i].textContent || '').trim();
+            if (t.indexOf(target) > -1) { items[i].click(); return 'fic:' + t.substring(0,60); }
           }
-          return 'no-btn:' + document.querySelectorAll('button').length;
+          return 'fic-miss:' + items.length + ':' + target;
         })()`
       },
-      // Wait for dynamic results to load
-      { wait: 10000 },
-      // Extract all data from the page
-      {
-        evaluate: `(function(){
-          var result = { caseInfo: {}, procedures: [], hasData: false, noResult: false };
-          var body = document.body.innerText || '';
-          
-          // Check for no results
-          if (body.indexOf('لا توجد أية نتيجة') > -1 || body.indexOf('لا توجد أية نتيجة للبحث') > -1) {
-            result.noResult = true;
-            return JSON.stringify(result);
+      { wait: 2000 },
+    );
+  }
+
+  // ── Step 3: Fill form fields ──
+  instructions.push(
+    {
+      evaluate: `(function(){
+        var r = [];
+        function sv(sel, val, nm) {
+          var el = document.querySelector(sel);
+          if (!el) { r.push(nm + ':miss'); return; }
+          var s = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+          s.call(el, val);
+          el.dispatchEvent(new Event('input', {bubbles: true}));
+          el.dispatchEvent(new Event('change', {bubbles: true}));
+          r.push(nm + ':ok');
+        }
+        sv('input[formcontrolname="numero"]', '${numero}', 'num');
+        sv('input[formcontrolname="code"]', '${code}', 'code');
+        sv('input[formcontrolname="annee"]', '${annee}', 'year');
+        return r.join(',');
+      })()`
+    },
+    { wait: 1000 },
+    // Click search button
+    {
+      evaluate: `(function(){
+        var btn = document.querySelector('button[type="submit"]');
+        if (btn) { btn.click(); return 'submit'; }
+        var btns = document.querySelectorAll('button.p-button, p-button button, button');
+        for (var i = 0; i < btns.length; i++) {
+          var t = (btns[i].textContent || '').trim();
+          if (t.indexOf('بحث') > -1 || t.indexOf('عرض') > -1 || t.indexOf('تتبع') > -1) {
+            btns[i].click();
+            return 'clicked:' + t.substring(0, 30);
           }
-          
-          // Extract labeled fields
-          var fieldMap = {
-            court: ['المحكمة'],
-            national_number: ['الرقم الوطني'],
-            case_type: ['نوع القضية', 'نوع الملف'],
-            department: ['الشعبة'],
-            judge: ['القاضي المقرر', 'القاضي'],
-            subject: ['الموضوع'],
-            status: ['الحالة'],
-            registration_date: ['تاريخ التسجيل']
-          };
-          
-          var allEls = document.querySelectorAll('span, div, td, th, label, p, strong, h3, h4');
-          for (var i = 0; i < allEls.length; i++) {
-            var text = (allEls[i].textContent || '').trim();
-            for (var key in fieldMap) {
-              if (result.caseInfo[key]) continue;
-              var labels = fieldMap[key];
-              for (var j = 0; j < labels.length; j++) {
-                if (text.includes(labels[j])) {
-                  var next = allEls[i].nextElementSibling;
-                  if (next) {
-                    var val = (next.textContent || '').trim();
-                    if (val && val.length < 200 && val !== labels[j]) {
-                      result.caseInfo[key] = val;
-                      break;
-                    }
+        }
+        return 'no-btn:' + document.querySelectorAll('button').length;
+      })()`
+    },
+    // Wait for results
+    { wait: 10000 },
+    // Extract data
+    {
+      evaluate: `(function(){
+        var result = { caseInfo: {}, procedures: [], hasData: false, noResult: false };
+        var body = document.body.innerText || '';
+        
+        if (body.indexOf('لا توجد أية نتيجة') > -1 || body.indexOf('لا توجد أية نتيجة للبحث') > -1) {
+          result.noResult = true;
+          return JSON.stringify(result);
+        }
+        
+        var fieldMap = {
+          court: ['المحكمة'],
+          national_number: ['الرقم الوطني'],
+          case_type: ['نوع القضية', 'نوع الملف'],
+          department: ['الشعبة'],
+          judge: ['القاضي المقرر', 'القاضي'],
+          subject: ['الموضوع'],
+          status: ['الحالة'],
+          registration_date: ['تاريخ التسجيل']
+        };
+        
+        var allEls = document.querySelectorAll('span, div, td, th, label, p, strong, h3, h4');
+        for (var i = 0; i < allEls.length; i++) {
+          var text = (allEls[i].textContent || '').trim();
+          for (var key in fieldMap) {
+            if (result.caseInfo[key]) continue;
+            var labels = fieldMap[key];
+            for (var j = 0; j < labels.length; j++) {
+              if (text.includes(labels[j])) {
+                var next = allEls[i].nextElementSibling;
+                if (next) {
+                  var val = (next.textContent || '').trim();
+                  if (val && val.length < 200 && val !== labels[j]) {
+                    result.caseInfo[key] = val;
+                    break;
                   }
-                  var colonIdx = text.indexOf(':');
-                  if (colonIdx > -1) {
-                    var val2 = text.substring(colonIdx + 1).trim();
-                    if (val2 && val2.length < 200) {
-                      result.caseInfo[key] = val2;
-                      break;
-                    }
+                }
+                var colonIdx = text.indexOf(':');
+                if (colonIdx > -1) {
+                  var val2 = text.substring(colonIdx + 1).trim();
+                  if (val2 && val2.length < 200) {
+                    result.caseInfo[key] = val2;
+                    break;
                   }
                 }
               }
             }
           }
-          
-          // Extract procedure rows from tables
-          var tables = document.querySelectorAll('table');
-          for (var t = 0; t < tables.length; t++) {
-            var rows = tables[t].querySelectorAll('tr');
-            for (var r = 0; r < rows.length; r++) {
-              var cells = rows[r].querySelectorAll('td');
-              if (cells.length < 3) continue;
-              var c0 = (cells[0].textContent || '').trim();
-              if (c0 && /\\d/.test(c0)) {
-                result.procedures.push({
-                  action_date: c0,
-                  action_type: (cells[1].textContent || '').trim(),
-                  decision: (cells[2].textContent || '').trim(),
-                  next_session_date: cells.length > 3 ? (cells[3].textContent || '').trim() : ''
-                });
-              }
+        }
+        
+        var tables = document.querySelectorAll('table');
+        for (var t = 0; t < tables.length; t++) {
+          var rows = tables[t].querySelectorAll('tr');
+          for (var r = 0; r < rows.length; r++) {
+            var cells = rows[r].querySelectorAll('td');
+            if (cells.length < 3) continue;
+            var c0 = (cells[0].textContent || '').trim();
+            if (c0 && /\\d/.test(c0)) {
+              result.procedures.push({
+                action_date: c0,
+                action_type: (cells[1].textContent || '').trim(),
+                decision: (cells[2].textContent || '').trim(),
+                next_session_date: cells.length > 3 ? (cells[3].textContent || '').trim() : ''
+              });
             }
           }
-          
-          result.hasData = Object.keys(result.caseInfo).length > 0 || result.procedures.length > 0;
-          return JSON.stringify(result);
-        })()`
-      },
-    ],
-  };
+        }
+        
+        result.hasData = Object.keys(result.caseInfo).length > 0 || result.procedures.length > 0;
+        return JSON.stringify(result);
+      })()`
+    },
+  );
+
+  return { instructions };
 }
 
 /* ══════════════════════════════════════════════════════════════════
