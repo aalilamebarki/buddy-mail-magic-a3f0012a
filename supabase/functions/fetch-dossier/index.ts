@@ -306,7 +306,11 @@ async function fetchSingleCase(apiKey: string, input: CaseInput, appealCourt?: s
   const caseLabel = `${input.numero}/${input.code}/${input.annee}`;
   const start = Date.now();
 
+  log(`🚀 Starting fetch for ${caseLabel} | appealCourt="${appealCourt}" | firstInstanceCourt="${firstInstanceCourt}"`);
+
   const scenario = buildJsScenario(input.numero, input.code, input.annee, appealCourt, firstInstanceCourt);
+  log(`📋 Scenario steps: ${scenario.instructions.length} | Total JSON length: ${JSON.stringify(scenario).length}`);
+  log(`📋 Scenario detail: ${JSON.stringify(scenario).substring(0, 600)}`);
 
   const params = new URLSearchParams({
     api_key: apiKey,
@@ -318,12 +322,16 @@ async function fetchSingleCase(apiKey: string, input: CaseInput, appealCourt?: s
     timeout: '60000',
   });
 
+  const fullUrl = `https://app.scrapingbee.com/api/v1/?${params.toString()}`;
+  log(`🌐 Request URL length: ${fullUrl.length} chars`);
+
   try {
-    const resp = await fetch(`https://app.scrapingbee.com/api/v1/?${params.toString()}`, {
+    const resp = await fetch(fullUrl, {
       signal: AbortSignal.timeout(65000),
     });
 
     const elapsed = Date.now() - start;
+    log(`📡 ScrapingBee response: status=${resp.status} (${elapsed}ms)`);
 
     if (!resp.ok) {
       const errText = await resp.text();
