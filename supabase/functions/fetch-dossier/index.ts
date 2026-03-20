@@ -345,7 +345,7 @@ function fillFields(){
 function step2(){
   fillFields();
   if(pc){
-    clickPrimarySearchBtn(function(){
+    clickPrimaryCheckbox(function(){
       var dds=document.querySelectorAll('p-dropdown .p-dropdown-trigger');
       if(dds.length>1){selectDD(1,pc,finalSearch)}else{window.__L.push('no-dd1-direct-search');finalSearch()}
     });
