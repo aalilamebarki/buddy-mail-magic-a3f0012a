@@ -417,6 +417,8 @@ async function fetchViaFirecrawl(
 
     const data = await resp.json();
     log(`🔥 [Firecrawl] ${caseLabel}: success (${elapsed}ms)`);
+    const jsReturns = data?.data?.javascriptReturns || data?.javascriptReturns;
+    if (jsReturns) log(`🔥 [Firecrawl] JS returns: ${JSON.stringify(jsReturns).substring(0, 500)}`);
 
     const html = data?.data?.html || '';
     const markdown = data?.data?.markdown || '';
