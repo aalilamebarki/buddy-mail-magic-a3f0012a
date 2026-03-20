@@ -259,6 +259,7 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
         opposing_party_address: oppAddress,
         opposing_party_phone: oppPhone,
         court: form.court.trim(),
+        court_level: courtLevel || 'ابتدائية',
         case_number: caseNum,
       };
 
