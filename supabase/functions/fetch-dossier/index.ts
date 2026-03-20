@@ -1032,31 +1032,30 @@ async function persistResults(
   // Schedule ALL future court sessions from procedures with time & room
   if (userId && result.procedures.length > 0) {
     const now = new Date();
+    now.setHours(0, 0, 0, 0);
     const futureSessionMap = new Map<string, { time: string; room: string }>();
 
+    /** Parse "dd/mm/yyyy" or "dd/mm/yyyy HH:MM" — returns {dateKey, time} or null */
+    function parseDateField(raw: string | undefined): { dateKey: string; time: string } | null {
+      if (!raw) return null;
+      const m = raw.match(/(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{1,2}:\d{2}))?/);
+      if (!m) return null;
+      const [, day, month, year, time] = m;
+      const dateObj = new Date(`${year}-${month}-${day}`);
+      if (isNaN(dateObj.getTime()) || dateObj < now) return null;
+      return { dateKey: `${year}-${month}-${day}`, time: time || '' };
+    }
+
     for (const proc of result.procedures) {
-      const d = proc.next_session_date;
-      if (d && /\d{2}\/\d{2}\/\d{4}/.test(d)) {
-        const [day, month, year] = d.split('/');
-        const dateObj = new Date(`${year}-${month}-${day}`);
-        if (dateObj >= now) {
-          const key = `${year}-${month}-${day}`;
-          if (!futureSessionMap.has(key)) {
-            futureSessionMap.set(key, { time: proc.session_time || '', room: proc.court_room || '' });
-          }
+      // Extract from next_session_date
+      const nsd = parseDateField(proc.next_session_date);
+      if (nsd) {
+        const sessionTime = proc.session_time || nsd.time || '';
+        if (!futureSessionMap.has(nsd.dateKey)) {
+          futureSessionMap.set(nsd.dateKey, { time: sessionTime, room: proc.court_room || '' });
         }
       }
-      const ad = proc.action_date;
-      if (ad && /\d{2}\/\d{2}\/\d{4}/.test(ad)) {
-        const [day, month, year] = ad.split('/');
-        const dateObj = new Date(`${year}-${month}-${day}`);
-        if (dateObj >= now) {
-          const key = `${year}-${month}-${day}`;
-          if (!futureSessionMap.has(key)) {
-            futureSessionMap.set(key, { time: proc.session_time || '', room: proc.court_room || '' });
-          }
-        }
-      }
+      // Also check action_date for future dates (but only add to sessions from next_session_date primarily)
     }
 
     if (result.nextSessionDate) {
