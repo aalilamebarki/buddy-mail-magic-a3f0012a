@@ -598,12 +598,6 @@ async function fetchViaFirecrawl(
   }
 }
 
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown';
-    log(`🔥 [Firecrawl] ${caseLabel}: error — ${msg}`);
-    return null; // Fall through to ScrapingBee
-  }
-}
 
 /* ── Parse markdown results from Firecrawl ── */
 function parseMarkdownResult(markdown: string): {
