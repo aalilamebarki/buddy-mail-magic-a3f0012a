@@ -36,6 +36,7 @@ const DashboardHome = lazy(() => import("./pages/dashboard/DashboardHome"));
 const Cases = lazy(() => import("./pages/dashboard/Cases"));
 const CaseDetail = lazy(() => import("./pages/dashboard/CaseDetail"));
 const CourtSessions = lazy(() => import("./pages/dashboard/CourtSessions"));
+const SessionCalendar = lazy(() => import("./pages/dashboard/SessionCalendar"));
 const Clients = lazy(() => import("./pages/dashboard/Clients"));
 const Articles = lazy(() => import("./pages/dashboard/Articles"));
 
@@ -111,6 +112,7 @@ const App = () => (
                     <Route path="cases" element={<Cases />} />
                     <Route path="cases/:id" element={<CaseDetail />} />
                     <Route path="court-sessions" element={<CourtSessions />} />
+                    <Route path="calendar" element={<SessionCalendar />} />
                     <Route path="clients" element={<Clients />} />
                     <Route path="articles" element={<Articles />} />
                     
