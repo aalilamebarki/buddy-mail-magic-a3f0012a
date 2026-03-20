@@ -283,198 +283,219 @@ function buildPlaywrightScript(
   // `page` is pre-loaded by Firecrawl
   return `
 const L = [];
+let result = { noResult: false, caseInfo: {}, procedures: [], hasData: false, bodyPreview: '' };
 
-// Navigate to the portal
-await page.goto('https://www.mahakim.ma/#/suivi/dossier-suivi', { waitUntil: 'networkidle', timeout: 30000 });
-L.push('page-loaded');
+try {
+  // Navigate to the portal — use domcontentloaded (Angular SPAs never reach networkidle)
+  await page.goto('https://www.mahakim.ma/#/suivi/dossier-suivi', { waitUntil: 'domcontentloaded', timeout: 30000 });
+  L.push('page-loaded');
 
-// Wait for Angular form to render
-await page.waitForSelector('input[formcontrolname="mark"]', { timeout: 15000 });
-L.push('form-ready');
+  // Wait for Angular form to render (retry-aware)
+  await page.waitForSelector('input[formcontrolname="mark"]', { timeout: 20000 });
+  L.push('form-ready');
 
-// Helper: set Angular input value via native setter + events
-async function setField(selector, value) {
-  await page.evaluate(({sel, val}) => {
-    const el = document.querySelector(sel);
-    if (!el) return false;
-    const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
-    if (desc && desc.set) desc.set.call(el, val);
-    else el.value = val;
-    el.dispatchEvent(new Event('input', {bubbles: true}));
-    el.dispatchEvent(new Event('change', {bubbles: true}));
-    return true;
-  }, {sel: selector, val: value});
-}
+  // Helper: set Angular input value via native setter + events
+  async function setField(selector, value) {
+    const ok = await page.evaluate(({sel, val}) => {
+      try {
+        const el = document.querySelector(sel);
+        if (!el) return 'not-found';
+        const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+        if (desc && desc.set) desc.set.call(el, val);
+        else el.value = val;
+        el.dispatchEvent(new Event('input', {bubbles: true}));
+        el.dispatchEvent(new Event('change', {bubbles: true}));
+        el.dispatchEvent(new Event('blur', {bubbles: true}));
+        return 'ok';
+      } catch(e) { return 'err:' + e.message; }
+    }, {sel: selector, val: value});
+    return ok;
+  }
 
-// Step 1: Fill code (mark) — triggers appeal court dropdown loading
-await setField('input[formcontrolname="mark"]', '${esc(code)}');
-L.push('mark-set');
-await page.waitForTimeout(3000);
+  // Step 1: Fill code (mark) — triggers appeal court dropdown loading
+  const markResult = await setField('input[formcontrolname="mark"]', '${esc(code)}');
+  L.push('mark:' + markResult);
+  // Wait for dropdown options to load (can take 3-5s)
+  await page.waitForTimeout(5000);
 
-// Step 2: Fill numero and annee
-await setField('input[formcontrolname="numero"]', '${esc(numero)}');
-await setField('input[formcontrolname="annee"]', '${esc(annee)}');
-L.push('fields-set');
-await page.waitForTimeout(1000);
+  // Step 2: Fill numero and annee
+  const numResult = await setField('input[formcontrolname="numero"]', '${esc(numero)}');
+  const annResult = await setField('input[formcontrolname="annee"]', '${esc(annee)}');
+  L.push('num:' + numResult + ',ann:' + annResult);
+  await page.waitForTimeout(1000);
 
 ${appealCourt ? `
-// Step 3: Select appeal court from dropdown
-try {
-  const ddTriggers = await page.$$('p-dropdown .p-dropdown-trigger');
-  if (ddTriggers.length > 0) {
-    await ddTriggers[0].click();
-    L.push('dd0-opened');
-    await page.waitForTimeout(1000);
-    
-    // Find and click the matching item
-    const selected = await page.evaluate((target) => {
-      const items = document.querySelectorAll('.p-dropdown-panel li.p-dropdown-item, .p-dropdown-items li');
-      for (const li of items) {
-        if (li.textContent.trim().includes(target)) {
-          li.click();
-          return li.textContent.trim();
-        }
-      }
-      return null;
-    }, '${esc(appealCourt)}');
-    
-    if (selected) L.push('dd0-ok:' + selected);
-    else L.push('dd0-miss');
-    await page.waitForTimeout(1500);
-  } else {
-    L.push('dd0-no-triggers');
+  // Step 3: Select appeal court from dropdown
+  try {
+    const ddTriggers = await page.$$('p-dropdown .p-dropdown-trigger');
+    if (ddTriggers.length > 0) {
+      await ddTriggers[0].click();
+      L.push('dd0-opened');
+      await page.waitForTimeout(1500);
+
+      const selected = await page.evaluate((target) => {
+        try {
+          const items = document.querySelectorAll('.p-dropdown-panel li.p-dropdown-item, .p-dropdown-items li');
+          for (const li of items) {
+            if (li.textContent.trim().includes(target)) {
+              li.click();
+              return li.textContent.trim();
+            }
+          }
+          return 'miss:' + items.length + 'items';
+        } catch(e) { return 'err:' + e.message; }
+      }, '${esc(appealCourt)}');
+
+      L.push('dd0:' + selected);
+      await page.waitForTimeout(2000);
+    } else {
+      L.push('dd0-no-triggers');
+    }
+  } catch (e) {
+    L.push('dd0-error:' + e.message);
   }
-} catch (e) {
-  L.push('dd0-error:' + e.message);
-}
 ` : ''}
 
 ${firstInstanceCourt ? `
-// Step 4: Click checkbox for primary court search
-try {
-  const cbClicked = await page.evaluate(() => {
-    const labels = Array.from(document.querySelectorAll('label, span'));
-    for (const label of labels) {
-      const t = label.textContent || '';
-      if (t.includes('الابتدائية') || t.includes('البحث بالمحاكم')) {
-        let cb = label.querySelector('.p-checkbox-box, input[type="checkbox"]');
-        if (!cb) {
-          const parent = label.closest('div');
-          if (parent) cb = parent.querySelector('.p-checkbox-box, input[type="checkbox"]');
+  // Step 4: Click checkbox for primary court search
+  try {
+    const cbClicked = await page.evaluate(() => {
+      try {
+        const labels = Array.from(document.querySelectorAll('label, span'));
+        for (const label of labels) {
+          const t = label.textContent || '';
+          if (t.includes('الابتدائية') || t.includes('البحث بالمحاكم')) {
+            let cb = label.querySelector('.p-checkbox-box, input[type="checkbox"]');
+            if (!cb) {
+              const parent = label.closest('div');
+              if (parent) cb = parent.querySelector('.p-checkbox-box, input[type="checkbox"]');
+            }
+            if (cb) { cb.click(); return 'checkbox-ok'; }
+            label.click(); return 'label-clicked';
+          }
         }
-        if (cb) { cb.click(); return 'checkbox-ok'; }
-        label.click(); return 'label-clicked';
-      }
+        const cbs = document.querySelectorAll('.p-checkbox-box');
+        if (cbs.length > 0) { cbs[0].click(); return 'fallback-checkbox'; }
+        return 'miss';
+      } catch(e) { return 'err:' + e.message; }
+    });
+    L.push('cb:' + cbClicked);
+    await page.waitForTimeout(4000);
+
+    // Step 5: Select primary court from the new dropdown
+    const ddTriggers2 = await page.$$('p-dropdown .p-dropdown-trigger');
+    if (ddTriggers2.length > 1) {
+      await ddTriggers2[ddTriggers2.length - 1].click();
+      L.push('dd1-opened');
+      await page.waitForTimeout(1500);
+
+      const selected2 = await page.evaluate((target) => {
+        try {
+          const items = document.querySelectorAll('.p-dropdown-panel li.p-dropdown-item, .p-dropdown-items li');
+          for (const li of items) {
+            if (li.textContent.trim().includes(target)) {
+              li.click();
+              return li.textContent.trim();
+            }
+          }
+          return 'miss:' + items.length + 'items';
+        } catch(e) { return 'err:' + e.message; }
+      }, '${esc(firstInstanceCourt)}');
+
+      L.push('dd1:' + selected2);
+      await page.waitForTimeout(2000);
+    } else {
+      L.push('dd1-no-triggers:' + ddTriggers2.length);
     }
-    const cbs = document.querySelectorAll('.p-checkbox-box');
-    if (cbs.length > 0) { cbs[0].click(); return 'fallback-checkbox'; }
-    return 'miss';
-  });
-  L.push(cbClicked);
-  await page.waitForTimeout(3000);
-  
-  // Step 5: Select primary court from the new dropdown
-  const ddTriggers2 = await page.$$('p-dropdown .p-dropdown-trigger');
-  if (ddTriggers2.length > 1) {
-    await ddTriggers2[ddTriggers2.length - 1].click();
-    L.push('dd1-opened');
-    await page.waitForTimeout(1000);
-    
-    const selected2 = await page.evaluate((target) => {
-      const items = document.querySelectorAll('.p-dropdown-panel li.p-dropdown-item, .p-dropdown-items li');
-      for (const li of items) {
-        if (li.textContent.trim().includes(target)) {
-          li.click();
-          return li.textContent.trim();
-        }
-      }
-      return null;
-    }, '${esc(firstInstanceCourt)}');
-    
-    if (selected2) L.push('dd1-ok:' + selected2);
-    else L.push('dd1-miss');
-    await page.waitForTimeout(1500);
-  } else {
-    L.push('dd1-no-triggers:' + ddTriggers2.length);
+  } catch (e) {
+    L.push('cb-error:' + e.message);
   }
-} catch (e) {
-  L.push('cb-error:' + e.message);
-}
 ` : ''}
 
-// Step 6: Click search button
-const searchResult = await page.evaluate(() => {
-  const bs = Array.from(document.querySelectorAll('button'));
-  let b = bs.find(x => x.textContent.trim() === 'بحث');
-  if (!b) b = bs.find(x => x.textContent.includes('بحث') && !x.textContent.includes('المحاكم'));
-  if (b) { b.click(); return 'search-clicked'; }
-  return 'search-miss:' + bs.length;
-});
-L.push(searchResult);
+  // Step 6: Click search button
+  const searchResult = await page.evaluate(() => {
+    try {
+      const bs = Array.from(document.querySelectorAll('button'));
+      let b = bs.find(x => x.textContent.trim() === 'بحث');
+      if (!b) b = bs.find(x => x.textContent.includes('بحث') && !x.textContent.includes('المحاكم'));
+      if (b) { b.click(); return 'search-clicked'; }
+      return 'search-miss:' + bs.length;
+    } catch(e) { return 'err:' + e.message; }
+  });
+  L.push(searchResult);
 
-// Wait for results
-await page.waitForTimeout(8000);
+  // Wait for results (network request + render)
+  await page.waitForTimeout(10000);
 
-// Step 7: Extract data
-const result = await page.evaluate(() => {
-  const body = document.body.innerText;
-  const html = document.body.innerHTML;
-  
-  if (body.includes('لا توجد أية نتيجة') || body.includes('لا توجد')) {
-    return { noResult: true, caseInfo: {}, procedures: [], hasData: false };
-  }
-  
-  const caseInfo = {};
-  const patterns = [
-    ['court', ['المحكمة']],
-    ['judge', ['القاضي المقرر', 'المستشار', 'القاضي']],
-    ['department', ['الشعبة']],
-    ['case_type', ['نوع الملف', 'نوع القضية']],
-    ['status', ['الحالة']],
-    ['registration_date', ['تاريخ التسجيل']],
-    ['national_number', ['الرقم الوطني']],
-    ['subject', ['الموضوع']],
-  ];
-  
-  for (const [key, labels] of patterns) {
-    for (const label of labels) {
-      const idx = html.indexOf(label);
-      if (idx === -1) continue;
-      const after = html.substring(idx, idx + 500);
-      const m = after.match(/>([^<]{2,100})</);
-      if (m && m[1].trim() !== label && m[1].trim().length > 1) {
-        caseInfo[key] = m[1].trim();
-        break;
+  // Step 7: Extract data
+  result = await page.evaluate(() => {
+    try {
+      const body = document.body.innerText;
+      const html = document.body.innerHTML;
+
+      if (body.includes('لا توجد أية نتيجة') || body.includes('لا توجد')) {
+        return { noResult: true, caseInfo: {}, procedures: [], hasData: false, bodyPreview: body.substring(0, 500) };
       }
-    }
-  }
-  
-  // Extract procedures from table
-  const procedures = [];
-  const rows = document.querySelectorAll('table tbody tr, .p-datatable-tbody tr');
-  for (const row of rows) {
-    const cells = row.querySelectorAll('td');
-    if (cells.length >= 2) {
-      const proc = {
-        action_date: cells[0]?.textContent?.trim() || '',
-        action_type: cells[1]?.textContent?.trim() || '',
-        decision: cells[2]?.textContent?.trim() || '',
-        next_session_date: cells[3]?.textContent?.trim() || '',
-      };
-      if (proc.action_date || proc.action_type) procedures.push(proc);
-    }
-  }
-  
-  return {
-    noResult: false,
-    caseInfo,
-    procedures,
-    hasData: Object.keys(caseInfo).length > 0 || procedures.length > 0,
-    bodyPreview: body.substring(0, 500),
-  };
-});
 
-L.push('extracted:' + Object.keys(result.caseInfo).length + 'fields,' + result.procedures.length + 'procs');
+      const caseInfo = {};
+      const patterns = [
+        ['court', ['المحكمة']],
+        ['judge', ['القاضي المقرر', 'المستشار', 'القاضي']],
+        ['department', ['الشعبة']],
+        ['case_type', ['نوع الملف', 'نوع القضية']],
+        ['status', ['الحالة']],
+        ['registration_date', ['تاريخ التسجيل']],
+        ['national_number', ['الرقم الوطني']],
+        ['subject', ['الموضوع']],
+      ];
+
+      for (const [key, labels] of patterns) {
+        for (const label of labels) {
+          const idx = html.indexOf(label);
+          if (idx === -1) continue;
+          const after = html.substring(idx, idx + 500);
+          const m = after.match(/>([^<]{2,100})</);
+          if (m && m[1].trim() !== label && m[1].trim().length > 1) {
+            caseInfo[key] = m[1].trim();
+            break;
+          }
+        }
+      }
+
+      // Extract procedures from table
+      const procedures = [];
+      const rows = document.querySelectorAll('table tbody tr, .p-datatable-tbody tr');
+      for (const row of rows) {
+        const cells = row.querySelectorAll('td');
+        if (cells.length >= 2) {
+          const proc = {
+            action_date: cells[0]?.textContent?.trim() || '',
+            action_type: cells[1]?.textContent?.trim() || '',
+            decision: cells[2]?.textContent?.trim() || '',
+            next_session_date: cells[3]?.textContent?.trim() || '',
+          };
+          if (proc.action_date || proc.action_type) procedures.push(proc);
+        }
+      }
+
+      return {
+        noResult: false,
+        caseInfo,
+        procedures,
+        hasData: Object.keys(caseInfo).length > 0 || procedures.length > 0,
+        bodyPreview: body.substring(0, 500),
+      };
+    } catch(e) {
+      return { noResult: false, caseInfo: {}, procedures: [], hasData: false, bodyPreview: 'extract-error:' + e.message };
+    }
+  });
+
+  L.push('extracted:' + Object.keys(result.caseInfo).length + 'fields,' + result.procedures.length + 'procs');
+
+} catch (globalErr) {
+  L.push('FATAL:' + globalErr.message);
+  result = { noResult: false, caseInfo: {}, procedures: [], hasData: false, bodyPreview: 'fatal:' + globalErr.message };
+}
 
 console.log(JSON.stringify({ log: L, result }));
 `;
