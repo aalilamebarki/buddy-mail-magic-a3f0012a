@@ -1,24 +1,18 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Gavel, Users, DollarSign, FileText, TrendingUp, Clock, CalendarDays } from 'lucide-react';
+import { Gavel, Users, DollarSign, FileText, TrendingUp, Clock, CalendarDays, AlertTriangle, CalendarRange } from 'lucide-react';
 import { format } from 'date-fns';
-
-const stats = [
-  { icon: Gavel, label: 'القضايا الجارية', value: '—', color: 'text-blue-600' },
-  { icon: Users, label: 'الموكلين', value: '—', color: 'text-green-600' },
-  { icon: DollarSign, label: 'الإيرادات (الشهر)', value: '—', color: 'text-emerald-600' },
-  { icon: FileText, label: 'المقالات المنشورة', value: '—', color: 'text-purple-600' },
-];
 
 const DashboardHome = () => {
   const { user, role } = useAuth();
   const navigate = useNavigate();
   const [upcomingSessions, setUpcomingSessions] = useState<any[]>([]);
+  const [statsData, setStatsData] = useState({ activeCases: 0, clients: 0, todaySessions: 0, needsAttention: 0 });
 
   const fetchSessions = async () => {
     const today = format(new Date(), 'yyyy-MM-dd');
@@ -31,33 +25,60 @@ const DashboardHome = () => {
     if (data) setUpcomingSessions(data);
   };
 
-  useEffect(() => { fetchSessions(); }, []);
+  const fetchStats = async () => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const [casesRes, clientsRes, todayRes, staleRes] = await Promise.all([
+      supabase.from('cases').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+      supabase.from('clients').select('id', { count: 'exact', head: true }),
+      supabase.from('court_sessions').select('id', { count: 'exact', head: true }).eq('session_date', today),
+      supabase.from('cases').select('id', { count: 'exact', head: true }).eq('status', 'active').or(`last_synced_at.is.null,last_synced_at.lt.${new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString()}`),
+    ]);
+    setStatsData({
+      activeCases: casesRes.count || 0,
+      clients: clientsRes.count || 0,
+      todaySessions: todayRes.count || 0,
+      needsAttention: staleRes.count || 0,
+    });
+  };
 
-  // Realtime: auto-refresh when new sessions are inserted (e.g. from mahakim sync)
+  useEffect(() => { fetchSessions(); fetchStats(); }, []);
+
   useEffect(() => {
     const channel = supabase
       .channel('dashboard-sessions')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'court_sessions' }, () => {
-        fetchSessions();
+        fetchSessions(); fetchStats();
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, []);
 
+  const stats = [
+    { icon: CalendarDays, label: 'جلسات اليوم', value: statsData.todaySessions.toString(), color: 'text-primary', onClick: () => navigate('/dashboard/calendar') },
+    { icon: Gavel, label: 'القضايا النشطة', value: statsData.activeCases.toString(), color: 'text-blue-600', onClick: () => navigate('/dashboard/cases') },
+    { icon: Users, label: 'الموكلين', value: statsData.clients.toString(), color: 'text-green-600', onClick: () => navigate('/dashboard/clients') },
+    { icon: AlertTriangle, label: 'تحتاج متابعة', value: statsData.needsAttention.toString(), color: 'text-amber-600', onClick: () => navigate('/dashboard/cases') },
+  ];
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">مرحباً 👋</h1>
-        <p className="text-muted-foreground">لوحة التحكم الخاصة بك</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">مرحباً 👋</h1>
+          <p className="text-muted-foreground">لوحة التحكم الخاصة بك</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => navigate('/dashboard/calendar')} className="gap-1">
+          <CalendarRange className="h-4 w-4" /> التقويم
+        </Button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {stats.map((stat, i) => (
-          <Card key={i}>
-            <CardContent className="pt-6">
+          <Card key={i} className="cursor-pointer hover:shadow-md transition-shadow" onClick={stat.onClick}>
+            <CardContent className="pt-5 pb-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">{stat.label}</p>
+                  <p className="text-xs text-muted-foreground">{stat.label}</p>
                   <p className="text-2xl font-bold text-foreground mt-1">{stat.value}</p>
                 </div>
                 <div className={`h-10 w-10 rounded-lg bg-muted flex items-center justify-center ${stat.color}`}>
@@ -95,9 +116,11 @@ const DashboardHome = () => {
                     >
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium truncate">{s.cases?.clients?.full_name || s.cases?.title}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {s.cases?.court} {s.cases?.case_number ? <span dir="ltr">{`• ${s.cases.case_number}`}</span> : ''}
-                        </p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                          {s.session_time && <span dir="ltr" className="font-mono">{s.session_time}</span>}
+                          {s.court_room && <span>• {s.court_room}</span>}
+                          {s.cases?.court && <span>• {s.cases.court}</span>}
+                        </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <span className="text-xs text-muted-foreground">
