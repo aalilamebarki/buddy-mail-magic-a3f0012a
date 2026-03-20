@@ -48,6 +48,8 @@ const CourtSessions = () => {
   const [actionSearch, setActionSearch] = useState('');
   const [actionOptions, setActionOptions] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
+  const [sessionTime, setSessionTime] = useState('');
+  const [courtRoom, setCourtRoom] = useState('');
   const [saving, setSaving] = useState(false);
 
   // Fetch required actions from DB
@@ -112,6 +114,8 @@ const CourtSessions = () => {
     setSessionDate(new Date(session.session_date + 'T00:00:00'));
     setRequiredAction(session.required_action || '');
     setNotes(session.notes || '');
+    setSessionTime(session.session_time || '');
+    setCourtRoom(session.court_room || '');
     setCaseNumber('');
     setDialogOpen(true);
   };
@@ -122,6 +126,8 @@ const CourtSessions = () => {
     setSessionDate(undefined);
     setRequiredAction('');
     setNotes('');
+    setSessionTime('');
+    setCourtRoom('');
     setCaseNumber('');
     setDialogOpen(true);
   };
@@ -156,6 +162,8 @@ const CourtSessions = () => {
           session_date: format(sessionDate, 'yyyy-MM-dd'),
           required_action: requiredAction.trim(),
           notes: notes || null,
+          session_time: sessionTime || null,
+          court_room: courtRoom || null,
         }).eq('id', editingSession.id);
         if (error) throw error;
         toast.success('تم تعديل الجلسة');
@@ -165,6 +173,8 @@ const CourtSessions = () => {
           session_date: format(sessionDate, 'yyyy-MM-dd'),
           required_action: requiredAction.trim(),
           notes: notes || null,
+          session_time: sessionTime || null,
+          court_room: courtRoom || null,
           user_id: user.id,
         });
         if (error) throw error;
@@ -182,6 +192,8 @@ const CourtSessions = () => {
       setSessionDate(undefined);
       setRequiredAction('');
       setNotes('');
+      setSessionTime('');
+      setCourtRoom('');
       setCaseNumber('');
       fetchData();
     } catch {
@@ -233,8 +245,10 @@ const CourtSessions = () => {
           <div className="w-full">
             <Table className="min-w-[960px]">
               <TableHeader>
-                <TableRow>
+                 <TableRow>
                    <TableHead className="text-right">التاريخ</TableHead>
+                   <TableHead className="text-right">الساعة</TableHead>
+                   <TableHead className="text-right">القاعة</TableHead>
                    <TableHead className="text-right">الموكل</TableHead>
                    <TableHead className="text-right">الخصم</TableHead>
                    <TableHead className="text-right">رقم الملف</TableHead>
@@ -251,6 +265,8 @@ const CourtSessions = () => {
                      <TableCell className="text-sm whitespace-nowrap">
                        {new Date(s.session_date + 'T00:00:00').toLocaleDateString('ar-u-nu-latn', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                      </TableCell>
+                     <TableCell className="text-sm font-medium" dir="ltr">{s.session_time || '—'}</TableCell>
+                     <TableCell className="text-sm">{s.court_room || '—'}</TableCell>
                      <TableCell className="text-sm font-medium">{s.cases?.clients?.full_name || '—'}</TableCell>
                      <TableCell className="text-sm">{s.cases?.opposing_party || '—'}</TableCell>
                      <TableCell className="text-sm" dir="ltr">{s.cases?.case_number || '—'}</TableCell>
@@ -515,6 +531,18 @@ const CourtSessions = () => {
                   </Command>
                 </PopoverContent>
               </Popover>
+            </div>
+
+            {/* Time & Room */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>ساعة الجلسة</Label>
+                <Input type="time" value={sessionTime} onChange={e => setSessionTime(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>القاعة</Label>
+                <Input value={courtRoom} onChange={e => setCourtRoom(e.target.value)} placeholder="رقم أو اسم القاعة" />
+              </div>
             </div>
 
             {/* Notes */}

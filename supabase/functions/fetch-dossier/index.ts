@@ -392,7 +392,25 @@ ${firstInstanceCourt ? `
       const procs=[];
       document.querySelectorAll('table tbody tr, .p-datatable-tbody tr').forEach(r=>{
         const c=r.querySelectorAll('td');
-        if(c.length>=2)procs.push({action_date:c[0]?.textContent?.trim()||'',action_type:c[1]?.textContent?.trim()||'',decision:c[2]?.textContent?.trim()||'',next_session_date:c[3]?.textContent?.trim()||''});
+        if(c.length>=2){
+          const proc={action_date:c[0]?.textContent?.trim()||'',action_type:c[1]?.textContent?.trim()||'',decision:c[2]?.textContent?.trim()||'',next_session_date:c[3]?.textContent?.trim()||'',session_time:'',court_room:''};
+          // Extract time (HH:MM pattern) and room from additional columns
+          for(let i=2;i<c.length;i++){
+            const txt=(c[i]?.textContent||'').trim();
+            if(/^\d{1,2}[h:]\d{2}$/i.test(txt)||/^\d{1,2}:\d{2}$/.test(txt)){proc.session_time=txt;}
+            else if(txt&&(txt.includes('قاعة')||txt.includes('غرفة')||/^[\d\s]+$/.test(txt)&&txt.length<=5)){proc.court_room=txt;}
+          }
+          // Also try to find time in next_session_date field (sometimes "01/04/2026 09:00")
+          if(!proc.session_time&&proc.next_session_date){
+            const tm=proc.next_session_date.match(/(\d{1,2}:\d{2})/);
+            if(tm){proc.session_time=tm[1];proc.next_session_date=proc.next_session_date.replace(/\s*\d{1,2}:\d{2}.*/,'').trim();}
+          }
+          if(!proc.session_time&&proc.action_date){
+            const tm2=proc.action_date.match(/(\d{1,2}:\d{2})/);
+            if(tm2){proc.session_time=tm2[1];}
+          }
+          procs.push(proc);
+        }
       });
       return {noResult:false,caseInfo:ci,procedures:procs,hasData:Object.keys(ci).length>0||procs.length>0,bodyPreview:body.substring(0,300)};
     } catch(e) { return {noResult:false,caseInfo:{},procedures:[],hasData:false,bodyPreview:'err:'+e.message}; }
@@ -1011,39 +1029,42 @@ async function persistResults(
     }
   }
 
-  // Schedule ALL future court sessions from procedures
+  // Schedule ALL future court sessions from procedures with time & room
   if (userId && result.procedures.length > 0) {
     const now = new Date();
-    const futureDates = new Set<string>();
+    const futureSessionMap = new Map<string, { time: string; room: string }>();
 
-    // Collect all future session dates from procedures
     for (const proc of result.procedures) {
       const d = proc.next_session_date;
       if (d && /\d{2}\/\d{2}\/\d{4}/.test(d)) {
         const [day, month, year] = d.split('/');
         const dateObj = new Date(`${year}-${month}-${day}`);
         if (dateObj >= now) {
-          futureDates.add(`${year}-${month}-${day}`);
+          const key = `${year}-${month}-${day}`;
+          if (!futureSessionMap.has(key)) {
+            futureSessionMap.set(key, { time: proc.session_time || '', room: proc.court_room || '' });
+          }
         }
       }
-      // Also check action_date for future dates (some procedures list the session date here)
       const ad = proc.action_date;
       if (ad && /\d{2}\/\d{2}\/\d{4}/.test(ad)) {
         const [day, month, year] = ad.split('/');
         const dateObj = new Date(`${year}-${month}-${day}`);
         if (dateObj >= now) {
-          futureDates.add(`${year}-${month}-${day}`);
+          const key = `${year}-${month}-${day}`;
+          if (!futureSessionMap.has(key)) {
+            futureSessionMap.set(key, { time: proc.session_time || '', room: proc.court_room || '' });
+          }
         }
       }
     }
 
-    // Also add the computed nextSessionDate if present
     if (result.nextSessionDate) {
-      futureDates.add(result.nextSessionDate.substring(0, 10));
+      const key = result.nextSessionDate.substring(0, 10);
+      if (!futureSessionMap.has(key)) futureSessionMap.set(key, { time: '', room: '' });
     }
 
-    if (futureDates.size > 0) {
-      // Fetch existing sessions for this case to avoid duplicates
+    if (futureSessionMap.size > 0) {
       const { data: existingSessions } = await supabase
         .from('court_sessions')
         .select('session_date')
@@ -1053,20 +1074,22 @@ async function persistResults(
         (existingSessions || []).map((s: any) => s.session_date)
       );
 
-      const newSessions = [...futureDates]
-        .filter(d => !existingDates.has(d))
-        .map(d => ({
+      const newSessions = [...futureSessionMap.entries()]
+        .filter(([d]) => !existingDates.has(d))
+        .map(([d, info]) => ({
           case_id: caseId,
           session_date: d,
           user_id: userId,
           required_action: '',
           notes: 'تم الجلب تلقائياً من بوابة محاكم',
           status: 'scheduled',
+          session_time: info.time || null,
+          court_room: info.room || null,
         }));
 
       if (newSessions.length > 0) {
         await supabase.from('court_sessions').insert(newSessions);
-        persistLog.push(`تم إنشاء ${newSessions.length} جلسة مقبلة: ${newSessions.map(s => s.session_date).join(', ')}`);
+        persistLog.push(`تم إنشاء ${newSessions.length} جلسة مقبلة: ${newSessions.map(s => `${s.session_date}${s.session_time ? ' ' + s.session_time : ''}`).join(', ')}`);
       }
     }
   }

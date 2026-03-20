@@ -86,11 +86,13 @@ const makeCell = (
 /* ── Column config (RTL order: right to left) ──────────────────────── */
 
 const COLS = [
-  { label: 'الموكل', width: 20 },
-  { label: 'رقم الملف', width: 16 },
-  { label: 'الخصم', width: 20 },
-  { label: 'المطلوب', width: 14 },
-  { label: 'ملاحظات', width: 30 },
+  { label: 'الموكل', width: 17 },
+  { label: 'رقم الملف', width: 14 },
+  { label: 'الخصم', width: 17 },
+  { label: 'المطلوب', width: 12 },
+  { label: 'الساعة', width: 8 },
+  { label: 'القاعة', width: 8 },
+  { label: 'ملاحظات', width: 24 },
 ];
 
 /* ── Build one court section ───────────────────────────────────────── */
@@ -102,6 +104,8 @@ const buildCourtSection = (
     caseNumber: string;
     opponentName: string;
     requiredAction: string;
+    sessionTime: string;
+    courtRoom: string;
     notes: string;
   }>,
 ): Array<Paragraph | Table> => {
@@ -135,15 +139,24 @@ const buildCourtSection = (
     ),
   });
 
-  // Data rows
-  const dataRows = rows.map(row =>
+  // Data rows — sorted by session time
+  const sortedRows = [...rows].sort((a, b) => {
+    if (!a.sessionTime && !b.sessionTime) return 0;
+    if (!a.sessionTime) return 1;
+    if (!b.sessionTime) return -1;
+    return a.sessionTime.localeCompare(b.sessionTime);
+  });
+
+  const dataRows = sortedRows.map(row =>
     new TableRow({
       children: [
         makeCell(row.clientName, COLS[0].width),
         makeCell(row.caseNumber, COLS[1].width),
         makeCell(row.opponentName, COLS[2].width),
         makeCell(row.requiredAction, COLS[3].width),
-        makeCell(row.notes, COLS[4].width, { size: 20 }),
+        makeCell(row.sessionTime || '—', COLS[4].width),
+        makeCell(row.courtRoom || '—', COLS[5].width),
+        makeCell(row.notes, COLS[6].width, { size: 20 }),
       ],
     }),
   );
@@ -268,6 +281,8 @@ export const exportCourtSessionsWord = async ({
         caseNumber: s.cases?.case_number || '—',
         opponentName: s.cases?.opposing_party || '—',
         requiredAction: s.required_action || '—',
+        sessionTime: s.session_time || '',
+        courtRoom: s.court_room || '',
         notes: s.notes || '',
       }));
 
