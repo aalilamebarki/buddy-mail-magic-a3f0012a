@@ -337,27 +337,30 @@ const CourtSessions = () => {
           <p className="text-sm text-muted-foreground">إدارة مواعيد الجلسات لجميع الملفات</p>
         </div>
         <div className="flex gap-2 flex-wrap items-center">
-          <div className="flex gap-1 bg-muted rounded-lg p-1">
-            <Button
-              variant={viewMode === 'table' ? 'default' : 'ghost'}
-              size="sm"
-              className="gap-1 h-8 text-xs"
-              onClick={() => setViewMode('table')}
-            >
-              <List className="h-3.5 w-3.5" /> جدول
-            </Button>
-            <Button
-              variant={viewMode === 'calendar' ? 'default' : 'ghost'}
-              size="sm"
-              className="gap-1 h-8 text-xs"
-              onClick={() => setViewMode('calendar')}
-            >
-              <CalendarRange className="h-3.5 w-3.5" /> تقويم
-            </Button>
-          </div>
+          <Button size="sm" onClick={openAddSession} className="gap-1">
+            <Plus className="h-4 w-4" /> إضافة جلسة
+          </Button>
 
           {viewMode === 'table' && (
             <>
+              {/* Filter by date */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1">
+                    <Search className="h-4 w-4" />
+                    {filterDate ? format(filterDate, 'dd/MM/yyyy') : 'تصفية بالتاريخ'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar mode="single" selected={filterDate} onSelect={(d) => setFilterDate(d)} className={cn("p-3 pointer-events-auto")} />
+                  {filterDate && (
+                    <div className="p-2 border-t">
+                      <Button variant="ghost" size="sm" className="w-full" onClick={() => setFilterDate(undefined)}>مسح التصفية</Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
+
               {/* Export Word */}
               <Popover open={exportMode !== null} onOpenChange={(open) => { if (!open) setExportMode(null); }}>
                 <PopoverTrigger asChild>
@@ -388,30 +391,28 @@ const CourtSessions = () => {
                   </div>
                 </PopoverContent>
               </Popover>
-
-              {/* Filter by date */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-1">
-                    <Search className="h-4 w-4" />
-                    {filterDate ? format(filterDate, 'dd/MM/yyyy') : 'تصفية بالتاريخ'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="end">
-                  <Calendar mode="single" selected={filterDate} onSelect={(d) => setFilterDate(d)} className={cn("p-3 pointer-events-auto")} />
-                  {filterDate && (
-                    <div className="p-2 border-t">
-                      <Button variant="ghost" size="sm" className="w-full" onClick={() => setFilterDate(undefined)}>مسح التصفية</Button>
-                    </div>
-                  )}
-                </PopoverContent>
-              </Popover>
             </>
           )}
 
-          <Button size="sm" onClick={openAddSession} className="gap-1">
-            <Plus className="h-4 w-4" /> إضافة جلسة
-          </Button>
+          <div className="flex gap-1 bg-muted rounded-lg p-1">
+            <Button
+              variant={viewMode === 'table' ? 'default' : 'ghost'}
+              size="sm"
+              className="gap-1 h-8 text-xs"
+              onClick={() => setViewMode('table')}
+            >
+              <List className="h-3.5 w-3.5" /> جدول
+            </Button>
+            <Button
+              variant={viewMode === 'calendar' ? 'default' : 'ghost'}
+              size="sm"
+              className="gap-1 h-8 text-xs"
+              onClick={() => setViewMode('calendar')}
+            >
+              <CalendarRange className="h-3.5 w-3.5" /> تقويم
+            </Button>
+          </div>
+
           <GoogleCalendarQuickAction />
         </div>
       </div>
