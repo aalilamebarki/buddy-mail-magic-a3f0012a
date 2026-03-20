@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.mahakim-webhook]
 verify_jwt = false
+
+[functions.fetch-dossier]
+verify_jwt = false
