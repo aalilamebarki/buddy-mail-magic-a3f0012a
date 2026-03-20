@@ -533,6 +533,18 @@ const CourtSessions = () => {
               </Popover>
             </div>
 
+            {/* Time & Room */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>ساعة الجلسة</Label>
+                <Input type="time" value={sessionTime} onChange={e => setSessionTime(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>القاعة</Label>
+                <Input value={courtRoom} onChange={e => setCourtRoom(e.target.value)} placeholder="رقم أو اسم القاعة" />
+              </div>
+            </div>
+
             {/* Notes */}
             <div className="space-y-2">
               <Label>ملاحظات</Label>
