@@ -541,11 +541,14 @@ async function fetchViaFirecrawl(
     let nextSessionDate: string | null = null;
     for (const proc of parsed.result.procedures) {
       const d = proc.next_session_date;
-      if (d && /\d{2}\/\d{2}\/\d{4}/.test(d)) {
-        const [day, month, year] = d.split('/');
-        const dateObj = new Date(`${year}-${month}-${day}`);
-        if (dateObj >= now && (!nextSessionDate || dateObj < new Date(nextSessionDate))) {
-          nextSessionDate = `${year}-${month}-${day}`;
+      if (d) {
+        const dm = d.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+        if (dm) {
+          const [, day, month, year] = dm;
+          const dateObj = new Date(`${year}-${month}-${day}`);
+          if (dateObj >= now && (!nextSessionDate || dateObj < new Date(nextSessionDate))) {
+            nextSessionDate = `${year}-${month}-${day}`;
+          }
         }
       }
     }
