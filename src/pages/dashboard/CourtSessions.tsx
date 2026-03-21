@@ -33,7 +33,7 @@ const CourtSessions = () => {
   const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
 
   const fetchData = () => { refetchSessions(); refetchCases(); };
-
+  const { setSessions } = useSessions.__internal || {};
   const [dialogOpen, setDialogOpen] = useState(false);
   const [casePopoverOpen, setCasePopoverOpen] = useState(false);
   const [caseSearch, setCaseSearch] = useState('');
