@@ -1151,266 +1151,333 @@ function buildApifyPageFunction(input: CaseInput, ac?: string, pc?: string): str
   const acEsc = ac ? esc(ac) : '';
   const pcEsc = pc ? esc(pc) : '';
 
-  // Build a cleaner, more robust page function
   return `async function pageFunction(context) {
-  const { page, log } = context;
-  const delay = ms => new Promise(r => setTimeout(r, ms));
+  const { page, log, request } = context;
+  const rndDelay = (min, max) => new Promise(r => setTimeout(r, min + Math.random() * (max - min)));
 
-  log.info("Starting mahakim scrape for ${numero}/${code}/${annee}...");
+  // ══════════════════════════════════════════════════════════════
+  // Solution #1: API Interception — capture XHR/Fetch responses
+  // ══════════════════════════════════════════════════════════════
+  const interceptedResponses = [];
+  const interceptedRequests = [];
+  
+  page.on('response', async (response) => {
+    try {
+      const url = response.url();
+      const status = response.status();
+      // Capture any API calls the Angular app makes
+      if ((url.includes('/api/') || url.includes('/dossier') || url.includes('/search') 
+           || url.includes('/suivi') || url.includes('/procedure') || url.includes('/affaire')
+           || url.includes('mahakim') || url.includes('/jugement'))
+          && status === 200 && response.headers()['content-type']?.includes('json')) {
+        try {
+          const body = await response.json();
+          interceptedResponses.push({ url, status, body, timestamp: Date.now() });
+          log.info("API Intercepted: " + url.substring(0, 120) + " — keys: " + Object.keys(body || {}).join(','));
+        } catch(e) {}
+      }
+    } catch(e) {}
+  });
 
-  // Step 0: Wait for any anti-bot challenge to clear (Imperva/F5)
-  log.info("Waiting for page to fully load and pass any challenges...");
-  await delay(5000);
+  page.on('request', (req) => {
+    const url = req.url();
+    if (url.includes('/api/') || url.includes('/dossier') || url.includes('/suivi') || url.includes('/procedure')) {
+      interceptedRequests.push({ url, method: req.method(), timestamp: Date.now() });
+    }
+  });
 
-  // Step 1: Wait for Angular form to render
+  // ══════════════════════════════════════════════════════════════
+  // Solution #7: Slow Stealth — visit homepage first
+  // ══════════════════════════════════════════════════════════════
+  log.info("Step 0: Slow stealth — landing on homepage first...");
+  
+  // Wait for page to load (we're already on the target URL from startUrls)
+  // But first let's wait for any challenge to clear
+  await rndDelay(8000, 12000);
+
+  // Check if we hit an anti-bot challenge
+  const pageTitle = await page.title();
+  const isChallenge = await page.evaluate(() => {
+    const body = document.body?.textContent || '';
+    const html = document.body?.innerHTML || '';
+    return {
+      hasForm: !!document.querySelector('input[formcontrolname]'),
+      hasChallenge: /window\\.[A-Za-z0-9_$]{3,}\\s*=!!window\\./.test(html) || html.includes('RegExp'),
+      bodyLen: body.length,
+      title: document.title,
+    };
+  });
+  log.info("Page check: " + JSON.stringify(isChallenge));
+
+  // If challenge detected, wait longer
+  if (isChallenge.hasChallenge || !isChallenge.hasForm) {
+    log.info("Anti-bot challenge detected or form not ready — waiting 15s more...");
+    await rndDelay(12000, 18000);
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // Solution #3: Human-like delays with random mouse movements
+  // ══════════════════════════════════════════════════════════════
+  
+  // Simulate human behavior: random mouse movements
+  try {
+    await page.mouse.move(200 + Math.random() * 400, 300 + Math.random() * 200);
+    await rndDelay(500, 1500);
+    await page.mouse.move(100 + Math.random() * 300, 200 + Math.random() * 300);
+    await rndDelay(300, 800);
+  } catch(e) {}
+
+  // Step 1: Wait for Angular form
+  log.info("Waiting for Angular form...");
   try {
     await page.waitForSelector('input[formcontrolname="mark"]', { timeout: 90000 });
-    log.info("Angular form found");
+    log.info("Angular form found ✓");
   } catch(e) {
-    // Take screenshot for debugging
+    // If form not found, try navigating via hash
+    log.warning("Form not found on initial load, trying hash navigation...");
     try {
-      var ss = await page.screenshot({ encoding: 'base64', fullPage: false });
-      log.info("Form not found - page title: " + await page.title());
-      return { error: "form_not_found", screenshot: ss ? ss.substring(0, 5000) : null, pageTitle: await page.title() };
+      await page.evaluate(() => { window.location.hash = '/suivi/dossier-suivi'; });
+      await rndDelay(5000, 8000);
+      await page.waitForSelector('input[formcontrolname="mark"]', { timeout: 30000 });
+      log.info("Form found after hash navigation ✓");
     } catch(e2) {
-      return { error: "form_not_found" };
+      var ss = '';
+      try { ss = await page.screenshot({ encoding: 'base64', fullPage: false }); } catch(e3) {}
+      return { error: "form_not_found", screenshot: ss ? ss.substring(0, 5000) : null, pageTitle: await page.title(), rawText: await page.evaluate(() => document.body.textContent.substring(0, 2000)) };
     }
   }
 
-  // Extra wait for Angular to fully bootstrap
-  await delay(2000);
+  // Extra random wait to seem human
+  await rndDelay(2000, 4000);
 
-  // Step 2: Fill form fields using Angular-compatible method
-  await page.evaluate((d) => {
-    function setAngularInput(selector, value) {
-      var el = document.querySelector(selector);
-      if (!el) return false;
-      // Use native setter to trigger Angular change detection
-      var nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-      nativeInputValueSetter.call(el, value);
-      el.dispatchEvent(new Event('input', { bubbles: true }));
-      el.dispatchEvent(new Event('change', { bubbles: true }));
-      el.dispatchEvent(new Event('blur', { bubbles: true }));
-      // Also try triggering Angular's ngModel update
-      el.dispatchEvent(new Event('keyup', { bubbles: true }));
-      return true;
-    }
-    setAngularInput('input[formcontrolname="mark"]', d.code);
-    setAngularInput('input[formcontrolname="numero"]', d.numero);
-    setAngularInput('input[formcontrolname="annee"]', d.annee);
-  }, { numero: "${numero}", code: "${code}", annee: "${annee}" });
+  // Step 2: Fill form fields with human-like typing
+  log.info("Filling form fields with human-like delays...");
+  
+  // Fill code field first (type character by character for stealth)
+  await page.click('input[formcontrolname="mark"]');
+  await rndDelay(300, 700);
+  await page.evaluate((val) => {
+    var el = document.querySelector('input[formcontrolname="mark"]');
+    if (!el) return;
+    var nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    nativeSetter.call(el, val);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    el.dispatchEvent(new Event('blur', { bubbles: true }));
+    el.dispatchEvent(new Event('keyup', { bubbles: true }));
+  }, "${code}");
+  await rndDelay(800, 1500);
 
-  log.info("Form fields filled");
-  await delay(1500);
+  // Fill numero
+  await page.click('input[formcontrolname="numero"]');
+  await rndDelay(200, 500);
+  await page.evaluate((val) => {
+    var el = document.querySelector('input[formcontrolname="numero"]');
+    if (!el) return;
+    var nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    nativeSetter.call(el, val);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    el.dispatchEvent(new Event('blur', { bubbles: true }));
+    el.dispatchEvent(new Event('keyup', { bubbles: true }));
+  }, "${numero}");
+  await rndDelay(800, 1500);
+
+  // Fill annee
+  await page.click('input[formcontrolname="annee"]');
+  await rndDelay(200, 500);
+  await page.evaluate((val) => {
+    var el = document.querySelector('input[formcontrolname="annee"]');
+    if (!el) return;
+    var nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    nativeSetter.call(el, val);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    el.dispatchEvent(new Event('blur', { bubbles: true }));
+    el.dispatchEvent(new Event('keyup', { bubbles: true }));
+  }, "${annee}");
+  
+  log.info("Form fields filled ✓");
+  await rndDelay(1500, 3000);
 
 ${ac ? `
-  // Step 3a: Select Appeal Court from PrimeNG dropdown
+  // Step 3a: Select Appeal Court with human-like interaction
   try {
-    log.info("Selecting appeal court: ${acEsc}");
-    // Find all p-dropdown components
-    var dropdowns = await page.$$('p-dropdown');
-    if (dropdowns.length === 0) dropdowns = await page.$$('.p-dropdown');
+    log.info("Selecting appeal court: ${acEsc}...");
     
-    if (dropdowns.length > 0) {
-      // Click the first dropdown (appeal court)
-      await dropdowns[0].click();
-      await delay(2000);
+    // Click on the dropdown trigger with mouse movement first
+    var triggers = await page.$$('.p-dropdown-trigger, p-dropdown');
+    if (triggers.length > 0) {
+      var box = await triggers[0].boundingBox();
+      if (box) {
+        await page.mouse.move(box.x + box.width/2 + Math.random()*5, box.y + box.height/2 + Math.random()*3);
+        await rndDelay(300, 600);
+      }
+      await triggers[0].click();
+      await rndDelay(1500, 3000);
 
-      // Wait for dropdown panel to appear
+      // Wait for dropdown items
       try {
-        await page.waitForSelector('.p-dropdown-panel .p-dropdown-item, .p-dropdown-panel li, .p-dropdown-items-wrapper li', { timeout: 5000 });
+        await page.waitForSelector('.p-dropdown-panel .p-dropdown-item, .p-dropdown-panel li, .p-dropdown-items li', { timeout: 5000 });
       } catch(e) {
-        log.warning("Dropdown panel not found, trying trigger button...");
-        var triggers = await page.$$('.p-dropdown-trigger');
-        if (triggers.length > 0) { await triggers[0].click(); await delay(2000); }
+        log.warning("Dropdown panel delay, retrying click...");
+        await triggers[0].click();
+        await rndDelay(2000, 3000);
       }
 
-      // Select the court by text content
       var selected = await page.evaluate(function(courtName) {
-        var selectors = [
-          '.p-dropdown-panel .p-dropdown-item',
-          '.p-dropdown-panel li.p-element',
-          '.p-dropdown-items-wrapper li',
-          '.p-dropdown-items li',
-          '.p-dropdown-panel li',
-          'p-dropdownitem li',
-        ];
+        var selectors = ['.p-dropdown-panel .p-dropdown-item', '.p-dropdown-panel li.p-element', '.p-dropdown-items-wrapper li', '.p-dropdown-items li', '.p-dropdown-panel li', 'p-dropdownitem li'];
         for (var s = 0; s < selectors.length; s++) {
           var items = document.querySelectorAll(selectors[s]);
           for (var i = 0; i < items.length; i++) {
-            var text = (items[i].textContent || '').trim();
-            if (text.indexOf(courtName) >= 0) {
+            if ((items[i].textContent || '').trim().indexOf(courtName) >= 0) {
               items[i].click();
-              return { found: true, text: text, selector: selectors[s], totalItems: items.length };
+              return { found: true, text: (items[i].textContent || '').trim() };
             }
           }
-          if (items.length > 0) return { found: false, selector: selectors[s], totalItems: items.length, firstItem: (items[0].textContent || '').trim() };
+          if (items.length > 0) return { found: false, count: items.length, first: (items[0].textContent || '').trim() };
         }
         return { found: false, noItems: true };
       }, "${acEsc}");
-
-      log.info("Appeal court selection: " + JSON.stringify(selected));
-      await delay(1500);
-    } else {
-      log.warning("No dropdown components found on page");
+      log.info("Appeal court: " + JSON.stringify(selected));
+      await rndDelay(1500, 3000);
     }
-  } catch(e) {
-    log.warning("Appeal court selection error: " + e.message);
-  }
+  } catch(e) { log.warning("AC error: " + e.message); }
 ` : ''}
 
 ${pc ? `
-  // Step 3b: Enable primary court checkbox and select
+  // Step 3b: Enable primary court checkbox
   try {
-    log.info("Selecting primary court: ${pcEsc}");
-    
-    // Find and click the checkbox to enable primary court search
-    var cbClicked = await page.evaluate(function() {
-      // Look for checkbox related to primary court search
-      var allCheckboxes = document.querySelectorAll('.p-checkbox, .p-checkbox-box, input[type="checkbox"]');
-      for (var i = 0; i < allCheckboxes.length; i++) {
-        var parent = allCheckboxes[i].closest('.p-field-checkbox, .p-checkbox-wrapper, div');
+    log.info("Enabling primary court: ${pcEsc}...");
+    var cbResult = await page.evaluate(function() {
+      var checkboxes = document.querySelectorAll('.p-checkbox, .p-checkbox-box, input[type="checkbox"]');
+      for (var i = 0; i < checkboxes.length; i++) {
+        var parent = checkboxes[i].closest('.p-field-checkbox, div');
         var label = parent ? parent.textContent || '' : '';
-        if (label.indexOf('الابتدائية') >= 0 || label.indexOf('البحث بالمحاكم') >= 0 || label.indexOf('المحكمة') >= 0) {
-          allCheckboxes[i].click();
-          return { clicked: true, label: label.trim().substring(0, 100) };
+        if (label.indexOf('الابتدائية') >= 0 || label.indexOf('البحث بالمحاكم') >= 0) {
+          checkboxes[i].click();
+          return { clicked: true, label: label.trim().substring(0, 80) };
         }
       }
-      // Try clicking any checkbox that appears after the dropdowns
-      if (allCheckboxes.length > 0) {
-        allCheckboxes[0].click();
-        return { clicked: true, fallback: true };
-      }
+      if (checkboxes.length > 0) { checkboxes[0].click(); return { clicked: true, fallback: true }; }
       return { clicked: false };
     });
-    log.info("Checkbox: " + JSON.stringify(cbClicked));
-    await delay(2500);
+    log.info("Checkbox: " + JSON.stringify(cbResult));
+    await rndDelay(2500, 4000);
 
-    // Now select the primary court from the second dropdown
-    var dropdowns2 = await page.$$('p-dropdown');
-    if (dropdowns2.length === 0) dropdowns2 = await page.$$('.p-dropdown');
-    
+    // Select primary court dropdown
+    var dropdowns2 = await page.$$('p-dropdown, .p-dropdown');
     if (dropdowns2.length > 1) {
-      // Click the second dropdown (primary court) - or the last one
       var ddIdx = dropdowns2.length > 2 ? 2 : 1;
       await dropdowns2[ddIdx].click();
-      await delay(2000);
-
+      await rndDelay(1500, 2500);
       try {
-        await page.waitForSelector('.p-dropdown-panel .p-dropdown-item, .p-dropdown-panel li, .p-dropdown-items-wrapper li', { timeout: 5000 });
+        await page.waitForSelector('.p-dropdown-panel li', { timeout: 5000 });
       } catch(e) {
-        var triggers2 = await page.$$('.p-dropdown-trigger');
-        if (triggers2.length > ddIdx) { await triggers2[ddIdx].click(); await delay(2000); }
+        var t2 = await page.$$('.p-dropdown-trigger');
+        if (t2.length > ddIdx) { await t2[ddIdx].click(); await rndDelay(2000, 3000); }
       }
-
-      var selected2 = await page.evaluate(function(courtName) {
-        var selectors = [
-          '.p-dropdown-panel .p-dropdown-item',
-          '.p-dropdown-panel li.p-element',
-          '.p-dropdown-items-wrapper li',
-          '.p-dropdown-items li',
-          '.p-dropdown-panel li',
-        ];
-        for (var s = 0; s < selectors.length; s++) {
-          var items = document.querySelectorAll(selectors[s]);
-          for (var i = 0; i < items.length; i++) {
-            var text = (items[i].textContent || '').trim();
-            if (text.indexOf(courtName) >= 0) {
-              items[i].click();
-              return { found: true, text: text };
-            }
-          }
+      var sel2 = await page.evaluate(function(cn) {
+        var items = document.querySelectorAll('.p-dropdown-panel li');
+        for (var i = 0; i < items.length; i++) {
+          if ((items[i].textContent || '').trim().indexOf(cn) >= 0) { items[i].click(); return { found: true }; }
         }
         return { found: false };
       }, "${pcEsc}");
-
-      log.info("Primary court selection: " + JSON.stringify(selected2));
-      await delay(1500);
+      log.info("Primary court: " + JSON.stringify(sel2));
+      await rndDelay(1500, 2500);
     }
-  } catch(e) {
-    log.warning("Primary court error: " + e.message);
-  }
+  } catch(e) { log.warning("PC error: " + e.message); }
 ` : ''}
 
-  // Step 4: Click search button
-  var clicked = await page.evaluate(function() {
-    // Try finding the search button by text
+  // Step 4: Click search button with human-like behavior
+  await rndDelay(1000, 2000);
+  var searchClicked = await page.evaluate(function() {
     var btns = document.querySelectorAll('button');
     for (var i = 0; i < btns.length; i++) {
       var t = (btns[i].textContent || '').trim();
-      // "بحث" = search, but not "البحث بالمحاكم" (court search checkbox label)
-      if (t === '\\u0628\\u062d\\u062b' || (t.indexOf('\\u0628\\u062d\\u062b') >= 0 && t.length < 15)) {
+      if (t === 'بحث' || (t.indexOf('بحث') >= 0 && t.length < 15 && t.indexOf('المحاكم') < 0)) {
         btns[i].click();
         return { clicked: true, text: t };
       }
     }
-    // Fallback: submit button
     var sb = document.querySelector('button[type="submit"]');
     if (sb) { sb.click(); return { clicked: true, type: 'submit' }; }
-    // Last resort: any primary button
-    var primary = document.querySelector('.p-button-primary, .p-button');
-    if (primary) { primary.click(); return { clicked: true, type: 'p-button' }; }
     return { clicked: false };
   });
+  log.info("Search: " + JSON.stringify(searchClicked));
 
-  log.info("Search button: " + JSON.stringify(clicked));
-  if (!clicked || !clicked.clicked) {
-    var ss2 = await page.screenshot({ encoding: 'base64', fullPage: false });
+  if (!searchClicked || !searchClicked.clicked) {
+    var ss2 = '';
+    try { ss2 = await page.screenshot({ encoding: 'base64', fullPage: false }); } catch(e) {}
     return { error: "search_btn_not_found", screenshot: ss2 ? ss2.substring(0, 5000) : null };
   }
 
-  // Step 5: Wait for results (up to 40 seconds)
-  log.info("Waiting for results...");
+  // ══════════════════════════════════════════════════════════════
+  // Step 5: Wait for results — up to 60s with smart detection
+  // Solution #1 continues: also wait for intercepted API responses
+  // ══════════════════════════════════════════════════════════════
+  log.info("Waiting for results (up to 60s)...");
   var resultFound = false;
-  for (var attempt = 0; attempt < 20; attempt++) {
-    await delay(2000);
+  for (var attempt = 0; attempt < 30; attempt++) {
+    await rndDelay(1800, 2200);
+    
+    // Check intercepted API responses first (Solution #1)
+    if (interceptedResponses.length > 0) {
+      log.info("API responses intercepted: " + interceptedResponses.length);
+      resultFound = true;
+      await rndDelay(2000, 3000);
+      break;
+    }
+    
     var check = await page.evaluate(function() {
       var body = document.body.textContent || '';
-      var hasTables = !!(document.querySelector('table tbody tr td') || document.querySelector('.p-datatable-tbody tr'));
-      var hasNoData = body.indexOf('\\u0644\\u0627 \\u062a\\u0648\\u062c\\u062f') >= 0;
-      var hasJudge = body.indexOf('\\u0627\\u0644\\u0642\\u0627\\u0636\\u064a \\u0627\\u0644\\u0645\\u0642\\u0631\\u0631') >= 0;
-      var hasCaseInfo = body.indexOf('\\u0627\\u0644\\u0634\\u0639\\u0628\\u0629') >= 0 || body.indexOf('\\u0627\\u0644\\u062d\\u0627\\u0644\\u0629') >= 0;
-      return { hasTables: hasTables, hasNoData: hasNoData, hasJudge: hasJudge, hasCaseInfo: hasCaseInfo, ready: hasTables || hasNoData || hasJudge || hasCaseInfo };
+      return {
+        hasTables: !!(document.querySelector('table tbody tr td') || document.querySelector('.p-datatable-tbody tr')),
+        hasNoData: body.indexOf('لا توجد') >= 0,
+        hasJudge: body.indexOf('القاضي المقرر') >= 0 || body.indexOf('القاضي') >= 0,
+        hasCaseInfo: body.indexOf('الشعبة') >= 0 || body.indexOf('الحالة') >= 0,
+        hasLoading: !!document.querySelector('.p-progressbar, .loading, .spinner, .p-progress-spinner'),
+      };
     });
-    if (check.ready) {
+    
+    if (check.hasTables || check.hasNoData || check.hasJudge || check.hasCaseInfo) {
       log.info("Results detected at attempt " + attempt + ": " + JSON.stringify(check));
       resultFound = true;
-      await delay(2000); // Extra wait for full render
+      await rndDelay(2000, 4000);
       break;
+    }
+    
+    // If still loading, keep waiting
+    if (check.hasLoading && attempt < 25) {
+      log.info("Still loading at attempt " + attempt + "...");
+      continue;
     }
   }
 
   if (!resultFound) {
-    log.warning("No results detected after 40s wait");
+    log.warning("No results after 60s — will still try extraction");
+    await rndDelay(3000, 5000);
   }
 
-  // Step 6: Extract ALL data from page
+  // ══════════════════════════════════════════════════════════════
+  // Step 6: Extract ALL data — multiple methods
+  // ══════════════════════════════════════════════════════════════
   var data = await page.evaluate(function() {
     var ci = {}, procs = [], allLabels = {}, dropdowns = [], tables = [];
     var body = document.body.textContent || '';
     var html = document.body.innerHTML;
-    var noData = body.indexOf('\\u0644\\u0627 \\u062a\\u0648\\u062c\\u062f \\u0623\\u064a\\u0629 \\u0646\\u062a\\u064a\\u062c\\u0629') >= 0;
+    var noData = body.indexOf('لا توجد أية نتيجة') >= 0;
 
-    // Extract case info fields
+    // Extract case info
     var fields = [
-      ['court','\\u0627\\u0644\\u0645\\u062d\\u0643\\u0645\\u0629'],
-      ['judge','\\u0627\\u0644\\u0642\\u0627\\u0636\\u064a \\u0627\\u0644\\u0645\\u0642\\u0631\\u0631'],
-      ['judge','\\u0627\\u0644\\u0642\\u0627\\u0636\\u064a'],
-      ['department','\\u0627\\u0644\\u0634\\u0639\\u0628\\u0629'],
-      ['status','\\u0627\\u0644\\u062d\\u0627\\u0644\\u0629'],
-      ['case_type','\\u0646\\u0648\\u0639 \\u0627\\u0644\\u0645\\u0644\\u0641'],
-      ['registration_date','\\u062a\\u0627\\u0631\\u064a\\u062e \\u0627\\u0644\\u062a\\u0633\\u062c\\u064a\\u0644'],
-      ['national_number','\\u0627\\u0644\\u0631\\u0642\\u0645 \\u0627\\u0644\\u0648\\u0637\\u0646\\u064a'],
-      ['subject','\\u0627\\u0644\\u0645\\u0648\\u0636\\u0648\\u0639'],
-      ['parties','\\u0627\\u0644\\u0623\\u0637\\u0631\\u0627\\u0641'],
-      ['plaintiff','\\u0627\\u0644\\u0645\\u062f\\u0639\\u064a'],
-      ['defendant','\\u0627\\u0644\\u0645\\u062f\\u0639\\u0649 \\u0639\\u0644\\u064a\\u0647'],
-      ['section','\\u0627\\u0644\\u0642\\u0633\\u0645'],
-      ['hearing_room','\\u0627\\u0644\\u0642\\u0627\\u0639\\u0629'],
-      ['next_hearing','\\u0627\\u0644\\u062c\\u0644\\u0633\\u0629 \\u0627\\u0644\\u0645\\u0642\\u0628\\u0644\\u0629']
+      ['court','المحكمة'],['judge','القاضي المقرر'],['judge','القاضي'],
+      ['department','الشعبة'],['status','الحالة'],['case_type','نوع الملف'],
+      ['registration_date','تاريخ التسجيل'],['national_number','الرقم الوطني'],
+      ['subject','الموضوع'],['parties','الأطراف'],['plaintiff','المدعي'],
+      ['defendant','المدعى عليه'],['section','القسم'],['hearing_room','القاعة'],
+      ['next_hearing','الجلسة المقبلة']
     ];
-
-    // Method 1: Parse from HTML context
     for (var i = 0; i < fields.length; i++) {
       if (ci[fields[i][0]]) continue;
       var idx = html.indexOf(fields[i][1]);
@@ -1418,57 +1485,33 @@ ${pc ? `
       var chunk = html.substring(idx, idx + 500);
       var m = chunk.match(/>([^<]{2,200})</);
       if (m && m[1].trim() !== fields[i][1] && m[1].trim().length > 1) {
-        // Skip form field labels that got captured
         var val = m[1].trim();
-        if (val.indexOf('\\u0627\\u062e\\u062a\\u064a\\u0627\\u0631') < 0 && val.indexOf('formcontrol') < 0) {
-          ci[fields[i][0]] = val;
-        }
+        if (val.indexOf('اختيار') < 0 && val.indexOf('formcontrol') < 0) ci[fields[i][0]] = val;
       }
     }
 
-    // Method 2: Try structured label-value pairs
-    var infoCards = document.querySelectorAll('.p-card, .card, .info-section, .case-info, .detail-section, [class*="info"], [class*="detail"]');
-    infoCards.forEach(function(card) {
-      var labels = card.querySelectorAll('label, .label, strong, b, dt, th');
-      labels.forEach(function(lbl) {
-        var key = (lbl.textContent || '').trim();
-        if (key.length < 2 || key.length > 50) return;
-        var valEl = lbl.nextElementSibling || (lbl.parentElement && lbl.parentElement.nextElementSibling);
-        if (valEl) {
-          var val = (valEl.textContent || '').trim();
-          if (val && val !== key && val.length > 0 && val.length < 300 && val.indexOf('\\u0627\\u062e\\u062a\\u064a\\u0627\\u0631') < 0) {
-            allLabels[key] = val;
-          }
-        }
-      });
-    });
-
-    // Also capture generic label-value pairs
-    document.querySelectorAll('label, .p-field label, th, dt, strong').forEach(function(el) {
+    // Label-value pairs
+    document.querySelectorAll('label, .p-field label, th, dt, strong, .label').forEach(function(el) {
       var lbl = (el.textContent || '').trim();
       if (lbl.length < 2 || lbl.length > 60) return;
       var next = el.nextElementSibling;
-      if (!next && el.parentElement) next = el.parentElement.querySelector('span, div, td, dd, p, .value');
+      if (!next && el.parentElement) next = el.parentElement.querySelector('span, div, td, dd, p');
       if (next) {
         var val = (next.textContent || '').trim();
-        if (val && val !== lbl && val.length > 0 && val.length < 500 && val.indexOf('\\u0627\\u062e\\u062a\\u064a\\u0627\\u0631') < 0) {
-          allLabels[lbl] = val;
-        }
+        if (val && val !== lbl && val.length > 0 && val.length < 500 && val.indexOf('اختيار') < 0) allLabels[lbl] = val;
       }
     });
 
-    // Capture dropdown current values
+    // Dropdowns
     document.querySelectorAll('.p-dropdown-label, select').forEach(function(d) {
       var v = (d.textContent || d.value || '').trim();
       if (v && v.length > 1) dropdowns.push(v);
     });
 
-    // Capture ALL tables
+    // ALL tables
     document.querySelectorAll('table, .p-datatable').forEach(function(tbl, tIdx) {
       var headers = [], rows = [];
-      tbl.querySelectorAll('thead th, .p-datatable-thead th').forEach(function(th) {
-        headers.push((th.textContent || '').trim());
-      });
+      tbl.querySelectorAll('thead th, .p-datatable-thead th').forEach(function(th) { headers.push((th.textContent || '').trim()); });
       tbl.querySelectorAll('tbody tr, .p-datatable-tbody tr').forEach(function(tr) {
         var cells = [];
         tr.querySelectorAll('td').forEach(function(td) { cells.push((td.textContent || '').trim()); });
@@ -1477,14 +1520,13 @@ ${pc ? `
       tables.push({ index: tIdx, headers: headers, rows: rows });
     });
 
-    // Build procedures from tables
+    // Procedures from tables
     var allRows = document.querySelectorAll('table tbody tr, .p-datatable-tbody tr');
     for (var j = 0; j < allRows.length; j++) {
       var c = allRows[j].querySelectorAll('td');
       if (c.length >= 2) {
         var ad = c[0] ? c[0].textContent.trim() : '';
-        // Skip header rows and empty rows
-        if (ad && ad.indexOf('\\u062a\\u0627\\u0631\\u064a\\u062e') < 0 && ad.length < 60 && ad.length > 0) {
+        if (ad && ad.indexOf('تاريخ') < 0 && ad.length < 60 && ad.length > 0) {
           procs.push({
             action_date: ad,
             action_type: c[1] ? c[1].textContent.trim() : '',
@@ -1498,15 +1540,9 @@ ${pc ? `
     }
 
     return {
-      caseInfo: ci,
-      procedures: procs,
-      noData: noData,
-      allLabels: allLabels,
-      dropdowns: dropdowns,
-      tables: tables,
-      rawText: body.substring(0, 8000),
-      pageTitle: document.title,
-      url: window.location.href,
+      caseInfo: ci, procedures: procs, noData: noData,
+      allLabels: allLabels, dropdowns: dropdowns, tables: tables,
+      rawText: body.substring(0, 8000), pageTitle: document.title, url: window.location.href,
       _debug: {
         totalTables: document.querySelectorAll('table, .p-datatable').length,
         totalRows: allRows.length,
@@ -1517,17 +1553,62 @@ ${pc ? `
     };
   });
 
-  // Take screenshot if no procedures found (for debugging)
+  // ══════════════════════════════════════════════════════════════
+  // Solution #1 continued: Merge intercepted API data
+  // ══════════════════════════════════════════════════════════════
+  if (interceptedResponses.length > 0) {
+    data._interceptedAPIs = interceptedResponses.map(r => ({
+      url: r.url,
+      keys: Object.keys(r.body || {}),
+      bodyPreview: JSON.stringify(r.body).substring(0, 2000),
+    }));
+    
+    // Try to extract case data from intercepted responses
+    for (var ir of interceptedResponses) {
+      var apiBody = ir.body;
+      if (!apiBody) continue;
+      
+      // If the API returns case info directly
+      if (apiBody.judge || apiBody.juge || apiBody.magistrat) {
+        data.caseInfo.judge = data.caseInfo.judge || apiBody.judge || apiBody.juge || apiBody.magistrat;
+      }
+      if (apiBody.department || apiBody.chambre) {
+        data.caseInfo.department = data.caseInfo.department || apiBody.department || apiBody.chambre;
+      }
+      if (apiBody.status || apiBody.statut || apiBody.etat) {
+        data.caseInfo.status = data.caseInfo.status || apiBody.status || apiBody.statut || apiBody.etat;
+      }
+      
+      // If API returns procedures array
+      if (Array.isArray(apiBody.procedures || apiBody.demarches || apiBody.data)) {
+        var apiProcs = apiBody.procedures || apiBody.demarches || apiBody.data;
+        if (apiProcs.length > 0 && data.procedures.length === 0) {
+          log.info("Using procedures from intercepted API: " + apiProcs.length);
+          data.procedures = apiProcs.map(function(p) {
+            return {
+              action_date: p.action_date || p.date || p.dateAction || '',
+              action_type: p.action_type || p.type || p.typeAction || p.nature || '',
+              decision: p.decision || p.resultat || '',
+              next_session_date: p.next_session_date || p.prochaine || p.dateProchaine || '',
+            };
+          });
+          data._source = 'api_interception';
+        }
+      }
+    }
+  }
+  data._interceptedRequestCount = interceptedRequests.length;
+  data._interceptedResponseCount = interceptedResponses.length;
+
+  // Screenshot if no useful data (for debugging)
   if (data.procedures.length === 0 && !data.noData) {
     try {
       var debugSS = await page.screenshot({ encoding: 'base64', fullPage: false });
       data._screenshot = debugSS ? debugSS.substring(0, 50000) : null;
-      log.info("No procedures found — screenshot captured for debugging");
     } catch(e3) {}
   }
 
-  log.info("Done: " + Object.keys(data.caseInfo).length + " fields, " + data.procedures.length + " procs, " + Object.keys(data.allLabels || {}).length + " labels, " + (data.tables || []).length + " tables");
-  log.info("Debug: " + JSON.stringify(data._debug || {}));
+  log.info("Done: " + Object.keys(data.caseInfo).length + " fields, " + data.procedures.length + " procs, APIs intercepted: " + interceptedResponses.length);
   return data;
 }`;
 }
