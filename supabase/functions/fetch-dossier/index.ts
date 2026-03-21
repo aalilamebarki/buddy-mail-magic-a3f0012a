@@ -462,7 +462,17 @@ async function fetchViaFirecrawl(
     // 1. Create browser session
     const createResp = await fcRequest(apiKey, 'POST', '/browser', { ttl: 120, activityTtl: 90 });
     if (!createResp.ok || !createResp.data?.id) {
-      log(`🔥 [FC-Browser] Failed to create session: ${createResp.status} — ${JSON.stringify(createResp.data).substring(0, 200)}`);
+      const errDetail = JSON.stringify(createResp.data).substring(0, 200);
+      log(`🔥 [FC-Browser] Failed to create session: ${createResp.status} — ${errDetail}`);
+      if (createResp.status === 402) {
+        return { ...input, status: 'error' as const, caseInfo: {}, procedures: [], nextSessionDate: null, error: 'رصيد Firecrawl غير كافٍ — جرّب ScrapingBee أو أعد شحن حسابك' };
+      }
+      if (createResp.status === 401 || createResp.status === 403) {
+        return { ...input, status: 'error' as const, caseInfo: {}, procedures: [], nextSessionDate: null, error: 'مفتاح Firecrawl غير صالح — تحقق من إعدادات الربط' };
+      }
+      if (createResp.status === 429) {
+        return { ...input, status: 'error' as const, caseInfo: {}, procedures: [], nextSessionDate: null, error: 'تم تجاوز حد الطلبات — انتظر دقيقة ثم أعد المحاولة' };
+      }
       return null;
     }
     sessionId = createResp.data.id;
