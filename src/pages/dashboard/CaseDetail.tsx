@@ -40,6 +40,7 @@ const CaseDetail = () => {
   const [editingCaseNumber, setEditingCaseNumber] = useState(false);
   const [caseNumberEdit, setCaseNumberEdit] = useState('');
   const [saving, setSaving] = useState(false);
+  const [browserFetchOpen, setBrowserFetchOpen] = useState(false);
   const { latestJob, syncing, startSync, openPortal } = useMahakimSync(id);
 
   const fetchData = async () => {
