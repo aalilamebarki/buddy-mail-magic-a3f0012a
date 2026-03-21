@@ -1169,13 +1169,19 @@ Deno.serve(async (req) => {
           const result = await fetchCase(input, appealCourt, firstInstanceCourt);
           await persistResults(supabase, job.case_id, job.user_id, result);
 
+          const finalStatus = result.status === 'success' ? 'completed' : 'failed';
           await supabase.from('mahakim_sync_jobs').update({
-            status: result.status === 'success' ? 'completed' : 'failed',
-            result_data: result.caseInfo,
+            status: finalStatus,
+            result_data: { ...result.caseInfo, _provider: result.usedProvider },
             error_message: result.error || null,
             next_session_date: result.nextSessionDate,
             completed_at: new Date().toISOString(),
           }).eq('id', job.id);
+
+          // Notify on failure (only if retries exhausted)
+          if (finalStatus === 'failed' && (job.retry_count || 0) >= 1) {
+            await notifyOnFailure(supabase, job.user_id, job.case_id, job.case_number, result.error || 'خطأ غير معروف');
+          }
           processed++;
         } catch (err) {
           await supabase.from('mahakim_sync_jobs').update({
@@ -1184,6 +1190,9 @@ Deno.serve(async (req) => {
             retry_count: (job.retry_count || 0) + 1,
             completed_at: new Date().toISOString(),
           }).eq('id', job.id);
+          if ((job.retry_count || 0) >= 1) {
+            await notifyOnFailure(supabase, job.user_id, job.case_id, job.case_number, err instanceof Error ? err.message : 'خطأ غير معروف');
+          }
         }
       }
 
