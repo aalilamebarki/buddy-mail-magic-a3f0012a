@@ -1231,7 +1231,8 @@ async function launchApifyActor(
     const webhookConfig = [{
       eventTypes: ['ACTOR.RUN.SUCCEEDED', 'ACTOR.RUN.FAILED', 'ACTOR.RUN.TIMED_OUT', 'ACTOR.RUN.ABORTED'],
       requestUrl: webhookUrl,
-      payloadTemplate: `{"jobId":"${jobId}","caseId":"${caseId}","userId":"${userId}","caseNumber":"${caseNumber}","eventType":"{{eventType}}","runId":"{{resource.id}}","datasetId":"{{resource.defaultDatasetId}}","status":"{{resource.status}}"}`,
+      shouldInterpolateStrings: true,
+      payloadTemplate: `{"jobId":"${jobId}","caseId":"${caseId}","userId":"${userId}","caseNumber":"${caseNumber}","eventType":{{eventType}},"runId":{{resource.id}},"datasetId":{{resource.defaultDatasetId}},"status":{{resource.status}}}`,
       headersTemplate: `{"Content-Type":"application/json","Authorization":"Bearer ${anonKey}","apikey":"${anonKey}"}`,
     }];
     const webhooksParam = btoa(JSON.stringify(webhookConfig));
