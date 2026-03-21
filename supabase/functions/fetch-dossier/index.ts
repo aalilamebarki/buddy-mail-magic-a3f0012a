@@ -562,7 +562,6 @@ async function fetchViaFirecrawl(
       log(`🔥 [FC-Browser] ${caseLabel}: no data extracted. Body: ${parsed.result.bodyPreview?.substring(0, 200)}`);
       return null; // Fall through to next provider
     }
-    }
 
     // Find next session date
     const now = new Date();
