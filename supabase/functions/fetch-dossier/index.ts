@@ -537,13 +537,7 @@ async function fetchViaFirecrawl(
 
     if (!parsed.result.hasData) {
       log(`🔥 [FC-Browser] ${caseLabel}: no data extracted. Body: ${parsed.result.bodyPreview?.substring(0, 200)}`);
-      return {
-        ...input,
-        status: 'error',
-        caseInfo: {},
-        procedures: [],
-        nextSessionDate: null,
-        error: 'لم يتم استخراج بيانات — تأكد من صحة رقم الملف واختيار المحكمة',
+      return null; // Fall through to next provider
       };
     }
 
