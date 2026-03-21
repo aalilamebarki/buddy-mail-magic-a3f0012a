@@ -25,10 +25,10 @@ export const SyncBanners = ({ job }: SyncBannersProps) => {
           <Loader2 className="h-4 w-4 text-blue-600 animate-spin shrink-0" />
           <div className="text-xs">
             <p className="font-medium text-blue-700 dark:text-blue-400">
-              {job.status === 'pending' ? 'سيتم الجلب تلقائياً...' : 'جاري جلب البيانات من بوابة محاكم...'}
+              {job.status === 'pending' ? 'سيتم الجلب تلقائياً...' : 'جاري جلب البيانات من بوابة محاكم عبر بروكسي سكني...'}
             </p>
             <p className="text-muted-foreground text-[10px]">
-              سيتم إدراج الجلسات والبيانات تلقائياً عند الانتهاء
+              ستصل النتائج تلقائياً خلال 60-90 ثانية — يمكنك متابعة عملك
             </p>
           </div>
         </div>
