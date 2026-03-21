@@ -1143,6 +1143,58 @@ async function persistResults(
    ويرسل النتائج عبر Webhook لتحديث قاعدة البيانات بشكل غير متزامن
    ══════════════════════════════════════════════════════════════════ */
 
+function buildApifyPageFunction(input: CaseInput, ac?: string, pc?: string): string {
+  const lines: string[] = [];
+  lines.push('async function pageFunction(context) {');
+  lines.push('  const { page, log } = context;');
+  lines.push('  const delay = ms => new Promise(r => setTimeout(r, ms));');
+  lines.push('  log.info("Starting mahakim scrape...");');
+  lines.push('  try { await page.waitForSelector("input[formcontrolname=\\"mark\\"]", { timeout: 45000 }); } catch(e) { return { error: "form_not_found" }; }');
+  lines.push('  await page.evaluate((d) => {');
+  lines.push('    function sf(s,v){var e=document.querySelector(s);if(!e)return;var p=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value");if(p&&p.set)p.set.call(e,v);else e.value=v;e.dispatchEvent(new Event("input",{bubbles:true}));e.dispatchEvent(new Event("change",{bubbles:true}));e.dispatchEvent(new Event("blur",{bubbles:true}));}');
+  lines.push('    sf("input[formcontrolname=\\"mark\\"]",d.code);sf("input[formcontrolname=\\"numero\\"]",d.numero);sf("input[formcontrolname=\\"annee\\"]",d.annee);');
+  lines.push('  }, { numero: "' + input.numero + '", code: "' + input.code + '", annee: "' + input.annee + '" });');
+  lines.push('  await delay(800);');
+
+  if (ac) {
+    const acEsc = ac.replace(/"/g, '\\"');
+    lines.push('  try { var dds = await page.$$("p-dropdown .p-dropdown-trigger, .p-dropdown-trigger");');
+    lines.push('    if(dds.length>0){ await dds[0].click(); await delay(1500);');
+    lines.push('      await page.evaluate(function(t){ var items=document.querySelectorAll(".p-dropdown-panel li, .p-dropdown-items li, .p-dropdown-item"); for(var i=0;i<items.length;i++){if((items[i].textContent||"").trim().indexOf(t)>=0){items[i].click();return;}} }, "' + acEsc + '");');
+    lines.push('      await delay(1000); }');
+    lines.push('  } catch(e){ log.warning("Court err: "+e.message); }');
+  }
+
+  if (pc) {
+    const pcEsc = pc.replace(/"/g, '\\"');
+    lines.push('  try { await page.evaluate(function(){ var ls=document.querySelectorAll("label,span"); for(var i=0;i<ls.length;i++){var t=ls[i].textContent||""; if(t.indexOf("\\u0627\\u0644\\u0627\\u0628\\u062a\\u062f\\u0627\\u0626\\u064a\\u0629")>=0||t.indexOf("\\u0627\\u0644\\u0628\\u062d\\u062b \\u0628\\u0627\\u0644\\u0645\\u062d\\u0627\\u0643\\u0645")>=0){var cb=ls[i].querySelector(".p-checkbox-box,input[type=checkbox]");if(!cb){var p=ls[i].closest("div");if(p)cb=p.querySelector(".p-checkbox-box,input[type=checkbox]");}if(cb){cb.click();return;}ls[i].click();return;}} });');
+    lines.push('    await delay(2000);');
+    lines.push('    var dd2=await page.$$("p-dropdown .p-dropdown-trigger, .p-dropdown-trigger");');
+    lines.push('    if(dd2.length>1){ await dd2[1].click(); await delay(1500);');
+    lines.push('      await page.evaluate(function(t){ var items=document.querySelectorAll(".p-dropdown-panel li, .p-dropdown-items li"); for(var i=0;i<items.length;i++){if((items[i].textContent||"").trim().indexOf(t)>=0){items[i].click();return;}} }, "' + pcEsc + '");');
+    lines.push('      await delay(800); }');
+    lines.push('  } catch(e){ log.warning("PC err: "+e.message); }');
+  }
+
+  lines.push('  var clicked = await page.evaluate(function(){ var btns=document.querySelectorAll("button"); for(var i=0;i<btns.length;i++){var t=(btns[i].textContent||"").trim(); if(t==="\\u0628\\u062d\\u062b"||(t.indexOf("\\u0628\\u062d\\u062b")>=0&&t.indexOf("\\u0627\\u0644\\u0645\\u062d\\u0627\\u0643\\u0645")<0)){btns[i].click();return true;}} var sb=document.querySelector("button[type=submit]"); if(sb){sb.click();return true;} return false; });');
+  lines.push('  if(!clicked) return {error:"search_btn_not_found"};');
+  lines.push('  log.info("Search clicked, waiting for results...");');
+  lines.push('  for(var i=0;i<20;i++){ await delay(2000); var ok=await page.evaluate(function(){var b=document.body.textContent||"";return !!(document.querySelector("table tbody tr td")||document.querySelector(".p-datatable-tbody tr")||b.indexOf("\\u0644\\u0627 \\u062a\\u0648\\u062c\\u062f")>=0||b.indexOf("\\u0627\\u0644\\u0642\\u0627\\u0636\\u064a")>=0);}); if(ok)break; }');
+  lines.push('  var data=await page.evaluate(function(){');
+  lines.push('    var ci={},procs=[],body=document.body.textContent||"",html=document.body.innerHTML;');
+  lines.push('    var noData=body.indexOf("\\u0644\\u0627 \\u062a\\u0648\\u062c\\u062f \\u0623\\u064a\\u0629 \\u0646\\u062a\\u064a\\u062c\\u0629")>=0;');
+  lines.push('    var fs=[["court","\\u0627\\u0644\\u0645\\u062d\\u0643\\u0645\\u0629"],["judge","\\u0627\\u0644\\u0642\\u0627\\u0636\\u064a \\u0627\\u0644\\u0645\\u0642\\u0631\\u0631"],["judge","\\u0627\\u0644\\u0642\\u0627\\u0636\\u064a"],["department","\\u0627\\u0644\\u0634\\u0639\\u0628\\u0629"],["status","\\u0627\\u0644\\u062d\\u0627\\u0644\\u0629"]];');
+  lines.push('    for(var i=0;i<fs.length;i++){if(ci[fs[i][0]])continue;var idx=html.indexOf(fs[i][1]);if(idx===-1)continue;var af=html.substring(idx,idx+500);var m=af.match(/>([^<]{2,100})</);if(m&&m[1].trim()!==fs[i][1]&&m[1].trim().length>1)ci[fs[i][0]]=m[1].trim();}');
+  lines.push('    var rows=document.querySelectorAll("table tbody tr, .p-datatable-tbody tr");');
+  lines.push('    for(var j=0;j<rows.length;j++){var c=rows[j].querySelectorAll("td");if(c.length>=2){var ad=c[0]?c[0].textContent.trim():"";if(ad&&ad.indexOf("\\u062a\\u0627\\u0631\\u064a\\u062e")<0&&ad.length<30){procs.push({action_date:ad,action_type:c[1]?c[1].textContent.trim():"",decision:c.length>2&&c[2]?c[2].textContent.trim():"",next_session_date:c.length>3&&c[3]?c[3].textContent.trim():""})}}}');
+  lines.push('    return {caseInfo:ci,procedures:procs,noData:noData};');
+  lines.push('  });');
+  lines.push('  log.info("Done: "+Object.keys(data.caseInfo).length+" fields, "+data.procedures.length+" procs");');
+  lines.push('  return data;');
+  lines.push('}');
+  return lines.join('\n');
+}
+
 async function launchApifyActor(
   apiToken: string,
   input: CaseInput,
@@ -1156,7 +1208,6 @@ async function launchApifyActor(
   const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/apify-mahakim-webhook`;
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
 
-  // Build pageFunction as a clean string — no nested template literals
   const pf = buildApifyPageFunction(input, appealCourt, firstInstanceCourt);
 
 
