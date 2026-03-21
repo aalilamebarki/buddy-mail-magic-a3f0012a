@@ -5,16 +5,25 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-/* ══════════════════════════════════════════════════════════════════
-   fetch-dossier v5 — Smart Dual-Provider Court Data Bridge
-   
-   Strategy:
-   • Firecrawl Browser Sessions v2 (primary — Playwright)
-   • ScrapingBee with Moroccan proxies (fallback)
-   • Smart switching: if one fails, auto-try the other
-   • Provider preference can be set per-request via `provider` field
-   • Creates notification on persistent failure
-   ══════════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════════════
+   fetch-dossier v6 — نظام جلب بيانات الملفات من بوابة محاكم
+   Smart Dual-Provider Court Data Bridge
+
+   ─── الهيكل / Structure ───────────────────────────────────────────
+   1. الأنواع والثوابت (Types & Constants)
+   2. خريطة المحاكم (Court Hierarchy Mapping)
+   3. Firecrawl Browser Sessions — المسار الأساسي (Primary)
+   4. ScrapingBee — المسار البديل (Fallback)
+   5. تحليل HTML/Markdown (Parsing Helpers)
+   6. حفظ النتائج (Persist Results to DB)
+   7. المعالج الرئيسي (HTTP Handler)
+
+   ─── المنطق الذكي / Smart Logic ──────────────────────────────────
+   • الوضع التلقائي: Firecrawl أولاً (أسرع/أرخص) ← ScrapingBee (أكثر استقراراً)
+   • المستخدم يختار المزود مباشرة أو يترك النظام يختار
+   • عند الفشل المتكرر: إشعار تلقائي عبر جدول notifications
+   • رسائل خطأ واضحة مع اقتراحات (402=رصيد، 429=حد الطلبات، إلخ)
+   ══════════════════════════════════════════════════════════════════════ */
 
 type ScrapeProvider = 'firecrawl' | 'scrapingbee' | 'auto';
 
