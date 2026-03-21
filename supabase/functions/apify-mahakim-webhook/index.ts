@@ -93,6 +93,16 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
+    // Ensure userId is always resolved — fall back to sync job's user_id
+    if (!userId && jobId) {
+      const { data: jobRow } = await supabase
+        .from('mahakim_sync_jobs')
+        .select('user_id')
+        .eq('id', jobId)
+        .maybeSingle();
+      if (jobRow?.user_id) userId = jobRow.user_id;
+    }
+
     // ── Handle Apify error ──
     if (apifyError || !results) {
       const errMsg = apifyError || 'لم يتم استلام نتائج من Apify';
