@@ -807,9 +807,14 @@ async function fetchViaScrapingBee(apiKey: string, input: CaseInput, appealCourt
     if (!resp.ok) {
       const errText = await resp.text();
       log(`✗ [ScrapingBee] ${caseLabel}: ${resp.status} — ${errText.substring(0, 200)}`);
+      let userError = `خطأ ScrapingBee: ${resp.status}`;
+      if (resp.status === 401) userError = 'مفتاح ScrapingBee غير صالح — تحقق من الإعدادات';
+      else if (resp.status === 402 || errText.includes('credit')) userError = 'رصيد ScrapingBee منتهي — أعد شحن حسابك أو استخدم Firecrawl';
+      else if (resp.status === 429) userError = 'تجاوزت حد طلبات ScrapingBee — انتظر دقيقة ثم أعد المحاولة';
+      else if (resp.status === 500) userError = 'خطأ داخلي في ScrapingBee — جرّب Firecrawl بدلاً منه';
       return {
         ...input, status: 'error', caseInfo: {}, procedures: [], nextSessionDate: null,
-        error: `خطأ ScrapingBee: ${resp.status}`,
+        error: userError,
       };
     }
 
