@@ -1187,6 +1187,12 @@ async function launchApifyActor(
     /**
      * pageFunction في puppeteer-scraper يعمل في Node.js context
      * ويوفر context.page (Puppeteer Page) + context.request + context.log
+     * 
+     * v2 — تحسينات:
+     * - لقطة شاشة عند الفشل للتشخيص
+     * - انتظار ذكي للنتائج بدل delay ثابت
+     * - إرسال webhook مضمون (try/catch + retry)
+     * - selectors أكثر مرونة
      */
     pageFunction: `async function pageFunction(context) {
   const { page, request, log, customData } = context;
@@ -1194,105 +1200,240 @@ async function launchApifyActor(
           jobId, caseId, userId, caseNumber, webhookUrl, anonKey } = customData;
 
   const delay = (ms) => new Promise(r => setTimeout(r, ms));
+  const debugLog = [];
 
-  log.info('Waiting for Angular form to load...');
-  try {
-    await page.waitForSelector('input[formcontrolname="mark"]', { timeout: 45000 });
-  } catch (e) {
-    log.error('Form not found');
-    await sendWebhook(webhookUrl, anonKey, { jobId, caseId, userId, caseNumber, error: 'تعذر تحميل نموذج البحث' });
-    return { error: 'form_not_found' };
+  async function sendWebhook(data) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const resp = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + anonKey, 'apikey': anonKey },
+          body: JSON.stringify(data),
+        });
+        log.info('Webhook attempt ' + (attempt+1) + ': status=' + resp.status);
+        if (resp.ok || resp.status < 500) return true;
+      } catch (e) {
+        log.warning('Webhook attempt ' + (attempt+1) + ' failed: ' + e.message);
+      }
+      await delay(2000);
+    }
+    return false;
   }
 
-  log.info('Filling form fields...');
+  async function takeScreenshot(label) {
+    try {
+      const ss = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 50 });
+      debugLog.push('screenshot_' + label + ':' + ss.substring(0, 100) + '...');
+      log.info('Screenshot taken: ' + label + ' (' + ss.length + ' chars)');
+    } catch(e) { log.warning('Screenshot failed: ' + e.message); }
+  }
+
+  // ── Step 1: Wait for Angular to bootstrap ──
+  log.info('Step 1: Waiting for Angular form...');
+  try {
+    await page.waitForSelector('input[formcontrolname="mark"], input[formcontrolname="numero"]', { timeout: 45000 });
+    debugLog.push('form_found');
+  } catch (e) {
+    log.error('Form not found after 45s');
+    debugLog.push('form_not_found');
+    await takeScreenshot('no_form');
+    await sendWebhook({ jobId, caseId, userId, caseNumber, error: 'تعذر تحميل نموذج البحث — البوابة قد تكون معطلة', debug: debugLog });
+    return { error: 'form_not_found', debug: debugLog };
+  }
+
+  // ── Step 2: Fill form fields ──
+  log.info('Step 2: Filling fields — numero=' + numero + ' code=' + code + ' annee=' + annee);
   await page.evaluate((d) => {
     function setField(sel, val) {
       const el = document.querySelector(sel);
-      if (!el) return;
+      if (!el) return false;
       const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
       if (desc && desc.set) desc.set.call(el, val);
       else el.value = val;
       el.dispatchEvent(new Event('input', { bubbles: true }));
       el.dispatchEvent(new Event('change', { bubbles: true }));
+      el.dispatchEvent(new Event('blur', { bubbles: true }));
+      return true;
     }
     setField('input[formcontrolname="mark"]', d.code);
     setField('input[formcontrolname="numero"]', d.numero);
     setField('input[formcontrolname="annee"]', d.annee);
   }, { numero, code, annee });
+  debugLog.push('fields_filled');
+  await delay(500);
 
+  // ── Step 3: Select appeal court if needed ──
   if (appealCourt) {
-    log.info('Selecting appeal court: ' + appealCourt);
+    log.info('Step 3: Selecting appeal court: ' + appealCourt);
     try {
-      const dropdowns = await page.$$('p-dropdown .p-dropdown-trigger');
+      const dropdowns = await page.$$('p-dropdown .p-dropdown-trigger, .p-dropdown-trigger');
+      debugLog.push('dropdowns_found:' + dropdowns.length);
       if (dropdowns.length > 0) {
         await dropdowns[0].click();
         await delay(1500);
-        const items = await page.$$('.p-dropdown-panel li, .p-dropdown-items li');
-        for (const item of items) {
-          const text = await item.evaluate(el => el.textContent || '');
-          if (text.includes(appealCourt)) { await item.click(); break; }
-        }
-        await delay(800);
+        const selected = await page.evaluate((target) => {
+          const items = document.querySelectorAll('.p-dropdown-panel li, .p-dropdown-items li, .p-dropdown-item');
+          for (const item of items) {
+            if ((item.textContent || '').trim().includes(target)) {
+              item.click();
+              return item.textContent.trim();
+            }
+          }
+          return null;
+        }, appealCourt);
+        debugLog.push(selected ? 'ac_selected:' + selected : 'ac_miss');
+        await delay(1000);
       }
-    } catch (e) { log.warning('Court select failed: ' + e.message); }
+
+      // Primary court checkbox + dropdown
+      if (firstInstanceCourt) {
+        log.info('Step 3b: Primary court: ' + firstInstanceCourt);
+        await page.evaluate(() => {
+          const labels = document.querySelectorAll('label, span');
+          for (const l of labels) {
+            const t = l.textContent || '';
+            if (t.includes('الابتدائية') || t.includes('الإبتدائية') || t.includes('البحث بالمحاكم')) {
+              const cb = l.querySelector('.p-checkbox-box, input[type="checkbox"]') ||
+                l.closest('div')?.querySelector('.p-checkbox-box, input[type="checkbox"]');
+              if (cb) { cb.click(); return; }
+              l.click(); return;
+            }
+          }
+        });
+        await delay(2000);
+        const dd2 = await page.$$('p-dropdown .p-dropdown-trigger, .p-dropdown-trigger');
+        if (dd2.length > 1) {
+          await dd2[1].click();
+          await delay(1500);
+          await page.evaluate((target) => {
+            const items = document.querySelectorAll('.p-dropdown-panel li, .p-dropdown-items li');
+            for (const item of items) {
+              if ((item.textContent || '').trim().includes(target)) { item.click(); return; }
+            }
+          }, firstInstanceCourt);
+          await delay(800);
+        }
+        debugLog.push('pc_done');
+      }
+    } catch (e) {
+      log.warning('Court selection error: ' + e.message);
+      debugLog.push('court_err:' + e.message);
+    }
   }
 
-  log.info('Clicking search...');
-  const searchBtn = await page.$('button[type="submit"], button.p-button');
-  if (searchBtn) await searchBtn.click();
-  else {
-    await sendWebhook(webhookUrl, anonKey, { jobId, caseId, userId, caseNumber, error: 'زر البحث غير موجود' });
-    return { error: 'no_search_btn' };
+  // ── Step 4: Click search ──
+  log.info('Step 4: Clicking search button...');
+  const clicked = await page.evaluate(() => {
+    const btns = Array.from(document.querySelectorAll('button'));
+    const searchBtn = btns.find(b => {
+      const t = (b.textContent || '').trim();
+      return t === 'بحث' || (t.includes('بحث') && !t.includes('المحاكم'));
+    }) || document.querySelector('button[type="submit"]') || document.querySelector('button.p-button');
+    if (searchBtn) { searchBtn.click(); return true; }
+    return false;
+  });
+  debugLog.push(clicked ? 'search_clicked' : 'search_miss');
+  
+  if (!clicked) {
+    await takeScreenshot('no_search_btn');
+    await sendWebhook({ jobId, caseId, userId, caseNumber, error: 'زر البحث غير موجود', debug: debugLog });
+    return { error: 'no_search_btn', debug: debugLog };
   }
 
-  log.info('Waiting 15s for results...');
-  await delay(15000);
+  // ── Step 5: Wait for results (smart polling) ──
+  log.info('Step 5: Waiting for results...');
+  let hasResults = false;
+  for (let i = 0; i < 20; i++) {
+    await delay(2000);
+    hasResults = await page.evaluate(() => {
+      const body = document.body.textContent || '';
+      return !!(document.querySelector('table tbody tr td') || 
+                document.querySelector('.p-datatable-tbody tr') ||
+                body.includes('لا توجد') || body.includes('القاضي') || body.includes('الشعبة'));
+    });
+    if (hasResults) { debugLog.push('results_at_' + ((i+1)*2) + 's'); break; }
+  }
+  if (!hasResults) {
+    debugLog.push('no_results_after_40s');
+    await takeScreenshot('no_results');
+  }
 
-  log.info('Extracting data...');
+  // ── Step 6: Extract data ──
+  log.info('Step 6: Extracting data...');
   const extracted = await page.evaluate(() => {
     const caseInfo = {};
     const procedures = [];
+    const body = document.body.textContent || '';
+    
+    // Check no-data
+    const noData = body.includes('لا توجد أية نتيجة') || body.includes('لا توجد نتائج');
+    
+    // Extract case info from label-value pairs
     const patterns = [
       ['court', ['المحكمة']], ['judge', ['القاضي المقرر', 'القاضي']],
       ['department', ['الشعبة']], ['case_type', ['نوع القضية', 'نوع الملف']],
       ['status', ['الحالة', 'حالة القضية']],
       ['registration_date', ['تاريخ التسجيل']], ['subject', ['الموضوع']],
     ];
-    const allEls = document.querySelectorAll('td, th, span, label, div, dt, dd');
+    
+    // Method 1: DOM siblings
+    const allEls = document.querySelectorAll('td, th, span, label, div, dt, dd, p');
     for (const [key, labels] of patterns) {
       for (const label of labels) {
         for (const el of allEls) {
           const t = (el.textContent || '').trim();
-          if (t === label || t === label + ':' || t === label + ' :') {
+          if (t === label || t === label + ':' || t === label + ' :' || t === ':' + label) {
             const next = el.nextElementSibling || el.parentElement?.nextElementSibling;
-            if (next) { const val = (next.textContent || '').trim(); if (val && val !== label) { caseInfo[key] = val; break; } }
+            if (next) {
+              const val = (next.textContent || '').trim();
+              if (val && val !== label && val.length < 200) { caseInfo[key] = val; break; }
+            }
           }
         }
         if (caseInfo[key]) break;
       }
     }
-    const tables = document.querySelectorAll('table, p-table table');
+    
+    // Method 2: Regex on body text as fallback
+    if (!caseInfo.judge) {
+      const m = body.match(/القاضي\s*(?:المقرر)?\s*[:：]?\s*([^\n\r]{3,60})/);
+      if (m) caseInfo.judge = m[1].trim();
+    }
+    if (!caseInfo.department) {
+      const m = body.match(/الشعبة\s*[:：]?\s*([^\n\r]{3,60})/);
+      if (m) caseInfo.department = m[1].trim();
+    }
+
+    // Extract procedures table
+    const tables = document.querySelectorAll('table, .p-datatable table');
     for (const table of tables) {
-      const rows = table.querySelectorAll('tbody tr, tr');
+      const rows = table.querySelectorAll('tbody tr, tr:not(:first-child)');
       for (const row of rows) {
         const cells = row.querySelectorAll('td');
         if (cells.length >= 2) {
-          procedures.push({
+          const proc = {
             action_date: (cells[0]?.textContent || '').trim(),
             action_type: (cells[1]?.textContent || '').trim(),
-            decision: (cells[2]?.textContent || '').trim(),
-            next_session_date: (cells[3]?.textContent || '').trim(),
-          });
+            decision: cells.length > 2 ? (cells[2]?.textContent || '').trim() : '',
+            next_session_date: cells.length > 3 ? (cells[3]?.textContent || '').trim() : '',
+          };
+          // Skip header rows
+          if (proc.action_date && !proc.action_date.includes('تاريخ') && proc.action_date.length < 30) {
+            procedures.push(proc);
+          }
         }
       }
     }
-    const bodyText = document.body.textContent || '';
-    const noData = bodyText.includes('لا توجد نتائج') || bodyText.includes('غير موجود');
-    return { caseInfo, procedures, noData };
+    
+    return { caseInfo, procedures, noData, bodySnippet: body.substring(0, 500) };
   });
 
-  log.info('Extracted: info=' + Object.keys(extracted.caseInfo).length + ' procs=' + extracted.procedures.length);
+  debugLog.push('info_keys:' + Object.keys(extracted.caseInfo).join(','));
+  debugLog.push('procs:' + extracted.procedures.length);
+  debugLog.push('noData:' + extracted.noData);
+  log.info('Extracted: info=' + Object.keys(extracted.caseInfo).length + ' procs=' + extracted.procedures.length + ' noData=' + extracted.noData);
 
+  // ── Step 7: Calculate next session date ──
   let nextSessionDate = null;
   const now = new Date();
   for (const proc of extracted.procedures) {
@@ -1305,22 +1446,22 @@ async function launchApifyActor(
     }
   }
 
-  const payload = { jobId, caseId, userId, caseNumber, results: { caseInfo: extracted.caseInfo, procedures: extracted.procedures, nextSessionDate } };
+  // ── Step 8: Send webhook ──
+  const payload = {
+    jobId, caseId, userId, caseNumber,
+    results: { caseInfo: extracted.caseInfo, procedures: extracted.procedures, nextSessionDate },
+    debug: debugLog,
+  };
   if (extracted.noData || (extracted.procedures.length === 0 && Object.keys(extracted.caseInfo).length === 0)) {
-    payload.error = 'لا توجد نتائج لهذا الملف';
+    payload.error = 'لا توجد نتائج لهذا الملف — تأكد من صحة رقم الملف والمحكمة';
+    if (!extracted.noData) await takeScreenshot('empty_extraction');
   }
 
-  log.info('Sending to webhook...');
-  await sendWebhook(webhookUrl, anonKey, payload);
-  log.info('Done!');
-  return extracted;
-
-  async function sendWebhook(url, key, data) {
-    try {
-      const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key, 'apikey': key }, body: JSON.stringify(data) });
-      log.info('Webhook response: ' + resp.status);
-    } catch (e) { log.error('Webhook failed: ' + e.message); }
-  }
+  log.info('Step 8: Sending webhook...');
+  const sent = await sendWebhook(payload);
+  log.info('Webhook sent: ' + sent);
+  
+  return { ...extracted, debug: debugLog, webhookSent: sent };
 }`,
   };
 
