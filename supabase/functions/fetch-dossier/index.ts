@@ -415,11 +415,11 @@ ${firstInstanceCourt ? `
       function parseCompositeField(raw){
         if(!raw)return{date:'',time:'',room:''};
         let date='',time='',room='';
-        const dm=raw.match(/(\\d{2}\\/(\\d{2})\\/\\d{4})/);
+        const dm=raw.match(new RegExp('(\\\\d{2}/\\\\d{2}/\\\\d{4})'));
         if(dm)date=dm[1];
-        const tm=raw.match(/(?:\\u0627\\u0644\\u0633\\u0627\\u0639\\u0629\\s*)?((\\d{1,2}):\\d{2})/);
+        const tm=raw.match(new RegExp('(?:\u0627\u0644\u0633\u0627\u0639\u0629\\\\s*)?(\\\\d{1,2}:\\\\d{2})'));
         if(tm)time=tm[1];
-        const rm=raw.match(/(?:\\u0628\\u0627\\u0644\\u0642\\u0627\\u0639\\u0629|\\u0627\\u0644\\u0642\\u0627\\u0639\\u0629|\\u063a\\u0631\\u0641\\u0629)\\s*(.+?)$/);
+        const rm=raw.match(new RegExp('(?:\u0628\u0627\u0644\u0642\u0627\u0639\u0629|\u0627\u0644\u0642\u0627\u0639\u0629|\u063a\u0631\u0641\u0629)\\\\s*(.+?)$'));
         if(rm)room=rm[1].trim();
         return{date,time,room};
       }
