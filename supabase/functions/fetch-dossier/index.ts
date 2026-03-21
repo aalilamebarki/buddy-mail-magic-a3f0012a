@@ -6,12 +6,10 @@ const corsHeaders = {
 };
 
 /* ══════════════════════════════════════════════════════════════════
-   fetch-dossier v3 — Production Court Data Bridge
+   fetch-dossier v4 — Production Court Data Bridge
    
-   Uses ScrapingBee with Moroccan residential proxies to bypass
-   mahakim.ma's TCP-level cloud IP blocking.
-   
-   Tested flow: ~22 seconds per case (well within 120s edge limit)
+   Uses Firecrawl Browser Sessions v2 (Playwright) to scrape
+   mahakim.ma's Angular SPA and extract case data.
    ══════════════════════════════════════════════════════════════════ */
 
 interface CaseInput {
