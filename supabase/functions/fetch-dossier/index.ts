@@ -6,12 +6,10 @@ const corsHeaders = {
 };
 
 /* ══════════════════════════════════════════════════════════════════
-   fetch-dossier v3 — Production Court Data Bridge
+   fetch-dossier v4 — Production Court Data Bridge
    
-   Uses ScrapingBee with Moroccan residential proxies to bypass
-   mahakim.ma's TCP-level cloud IP blocking.
-   
-   Tested flow: ~22 seconds per case (well within 120s edge limit)
+   Uses Firecrawl Browser Sessions v2 (Playwright) to scrape
+   mahakim.ma's Angular SPA and extract case data.
    ══════════════════════════════════════════════════════════════════ */
 
 interface CaseInput {
@@ -533,7 +531,14 @@ async function fetchViaFirecrawl(
 
     if (!parsed.result.hasData) {
       log(`🔥 [FC-Browser] ${caseLabel}: no data extracted. Body: ${parsed.result.bodyPreview?.substring(0, 200)}`);
-      return null; // Fall through to ScrapingBee
+      return {
+        ...input,
+        status: 'error',
+        caseInfo: {},
+        procedures: [],
+        nextSessionDate: null,
+        error: 'لم يتم استخراج بيانات — تأكد من صحة رقم الملف واختيار المحكمة',
+      };
     }
 
     // Find next session date
@@ -648,349 +653,6 @@ function parseMarkdownResult(markdown: string): {
   };
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   Build ScrapingBee js_scenario for form filling (FALLBACK PATH)
-   ══════════════════════════════════════════════════════════════════ */
-function buildJsScenario(numero: string, code: string, annee: string, appealCourt?: string, firstInstanceCourt?: string) {
-  const esc = (value?: string) => (value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-
-  // Flow for primary court search:
-  // 1. Fill mark (code) → triggers appeal court dropdown load
-  // 2. Wait & select appeal court from dropdown
-  // 3. Fill numero + annee
-  // 4. Click "البحث في المحاكم الابتدائية" button to load primary courts dropdown
-  // 5. Wait & select primary court from the new dropdown
-  // 6. Click main search button (the one that says just "بحث", not "المحاكم")
-  const megaScript = `(()=>{
-window.__L=[];
-var set=function(q,v){var e=document.querySelector(q);if(!e){window.__L.push('miss:'+q);return 0}var d=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');d&&d.set?d.set.call(e,v):e.value=v;e.dispatchEvent(new Event('input',{bubbles:1}));e.dispatchEvent(new Event('change',{bubbles:1}));return 1};
-var ac='${esc(appealCourt||'')}';
-var pc='${esc(firstInstanceCourt||'')}';
-var num='${esc(numero)}';
-var ann='${esc(annee)}';
-var code='${esc(code)}';
-function waitForForm(cb){
-  var a=0;
-  function poll(){
-    var m=document.querySelector('input[formcontrolname="mark"]');
-    if(m){window.__L.push('form-ready');cb();return}
-    if(++a<30){setTimeout(poll,300);return}
-    window.__L.push('form-timeout');
-  }
-  poll();
-}
-waitForForm(function(){
-  set('input[formcontrolname="mark"]',code);
-  window.__L.push('mark-set');
-function selectDD(idx,target,cb){
-  var a=0;
-  function poll(){
-    var dds=document.querySelectorAll('p-dropdown .p-dropdown-trigger');
-    if(dds.length<=idx){if(++a<40){setTimeout(poll,400);return}window.__L.push('dd'+idx+'-timeout:found='+dds.length);cb();return}
-    dds[idx].click();
-    setTimeout(function(){
-      var panel=document.querySelector('.p-dropdown-panel');
-      var li=panel?panel.querySelectorAll('li.p-dropdown-item,.p-dropdown-items li'):document.querySelectorAll('li.p-dropdown-item');
-      if(li.length<2&&a<40){a++;setTimeout(poll,400);return}
-      var f=[];
-      for(var i=0;i<li.length;i++){var x=li[i].textContent.trim();f.push(x);if(x.indexOf(target)>=0){li[i].click();window.__L.push('dd'+idx+'-ok:'+x);setTimeout(cb,600);return}}
-      window.__L.push('dd'+idx+'-miss:'+li.length+':'+f.slice(0,5).join(','));
-      cb();
-    },600);
-  }
-  poll();
-}
-function clickPrimaryCheckbox(cb){
-  var a=0;
-  function poll(){
-    var cbs=[].slice.call(document.querySelectorAll('p-checkbox,input[type="checkbox"],.p-checkbox'));
-    var labels=[].slice.call(document.querySelectorAll('label,span'));
-    var found=null;
-    for(var i=0;i<labels.length;i++){
-      var t=labels[i].textContent||'';
-      if(t.indexOf('الابتدائية')>=0||t.indexOf('الإبتدائية')>=0||t.indexOf('البحث بالمحاكم')>=0){
-        var cb2=labels[i].querySelector('input[type="checkbox"],.p-checkbox-box');
-        if(!cb2){var p=labels[i].closest('.p-field-checkbox,div');if(p)cb2=p.querySelector('input[type="checkbox"],.p-checkbox-box')}
-        if(!cb2){cb2=labels[i].previousElementSibling||labels[i].parentElement.querySelector('input[type="checkbox"],.p-checkbox-box,.p-checkbox')}
-        if(cb2){found=cb2;break}
-        found=labels[i];break;
-      }
-    }
-    if(!found&&cbs.length>0){found=cbs[0]}
-    if(found){found.click();window.__L.push('checkbox-clicked:'+found.tagName+':'+found.className);setTimeout(cb,2000);return}
-    if(++a<15){setTimeout(poll,400);return}
-    window.__L.push('checkbox-miss');cb();
-  }
-  poll();
-}
-function finalSearch(){
-  window.__L.push('fields-done');
-  setTimeout(function(){
-    var btns=[].slice.call(document.querySelectorAll('button'));
-    var b=btns.find(function(x){var t=x.textContent.trim();return t==='بحث'||t==='بحث '});
-    if(!b){b=btns.find(function(x){return x.textContent.indexOf('بحث')>=0&&x.textContent.indexOf('المحاكم')<0})}
-    if(b){b.click();window.__L.push('search-clicked')}else{window.__L.push('search-miss')}
-  },500);
-}
-function fillFields(){
-  set('input[formcontrolname="numero"]',num);
-  set('input[formcontrolname="annee"]',ann);
-}
-function step2(){
-  fillFields();
-  if(pc){
-    clickPrimaryCheckbox(function(){
-      var dds=document.querySelectorAll('p-dropdown .p-dropdown-trigger');
-      if(dds.length>1){selectDD(1,pc,finalSearch)}else{window.__L.push('no-dd1-direct-search');finalSearch()}
-    });
-  }else{
-    finalSearch();
-  }
-}
-  if(ac){selectDD(0,ac,step2)}else{fillFields();finalSearch()}
-});
-return 1;
-})()`;
-
-  const instructions: Array<Record<string, unknown>> = [
-    { wait: 4000 },
-    { evaluate: megaScript.replace(/\n/g, '') },
-    { wait: 25000 }, // Wait for all async operations to complete
-    {
-      evaluate: `(()=>{var v={};document.querySelectorAll('input[formcontrolname]').forEach(function(i){v[i.getAttribute('formcontrolname')]=i.value});var dd=[];document.querySelectorAll('.p-dropdown-label').forEach(function(d){dd.push(d.textContent.trim())});var d=document.createElement('div');d.id='__debug__';d.style.display='none';d.setAttribute('data-debug',JSON.stringify({s:window.__L||[],i:v,d:dd,t:!!document.querySelector('table,.p-datatable'),n:document.body.innerText.includes('لا توجد'),b:document.body.innerText.substring(0,250)}));document.body.appendChild(d);return 1})()`
-    },
-  ];
-
-  return { instructions };
-}
-
-/* ══════════════════════════════════════════════════════════════════
-   Core: Fetch single case via ScrapingBee
-   ══════════════════════════════════════════════════════════════════ */
-async function fetchSingleCase(apiKey: string, input: CaseInput, appealCourt?: string, firstInstanceCourt?: string): Promise<CaseResult> {
-  const caseLabel = `${input.numero}/${input.code}/${input.annee}`;
-  const start = Date.now();
-
-  log(`🚀 Starting fetch for ${caseLabel} | appealCourt="${appealCourt}" | firstInstanceCourt="${firstInstanceCourt}"`);
-
-  const scenario = buildJsScenario(input.numero, input.code, input.annee, appealCourt, firstInstanceCourt);
-  log(`📋 Scenario steps: ${scenario.instructions.length} | Total JSON length: ${JSON.stringify(scenario).length}`);
-  log(`📋 Scenario detail: ${JSON.stringify(scenario).substring(0, 600)}`);
-
-  const scenarioJson = JSON.stringify(scenario);
-  const params = new URLSearchParams({
-    api_key: apiKey,
-    url: 'https://www.mahakim.ma/#/suivi/dossier-suivi',
-    render_js: 'true',
-    premium_proxy: 'true',
-    country_code: 'ma',
-    timeout: '60000',
-    js_scenario: scenarioJson,
-  });
-
-  const fullUrl = `https://app.scrapingbee.com/api/v1/?${params.toString()}`;
-  log(`🌐 Request URL length: ${fullUrl.length} chars (js_scenario as URL param)`);
-
-  try {
-    const resp = await fetch(fullUrl, {
-      signal: AbortSignal.timeout(70000),
-    });
-
-    const elapsed = Date.now() - start;
-    log(`📡 ScrapingBee response: status=${resp.status} (${elapsed}ms)`);
-
-    if (!resp.ok) {
-      const errText = await resp.text();
-      log(`✗ ${caseLabel}: ScrapingBee ${resp.status} (${elapsed}ms) — ${errText.substring(0, 200)}`);
-      return {
-        ...input,
-        status: 'error',
-        caseInfo: {},
-        procedures: [],
-        nextSessionDate: null,
-        error: `خطأ في الاتصال: ${resp.status}`,
-      };
-    }
-
-    const html = await resp.text();
-    log(`✓ ${caseLabel}: got ${html.length} chars (${elapsed}ms)`);
-
-    // ── DEBUG: Save first 5000 chars of HTML + key indicators ──
-    const debugSnippet = html.substring(0, 5000);
-    const hasDropdown = html.includes('p-dropdown');
-    const hasNoResult = html.includes('لا توجد أية نتيجة');
-    const hasTable = html.includes('<table') || html.includes('p-table');
-    const hasFormControl = html.includes('formcontrolname');
-    const hasCaseData = html.includes('القاضي') || html.includes('الشعبة') || html.includes('المحكمة');
-    const hasSearchBtn = html.includes('بحث') || html.includes('عرض') || html.includes('تتبع');
-    const hasResultSection = html.includes('app-dossier-detail') || html.includes('app-procedure') || html.includes('نتيجة');
-    
-    log(`🔍 DEBUG HTML indicators: dropdown=${hasDropdown}, noResult=${hasNoResult}, table=${hasTable}, formControl=${hasFormControl}, caseData=${hasCaseData}, searchBtn=${hasSearchBtn}, resultSection=${hasResultSection}`);
-    
-    // Extract injected debug data from the page
-    const debugMatch = html.match(/data-debug="([^"]*)"/);
-    if (debugMatch) {
-      try {
-        const debugData = JSON.parse(debugMatch[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&'));
-        log(`🔍 DEBUG INJECTED: ${JSON.stringify(debugData)}`);
-      } catch (e) {
-        log(`🔍 DEBUG INJECTED raw: ${debugMatch[1].substring(0, 500)}`);
-      }
-    } else {
-      log(`🔍 DEBUG: No injected debug div found — scenario may not have executed`);
-    }
-    
-    // Log ScrapingBee headers for scenario execution info
-    const scenarioResult = resp.headers.get('Spb-Js-Scenario-Result');
-    const resolvedUrl = resp.headers.get('Spb-Resolved-Url');
-    log(`🔍 DEBUG ScrapingBee headers: scenario-result=${scenarioResult?.substring(0, 500)}, resolved-url=${resolvedUrl}`);
-
-    // Check for anti-bot
-    const lower = html.toLowerCase();
-    if ((lower.includes('captcha') || lower.includes('challenge-platform') || lower.includes('access denied')) && !lower.includes('p-dropdown')) {
-      log(`✗ ${caseLabel}: anti-bot page detected`);
-      return {
-        ...input,
-        status: 'error',
-        caseInfo: {},
-        procedures: [],
-        nextSessionDate: null,
-        error: 'تم حظر الطلب — يُرجى المحاولة لاحقاً',
-      };
-    }
-
-    // Try to get the evaluate result from the last js_scenario step
-    const jsResult = resp.headers.get('Spb-Js-Scenario-Result');
-    
-    // Parse extracted data from the evaluate step
-    let parsed = { caseInfo: {} as Record<string, string>, procedures: [] as Array<Record<string, string>>, hasData: false, noResult: false };
-    
-    if (jsResult) {
-      log(`🔍 DEBUG jsResult raw: ${jsResult.substring(0, 500)}`);
-      try {
-        parsed = JSON.parse(jsResult);
-        log(`🔍 DEBUG jsResult parsed: hasData=${parsed.hasData}, caseInfo keys=${Object.keys(parsed.caseInfo).join(',')}, procedures=${parsed.procedures?.length}`);
-      } catch { /* fallback to HTML parsing */ }
-    }
-
-    // Fallback: parse HTML directly if evaluate didn't return clean data
-    if (!parsed.hasData && !parsed.noResult) {
-      log(`🔍 DEBUG: falling back to HTML parsing`);
-      parsed = parseHtmlFallback(html);
-      log(`🔍 DEBUG HTML parse result: hasData=${parsed.hasData}, noResult=${parsed.noResult}, caseInfo=${JSON.stringify(parsed.caseInfo)}`);
-    }
-
-    if (parsed.noResult) {
-      log(`○ ${caseLabel}: لا توجد نتيجة`);
-      return {
-        ...input,
-        status: 'no_data',
-        caseInfo: {},
-        procedures: [],
-        nextSessionDate: null,
-        error: 'لم يتم العثور على بيانات — تأكد من صحة رقم الملف واختيار المحكمة',
-      };
-    }
-
-    if (!parsed.hasData) {
-      log(`○ ${caseLabel}: no data extracted from ${html.length} chars`);
-      // Save debug HTML to storage for analysis
-      try {
-        const debugBlob = new Blob([html], { type: 'text/html' });
-        // Store in a temporary debug field in the sync job
-        log(`🔍 Full HTML body keywords: ${[...html.matchAll(/[\u0600-\u06FF]+/g)].slice(0, 50).map(m => m[0]).join(', ')}`);
-      } catch {}
-      return {
-        ...input,
-        status: 'no_data',
-        caseInfo: {},
-        procedures: [],
-        nextSessionDate: null,
-        error: 'لم يتم استخراج بيانات — قد يكون رقم الملف غير صحيح أو المحكمة غير مطابقة',
-      };
-    }
-
-    // Find next future session date
-    const now = new Date();
-    let nextSessionDate: string | null = null;
-    for (const proc of parsed.procedures) {
-      const d = proc.next_session_date;
-      if (d && /\d{2}\/\d{2}\/\d{4}/.test(d)) {
-        const [day, month, year] = d.split('/');
-        const dateObj = new Date(`${year}-${month}-${day}`);
-        if (dateObj >= now && (!nextSessionDate || dateObj < new Date(nextSessionDate))) {
-          nextSessionDate = `${year}-${month}-${day}`;
-        }
-      }
-    }
-
-    log(`✓ ${caseLabel}: ${Object.keys(parsed.caseInfo).length} fields, ${parsed.procedures.length} procedures`);
-
-    return {
-      ...input,
-      status: 'success',
-      caseInfo: parsed.caseInfo,
-      procedures: parsed.procedures,
-      nextSessionDate,
-    };
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown';
-    log(`✗ ${caseLabel}: ${msg} (${Date.now() - start}ms)`);
-    return {
-      ...input,
-      status: 'error',
-      caseInfo: {},
-      procedures: [],
-      nextSessionDate: null,
-      error: msg.includes('timeout') ? 'انتهت مهلة الاتصال — البوابة بطيئة حالياً' : msg,
-    };
-  }
-}
-
-/* ── HTML fallback parser ── */
-function parseHtmlFallback(html: string): {
-  caseInfo: Record<string, string>;
-  procedures: Array<Record<string, string>>;
-  hasData: boolean;
-  noResult: boolean;
-} {
-  if (html.includes('لا توجد أية نتيجة')) {
-    return { caseInfo: {}, procedures: [], hasData: false, noResult: true };
-  }
-
-  const caseInfo: Record<string, string> = {};
-  const procedures: Array<Record<string, string>> = [];
-
-  // Simple text extraction using patterns
-  const patterns: [string, string[]][] = [
-    ['court', ['المحكمة']],
-    ['judge', ['القاضي المقرر', 'القاضي']],
-    ['department', ['الشعبة']],
-    ['case_type', ['نوع القضية']],
-    ['status', ['الحالة']],
-  ];
-
-  for (const [key, labels] of patterns) {
-    for (const label of labels) {
-      const idx = html.indexOf(label);
-      if (idx === -1) continue;
-      // Look for value after the label in nearby HTML
-      const after = html.substring(idx, idx + 500);
-      const valueMatch = after.match(/>([^<]{2,100})</);
-      if (valueMatch && valueMatch[1].trim() !== label) {
-        caseInfo[key] = valueMatch[1].trim();
-        break;
-      }
-    }
-  }
-
-  return {
-    caseInfo,
-    procedures,
-    hasData: Object.keys(caseInfo).length > 0,
-    noResult: false,
-  };
-}
 
 /* ── Persist results to database ── */
 async function persistResults(
@@ -1158,30 +820,20 @@ Deno.serve(async (req) => {
       caseId?: string;
     };
 
-    const SCRAPINGBEE_API_KEY = Deno.env.get('SCRAPINGBEE_API_KEY');
     const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
-    if (!SCRAPINGBEE_API_KEY && !FIRECRAWL_API_KEY) {
+    if (!FIRECRAWL_API_KEY) {
       return new Response(JSON.stringify({
         status: 'error',
-        error: 'لم يتم تعيين أي مفتاح للجلب (Firecrawl أو ScrapingBee)',
+        error: 'لم يتم تعيين مفتاح Firecrawl للجلب',
       }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    /** Unified fetch: Firecrawl first, ScrapingBee fallback */
+    /** Fetch case via Firecrawl Browser Sessions */
     async function fetchCase(input: CaseInput, ac?: string, pc?: string): Promise<CaseResult> {
-      // 1. Try Firecrawl (primary — no monthly limits)
-      if (FIRECRAWL_API_KEY) {
-        log('🔀 Trying Firecrawl (primary path)...');
-        const fcResult = await fetchViaFirecrawl(FIRECRAWL_API_KEY, input, ac, pc);
-        if (fcResult) return fcResult;
-        log('🔀 Firecrawl returned null — falling back to ScrapingBee');
-      }
-      // 2. Fallback to ScrapingBee
-      if (SCRAPINGBEE_API_KEY) {
-        log('🔀 Using ScrapingBee (fallback path)...');
-        return await fetchSingleCase(SCRAPINGBEE_API_KEY, input, ac, pc);
-      }
-      return { ...input, status: 'error', caseInfo: {}, procedures: [], nextSessionDate: null, error: 'لا يوجد مفتاح متاح للجلب' };
+      log('🔀 Fetching via Firecrawl Browser Sessions...');
+      const fcResult = await fetchViaFirecrawl(FIRECRAWL_API_KEY, input, ac, pc);
+      if (fcResult) return fcResult;
+      return { ...input, status: 'error', caseInfo: {}, procedures: [], nextSessionDate: null, error: 'فشل الجلب عبر Firecrawl — حاول مرة أخرى' };
     }
 
     const supabase = createClient(
