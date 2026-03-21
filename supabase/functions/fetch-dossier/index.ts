@@ -6,11 +6,17 @@ const corsHeaders = {
 };
 
 /* ══════════════════════════════════════════════════════════════════
-   fetch-dossier v4 — Production Court Data Bridge
+   fetch-dossier v5 — Smart Dual-Provider Court Data Bridge
    
-   Uses Firecrawl Browser Sessions v2 (Playwright) to scrape
-   mahakim.ma's Angular SPA and extract case data.
+   Strategy:
+   • Firecrawl Browser Sessions v2 (primary — Playwright)
+   • ScrapingBee with Moroccan proxies (fallback)
+   • Smart switching: if one fails, auto-try the other
+   • Provider preference can be set per-request via `provider` field
+   • Creates notification on persistent failure
    ══════════════════════════════════════════════════════════════════ */
+
+type ScrapeProvider = 'firecrawl' | 'scrapingbee' | 'auto';
 
 interface CaseInput {
   numero: string;
