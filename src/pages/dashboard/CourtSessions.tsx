@@ -364,63 +364,59 @@ const CourtSessions = () => {
             </Button>
           </div>
 
-          {viewMode === 'table' && (
-            <>
-              {/* Filter by date */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-1 h-8 text-xs shrink-0">
-                    <Search className="h-3.5 w-3.5" />
-                    {filterDate ? format(filterDate, 'dd/MM/yyyy') : 'تصفية'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="end">
-                  <Calendar mode="single" selected={filterDate} onSelect={(d) => setFilterDate(d)} className={cn("p-3 pointer-events-auto")} />
-                  {filterDate && (
-                    <div className="p-2 border-t">
-                      <Button variant="ghost" size="sm" className="w-full" onClick={() => setFilterDate(undefined)}>مسح التصفية</Button>
-                    </div>
-                  )}
-                </PopoverContent>
-              </Popover>
+          {/* Filter by date - always visible */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1 h-8 text-xs shrink-0">
+                <Search className="h-3.5 w-3.5" />
+                {filterDate ? format(filterDate, 'dd/MM/yyyy') : 'تصفية'}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar mode="single" selected={filterDate} onSelect={(d) => setFilterDate(d)} className={cn("p-3 pointer-events-auto")} />
+              {filterDate && (
+                <div className="p-2 border-t">
+                  <Button variant="ghost" size="sm" className="w-full" onClick={() => setFilterDate(undefined)}>مسح التصفية</Button>
+                </div>
+              )}
+            </PopoverContent>
+          </Popover>
 
-              {/* Export Word */}
-              <Popover open={exportMode !== null} onOpenChange={(open) => { if (!open) setExportMode(null); }}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-1 h-8 text-xs shrink-0" onClick={() => setExportMode('day')}>
-                    <FileDown className="h-3.5 w-3.5" /> تصدير
+          {/* Export Word */}
+          <Popover open={exportMode !== null} onOpenChange={(open) => { if (!open) setExportMode(null); }}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1 h-8 text-xs shrink-0" onClick={() => setExportMode('day')}>
+                <FileDown className="h-3.5 w-3.5" /> تصدير
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 p-4 pointer-events-auto" align="end">
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-foreground">تصدير جدول الجلسات إلى Word</p>
+                <div className="flex gap-2">
+                  <Button variant={exportMode === 'day' ? 'default' : 'outline'} size="sm" className="flex-1 gap-1" onClick={() => setExportMode('day')}>
+                    <CalendarDays className="h-3.5 w-3.5" /> يوم
                   </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-72 p-4 pointer-events-auto" align="end">
-                  <div className="space-y-3">
-                    <p className="text-sm font-medium text-foreground">تصدير جدول الجلسات إلى Word</p>
-                    <div className="flex gap-2">
-                      <Button variant={exportMode === 'day' ? 'default' : 'outline'} size="sm" className="flex-1 gap-1" onClick={() => setExportMode('day')}>
-                        <CalendarDays className="h-3.5 w-3.5" /> يوم
-                      </Button>
-                      <Button variant={exportMode === 'week' ? 'default' : 'outline'} size="sm" className="flex-1 gap-1" onClick={() => setExportMode('week')}>
-                        <CalendarRange className="h-3.5 w-3.5" /> أسبوع
-                      </Button>
-                    </div>
-                    <Calendar mode="single" selected={exportDate} onSelect={(d) => d && setExportDate(d)} className="p-2 pointer-events-auto" />
-                    {exportMode === 'week' && (
-                      <p className="text-xs text-muted-foreground text-center">
-                        الأسبوع: {format(startOfWeek(exportDate, { weekStartsOn: 1 }), 'dd/MM')} — {format(endOfWeek(exportDate, { weekStartsOn: 1 }), 'dd/MM/yyyy')}
-                      </p>
-                    )}
-                    <Button className="w-full gap-1" size="sm" onClick={() => handleExportWord(exportMode || 'day')}>
-                      <FileDown className="h-4 w-4" /> تحميل ملف Word
-                    </Button>
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </>
-          )}
+                  <Button variant={exportMode === 'week' ? 'default' : 'outline'} size="sm" className="flex-1 gap-1" onClick={() => setExportMode('week')}>
+                    <CalendarRange className="h-3.5 w-3.5" /> أسبوع
+                  </Button>
+                </div>
+                <Calendar mode="single" selected={exportDate} onSelect={(d) => d && setExportDate(d)} className="p-2 pointer-events-auto" />
+                {exportMode === 'week' && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    الأسبوع: {format(startOfWeek(exportDate, { weekStartsOn: 1 }), 'dd/MM')} — {format(endOfWeek(exportDate, { weekStartsOn: 1 }), 'dd/MM/yyyy')}
+                  </p>
+                )}
+                <Button className="w-full gap-1" size="sm" onClick={() => handleExportWord(exportMode || 'day')}>
+                  <FileDown className="h-4 w-4" /> تحميل ملف Word
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
 
-          {/* Spacer pushes Google Calendar to the end */}
+          {/* Spacer */}
           <div className="flex-1 min-w-[8px]" />
 
-          {/* Google Calendar - always visible */}
+          {/* Google Calendar */}
           <GoogleCalendarQuickAction />
         </div>
       </div>
