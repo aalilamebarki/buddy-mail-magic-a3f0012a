@@ -1156,11 +1156,13 @@ async function launchApifyActor(
   const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/apify-mahakim-webhook`;
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
 
-  // Apify Actor input — uses web-scraper or custom Actor
+  /**
+   * نستخدم apify/puppeteer-scraper الذي يوفر context.page (Puppeteer)
+   * وليس web-scraper الذي يشغل pageFunction داخل page.evaluate
+   */
   const actorInput = {
     startUrls: [{ url: 'https://www.mahakim.ma/#/suivi/dossier-suivi' }],
-    // Custom scraping instructions
-    customData: {
+    customData: JSON.stringify({
       numero: input.numero,
       code: input.code,
       annee: input.annee,
@@ -1171,12 +1173,8 @@ async function launchApifyActor(
       userId,
       caseNumber,
       webhookUrl,
-      webhookHeaders: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${anonKey}`,
-        'apikey': anonKey,
-      },
-    },
+      anonKey,
+    }),
     proxyConfiguration: {
       useApifyProxy: true,
       apifyProxyGroups: ['RESIDENTIAL'],
@@ -1184,139 +1182,196 @@ async function launchApifyActor(
     },
     maxRequestRetries: 2,
     requestHandlerTimeoutSecs: 120,
-    // Page function to interact with the Angular portal
+    preNavigationHooks: `[
+      async ({ page }, goToOptions) => {
+        goToOptions.waitUntil = 'networkidle2';
+        goToOptions.timeout = 60000;
+      }
+    ]`,
+    /**
+     * pageFunction في puppeteer-scraper يعمل في Node.js context
+     * ويوفر context.page (Puppeteer Page) + context.request + context.log
+     */
     pageFunction: `async function pageFunction(context) {
-      const { page, request, log, customData } = context;
-      const { numero, code, annee, appealCourt, firstInstanceCourt, jobId, caseId, userId, caseNumber, webhookUrl, webhookHeaders } = customData;
-      
-      log.info('Navigating to Mahakim portal...');
-      await page.waitForSelector('input[formcontrolname="mark"]', { timeout: 30000 });
-      
-      // Fill form fields
-      await page.evaluate((data) => {
-        function setField(sel, val) {
-          const el = document.querySelector(sel);
-          if (!el) return;
-          const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
-          if (desc && desc.set) desc.set.call(el, val);
-          else el.value = val;
-          el.dispatchEvent(new Event('input', { bubbles: true }));
-          el.dispatchEvent(new Event('change', { bubbles: true }));
+  const { page, request, log } = context;
+  const customData = JSON.parse(request.userData.customData || '{}');
+  const { numero, code, annee, appealCourt, firstInstanceCourt,
+          jobId, caseId, userId, caseNumber, webhookUrl, anonKey } = customData;
+
+  log.info('Waiting for Angular form to load...');
+  try {
+    await page.waitForSelector('input[formcontrolname="mark"]', { timeout: 45000 });
+  } catch (e) {
+    log.error('Form not found — portal may be blocked or down');
+    await sendWebhook(webhookUrl, anonKey, { jobId, caseId, userId, caseNumber, error: 'تعذر تحميل نموذج البحث — البوابة قد تكون معطلة' });
+    return { error: 'form_not_found' };
+  }
+
+  log.info('Filling form fields...');
+  await page.evaluate((d) => {
+    function setField(sel, val) {
+      const el = document.querySelector(sel);
+      if (!el) return;
+      const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+      if (desc && desc.set) desc.set.call(el, val);
+      else el.value = val;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    setField('input[formcontrolname="mark"]', d.code);
+    setField('input[formcontrolname="numero"]', d.numero);
+    setField('input[formcontrolname="annee"]', d.annee);
+  }, { numero, code, annee });
+
+  // Select appeal court dropdown if needed
+  if (appealCourt) {
+    log.info('Selecting appeal court: ' + appealCourt);
+    try {
+      const dropdowns = await page.$$('p-dropdown .p-dropdown-trigger');
+      if (dropdowns.length > 0) {
+        await dropdowns[0].click();
+        await page.waitForTimeout(1500);
+        const items = await page.$$('.p-dropdown-panel li, .p-dropdown-items li');
+        for (const item of items) {
+          const text = await item.evaluate(el => el.textContent || '');
+          if (text.includes(appealCourt)) {
+            await item.click();
+            log.info('Appeal court selected');
+            break;
+          }
         }
-        setField('input[formcontrolname="mark"]', data.code);
-        setField('input[formcontrolname="numero"]', data.numero);
-        setField('input[formcontrolname="annee"]', data.annee);
-      }, { numero, code, annee });
-      
-      // Select appeal court if needed
-      if (appealCourt) {
-        const dropdowns = await page.$$('p-dropdown .p-dropdown-trigger');
-        if (dropdowns.length > 0) {
-          await dropdowns[0].click();
-          await page.waitForTimeout(1000);
-          const items = await page.$$('.p-dropdown-panel li');
-          for (const item of items) {
-            const text = await item.textContent();
-            if (text && text.includes(appealCourt)) {
-              await item.click();
-              break;
+        await page.waitForTimeout(800);
+      }
+    } catch (e) { log.warning('Appeal court selection failed: ' + e.message); }
+  }
+
+  // Click search button
+  log.info('Clicking search...');
+  const searchBtn = await page.$('button[type="submit"], button.p-button');
+  if (searchBtn) await searchBtn.click();
+  else {
+    await sendWebhook(webhookUrl, anonKey, { jobId, caseId, userId, caseNumber, error: 'لم يتم العثور على زر البحث' });
+    return { error: 'search_btn_not_found' };
+  }
+
+  // Wait for results to load
+  log.info('Waiting for results (15s)...');
+  await page.waitForTimeout(15000);
+
+  // Extract data from DOM
+  log.info('Extracting data...');
+  const extracted = await page.evaluate(() => {
+    const caseInfo = {};
+    const procedures = [];
+
+    // Extract case info from key-value pairs
+    const patterns = [
+      ['court', ['المحكمة']], ['judge', ['القاضي المقرر', 'القاضي']],
+      ['department', ['الشعبة']], ['case_type', ['نوع القضية', 'نوع الملف']],
+      ['status', ['الحالة', 'حالة القضية']],
+      ['registration_date', ['تاريخ التسجيل']],
+      ['subject', ['الموضوع']],
+    ];
+    const allEls = document.querySelectorAll('td, th, span, label, div, dt, dd');
+    for (const [key, labels] of patterns) {
+      for (const label of labels) {
+        for (const el of allEls) {
+          const t = (el.textContent || '').trim();
+          if (t === label || t === label + ':' || t === label + ' :') {
+            const next = el.nextElementSibling || el.parentElement?.nextElementSibling;
+            if (next) {
+              const val = (next.textContent || '').trim();
+              if (val && val !== label) { caseInfo[key] = val; break; }
             }
           }
-          await page.waitForTimeout(500);
+        }
+        if (caseInfo[key]) break;
+      }
+    }
+
+    // Extract procedures table
+    const tables = document.querySelectorAll('table, p-table table');
+    for (const table of tables) {
+      const rows = table.querySelectorAll('tbody tr, tr');
+      let headerSkipped = false;
+      for (const row of rows) {
+        const cells = row.querySelectorAll('td');
+        if (cells.length >= 2) {
+          if (!headerSkipped && row.querySelector('th')) { headerSkipped = true; continue; }
+          procedures.push({
+            action_date: (cells[0]?.textContent || '').trim(),
+            action_type: (cells[1]?.textContent || '').trim(),
+            decision: (cells[2]?.textContent || '').trim(),
+            next_session_date: (cells[3]?.textContent || '').trim(),
+          });
         }
       }
-      
-      // Click search button
-      const searchBtn = await page.$('button[type="submit"], button.p-button');
-      if (searchBtn) await searchBtn.click();
-      
-      // Wait for results
-      await page.waitForTimeout(15000);
-      
-      // Extract data
-      const results = await page.evaluate(() => {
-        const caseInfo = {};
-        const procedures = [];
-        
-        // Extract case info
-        const patterns = [
-          ['court', ['المحكمة']], ['judge', ['القاضي المقرر', 'القاضي']],
-          ['department', ['الشعبة']], ['case_type', ['نوع القضية']], ['status', ['الحالة']]
-        ];
-        
-        for (const [key, labels] of patterns) {
-          for (const label of labels) {
-            const elements = document.querySelectorAll('td, th, span, label, div');
-            for (const el of elements) {
-              if (el.textContent && el.textContent.trim() === label) {
-                const next = el.nextElementSibling || el.parentElement?.nextElementSibling;
-                if (next && next.textContent) {
-                  caseInfo[key] = next.textContent.trim();
-                  break;
-                }
-              }
-            }
-            if (caseInfo[key]) break;
-          }
-        }
-        
-        // Extract procedures table
-        const tables = document.querySelectorAll('table');
-        for (const table of tables) {
-          const rows = table.querySelectorAll('tr');
-          let isHeader = true;
-          for (const row of rows) {
-            const cells = row.querySelectorAll('td');
-            if (cells.length >= 2) {
-              if (isHeader) { isHeader = false; continue; }
-              procedures.push({
-                action_date: cells[0]?.textContent?.trim() || '',
-                action_type: cells[1]?.textContent?.trim() || '',
-                decision: cells[2]?.textContent?.trim() || '',
-                next_session_date: cells[3]?.textContent?.trim() || '',
-              });
-            }
-          }
-        }
-        
-        return { caseInfo, procedures };
-      });
-      
-      // Find next session date
-      let nextSessionDate = null;
-      const now = new Date();
-      for (const proc of results.procedures) {
-        if (proc.next_session_date) {
-          const m = proc.next_session_date.match(/(\\d{2})\\/(\\d{2})\\/(\\d{4})/);
-          if (m) {
-            const d = new Date(m[3] + '-' + m[2] + '-' + m[1]);
-            if (d >= now) {
-              nextSessionDate = m[3] + '-' + m[2] + '-' + m[1];
-              break;
-            }
-          }
-        }
+    }
+
+    // Also check for "no data" indicators
+    const bodyText = document.body.textContent || '';
+    const noData = bodyText.includes('لا توجد نتائج') || bodyText.includes('غير موجود');
+
+    return { caseInfo, procedures, noData, bodyLength: bodyText.length };
+  });
+
+  log.info('Extracted: ' + JSON.stringify({ info: Object.keys(extracted.caseInfo), procs: extracted.procedures.length, noData: extracted.noData }));
+
+  // Determine next session date
+  let nextSessionDate = null;
+  const now = new Date();
+  for (const proc of extracted.procedures) {
+    if (proc.next_session_date) {
+      const m = proc.next_session_date.match(/(\\d{2})\\/(\\d{2})\\/(\\d{4})/);
+      if (m) {
+        const d = new Date(m[3] + '-' + m[2] + '-' + m[1]);
+        if (d >= now) { nextSessionDate = m[3] + '-' + m[2] + '-' + m[1]; break; }
       }
-      
-      // Send results via webhook
-      log.info('Sending results to webhook...');
-      await fetch(webhookUrl, {
+    }
+  }
+
+  // Send results to webhook
+  const payload = {
+    jobId, caseId, userId, caseNumber,
+    results: {
+      caseInfo: extracted.caseInfo,
+      procedures: extracted.procedures,
+      nextSessionDate,
+    },
+  };
+
+  if (extracted.noData || (extracted.procedures.length === 0 && Object.keys(extracted.caseInfo).length === 0)) {
+    payload.error = 'لا توجد نتائج لهذا الملف في بوابة محاكم';
+  }
+
+  log.info('Sending to webhook...');
+  await sendWebhook(webhookUrl, anonKey, payload);
+  log.info('Done!');
+  return extracted;
+
+  async function sendWebhook(url, key, data) {
+    try {
+      const resp = await fetch(url, {
         method: 'POST',
-        headers: webhookHeaders,
-        body: JSON.stringify({
-          jobId, caseId, userId, caseNumber,
-          results: { ...results, nextSessionDate },
-        }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + key,
+          'apikey': key,
+        },
+        body: JSON.stringify(data),
       });
-      
-      return results;
-    }`,
+      log.info('Webhook response: ' + resp.status);
+    } catch (e) {
+      log.error('Webhook failed: ' + e.message);
+    }
+  }
+}`,
   };
 
   try {
-    // Launch the web-scraper Actor
+    // Launch puppeteer-scraper Actor (provides context.page in Node.js)
     const resp = await fetch(
-      `${APIFY_API_BASE}/acts/apify~web-scraper/runs?token=${apiToken}`,
+      `${APIFY_API_BASE}/acts/apify~puppeteer-scraper/runs?token=${apiToken}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
