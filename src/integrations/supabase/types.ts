@@ -1201,7 +1201,7 @@ export type Database = {
           id: string
           is_read: boolean
           message: string
-          session_id: string
+          session_id: string | null
           user_id: string
         }
         Insert: {
@@ -1210,7 +1210,7 @@ export type Database = {
           id?: string
           is_read?: boolean
           message: string
-          session_id: string
+          session_id?: string | null
           user_id: string
         }
         Update: {
@@ -1219,7 +1219,7 @@ export type Database = {
           id?: string
           is_read?: boolean
           message?: string
-          session_id?: string
+          session_id?: string | null
           user_id?: string
         }
         Relationships: [
