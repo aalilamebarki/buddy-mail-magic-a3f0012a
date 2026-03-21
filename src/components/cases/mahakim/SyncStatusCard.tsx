@@ -36,7 +36,7 @@ export const SyncStatusCard = ({ job }: SyncStatusCardProps) => {
             {status.label}
             {lastProvider && job.status === 'completed' && (
               <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-normal">
-                {lastProvider === 'firecrawl' ? 'Firecrawl' : lastProvider === 'scrapingbee' ? 'ScrapingBee' : lastProvider}
+                {lastProvider === 'apify' ? 'Apify' : lastProvider === 'firecrawl' ? 'Firecrawl' : lastProvider === 'scrapingbee' ? 'ScrapingBee' : lastProvider === 'clipboard' ? 'لصق يدوي' : lastProvider}
               </Badge>
             )}
           </div>
