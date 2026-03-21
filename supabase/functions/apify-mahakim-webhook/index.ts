@@ -191,6 +191,10 @@ Deno.serve(async (req) => {
       && !caseInfo.status
       && procedures.length === 0;
 
+    // ── Additional detection: if caseInfo only has placeholder values ──
+    const caseInfoValues = Object.values(caseInfo).filter(v => v && !isPlaceholderValue(v));
+    const isEffectivelyEmpty = !blockedDetection.blocked && caseInfoValues.length === 0 && procedures.length === 0;
+
     const lastSyncPayload = {
       caseInfo,
       procedures,
@@ -201,7 +205,7 @@ Deno.serve(async (req) => {
       pageTitle: pageTitle || '',
       _provider: 'apify',
       _timestamp: new Date().toISOString(),
-      empty: isEmptyResult,
+      empty: isEmptyResult || isEffectivelyEmpty,
       blocked: blockedDetection.blocked,
       blocked_reason: blockedDetection.reason || null,
     };
@@ -235,14 +239,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 1. Update case metadata — store FULL raw JSON
+    // 1. Update case metadata — store FULL raw JSON but NEVER overwrite with placeholder values
     const caseUpdate: Record<string, unknown> = {
       last_synced_at: new Date().toISOString(),
       last_sync_result: lastSyncPayload,
     };
 
-    if (isEmptyResult) {
-      caseUpdate.mahakim_status = 'لا يزال غير موجود';
+    if (isEmptyResult || isEffectivelyEmpty) {
+      // Don't set court/judge/department to garbage placeholder values
+      // Just mark as not found yet
     }
     if (caseInfo.judge && !isPlaceholderValue(caseInfo.judge)) caseUpdate.mahakim_judge = caseInfo.judge;
     if (caseInfo.department && !isPlaceholderValue(caseInfo.department)) caseUpdate.mahakim_department = caseInfo.department;
