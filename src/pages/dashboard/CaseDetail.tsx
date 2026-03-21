@@ -298,7 +298,7 @@ const CaseDetail = () => {
             <div className="flex justify-between"><span className="text-muted-foreground">التاريخ:</span><span>{new Date(caseData.created_at).toLocaleDateString('ar-MA')}</span></div>
             {caseData.description && <div className="pt-2 border-t"><p className="text-muted-foreground">{caseData.description}</p></div>}
             {caseData.case_number && (
-              <div className="pt-2 border-t">
+              <div className="pt-2 border-t space-y-2">
                 <MahakimSyncStatus
                   caseNumber={caseData.case_number}
                   courtName={caseData.court}
@@ -308,6 +308,15 @@ const CaseDetail = () => {
                   onSync={(appealCourt, firstInstanceCourt) => startSync(caseData.case_number, appealCourt, firstInstanceCourt)}
                   onOpenPortal={() => openPortal(caseData.case_number)}
                 />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full gap-1.5"
+                  onClick={() => setBrowserFetchOpen(true)}
+                >
+                  <Globe className="h-3.5 w-3.5" />
+                  جلب من المتصفح
+                </Button>
               </div>
             )}
           </CardContent>
