@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.google-calendar-callback]
 verify_jwt = false
+
+[functions.apify-mahakim-webhook]
+verify_jwt = false
