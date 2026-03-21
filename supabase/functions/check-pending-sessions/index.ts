@@ -10,6 +10,7 @@ const AUTO_REVIEW_PREFIX = "المراجعة الآلية للجلسات";
 const PAGE_SIZE = 500;
 const CHUNK_SIZE = 200;
 const RETRY_COOLDOWN_MINUTES = 30;
+const EMPTY_RESULT_RETRY_MINUTES = 30 * 60; // 30 hours in minutes
 
 type CaseRow = {
   id: string;
