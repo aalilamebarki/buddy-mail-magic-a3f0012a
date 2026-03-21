@@ -1181,16 +1181,45 @@ function buildApifyPageFunction(input: CaseInput, ac?: string, pc?: string): str
   lines.push('  if(!clicked) return {error:"search_btn_not_found"};');
   lines.push('  log.info("Search clicked, waiting for results...");');
   lines.push('  for(var i=0;i<20;i++){ await delay(2000); var ok=await page.evaluate(function(){var b=document.body.textContent||"";return !!(document.querySelector("table tbody tr td")||document.querySelector(".p-datatable-tbody tr")||b.indexOf("\\u0644\\u0627 \\u062a\\u0648\\u062c\\u062f")>=0||b.indexOf("\\u0627\\u0644\\u0642\\u0627\\u0636\\u064a")>=0);}); if(ok)break; }');
+  
+  // ── Full JSON extraction — capture EVERYTHING on the page ──
   lines.push('  var data=await page.evaluate(function(){');
-  lines.push('    var ci={},procs=[],body=document.body.textContent||"",html=document.body.innerHTML;');
+  lines.push('    var ci={},procs=[],rawTexts=[],allLabels={},dropdowns=[],tables=[];');
+  lines.push('    var body=document.body.textContent||"",html=document.body.innerHTML;');
   lines.push('    var noData=body.indexOf("\\u0644\\u0627 \\u062a\\u0648\\u062c\\u062f \\u0623\\u064a\\u0629 \\u0646\\u062a\\u064a\\u062c\\u0629")>=0;');
-  lines.push('    var fs=[["court","\\u0627\\u0644\\u0645\\u062d\\u0643\\u0645\\u0629"],["judge","\\u0627\\u0644\\u0642\\u0627\\u0636\\u064a \\u0627\\u0644\\u0645\\u0642\\u0631\\u0631"],["judge","\\u0627\\u0644\\u0642\\u0627\\u0636\\u064a"],["department","\\u0627\\u0644\\u0634\\u0639\\u0628\\u0629"],["status","\\u0627\\u0644\\u062d\\u0627\\u0644\\u0629"]];');
-  lines.push('    for(var i=0;i<fs.length;i++){if(ci[fs[i][0]])continue;var idx=html.indexOf(fs[i][1]);if(idx===-1)continue;var af=html.substring(idx,idx+500);var m=af.match(/>([^<]{2,100})</);if(m&&m[1].trim()!==fs[i][1]&&m[1].trim().length>1)ci[fs[i][0]]=m[1].trim();}');
+  
+  // Extract ALL label-value pairs from the page
+  lines.push('    var allFields=[["court","\\u0627\\u0644\\u0645\\u062d\\u0643\\u0645\\u0629"],["judge","\\u0627\\u0644\\u0642\\u0627\\u0636\\u064a \\u0627\\u0644\\u0645\\u0642\\u0631\\u0631"],["judge","\\u0627\\u0644\\u0642\\u0627\\u0636\\u064a"],["department","\\u0627\\u0644\\u0634\\u0639\\u0628\\u0629"],["status","\\u0627\\u0644\\u062d\\u0627\\u0644\\u0629"],["case_type","\\u0646\\u0648\\u0639 \\u0627\\u0644\\u0645\\u0644\\u0641"],["case_type2","\\u0646\\u0648\\u0639 \\u0627\\u0644\\u0642\\u0636\\u064a\\u0629"],["registration_date","\\u062a\\u0627\\u0631\\u064a\\u062e \\u0627\\u0644\\u062a\\u0633\\u062c\\u064a\\u0644"],["national_number","\\u0627\\u0644\\u0631\\u0642\\u0645 \\u0627\\u0644\\u0648\\u0637\\u0646\\u064a"],["subject","\\u0627\\u0644\\u0645\\u0648\\u0636\\u0648\\u0639"],["last_decision","\\u0622\\u062e\\u0631 \\u062d\\u0643\\u0645"],["parties","\\u0627\\u0644\\u0623\\u0637\\u0631\\u0627\\u0641"],["plaintiff","\\u0627\\u0644\\u0645\\u062f\\u0639\\u064a"],["defendant","\\u0627\\u0644\\u0645\\u062f\\u0639\\u0649 \\u0639\\u0644\\u064a\\u0647"],["lawyer","\\u0627\\u0644\\u0645\\u062d\\u0627\\u0645\\u064a"],["file_number","\\u0631\\u0642\\u0645 \\u0627\\u0644\\u0645\\u0644\\u0641"],["section","\\u0627\\u0644\\u0642\\u0633\\u0645"],["hearing_room","\\u0627\\u0644\\u0642\\u0627\\u0639\\u0629"],["next_hearing","\\u0627\\u0644\\u062c\\u0644\\u0633\\u0629 \\u0627\\u0644\\u0645\\u0642\\u0628\\u0644\\u0629"]];');
+  lines.push('    for(var i=0;i<allFields.length;i++){if(ci[allFields[i][0]])continue;var idx=html.indexOf(allFields[i][1]);if(idx===-1)continue;var af=html.substring(idx,idx+500);var m=af.match(/>([^<]{2,200})</);if(m&&m[1].trim()!==allFields[i][1]&&m[1].trim().length>1)ci[allFields[i][0]]=m[1].trim();}');
+  
+  // Capture ALL visible label:value pairs generically
+  lines.push('    var labelEls=document.querySelectorAll("label,.p-field label,.field-label,th,dt,.label,strong");');
+  lines.push('    labelEls.forEach(function(el){var lbl=(el.textContent||"").trim();if(lbl.length<2||lbl.length>60)return;var next=el.nextElementSibling||el.parentElement&&el.parentElement.querySelector("span,div,td,dd,p,.value");if(next){var val=(next.textContent||"").trim();if(val&&val!==lbl&&val.length>0&&val.length<500){allLabels[lbl]=val;}}});');
+  
+  // Capture all dropdown values
+  lines.push('    document.querySelectorAll(".p-dropdown-label,select").forEach(function(d){var v=(d.textContent||d.value||"").trim();if(v&&v.length>1)dropdowns.push(v);});');
+  
+  // Capture ALL tables (not just procedures)
+  lines.push('    document.querySelectorAll("table,.p-datatable").forEach(function(tbl,tIdx){');
+  lines.push('      var headers=[],rows=[];');
+  lines.push('      tbl.querySelectorAll("thead th,.p-datatable-thead th").forEach(function(th){headers.push((th.textContent||"").trim());});');
+  lines.push('      tbl.querySelectorAll("tbody tr,.p-datatable-tbody tr").forEach(function(tr){');
+  lines.push('        var cells=[];tr.querySelectorAll("td").forEach(function(td){cells.push((td.textContent||"").trim());});');
+  lines.push('        if(cells.length>0)rows.push(cells);');
+  lines.push('      });');
+  lines.push('      tables.push({index:tIdx,headers:headers,rows:rows});');
+  lines.push('    });');
+  
+  // Build procedures from the main procedures table
   lines.push('    var rows=document.querySelectorAll("table tbody tr, .p-datatable-tbody tr");');
-  lines.push('    for(var j=0;j<rows.length;j++){var c=rows[j].querySelectorAll("td");if(c.length>=2){var ad=c[0]?c[0].textContent.trim():"";if(ad&&ad.indexOf("\\u062a\\u0627\\u0631\\u064a\\u062e")<0&&ad.length<30){procs.push({action_date:ad,action_type:c[1]?c[1].textContent.trim():"",decision:c.length>2&&c[2]?c[2].textContent.trim():"",next_session_date:c.length>3&&c[3]?c[3].textContent.trim():""})}}}');
-  lines.push('    return {caseInfo:ci,procedures:procs,noData:noData};');
+  lines.push('    for(var j=0;j<rows.length;j++){var c=rows[j].querySelectorAll("td");if(c.length>=2){var ad=c[0]?c[0].textContent.trim():"";if(ad&&ad.indexOf("\\u062a\\u0627\\u0631\\u064a\\u062e")<0&&ad.length<60){procs.push({action_date:ad,action_type:c[1]?c[1].textContent.trim():"",decision:c.length>2&&c[2]?c[2].textContent.trim():"",next_session_date:c.length>3&&c[3]?c[3].textContent.trim():"",col5:c.length>4&&c[4]?c[4].textContent.trim():"",col6:c.length>5&&c[5]?c[5].textContent.trim():""})}}}');
+  
+  // Capture raw body text for further processing
+  lines.push('    rawTexts.push(body.substring(0,5000));');
+  
+  lines.push('    return {caseInfo:ci,procedures:procs,noData:noData,allLabels:allLabels,dropdowns:dropdowns,tables:tables,rawText:body.substring(0,8000),pageTitle:document.title,url:window.location.href};');
   lines.push('  });');
-  lines.push('  log.info("Done: "+Object.keys(data.caseInfo).length+" fields, "+data.procedures.length+" procs");');
+  lines.push('  log.info("Done: "+Object.keys(data.caseInfo).length+" fields, "+data.procedures.length+" procs, "+Object.keys(data.allLabels||{}).length+" labels, "+(data.tables||[]).length+" tables");');
   lines.push('  return data;');
   lines.push('}');
   return lines.join('\n');

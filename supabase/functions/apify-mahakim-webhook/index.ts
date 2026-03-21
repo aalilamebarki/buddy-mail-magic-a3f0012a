@@ -58,6 +58,13 @@ Deno.serve(async (req) => {
                     caseInfo: item.caseInfo || {},
                     procedures: item.procedures || [],
                     nextSessionDate: null,
+                    // Store ALL raw data from the page
+                    allLabels: item.allLabels || {},
+                    dropdowns: item.dropdowns || [],
+                    tables: item.tables || [],
+                    rawText: item.rawText || '',
+                    pageTitle: item.pageTitle || '',
+                    noData: item.noData || false,
                   };
                 }
               } else {
@@ -105,15 +112,26 @@ Deno.serve(async (req) => {
     }
 
     // ── Parse Apify results ──
-    const { caseInfo = {}, procedures = [], nextSessionDate } = results;
+    const { caseInfo = {}, procedures = [], nextSessionDate, allLabels, dropdowns, tables, rawText, pageTitle, noData: resultNoData } = results;
 
     // Handle "not found" — no data returned from portal
     const isEmptyResult = !caseInfo.judge && !caseInfo.department && !caseInfo.status && procedures.length === 0;
 
-    // 1. Update case metadata
+    // 1. Update case metadata — store FULL raw JSON
     const caseUpdate: Record<string, unknown> = {
       last_synced_at: new Date().toISOString(),
-      last_sync_result: { caseInfo, procedures, _provider: 'apify', empty: isEmptyResult },
+      last_sync_result: {
+        caseInfo,
+        procedures,
+        allLabels: allLabels || {},
+        dropdowns: dropdowns || [],
+        tables: tables || [],
+        rawText: (rawText || '').substring(0, 10000),
+        pageTitle: pageTitle || '',
+        _provider: 'apify',
+        _timestamp: new Date().toISOString(),
+        empty: isEmptyResult,
+      },
     };
 
     if (isEmptyResult) {
@@ -224,7 +242,15 @@ Deno.serve(async (req) => {
     // 4. Update sync job as completed
     await supabase.from('mahakim_sync_jobs').update({
       status: 'completed',
-      result_data: { ...caseInfo, _provider: 'apify', procedures_count: procedures.length },
+      result_data: {
+        ...caseInfo,
+        _provider: 'apify',
+        procedures_count: procedures.length,
+        labels_count: Object.keys(allLabels || {}).length,
+        tables_count: (tables || []).length,
+        has_raw_text: !!(rawText && rawText.length > 0),
+        full_data: { caseInfo, procedures, allLabels, dropdowns, tables },
+      },
       next_session_date: nextSessionDate || null,
       completed_at: new Date().toISOString(),
     }).eq('id', jobId);
