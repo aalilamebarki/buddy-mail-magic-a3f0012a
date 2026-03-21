@@ -15,10 +15,6 @@ export interface MahakimSyncStatusProps {
   /** بدء المزامنة — المزود يُحدد تلقائياً */
   onSync: (appealCourt: string, firstInstanceCourt?: string) => void;
   onOpenPortal: () => void;
-  /** معرف الملف — مطلوب لمساعد المزامنة الذكي */
-  caseId?: string;
-  /** يُستدعى بعد نجاح المزامنة الذكية */
-  onSyncComplete?: () => void;
 }
 
 /** إعدادات حالة المزامنة للعرض */
@@ -26,10 +22,4 @@ export interface StatusConfig {
   label: string;
   icon: React.ReactNode;
   color: string;
-}
-
-/** بيانات المزود لعرض الخيارات */
-export interface ProviderOption {
-  label: string;
-  desc: string;
 }
