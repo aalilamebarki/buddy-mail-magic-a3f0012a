@@ -123,6 +123,7 @@ const SidebarContent = ({ onNavigate, syncIndicator }: { onNavigate?: () => void
           تسجيل الخروج
         </Button>
       </div>
+    </div>
   );
 };
 
