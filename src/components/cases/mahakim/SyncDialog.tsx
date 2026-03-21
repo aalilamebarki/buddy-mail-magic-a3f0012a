@@ -3,7 +3,7 @@
  * Confirmation dialog for starting a Mahakim portal sync
  * - إدخال رقم الملف
  * - تحديد المحكمة تلقائياً
- * - اختيار مزود الجلب
+ * - المزود يُختار تلقائياً (لا حاجة لاختيار يدوي)
  */
 
 import { useState, useMemo } from 'react';
@@ -13,23 +13,15 @@ import { Label } from '@/components/ui/label';
 import { RefreshCw, CheckCircle2, AlertTriangle, Info } from 'lucide-react';
 import { resolvePortalCourts } from '@/lib/court-mapping';
 import { CaseNumberInput } from '@/components/cases/CaseNumberInput';
-import { ProviderSelector } from './ProviderSelector';
-import type { ScrapeProvider } from './types';
 import type { SyncJob } from '@/hooks/useMahakimSync';
 
 interface SyncDialogProps {
-  /** هل النافذة مفتوحة */
   open: boolean;
-  /** تغيير حالة الفتح/الإغلاق */
   onOpenChange: (open: boolean) => void;
-  /** رقم الملف الأولي */
   initialCaseNumber: string;
-  /** اسم المحكمة لتحديد المحكمة تلقائياً */
   courtName?: string | null;
-  /** آخر مهمة للتحقق من الفشل السابق */
   latestJob: SyncJob | null;
-  /** تأكيد بدء المزامنة */
-  onConfirm: (appealCourt: string, firstInstanceCourt?: string, provider?: ScrapeProvider) => void;
+  onConfirm: (appealCourt: string, firstInstanceCourt?: string) => void;
 }
 
 export const SyncDialog = ({
@@ -41,32 +33,15 @@ export const SyncDialog = ({
   onConfirm,
 }: SyncDialogProps) => {
   const [caseNumRaw, setCaseNumRaw] = useState(initialCaseNumber);
-  const [provider, setProvider] = useState<ScrapeProvider>('auto');
 
-  // ── تحديد المزود المقترح بناءً على الفشل السابق ──
-  const suggestProvider = () => {
-    if (latestJob?.status === 'failed') {
-      const lastProv = (latestJob.result_data as any)?._provider;
-      if (lastProv === 'firecrawl') return 'scrapingbee';
-      if (lastProv === 'scrapingbee') return 'firecrawl';
-    }
-    return 'auto';
-  };
-
-  // ── تهيئة الحقول عند فتح النافذة ──
   const handleOpenChange = (isOpen: boolean) => {
-    if (isOpen) {
-      setCaseNumRaw(initialCaseNumber || '');
-      setProvider(suggestProvider());
-    }
+    if (isOpen) setCaseNumRaw(initialCaseNumber || '');
     onOpenChange(isOpen);
   };
 
-  // ── استخراج رمز الملف وتحديد المحكمة ──
   const parsedCode = useMemo(() => (caseNumRaw.split('/')[1] || ''), [caseNumRaw]);
   const resolved = useMemo(() => resolvePortalCourts(courtName, parsedCode), [courtName, parsedCode]);
 
-  // ── التحقق من صحة النموذج ──
   const isFormValid = useMemo(() => {
     const parts = caseNumRaw.split('/');
     return parts.length === 3 &&
@@ -78,7 +53,7 @@ export const SyncDialog = ({
 
   const handleConfirm = () => {
     if (!isFormValid || !resolved.appealPortalLabel) return;
-    onConfirm(resolved.appealPortalLabel, resolved.primaryPortalLabel || undefined, provider);
+    onConfirm(resolved.appealPortalLabel, resolved.primaryPortalLabel || undefined);
     onOpenChange(false);
   };
 
@@ -105,18 +80,15 @@ export const SyncDialog = ({
             </p>
           </div>
 
-          {/* ── حالة تحديد المحكمة التلقائي ── */}
-          <CourtResolutionStatus
-            resolved={resolved}
-            courtName={courtName}
-          />
+          {/* ── حالة تحديد المحكمة ── */}
+          <CourtResolutionStatus resolved={resolved} courtName={courtName} />
 
-          {/* ── اختيار المزود ── */}
-          <ProviderSelector
-            value={provider}
-            onChange={setProvider}
-            lastAttemptFailed={latestJob?.status === 'failed'}
-          />
+          {/* ── ملاحظة المزود التلقائي ── */}
+          {latestJob?.status === 'failed' && (
+            <p className="text-[10px] text-amber-600 bg-amber-50 dark:bg-amber-950/30 rounded p-2">
+              💡 فشلت المحاولة السابقة — سيتم تجربة مزود بديل تلقائياً
+            </p>
+          )}
         </div>
 
         <DialogFooter className="gap-2">
@@ -132,13 +104,7 @@ export const SyncDialog = ({
 };
 
 /* ── مكون فرعي: حالة تحديد المحكمة ── */
-interface CourtResolutionStatusProps {
-  resolved: ReturnType<typeof resolvePortalCourts>;
-  courtName?: string | null;
-}
-
-const CourtResolutionStatus = ({ resolved, courtName }: CourtResolutionStatusProps) => {
-  // ✅ تم التعرف على المحكمة
+const CourtResolutionStatus = ({ resolved, courtName }: { resolved: ReturnType<typeof resolvePortalCourts>; courtName?: string | null }) => {
   if (resolved.appealPortalLabel) {
     return (
       <div className="flex items-start gap-2 p-2.5 rounded-md bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
@@ -158,28 +124,22 @@ const CourtResolutionStatus = ({ resolved, courtName }: CourtResolutionStatusPro
     );
   }
 
-  // ⚠ المحكمة مسجلة لكن غير معروفة
   if (courtName) {
     return (
       <div className="flex items-start gap-2 p-2.5 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
         <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
         <div className="text-xs">
           <p className="font-medium text-amber-700 dark:text-amber-400">لم يتم التعرف على المحكمة</p>
-          <p className="text-muted-foreground">
-            المحكمة المسجلة "{courtName}" غير موجودة في خريطة المحاكم.
-          </p>
+          <p className="text-muted-foreground">المحكمة المسجلة "{courtName}" غير موجودة في خريطة المحاكم.</p>
         </div>
       </div>
     );
   }
 
-  // ℹ لا توجد محكمة
   return (
     <div className="flex items-start gap-2 p-2.5 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
       <Info className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-      <p className="text-xs text-amber-700 dark:text-amber-400">
-        يرجى تحديد المحكمة في بيانات الملف أولاً.
-      </p>
+      <p className="text-xs text-amber-700 dark:text-amber-400">يرجى تحديد المحكمة في بيانات الملف أولاً.</p>
     </div>
   );
 };
