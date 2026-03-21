@@ -434,7 +434,7 @@ ${firstInstanceCourt ? `
           // Check additional columns for time/room
           for(let i=4;i<c.length;i++){
             const txt=(c[i]?.textContent||'').trim();
-            if(!proc.session_time&&(/^\d{1,2}:\d{2}$/.test(txt)))proc.session_time=txt;
+            if(!proc.session_time&&(new RegExp('^\\\\d{1,2}:\\\\d{2}$').test(txt)))proc.session_time=txt;
             if(!proc.court_room&&(txt.includes('قاعة')||txt.includes('غرفة')))proc.court_room=txt;
           }
           procs.push(proc);
