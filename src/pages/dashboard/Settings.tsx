@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Mail, Globe, Shield, Send, AlertTriangle, CheckCircle2, Settings2 } from 'lucide-react';
 import GoogleCalendarSection from '@/components/settings/GoogleCalendarSection';
+import SyncStatsSection from '@/components/settings/SyncStatsSection';
 
 const SettingsPage = () => {
   const [officeName, setOfficeName] = useState('');
@@ -306,6 +307,8 @@ const SettingsPage = () => {
       </Card>
       {/* Google Calendar */}
       <GoogleCalendarSection />
+      {/* Sync Stats */}
+      <SyncStatsSection />
     </div>
   );
 };
