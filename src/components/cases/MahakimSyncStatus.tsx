@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Loader2, RefreshCw, ExternalLink, CheckCircle2, XCircle, Clock, AlertTriangle, Info } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Loader2, RefreshCw, ExternalLink, CheckCircle2, XCircle, Clock, AlertTriangle, Info, Zap, Globe } from 'lucide-react';
 import { SyncJob } from '@/hooks/useMahakimSync';
 import { formatDistanceToNow } from 'date-fns';
 import { ar } from 'date-fns/locale';
@@ -17,7 +18,7 @@ interface MahakimSyncStatusProps {
   courtLevel?: string | null;
   latestJob: SyncJob | null;
   syncing: boolean;
-  onSync: (appealCourt: string, firstInstanceCourt?: string) => void;
+  onSync: (appealCourt: string, firstInstanceCourt?: string, provider?: 'auto' | 'firecrawl' | 'scrapingbee') => void;
   onOpenPortal: () => void;
 }
 
@@ -26,6 +27,12 @@ const statusConfig: Record<string, { label: string; icon: React.ReactNode; color
   scraping: { label: 'جاري الجلب...', icon: <Loader2 className="h-3.5 w-3.5 animate-spin" />, color: 'text-blue-600' },
   completed: { label: 'تم بنجاح', icon: <CheckCircle2 className="h-3.5 w-3.5" />, color: 'text-emerald-600' },
   failed: { label: 'فشل', icon: <XCircle className="h-3.5 w-3.5" />, color: 'text-destructive' },
+};
+
+const providerLabels: Record<string, { label: string; desc: string }> = {
+  auto: { label: 'تلقائي', desc: 'يجرب Firecrawl أولاً ثم ScrapingBee' },
+  firecrawl: { label: 'Firecrawl', desc: 'متصفح Playwright — أسرع' },
+  scrapingbee: { label: 'ScrapingBee', desc: 'بروكسي مغربي — أكثر استقراراً' },
 };
 
 export const MahakimSyncStatus = ({
@@ -42,6 +49,7 @@ export const MahakimSyncStatus = ({
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [caseNumRaw, setCaseNumRaw] = useState('');
+  const [provider, setProvider] = useState<'auto' | 'firecrawl' | 'scrapingbee'>('auto');
 
   // Auto-resolve courts from stored court name
   const parsedCode = useMemo(() => {
@@ -52,6 +60,15 @@ export const MahakimSyncStatus = ({
 
   const handleOpenDialog = () => {
     setCaseNumRaw(caseNumber || '');
+    // If last attempt failed, suggest switching provider
+    if (latestJob?.status === 'failed') {
+      const lastProvider = (latestJob.result_data as any)?._provider;
+      if (lastProvider === 'firecrawl') setProvider('scrapingbee');
+      else if (lastProvider === 'scrapingbee') setProvider('firecrawl');
+      else setProvider('auto');
+    } else {
+      setProvider('auto');
+    }
     setDialogOpen(true);
   };
 
@@ -66,9 +83,12 @@ export const MahakimSyncStatus = ({
 
   const handleConfirmSync = () => {
     if (!isFormValid || !resolved.appealPortalLabel) return;
-    onSync(resolved.appealPortalLabel, resolved.primaryPortalLabel || undefined);
+    onSync(resolved.appealPortalLabel, resolved.primaryPortalLabel || undefined, provider);
     setDialogOpen(false);
   };
+
+  // Show which provider was used in last result
+  const lastProvider = (latestJob?.result_data as any)?._provider;
 
   return (
     <div className="space-y-2">
@@ -154,6 +174,34 @@ export const MahakimSyncStatus = ({
                 </p>
               </div>
             )}
+
+            {/* Provider selector */}
+            <div className="space-y-2">
+              <Label className="font-medium text-xs">طريقة الجلب</Label>
+              <Select value={provider} onValueChange={(v) => setProvider(v as any)}>
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(providerLabels).map(([key, { label, desc }]) => (
+                    <SelectItem key={key} value={key} className="text-xs">
+                      <div className="flex items-center gap-2">
+                        {key === 'auto' && <Zap className="h-3 w-3 text-primary" />}
+                        {key === 'firecrawl' && <Globe className="h-3 w-3 text-orange-500" />}
+                        {key === 'scrapingbee' && <Globe className="h-3 w-3 text-yellow-500" />}
+                        <span>{label}</span>
+                        <span className="text-muted-foreground">— {desc}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {latestJob?.status === 'failed' && (
+                <p className="text-[10px] text-amber-600">
+                  💡 فشلت المحاولة السابقة — تم اقتراح مزود بديل
+                </p>
+              )}
+            </div>
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>إلغاء</Button>
@@ -173,6 +221,11 @@ export const MahakimSyncStatus = ({
               <div className={`flex items-center gap-1.5 text-xs font-medium ${status.color}`}>
                 {status.icon}
                 {status.label}
+                {lastProvider && latestJob.status === 'completed' && (
+                  <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-normal">
+                    {lastProvider === 'firecrawl' ? 'Firecrawl' : lastProvider === 'scrapingbee' ? 'ScrapingBee' : lastProvider}
+                  </Badge>
+                )}
               </div>
               {latestJob.completed_at && (
                 <span className="text-[10px] text-muted-foreground">
