@@ -307,6 +307,8 @@ const SettingsPage = () => {
       </Card>
       {/* Google Calendar */}
       <GoogleCalendarSection />
+      {/* Sync Stats */}
+      <SyncStatsSection />
     </div>
   );
 };
