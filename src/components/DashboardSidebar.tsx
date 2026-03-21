@@ -54,7 +54,7 @@ const menuItems = [
   { icon: User, label: 'الملف الشخصي', path: '/dashboard/profile', roles: ['director', 'partner', 'clerk', 'content_writer', 'client'] as const },
 ];
 
-const SidebarContent = ({ onNavigate }: { onNavigate?: () => void }) => {
+const SidebarContent = ({ onNavigate, syncIndicator }: { onNavigate?: () => void; syncIndicator?: React.ReactNode }) => {
   const location = useLocation();
   const { signOut, user, role } = useAuth();
 
