@@ -1032,19 +1032,94 @@ Deno.serve(async (req) => {
     };
 
     const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
-    if (!FIRECRAWL_API_KEY) {
+    const SCRAPINGBEE_API_KEY = Deno.env.get('SCRAPINGBEE_API_KEY');
+    if (!FIRECRAWL_API_KEY && !SCRAPINGBEE_API_KEY) {
       return new Response(JSON.stringify({
         status: 'error',
-        error: 'لم يتم تعيين مفتاح Firecrawl للجلب',
+        error: 'لم يتم تعيين أي مفتاح للجلب (Firecrawl أو ScrapingBee)',
       }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    /** Fetch case via Firecrawl Browser Sessions */
-    async function fetchCase(input: CaseInput, ac?: string, pc?: string): Promise<CaseResult> {
-      log('🔀 Fetching via Firecrawl Browser Sessions...');
-      const fcResult = await fetchViaFirecrawl(FIRECRAWL_API_KEY, input, ac, pc);
-      if (fcResult) return fcResult;
-      return { ...input, status: 'error', caseInfo: {}, procedures: [], nextSessionDate: null, error: 'فشل الجلب عبر Firecrawl — حاول مرة أخرى' };
+    const preferredProvider = (body.provider as ScrapeProvider) || 'auto';
+
+    /** Smart dual-provider fetch with automatic fallback */
+    async function fetchCase(input: CaseInput, ac?: string, pc?: string): Promise<CaseResult & { usedProvider?: string }> {
+      const providers: Array<{ name: string; fn: () => Promise<CaseResult | null> }> = [];
+
+      if (preferredProvider === 'firecrawl' && FIRECRAWL_API_KEY) {
+        providers.push({ name: 'firecrawl', fn: () => fetchViaFirecrawl(FIRECRAWL_API_KEY!, input, ac, pc) });
+        if (SCRAPINGBEE_API_KEY) providers.push({ name: 'scrapingbee', fn: () => fetchViaScrapingBee(SCRAPINGBEE_API_KEY!, input, ac, pc) });
+      } else if (preferredProvider === 'scrapingbee' && SCRAPINGBEE_API_KEY) {
+        providers.push({ name: 'scrapingbee', fn: () => fetchViaScrapingBee(SCRAPINGBEE_API_KEY!, input, ac, pc) });
+        if (FIRECRAWL_API_KEY) providers.push({ name: 'firecrawl', fn: () => fetchViaFirecrawl(FIRECRAWL_API_KEY!, input, ac, pc) });
+      } else {
+        // Auto mode: Firecrawl first (cheaper, no monthly cap), ScrapingBee fallback
+        if (FIRECRAWL_API_KEY) providers.push({ name: 'firecrawl', fn: () => fetchViaFirecrawl(FIRECRAWL_API_KEY!, input, ac, pc) });
+        if (SCRAPINGBEE_API_KEY) providers.push({ name: 'scrapingbee', fn: () => fetchViaScrapingBee(SCRAPINGBEE_API_KEY!, input, ac, pc) });
+      }
+
+      for (const p of providers) {
+        log(`🔀 Trying ${p.name}...`);
+        try {
+          const result = await p.fn();
+          if (result && result.status === 'success') {
+            log(`✓ ${p.name} succeeded`);
+            return { ...result, usedProvider: p.name };
+          }
+          if (result && result.status === 'no_data') {
+            // no_data means case genuinely not found — don't try other provider
+            return { ...result, usedProvider: p.name };
+          }
+          log(`✗ ${p.name} returned ${result?.status || 'null'} — trying next provider`);
+        } catch (err) {
+          log(`✗ ${p.name} threw: ${err instanceof Error ? err.message : 'unknown'}`);
+        }
+      }
+
+      return {
+        ...input, status: 'error', caseInfo: {}, procedures: [], nextSessionDate: null,
+        error: 'فشل الجلب عبر جميع المزودين — حاول مرة أخرى',
+        usedProvider: 'none',
+      };
+    }
+
+    /** Create notification on persistent failure */
+    async function notifyOnFailure(supabaseClient: ReturnType<typeof createClient>, jobUserId: string, jobCaseId: string, caseNumber: string, errorMsg: string) {
+      try {
+        // Check if there's already a recent failure notification for this case
+        const { data: existing } = await supabaseClient
+          .from('notifications')
+          .select('id')
+          .eq('case_id', jobCaseId)
+          .eq('user_id', jobUserId)
+          .eq('is_read', false)
+          .ilike('message', '%فشل المزامنة%')
+          .limit(1);
+
+        if (existing && existing.length > 0) return; // Don't spam
+
+        // We need a session_id — create a placeholder or find one
+        const { data: session } = await supabaseClient
+          .from('court_sessions')
+          .select('id')
+          .eq('case_id', jobCaseId)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        const sessionId = session?.[0]?.id;
+        if (!sessionId) return; // Can't create notification without session
+
+        await supabaseClient.from('notifications').insert({
+          user_id: jobUserId,
+          case_id: jobCaseId,
+          session_id: sessionId,
+          message: `فشل المزامنة التلقائية للملف ${caseNumber}: ${errorMsg}`,
+          is_read: false,
+        });
+        log(`🔔 Notification created for failed sync: ${caseNumber}`);
+      } catch (e) {
+        log(`⚠ Failed to create notification: ${e instanceof Error ? e.message : 'unknown'}`);
+      }
     }
 
     const supabase = createClient(
