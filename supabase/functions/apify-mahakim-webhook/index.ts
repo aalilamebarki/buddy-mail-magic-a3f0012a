@@ -175,34 +175,79 @@ Deno.serve(async (req) => {
 
     // ── Parse Apify results ──
     const { caseInfo = {}, procedures = [], nextSessionDate, allLabels, dropdowns, tables, rawText, pageTitle, noData: resultNoData } = results;
+    const blockedDetection = detectBlockedPortalResult({
+      caseInfo,
+      procedures,
+      dropdowns,
+      allLabels,
+      rawText,
+      noData: resultNoData,
+    });
 
-    // Handle "not found" — no data returned from portal
-    const isEmptyResult = !caseInfo.judge && !caseInfo.department && !caseInfo.status && procedures.length === 0;
+    // Handle "not found" — only when the portal really returned an empty result
+    const isEmptyResult = !blockedDetection.blocked
+      && !caseInfo.judge
+      && !caseInfo.department
+      && !caseInfo.status
+      && procedures.length === 0;
+
+    const lastSyncPayload = {
+      caseInfo,
+      procedures,
+      allLabels: allLabels || {},
+      dropdowns: dropdowns || [],
+      tables: tables || [],
+      rawText: (rawText || '').substring(0, 10000),
+      pageTitle: pageTitle || '',
+      _provider: 'apify',
+      _timestamp: new Date().toISOString(),
+      empty: isEmptyResult,
+      blocked: blockedDetection.blocked,
+      blocked_reason: blockedDetection.reason || null,
+    };
+
+    if (blockedDetection.blocked) {
+      await supabase.from('cases').update({
+        last_synced_at: new Date().toISOString(),
+        last_sync_result: lastSyncPayload,
+      }).eq('id', caseId);
+
+      const blockedMessage = 'تم حظر الجلب من بوابة محاكم مؤقتاً ولم يتم استخراج البيانات الفعلية';
+      await supabase.from('mahakim_sync_jobs').update({
+        status: 'failed',
+        error_message: blockedMessage,
+        result_data: {
+          _provider: 'apify',
+          blocked: true,
+          blocked_reason: blockedDetection.reason,
+          procedures_count: 0,
+          labels_count: Object.keys(allLabels || {}).length,
+          tables_count: (tables || []).length,
+        },
+        completed_at: new Date().toISOString(),
+      }).eq('id', jobId);
+
+      await createNotification(supabase, userId, caseId, caseNumber,
+        `تعذر جلب الملف ${caseNumber} لأن البوابة منعت الطلب مؤقتاً — ستتم إعادة المحاولة لاحقاً`);
+
+      return new Response(JSON.stringify({ status: 'blocked', error: blockedMessage }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // 1. Update case metadata — store FULL raw JSON
     const caseUpdate: Record<string, unknown> = {
       last_synced_at: new Date().toISOString(),
-      last_sync_result: {
-        caseInfo,
-        procedures,
-        allLabels: allLabels || {},
-        dropdowns: dropdowns || [],
-        tables: tables || [],
-        rawText: (rawText || '').substring(0, 10000),
-        pageTitle: pageTitle || '',
-        _provider: 'apify',
-        _timestamp: new Date().toISOString(),
-        empty: isEmptyResult,
-      },
+      last_sync_result: lastSyncPayload,
     };
 
     if (isEmptyResult) {
       caseUpdate.mahakim_status = 'لا يزال غير موجود';
     }
-    if (caseInfo.judge) caseUpdate.mahakim_judge = caseInfo.judge;
-    if (caseInfo.department) caseUpdate.mahakim_department = caseInfo.department;
-    if (caseInfo.status) caseUpdate.mahakim_status = caseInfo.status;
-    if (caseInfo.court) caseUpdate.court = caseInfo.court;
+    if (caseInfo.judge && !isPlaceholderValue(caseInfo.judge)) caseUpdate.mahakim_judge = caseInfo.judge;
+    if (caseInfo.department && !isPlaceholderValue(caseInfo.department)) caseUpdate.mahakim_department = caseInfo.department;
+    if (caseInfo.status && !isPlaceholderValue(caseInfo.status)) caseUpdate.mahakim_status = caseInfo.status;
+    if (caseInfo.court && !isPlaceholderValue(caseInfo.court)) caseUpdate.court = caseInfo.court;
 
     await supabase.from('cases').update(caseUpdate).eq('id', caseId);
 
