@@ -15,7 +15,7 @@ import { useClients } from '@/hooks/useClients';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { CaseNumberInput } from '@/components/cases/CaseNumberInput';
-import { getCategoryFromCode, COURT_HIERARCHY, filterAppellateByCode, validateHierarchy, type AppellateCourt } from '@/lib/court-mapping';
+import { getCategoryFromCode, COURT_HIERARCHY, filterAppellateByCode, validateHierarchy, findAppellateByPrimary, type AppellateCourt } from '@/lib/court-mapping';
 
 /* ─── Types ─── */
 export interface Opponent {
@@ -379,6 +379,14 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
     updateField('court', primaryLabel);
     setCourtPopoverOpen(false);
     setCourtSearchTerm('');
+    
+    // Auto-set appellate court if not already selected
+    if (selectedAppellateIdx < 0) {
+      const parentIdx = findAppellateByPrimary(primaryLabel);
+      if (parentIdx >= 0) {
+        setSelectedAppellateIdx(parentIdx);
+      }
+    }
   };
 
   const selectedAppellate = selectedAppellateIdx >= 0 ? COURT_HIERARCHY[selectedAppellateIdx] : null;
@@ -791,7 +799,7 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
                             </CommandEmpty>
                             <CommandGroup>
                               {filteredCourts.map(c => (
-                                <CommandItem key={c.id} value={c.id} onSelect={() => { updateField('court', c.name); setCourtPopoverOpen(false); setCourtSearchTerm(''); }}>
+                                <CommandItem key={c.id} value={c.id} onSelect={() => { updateField('court', c.name); const parentIdx = findAppellateByPrimary(c.name); if (parentIdx >= 0) setSelectedAppellateIdx(parentIdx); setCourtPopoverOpen(false); setCourtSearchTerm(''); }}>
                                   <Check className={cn("ml-2 h-4 w-4", form.court === c.name ? "opacity-100" : "opacity-0")} />
                                   <div className="flex flex-col">
                                     <span className="text-sm">{c.name}</span>

@@ -569,6 +569,22 @@ export function validateHierarchy(code: string, appealIdx: number): string | nul
 }
 
 /**
+ * Reverse lookup: given a primary court label, find its parent appellate court index.
+ * Returns the global index in COURT_HIERARCHY, or -1 if not found.
+ */
+export function findAppellateByPrimary(primaryLabel: string): number {
+  if (!primaryLabel) return -1;
+  const normalized = primaryLabel.trim();
+  for (let i = 0; i < COURT_HIERARCHY.length; i++) {
+    const ac = COURT_HIERARCHY[i];
+    if (ac.primaryCourts.some(pc => pc.label === normalized)) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+/**
  * Parse a composite case number string "numero/code/annee" into parts.
  */
 export function parseCaseNumber(composite: string): { numero: string; code: string; annee: string } {
