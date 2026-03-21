@@ -174,6 +174,34 @@ export const MahakimSyncStatus = ({
                 </p>
               </div>
             )}
+
+            {/* Provider selector */}
+            <div className="space-y-2">
+              <Label className="font-medium text-xs">طريقة الجلب</Label>
+              <Select value={provider} onValueChange={(v) => setProvider(v as any)}>
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(providerLabels).map(([key, { label, desc }]) => (
+                    <SelectItem key={key} value={key} className="text-xs">
+                      <div className="flex items-center gap-2">
+                        {key === 'auto' && <Zap className="h-3 w-3 text-primary" />}
+                        {key === 'firecrawl' && <Globe className="h-3 w-3 text-orange-500" />}
+                        {key === 'scrapingbee' && <Globe className="h-3 w-3 text-yellow-500" />}
+                        <span>{label}</span>
+                        <span className="text-muted-foreground">— {desc}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {latestJob?.status === 'failed' && (
+                <p className="text-[10px] text-amber-600">
+                  💡 فشلت المحاولة السابقة — تم اقتراح مزود بديل
+                </p>
+              )}
+            </div>
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>إلغاء</Button>
