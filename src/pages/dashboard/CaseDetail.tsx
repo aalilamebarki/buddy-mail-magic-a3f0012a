@@ -303,7 +303,7 @@ const CaseDetail = () => {
                   courtLevel={caseData.court_level}
                   latestJob={latestJob}
                   syncing={syncing}
-                  onSync={(appealCourt, firstInstanceCourt) => startSync(caseData.case_number, appealCourt, firstInstanceCourt)}
+                  onSync={(appealCourt, firstInstanceCourt, provider) => startSync(caseData.case_number, appealCourt, firstInstanceCourt, provider)}
                   onOpenPortal={() => openPortal(caseData.case_number)}
                 />
               </div>
