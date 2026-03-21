@@ -14,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { CalendarDays, Plus, Search, ChevronsUpDown, Check, FolderOpen, Pencil, Trash2, FileDown, CalendarRange, List } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { useSessions } from '@/hooks/useSessions';
+import { useSessions, type SessionRecord } from '@/hooks/useSessions';
 import { useCases } from '@/hooks/useCases';
 import { toast } from 'sonner';
 import { format, startOfWeek, endOfWeek } from 'date-fns';
@@ -27,13 +27,12 @@ import GoogleCalendarQuickAction from '@/components/sessions/GoogleCalendarQuick
 const CourtSessions = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { sessions, loading: sessionsLoading, refetch: refetchSessions } = useSessions();
+  const { sessions, setSessions, loading: sessionsLoading, refetch: refetchSessions } = useSessions();
   const { cases, loading: casesLoading, refetch: refetchCases } = useCases({ status: 'active' });
   const loading = sessionsLoading || casesLoading;
   const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
 
   const fetchData = () => { refetchSessions(); refetchCases(); };
-
   const [dialogOpen, setDialogOpen] = useState(false);
   const [casePopoverOpen, setCasePopoverOpen] = useState(false);
   const [caseSearch, setCaseSearch] = useState('');
@@ -185,17 +184,22 @@ const CourtSessions = () => {
         await supabase.from('cases').update({ case_number: caseNumber.trim() }).eq('id', selectedCaseId);
       }
       if (editingSession) {
-        const { error } = await supabase.from('court_sessions').update({
+        const updatedFields = {
           session_date: format(sessionDate, 'yyyy-MM-dd'),
           required_action: requiredAction.trim(),
           notes: notes || null,
           session_time: sessionTime || null,
           court_room: courtRoom || null,
-        }).eq('id', editingSession.id);
+        };
+        const { error } = await supabase.from('court_sessions').update(updatedFields).eq('id', editingSession.id);
         if (error) throw error;
+        // Optimistic update — patch local state
+        setSessions(prev => prev.map(s =>
+          s.id === editingSession.id ? { ...s, ...updatedFields } : s
+        ));
         toast.success('تم تعديل الجلسة');
       } else {
-        const { error } = await supabase.from('court_sessions').insert({
+        const newSession = {
           case_id: selectedCaseId,
           session_date: format(sessionDate, 'yyyy-MM-dd'),
           required_action: requiredAction.trim(),
@@ -203,8 +207,14 @@ const CourtSessions = () => {
           session_time: sessionTime || null,
           court_room: courtRoom || null,
           user_id: user.id,
-        });
+        };
+        const { data, error } = await supabase.from('court_sessions')
+          .insert(newSession)
+          .select('*, cases(title, case_number, court, opposing_party, clients(full_name))')
+          .single();
         if (error) throw error;
+        // Optimistic insert — add to local state
+        if (data) setSessions(prev => [...prev, data as SessionRecord].sort((a, b) => a.session_date.localeCompare(b.session_date)));
         toast.success('تمت إضافة الجلسة');
       }
       // Auto-save custom action if not in options
@@ -222,7 +232,6 @@ const CourtSessions = () => {
       setSessionTime('');
       setCourtRoom('');
       setCaseNumber('');
-      fetchData();
 
       // Auto-sync to Google Calendar in background
       syncToGoogleCalendar();
@@ -235,10 +244,15 @@ const CourtSessions = () => {
   const handleDeleteSession = async (sessionId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm('هل تريد حذف هذه الجلسة؟')) return;
+    // Optimistic delete
+    setSessions(prev => prev.filter(s => s.id !== sessionId));
     const { error } = await supabase.from('court_sessions').delete().eq('id', sessionId);
-    if (error) { toast.error('خطأ في حذف الجلسة'); return; }
+    if (error) {
+      toast.error('خطأ في حذف الجلسة');
+      refetchSessions(); // rollback
+      return;
+    }
     toast.success('تم حذف الجلسة');
-    fetchData();
   };
 
   const getSessionBadge = (date: string) => {
