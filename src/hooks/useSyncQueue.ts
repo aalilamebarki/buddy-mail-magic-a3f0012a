@@ -179,6 +179,8 @@ export const useSyncQueue = () => {
         totalQueued: outdated.length,
         completedCount: 0,
         lastError: null,
+        failures: [],
+        successCount: 0,
       }));
 
       // معالجة على دفعات
@@ -187,6 +189,10 @@ export const useSyncQueue = () => {
 
         const batch = outdated.slice(i, i + BATCH_SIZE);
         await processBatch(batch);
+
+        // بعد كل دفعة، فحص نتائج المزامنة
+        await new Promise(r => setTimeout(r, 3000));
+        await checkBatchResults(batch);
 
         // انتظار 10 ثوان بين الدفعات لتجنب التحميل الزائد
         if (i + BATCH_SIZE < outdated.length && mountedRef.current) {
