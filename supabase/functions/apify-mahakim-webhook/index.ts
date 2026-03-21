@@ -112,15 +112,26 @@ Deno.serve(async (req) => {
     }
 
     // ── Parse Apify results ──
-    const { caseInfo = {}, procedures = [], nextSessionDate } = results;
+    const { caseInfo = {}, procedures = [], nextSessionDate, allLabels, dropdowns, tables, rawText, pageTitle, noData: resultNoData } = results;
 
     // Handle "not found" — no data returned from portal
     const isEmptyResult = !caseInfo.judge && !caseInfo.department && !caseInfo.status && procedures.length === 0;
 
-    // 1. Update case metadata
+    // 1. Update case metadata — store FULL raw JSON
     const caseUpdate: Record<string, unknown> = {
       last_synced_at: new Date().toISOString(),
-      last_sync_result: { caseInfo, procedures, _provider: 'apify', empty: isEmptyResult },
+      last_sync_result: {
+        caseInfo,
+        procedures,
+        allLabels: allLabels || {},
+        dropdowns: dropdowns || [],
+        tables: tables || [],
+        rawText: (rawText || '').substring(0, 10000),
+        pageTitle: pageTitle || '',
+        _provider: 'apify',
+        _timestamp: new Date().toISOString(),
+        empty: isEmptyResult,
+      },
     };
 
     if (isEmptyResult) {
