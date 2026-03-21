@@ -7,6 +7,25 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
+/** تصنيف نوع الخطأ */
+function classifyError(msg?: string | null): SyncFailure['errorType'] {
+  if (!msg) return 'unknown';
+  if (msg.includes('حظر') || msg.includes('blocked') || msg.includes('Imperva') || msg.includes('F5')) return 'blocked';
+  if (msg.includes('مهلة') || msg.includes('timeout') || msg.includes('Timeout')) return 'timeout';
+  if (msg.includes('لم يتم') || msg.includes('0 إجراء')) return 'empty';
+  if (msg.includes('network') || msg.includes('fetch') || msg.includes('اتصال')) return 'network';
+  return 'unknown';
+}
+
+export interface SyncFailure {
+  caseId: string;
+  caseNumber: string;
+  caseTitle: string;
+  errorMessage: string;
+  errorType: 'blocked' | 'timeout' | 'empty' | 'network' | 'unknown';
+  timestamp: Date;
+}
+
 export interface SyncQueueState {
   /** إجمالي الملفات التي تحتاج مزامنة */
   totalQueued: number;
@@ -18,6 +37,10 @@ export interface SyncQueueState {
   currentBatch: string[];
   /** آخر خطأ */
   lastError: string | null;
+  /** الملفات التي فشلت مزامنتها */
+  failures: SyncFailure[];
+  /** عدد النجاحات */
+  successCount: number;
 }
 
 const BATCH_SIZE = 3;
@@ -32,6 +55,8 @@ export const useSyncQueue = () => {
     isRunning: false,
     currentBatch: [],
     lastError: null,
+    failures: [],
+    successCount: 0,
   });
 
   const queueRef = useRef<string[]>([]);
@@ -88,6 +113,80 @@ export const useSyncQueue = () => {
 
     return caseIds.filter(id => !busyCaseIds.has(id) && !cooldownCaseIds.has(id));
   }, [user]);
+
+  // فحص نتائج دفعة بعد المعالجة
+  const checkBatchResults = useCallback(async (batchIds: string[]) => {
+    if (!mountedRef.current) return;
+
+    const { data: jobs } = await supabase
+      .from('mahakim_sync_jobs')
+      .select('case_id, status, error_message, result_data')
+      .in('case_id', batchIds)
+      .order('created_at', { ascending: false });
+
+    if (!jobs) return;
+
+    // أخذ آخر مهمة لكل ملف
+    const latestByCaseId = new Map<string, typeof jobs[0]>();
+    jobs.forEach(j => {
+      if (!latestByCaseId.has(j.case_id)) latestByCaseId.set(j.case_id, j);
+    });
+
+    const newFailures: SyncFailure[] = [];
+    let newSuccesses = 0;
+
+    for (const [caseId, job] of latestByCaseId) {
+      if (job.status === 'failed') {
+        // جلب عنوان الملف
+        const { data: caseData } = await supabase
+          .from('cases')
+          .select('title, case_number')
+          .eq('id', caseId)
+          .single();
+
+        const errorType = classifyError(job.error_message);
+
+        newFailures.push({
+          caseId,
+          caseNumber: caseData?.case_number || '',
+          caseTitle: caseData?.title || 'ملف غير معروف',
+          errorMessage: job.error_message || 'خطأ غير محدد',
+          errorType,
+          timestamp: new Date(),
+        });
+      } else if (job.status === 'completed') {
+        // التحقق من النتائج الفارغة
+        const rd = job.result_data as Record<string, unknown> | null;
+        const procedures = rd?.procedures;
+        if (Array.isArray(procedures) && procedures.length === 0) {
+          const { data: caseData } = await supabase
+            .from('cases')
+            .select('title, case_number')
+            .eq('id', caseId)
+            .single();
+
+          newFailures.push({
+            caseId,
+            caseNumber: caseData?.case_number || '',
+            caseTitle: caseData?.title || 'ملف غير معروف',
+            errorMessage: 'لم يتم العثور على إجراءات — الملف قد لا يكون مسجلاً بعد في البوابة',
+            errorType: 'empty',
+            timestamp: new Date(),
+          });
+        } else {
+          newSuccesses++;
+        }
+      }
+    }
+
+    if (mountedRef.current) {
+      setState(s => ({
+        ...s,
+        failures: [...s.failures, ...newFailures],
+        successCount: s.successCount + newSuccesses,
+      }));
+    }
+  }, []);
 
   // معالجة دفعة واحدة
   const processBatch = useCallback(async (batchIds: string[]) => {
@@ -164,6 +263,8 @@ export const useSyncQueue = () => {
         totalQueued: outdated.length,
         completedCount: 0,
         lastError: null,
+        failures: [],
+        successCount: 0,
       }));
 
       // معالجة على دفعات
@@ -172,6 +273,10 @@ export const useSyncQueue = () => {
 
         const batch = outdated.slice(i, i + BATCH_SIZE);
         await processBatch(batch);
+
+        // بعد كل دفعة، فحص نتائج المزامنة
+        await new Promise(r => setTimeout(r, 3000));
+        await checkBatchResults(batch);
 
         // انتظار 10 ثوان بين الدفعات لتجنب التحميل الزائد
         if (i + BATCH_SIZE < outdated.length && mountedRef.current) {
