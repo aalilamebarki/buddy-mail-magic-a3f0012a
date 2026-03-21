@@ -67,11 +67,12 @@ export const useMahakimSync = (caseId: string | undefined) => {
     return () => { supabase.removeChannel(channel); };
   }, [caseId]);
 
-  /** Start sync with court selection */
+  /** Start sync with court selection and provider preference */
   const startSync = useCallback(async (
     caseNumber: string,
     appealCourt?: string,
     firstInstanceCourt?: string,
+    provider: 'auto' | 'firecrawl' | 'scrapingbee' = 'auto',
   ) => {
     if (!caseId || !user) return;
     setSyncing(true);
@@ -90,7 +91,7 @@ export const useMahakimSync = (caseId: string | undefined) => {
         user_id: user.id,
         case_number: caseNumber,
         status: 'pending',
-        request_payload: { appealCourt, firstInstanceCourt, numero, code, annee },
+        request_payload: { appealCourt, firstInstanceCourt, numero, code, annee, provider },
       } as any);
 
     if (insertError) {
@@ -126,6 +127,7 @@ export const useMahakimSync = (caseId: string | undefined) => {
           caseNumber,
           appealCourt,
           firstInstanceCourt,
+          provider,
         },
       });
 
