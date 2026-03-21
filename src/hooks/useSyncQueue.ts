@@ -7,6 +7,15 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
+export interface SyncFailure {
+  caseId: string;
+  caseNumber: string;
+  caseTitle: string;
+  errorMessage: string;
+  errorType: 'blocked' | 'timeout' | 'empty' | 'network' | 'unknown';
+  timestamp: Date;
+}
+
 export interface SyncQueueState {
   /** إجمالي الملفات التي تحتاج مزامنة */
   totalQueued: number;
@@ -18,6 +27,10 @@ export interface SyncQueueState {
   currentBatch: string[];
   /** آخر خطأ */
   lastError: string | null;
+  /** الملفات التي فشلت مزامنتها */
+  failures: SyncFailure[];
+  /** عدد النجاحات */
+  successCount: number;
 }
 
 const BATCH_SIZE = 3;
