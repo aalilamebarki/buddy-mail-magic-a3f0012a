@@ -1547,16 +1547,48 @@ Deno.serve(async (req) => {
       const parts = caseNumber.split('/');
       const input: CaseInput = { numero: parts[0] || '', code: parts[1] || '', annee: parts[2] || '' };
 
-      try {
-        let appealCourt = body.appealCourt as string | undefined;
-        let firstInstanceCourt = body.firstInstanceCourt as string | undefined;
-        
-        // Auto-resolve courts from case record if not provided
-        if (!appealCourt) {
-          const resolved = await resolveCourtForCase(supabase, jCaseId, input.code);
-          appealCourt = resolved.appeal || undefined;
-          firstInstanceCourt = firstInstanceCourt || resolved.primary || undefined;
+      // Auto-resolve courts
+      let appealCourt = body.appealCourt as string | undefined;
+      let firstInstanceCourt = body.firstInstanceCourt as string | undefined;
+      if (!appealCourt) {
+        const resolved = await resolveCourtForCase(supabase, jCaseId, input.code);
+        appealCourt = resolved.appeal || undefined;
+        firstInstanceCourt = firstInstanceCourt || resolved.primary || undefined;
+      }
+
+      // ── Try Apify first (async — launches and returns immediately) ──
+      if (APIFY_API_TOKEN) {
+        log('🚀 Launching Apify Actor (async residential proxy)...');
+        const apifyResult = await launchApifyActor(
+          APIFY_API_TOKEN, input, jobId, jCaseId,
+          body.userId || '', caseNumber,
+          appealCourt, firstInstanceCourt,
+        );
+        if (apifyResult.launched) {
+          // Apify launched — update job to 'scraping' with apify info
+          await supabase.from('mahakim_sync_jobs').update({
+            status: 'scraping',
+            request_payload: {
+              ...(body.request_payload || {}),
+              provider: 'apify',
+              apify_run_id: apifyResult.runId,
+            },
+          }).eq('id', jobId);
+
+          return new Response(JSON.stringify({
+            success: true,
+            status: 'scraping',
+            provider: 'apify',
+            runId: apifyResult.runId,
+            message: 'تم إطلاق المزامنة عبر Apify — ستصل النتائج تلقائياً خلال 60-90 ثانية',
+            logs,
+          }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
+        log(`⚠ Apify launch failed: ${apifyResult.error} — falling back to sync providers`);
+      }
+
+      // ── Fallback: synchronous providers (Firecrawl → ScrapingBee) ──
+      try {
         
         const result = await fetchCase(input, appealCourt, firstInstanceCourt);
         const persistLog = await persistResults(supabase, jCaseId, body.userId, result);
