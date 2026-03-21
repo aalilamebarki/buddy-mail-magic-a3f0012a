@@ -242,7 +242,15 @@ Deno.serve(async (req) => {
     // 4. Update sync job as completed
     await supabase.from('mahakim_sync_jobs').update({
       status: 'completed',
-      result_data: { ...caseInfo, _provider: 'apify', procedures_count: procedures.length },
+      result_data: {
+        ...caseInfo,
+        _provider: 'apify',
+        procedures_count: procedures.length,
+        labels_count: Object.keys(allLabels || {}).length,
+        tables_count: (tables || []).length,
+        has_raw_text: !!(rawText && rawText.length > 0),
+        full_data: { caseInfo, procedures, allLabels, dropdowns, tables },
+      },
       next_session_date: nextSessionDate || null,
       completed_at: new Date().toISOString(),
     }).eq('id', jobId);
