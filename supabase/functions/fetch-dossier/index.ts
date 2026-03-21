@@ -585,6 +585,9 @@ async function fetchViaFirecrawl(
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown';
     log(`🔥 [FC-Browser] ${caseLabel}: error — ${msg}`);
+    if (msg.includes('timeout') || msg.includes('AbortError')) {
+      return { ...input, status: 'error' as const, caseInfo: {}, procedures: [], nextSessionDate: null, error: 'انتهت مهلة الاتصال (90 ثانية) — البوابة قد تكون محملة، جرّب لاحقاً أو استخدم ScrapingBee' };
+    }
     return null;
   } finally {
     // 3. Always close the session
