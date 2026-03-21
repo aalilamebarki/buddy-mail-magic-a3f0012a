@@ -423,18 +423,32 @@ Deno.serve(async (req) => {
   }
 });
 
-/** Parse composite date field like "dd/mm/yyyy على الساعة HH:MM بالقاعة ..." */
+/** Parse composite date field like "dd/mm/yyyy على الساعة HH:MM بالقاعة ..." or ISO "yyyy-mm-dd" */
 function parseDateField(raw: string | undefined, now: Date): { dateKey: string; time: string; room: string } | null {
-  if (!raw) return null;
-  const m = raw.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-  if (!m) return null;
-  const [, day, month, year] = m;
-  const dateObj = new Date(`${year}-${month}-${day}`);
+  if (!raw || typeof raw !== 'string') return null;
+  const text = raw.trim();
+  if (!text) return null;
+
+  let dateKey: string | null = null;
+  const slashMatch = text.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  const isoMatch = text.match(/(\d{4})-(\d{2})-(\d{2})/);
+
+  if (slashMatch) {
+    const [, day, month, year] = slashMatch;
+    dateKey = `${year}-${month}-${day}`;
+  } else if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    dateKey = `${year}-${month}-${day}`;
+  }
+
+  if (!dateKey) return null;
+  const dateObj = new Date(`${dateKey}T00:00:00`);
   if (isNaN(dateObj.getTime()) || dateObj < now) return null;
-  const tm = raw.match(/(?:الساعة\s*)?(\d{1,2}:\d{2})/);
-  const rm = raw.match(/(?:بالقاعة|القاعة|غرفة)\s*(.+?)$/);
+
+  const tm = text.match(/(?:الساعة\s*)?(\d{1,2}:\d{2})/);
+  const rm = text.match(/(?:بالقاعة|القاعة|غرفة)\s*(.+?)$/);
   return {
-    dateKey: `${year}-${month}-${day}`,
+    dateKey,
     time: tm ? tm[1] : '',
     room: rm ? rm[1].trim() : '',
   };
