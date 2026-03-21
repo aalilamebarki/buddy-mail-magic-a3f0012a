@@ -1219,10 +1219,11 @@ async function launchApifyActor(
       apifyProxyGroups: ['RESIDENTIAL'],
       apifyProxyCountry: 'MA',
     },
-    maxRequestRetries: 1,
-    requestHandlerTimeoutSecs: 120,
-    navigationTimeoutSecs: 60,
-    useChrome: false,
+    maxRequestRetries: 3,
+    requestHandlerTimeoutSecs: 180,
+    navigationTimeoutSecs: 90,
+    useChrome: true,
+    headless: true,
     pageFunction: pf,
   };
 
