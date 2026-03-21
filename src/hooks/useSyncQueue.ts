@@ -7,6 +7,16 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
+/** تصنيف نوع الخطأ */
+function classifyError(msg?: string | null): SyncFailure['errorType'] {
+  if (!msg) return 'unknown';
+  if (msg.includes('حظر') || msg.includes('blocked') || msg.includes('Imperva') || msg.includes('F5')) return 'blocked';
+  if (msg.includes('مهلة') || msg.includes('timeout') || msg.includes('Timeout')) return 'timeout';
+  if (msg.includes('لم يتم') || msg.includes('0 إجراء')) return 'empty';
+  if (msg.includes('network') || msg.includes('fetch') || msg.includes('اتصال')) return 'network';
+  return 'unknown';
+}
+
 export interface SyncFailure {
   caseId: string;
   caseNumber: string;
