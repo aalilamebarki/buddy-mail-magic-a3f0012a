@@ -464,148 +464,160 @@ async function fetchViaFirecrawl(
   const caseLabel = `${input.numero}/${input.code}/${input.annee}`;
   const start = Date.now();
   log(`🔥 [FC-Browser] Starting for ${caseLabel} | ac="${appealCourt}" pc="${firstInstanceCourt}"`);
+  const sessionConfigs = [
+    { name: 'ma-stealth', body: { ttl: 120, activityTtl: 90, location: { country: 'MA', languages: ['ar'] }, proxy: { location: { country: 'MA' } }, stealth: true, region: 'eu' } },
+    { name: 'ma-location', body: { ttl: 120, activityTtl: 90, location: { country: 'MA', languages: ['ar'] }, stealth: true } },
+    { name: 'default', body: { ttl: 120, activityTtl: 90 } },
+  ];
 
-  let sessionId: string | null = null;
+  for (const config of sessionConfigs) {
+    let sessionId: string | null = null;
 
-  try {
-    // 1. Create browser session
-    const createResp = await fcRequest(apiKey, 'POST', '/browser', { ttl: 120, activityTtl: 90 });
-    if (!createResp.ok || !createResp.data?.id) {
-      const errDetail = JSON.stringify(createResp.data).substring(0, 200);
-      log(`🔥 [FC-Browser] Failed to create session: ${createResp.status} — ${errDetail}`);
-      if (createResp.status === 402) {
-        return { ...input, status: 'error' as const, caseInfo: {}, procedures: [], nextSessionDate: null, error: 'رصيد Firecrawl غير كافٍ — جرّب ScrapingBee أو أعد شحن حسابك' };
-      }
-      if (createResp.status === 401 || createResp.status === 403) {
-        return { ...input, status: 'error' as const, caseInfo: {}, procedures: [], nextSessionDate: null, error: 'مفتاح Firecrawl غير صالح — تحقق من إعدادات الربط' };
-      }
-      if (createResp.status === 429) {
-        return { ...input, status: 'error' as const, caseInfo: {}, procedures: [], nextSessionDate: null, error: 'تم تجاوز حد الطلبات — انتظر دقيقة ثم أعد المحاولة' };
-      }
-      return null;
-    }
-    sessionId = createResp.data.id;
-    log(`🔥 [FC-Browser] Session created: ${sessionId} (${Date.now() - start}ms)`);
-
-    // 2. Execute Playwright script
-    const script = buildPlaywrightScript(input.numero, input.code, input.annee, appealCourt, firstInstanceCourt);
-    const execResp = await fcRequest(apiKey, 'POST', `/browser/${sessionId}/execute`, {
-      code: script,
-      language: 'node',
-      timeout: 90,
-    });
-
-    const elapsed = Date.now() - start;
-
-    if (!execResp.ok) {
-      const errDetail = JSON.stringify(execResp.data).substring(0, 300);
-      log(`🔥 [FC-Browser] Execute failed: ${execResp.status} — ${errDetail}`);
-      if (execResp.status === 408 || errDetail.includes('timeout')) {
-        return { ...input, status: 'error' as const, caseInfo: {}, procedures: [], nextSessionDate: null, error: 'انتهت مهلة الاتصال بالبوابة — قد تكون البوابة بطيئة، جرّب مرة أخرى' };
-      }
-      return null;
-    }
-
-    // Parse execution result — Firecrawl may return data in different fields
-    const execData = execResp.data || {};
-    const stdout = execData.stdout || '';
-    const stderr = execData.stderr || '';
-    const resultVal = execData.result;
-    const output = execData.output || '';
-    const returnValue = execData.returnValue || execData.return_value || '';
-    const resultStr = typeof resultVal === 'string' ? resultVal : JSON.stringify(resultVal || '');
-    
-    // Log all available fields for debugging
-    const allKeys = Object.keys(execData).join(',');
-    log(`🔥 [FC-Browser] Execute done (${elapsed}ms) | keys=[${allKeys}] | stdout=${stdout.length} | stderr=${(stderr||'').substring(0, 200)} | result=${resultStr.substring(0, 300)} | output=${String(output).substring(0, 200)} | returnValue=${String(returnValue).substring(0, 200)} | exitCode=${execData.exitCode}`);
-
-    let parsed: { log: string[]; result: { noResult: boolean; caseInfo: Record<string, string>; procedures: Array<Record<string, string>>; hasData: boolean; bodyPreview?: string } } | null = null;
-
-    // Try all possible output sources
-    const candidates = [stdout, resultStr, String(output), String(returnValue)];
-    for (const candidate of candidates) {
-      if (!candidate || candidate === 'null' || candidate === '""' || candidate.length < 5) continue;
-      try {
-        const jsonMatch = candidate.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const attempt = JSON.parse(jsonMatch[0]);
-          if (attempt && (attempt.log || attempt.result)) { parsed = attempt; break; }
+    try {
+      const createResp = await fcRequest(apiKey, 'POST', '/browser', config.body);
+      if (!createResp.ok || !createResp.data?.id) {
+        const errDetail = JSON.stringify(createResp.data).substring(0, 200);
+        log(`🔥 [FC-Browser:${config.name}] Failed to create session: ${createResp.status} — ${errDetail}`);
+        if (createResp.status === 402) {
+          return { ...input, status: 'error' as const, caseInfo: {}, procedures: [], nextSessionDate: null, error: 'رصيد Firecrawl غير كافٍ — جرّب لاحقاً أو فعّل مزوداً احتياطياً' };
         }
-      } catch {}
-    }
+        if (createResp.status === 401 || createResp.status === 403) {
+          return { ...input, status: 'error' as const, caseInfo: {}, procedures: [], nextSessionDate: null, error: 'مفتاح Firecrawl غير صالح — تحقق من إعدادات الربط' };
+        }
+        if (createResp.status === 429) {
+          return { ...input, status: 'error' as const, caseInfo: {}, procedures: [], nextSessionDate: null, error: 'تم تجاوز حد طلبات Firecrawl — أعد المحاولة بعد قليل' };
+        }
+        continue;
+      }
 
-    // If resultVal is already an object
-    if (!parsed && resultVal && typeof resultVal === 'object') {
-      if (resultVal.log || resultVal.result) parsed = resultVal as any;
-    }
+      sessionId = createResp.data.id;
+      log(`🔥 [FC-Browser:${config.name}] Session created: ${sessionId} (${Date.now() - start}ms)`);
 
-    if (!parsed) {
-      log(`🔥 [FC-Browser] Could not parse output. Full response: ${JSON.stringify(execData).substring(0, 500)}`);
-      return { ...input, status: 'error' as const, caseInfo: {}, procedures: [], nextSessionDate: null, error: 'لم يتم استخراج بيانات من البوابة — قد تكون البوابة قد غيّرت هيكلها، جرّب ScrapingBee' };
-    }
+      const script = buildPlaywrightScript(input.numero, input.code, input.annee, appealCourt, firstInstanceCourt);
+      const execResp = await fcRequest(apiKey, 'POST', `/browser/${sessionId}/execute`, {
+        code: script,
+        language: 'node',
+        timeout: 90,
+      });
 
-    log(`🔥 [FC-Browser] Script log: ${parsed.log?.join(' → ')}`);
+      const elapsed = Date.now() - start;
 
-    if (parsed.result.noResult) {
-      log(`🔥 [FC-Browser] ${caseLabel}: portal returned no results`);
-      return {
-        ...input,
-        status: 'no_data',
-        caseInfo: {},
-        procedures: [],
-        nextSessionDate: null,
-        error: 'لم يتم العثور على بيانات — تأكد من صحة رقم الملف واختيار المحكمة',
-      };
-    }
+      if (!execResp.ok) {
+        const errDetail = JSON.stringify(execResp.data).substring(0, 300);
+        log(`🔥 [FC-Browser:${config.name}] Execute failed: ${execResp.status} — ${errDetail}`);
+        if (execResp.status === 408 || errDetail.includes('timeout')) {
+          continue;
+        }
+        continue;
+      }
 
-    if (!parsed.result.hasData) {
-      log(`🔥 [FC-Browser] ${caseLabel}: no data extracted. Body: ${parsed.result.bodyPreview?.substring(0, 200)}`);
-      return null; // Fall through to next provider
-    }
+      const execData = execResp.data || {};
+      const stdout = execData.stdout || '';
+      const stderr = execData.stderr || '';
+      const resultVal = execData.result;
+      const output = execData.output || '';
+      const returnValue = execData.returnValue || execData.return_value || '';
+      const resultStr = typeof resultVal === 'string' ? resultVal : JSON.stringify(resultVal || '');
 
-    // Find next session date
-    const now = new Date();
-    let nextSessionDate: string | null = null;
-    for (const proc of parsed.result.procedures) {
-      const d = proc.next_session_date;
-      if (d) {
-        const dm = d.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-        if (dm) {
-          const [, day, month, year] = dm;
-          const dateObj = new Date(`${year}-${month}-${day}`);
-          if (dateObj >= now && (!nextSessionDate || dateObj < new Date(nextSessionDate))) {
-            nextSessionDate = `${year}-${month}-${day}`;
+      const allKeys = Object.keys(execData).join(',');
+      log(`🔥 [FC-Browser:${config.name}] Execute done (${elapsed}ms) | keys=[${allKeys}] | stdout=${stdout.length} | stderr=${(stderr || '').substring(0, 200)} | result=${resultStr.substring(0, 300)} | output=${String(output).substring(0, 200)} | returnValue=${String(returnValue).substring(0, 200)} | exitCode=${execData.exitCode}`);
+
+      let parsed: { log: string[]; result: { noResult: boolean; caseInfo: Record<string, string>; procedures: Array<Record<string, string>>; hasData: boolean; bodyPreview?: string } } | null = null;
+      const candidates = [stdout, resultStr, String(output), String(returnValue)];
+      for (const candidate of candidates) {
+        if (!candidate || candidate === 'null' || candidate === '""' || candidate.length < 5) continue;
+        try {
+          const jsonMatch = candidate.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const attempt = JSON.parse(jsonMatch[0]);
+            if (attempt && (attempt.log || attempt.result)) { parsed = attempt; break; }
+          }
+        } catch {}
+      }
+
+      if (!parsed && resultVal && typeof resultVal === 'object') {
+        if (resultVal.log || resultVal.result) parsed = resultVal as any;
+      }
+
+      if (!parsed) {
+        log(`🔥 [FC-Browser:${config.name}] Could not parse output. Full response: ${JSON.stringify(execData).substring(0, 500)}`);
+        continue;
+      }
+
+      log(`🔥 [FC-Browser:${config.name}] Script log: ${parsed.log?.join(' → ')}`);
+
+      const joinedLog = (parsed.log || []).join(' ');
+      if (joinedLog.includes('ERR_TUNNEL_CONNECTION_FAILED')) {
+        log(`🔥 [FC-Browser:${config.name}] Tunnel failure detected, trying next Firecrawl config`);
+        continue;
+      }
+
+      if (parsed.result.noResult) {
+        log(`🔥 [FC-Browser:${config.name}] ${caseLabel}: portal returned no results`);
+        return {
+          ...input,
+          status: 'no_data',
+          caseInfo: {},
+          procedures: [],
+          nextSessionDate: null,
+          error: 'لم يتم العثور على بيانات — تأكد من صحة رقم الملف واختيار المحكمة',
+        };
+      }
+
+      if (!parsed.result.hasData) {
+        log(`🔥 [FC-Browser:${config.name}] ${caseLabel}: no data extracted. Body: ${parsed.result.bodyPreview?.substring(0, 200)}`);
+        continue;
+      }
+
+      const now = new Date();
+      let nextSessionDate: string | null = null;
+      for (const proc of parsed.result.procedures) {
+        const d = proc.next_session_date;
+        if (d) {
+          const dm = d.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+          if (dm) {
+            const [, day, month, year] = dm;
+            const dateObj = new Date(`${year}-${month}-${day}`);
+            if (dateObj >= now && (!nextSessionDate || dateObj < new Date(nextSessionDate))) {
+              nextSessionDate = `${year}-${month}-${day}`;
+            }
           }
         }
       }
-    }
 
-    log(`🔥 [FC-Browser] ${caseLabel}: ✓ ${Object.keys(parsed.result.caseInfo).length} fields, ${parsed.result.procedures.length} procedures`);
+      log(`🔥 [FC-Browser:${config.name}] ${caseLabel}: ✓ ${Object.keys(parsed.result.caseInfo).length} fields, ${parsed.result.procedures.length} procedures`);
 
-    return {
-      ...input,
-      status: 'success',
-      caseInfo: parsed.result.caseInfo,
-      procedures: parsed.result.procedures,
-      nextSessionDate,
-    };
-
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown';
-    log(`🔥 [FC-Browser] ${caseLabel}: error — ${msg}`);
-    if (msg.includes('timeout') || msg.includes('AbortError')) {
-      return { ...input, status: 'error' as const, caseInfo: {}, procedures: [], nextSessionDate: null, error: 'انتهت مهلة الاتصال (90 ثانية) — البوابة قد تكون محملة، جرّب لاحقاً أو استخدم ScrapingBee' };
-    }
-    return null;
-  } finally {
-    // 3. Always close the session
-    if (sessionId) {
-      try {
-        await fcRequest(apiKey, 'DELETE', `/browser/${sessionId}`);
-        log(`🔥 [FC-Browser] Session ${sessionId} closed`);
-      } catch {}
+      return {
+        ...input,
+        status: 'success',
+        caseInfo: parsed.result.caseInfo,
+        procedures: parsed.result.procedures,
+        nextSessionDate,
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown';
+      log(`🔥 [FC-Browser:${config.name}] ${caseLabel}: error — ${msg}`);
+      if (msg.includes('timeout') || msg.includes('AbortError')) {
+        continue;
+      }
+    } finally {
+      if (sessionId) {
+        try {
+          await fcRequest(apiKey, 'DELETE', `/browser/${sessionId}`);
+          log(`🔥 [FC-Browser:${config.name}] Session ${sessionId} closed`);
+        } catch {}
+      }
     }
   }
+
+  return {
+    ...input,
+    status: 'error' as const,
+    caseInfo: {},
+    procedures: [],
+    nextSessionDate: null,
+    error: 'تعذر على Firecrawl الوصول إلى بوابة محاكم بعد عدة محاولات ذكية — يبدو أن البوابة ترفض مسار الاتصال الحالي',
+  };
 }
 
 
