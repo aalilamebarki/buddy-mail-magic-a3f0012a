@@ -379,6 +379,14 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
     updateField('court', primaryLabel);
     setCourtPopoverOpen(false);
     setCourtSearchTerm('');
+    
+    // Auto-set appellate court if not already selected
+    if (selectedAppellateIdx < 0) {
+      const parentIdx = findAppellateByPrimary(primaryLabel);
+      if (parentIdx >= 0) {
+        setSelectedAppellateIdx(parentIdx);
+      }
+    }
   };
 
   const selectedAppellate = selectedAppellateIdx >= 0 ? COURT_HIERARCHY[selectedAppellateIdx] : null;
