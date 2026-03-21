@@ -272,189 +272,238 @@ async function resolveCourtForCase(
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   Firecrawl Browser Sessions v2 — Full Playwright control
+   Firecrawl Scrape API with Actions — بروكسي مغربي
    
-   Creates a browser session, runs Playwright code to fill the
-   Angular form, extract data, and close the session.
-   This is the PRIMARY path — handles Angular SPAs perfectly.
+   يستخدم Scrape API v1 مع:
+   - location: { country: 'MA' } لتوجيه الطلب عبر بروكسي مغربي
+   - actions: تفاعل مع نموذج Angular (ملء الحقول، الضغط على بحث)
+   - executeJavascript: لاستخراج البيانات بعد ظهور النتائج
    ══════════════════════════════════════════════════════════════════ */
 
-const FC_API = 'https://api.firecrawl.dev/v2';
+const FC_API_V1 = 'https://api.firecrawl.dev/v1';
 
-async function fcRequest(apiKey: string, method: string, path: string, body?: unknown) {
-  const resp = await fetch(`${FC_API}${path}`, {
+async function fcRequest(apiKey: string, method: string, path: string, body?: unknown, apiBase?: string) {
+  const base = apiBase || FC_API_V1;
+  const resp = await fetch(`${base}${path}`, {
     method,
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
-    signal: AbortSignal.timeout(90000),
+    signal: AbortSignal.timeout(120000),
   });
   const data = await resp.json();
   return { ok: resp.ok, status: resp.status, data };
 }
 
-function buildPlaywrightScript(
+/**
+ * بناء سكريبت JS لملء نموذج بوابة محاكم
+ * يعمل في بيئة executeJavascript داخل Firecrawl Scrape API
+ */
+function buildFormFillerScript(
   numero: string, code: string, annee: string,
   appealCourt?: string, firstInstanceCourt?: string,
 ): string {
   const esc = (v?: string) => (v ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
+  
+  return `(function(){
+window.__mahakimLog=[];
+var L=window.__mahakimLog;
 
-  // Playwright Node.js script that runs in the Firecrawl sandbox
-  // `page` is pre-loaded by Firecrawl
-  return `
-const L = [];
-let result = { noResult: false, caseInfo: {}, procedures: [], hasData: false, bodyPreview: '' };
+function setField(sel,val){
+  var el=document.querySelector(sel);
+  if(!el){L.push('miss:'+sel);return false}
+  var d=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');
+  if(d&&d.set)d.set.call(el,val);else el.value=val;
+  el.dispatchEvent(new Event('input',{bubbles:true}));
+  el.dispatchEvent(new Event('change',{bubbles:true}));
+  el.dispatchEvent(new Event('blur',{bubbles:true}));
+  L.push('set:'+sel);
+  return true;
+}
 
-try {
-  await page.goto('https://www.mahakim.ma/#/suivi/dossier-suivi', { waitUntil: 'domcontentloaded', timeout: 30000 });
-  L.push('nav');
+var form=document.querySelector('input[formcontrolname="mark"]');
+if(!form){L.push('no-form');return JSON.stringify({log:L,ready:false})}
+L.push('form-found');
 
-  await page.waitForSelector('input[formcontrolname="mark"]', { timeout: 15000 });
-  L.push('form');
-
-  async function setField(sel, val) {
-    return await page.evaluate(({sel, val}) => {
-      try {
-        const el = document.querySelector(sel);
-        if (!el) return 'miss';
-        const d = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
-        if (d && d.set) d.set.call(el, val); else el.value = val;
-        el.dispatchEvent(new Event('input', {bubbles:true}));
-        el.dispatchEvent(new Event('change', {bubbles:true}));
-        el.dispatchEvent(new Event('blur', {bubbles:true}));
-        return 'ok';
-      } catch(e) { return 'err:'+e.message; }
-    }, {sel, val});
-  }
-
-  await setField('input[formcontrolname="mark"]', '${esc(code)}');
-  L.push('mark');
-  await page.waitForTimeout(3500);
-
-  await setField('input[formcontrolname="numero"]', '${esc(numero)}');
-  await setField('input[formcontrolname="annee"]', '${esc(annee)}');
-  L.push('fields');
+setField('input[formcontrolname="mark"]','${esc(code)}');
+setField('input[formcontrolname="numero"]','${esc(numero)}');
+setField('input[formcontrolname="annee"]','${esc(annee)}');
 
 ${appealCourt ? `
-  try {
-    await page.waitForTimeout(500);
-    const dd = await page.$$('p-dropdown .p-dropdown-trigger');
-    if (dd.length > 0) {
-      await dd[0].click();
-      await page.waitForTimeout(800);
-      const s = await page.evaluate((t) => {
-        const items = document.querySelectorAll('.p-dropdown-panel li.p-dropdown-item, .p-dropdown-items li');
-        for (const li of items) { if (li.textContent.trim().includes(t)) { li.click(); return li.textContent.trim(); } }
-        return 'miss:'+items.length;
-      }, '${esc(appealCourt)}');
-      L.push('ac:'+s);
-      await page.waitForTimeout(1000);
-    } else { L.push('ac:no-dd'); }
-  } catch(e) { L.push('ac-err:'+e.message); }
+try{
+  var dds=document.querySelectorAll('p-dropdown .p-dropdown-trigger');
+  if(dds.length>0){
+    dds[0].click();
+    L.push('ac-dd-clicked');
+  }
+}catch(e){L.push('ac-err:'+e.message)}
 ` : ''}
 
-${firstInstanceCourt ? `
-  try {
-    const cb = await page.evaluate(() => {
-      const labels = Array.from(document.querySelectorAll('label, span'));
-      for (const l of labels) {
-        if ((l.textContent||'').includes('الابتدائية') || (l.textContent||'').includes('البحث بالمحاكم')) {
-          let c = l.querySelector('.p-checkbox-box, input[type="checkbox"]');
-          if (!c) { const p = l.closest('div'); if(p) c = p.querySelector('.p-checkbox-box, input[type="checkbox"]'); }
-          if (c) { c.click(); return 'ok'; }
-          l.click(); return 'label';
-        }
-      }
-      const cbs = document.querySelectorAll('.p-checkbox-box');
-      if (cbs.length > 0) { cbs[0].click(); return 'fb'; }
-      return 'miss';
-    });
-    L.push('cb:'+cb);
-    await page.waitForTimeout(2500);
-
-    const dd2 = await page.$$('p-dropdown .p-dropdown-trigger');
-    if (dd2.length > 1) {
-      await dd2[dd2.length-1].click();
-      await page.waitForTimeout(800);
-      const s2 = await page.evaluate((t) => {
-        const items = document.querySelectorAll('.p-dropdown-panel li.p-dropdown-item, .p-dropdown-items li');
-        for (const li of items) { if (li.textContent.trim().includes(t)) { li.click(); return li.textContent.trim(); } }
-        return 'miss:'+items.length;
-      }, '${esc(firstInstanceCourt)}');
-      L.push('pc:'+s2);
-      await page.waitForTimeout(1000);
-    } else { L.push('pc:no-dd:'+dd2.length); }
-  } catch(e) { L.push('pc-err:'+e.message); }
-` : ''}
-
-  const sr = await page.evaluate(() => {
-    const bs = Array.from(document.querySelectorAll('button'));
-    let b = bs.find(x => x.textContent.trim() === 'بحث');
-    if (!b) b = bs.find(x => x.textContent.includes('بحث') && !x.textContent.includes('المحاكم'));
-    if (b) { b.click(); return 'ok'; }
-    return 'miss:'+bs.length;
-  });
-  L.push('search:'+sr);
-
-  await page.waitForTimeout(6000);
-
-  result = await page.evaluate(() => {
-    try {
-      const body = document.body.innerText;
-      const html = document.body.innerHTML;
-      if (body.includes('لا توجد أية نتيجة') || body.includes('لا توجد')) {
-        return { noResult: true, caseInfo: {}, procedures: [], hasData: false, bodyPreview: body.substring(0,300) };
-      }
-      const ci = {};
-      [['court',['المحكمة']],['judge',['القاضي المقرر','المستشار','القاضي']],['department',['الشعبة']],['case_type',['نوع الملف']],['status',['الحالة']],['registration_date',['تاريخ التسجيل']],['national_number',['الرقم الوطني']],['subject',['الموضوع']]].forEach(([k,ls])=>{
-        for(const l of ls){const i=html.indexOf(l);if(i===-1)continue;const m=html.substring(i,i+500).match(/>([^<]{2,100})</);if(m&&m[1].trim()!==l&&m[1].trim().length>1){ci[k]=m[1].trim();break;}}
-      });
-      const procs=[];
-      function parseCompositeField(raw){
-        if(!raw)return{date:'',time:'',room:''};
-        let date='',time='',room='';
-        const dm=raw.match(new RegExp('(\\\\d{2}/\\\\d{2}/\\\\d{4})'));
-        if(dm)date=dm[1];
-        const tm=raw.match(new RegExp('(?:\u0627\u0644\u0633\u0627\u0639\u0629\\\\s*)?(\\\\d{1,2}:\\\\d{2})'));
-        if(tm)time=tm[1];
-        const rm=raw.match(new RegExp('(?:\u0628\u0627\u0644\u0642\u0627\u0639\u0629|\u0627\u0644\u0642\u0627\u0639\u0629|\u063a\u0631\u0641\u0629)\\\\s*(.+?)$'));
-        if(rm)room=rm[1].trim();
-        return{date,time,room};
-      }
-      document.querySelectorAll('table tbody tr, .p-datatable-tbody tr').forEach(r=>{
-        const c=r.querySelectorAll('td');
-        if(c.length>=2){
-          const rawNsd=c[3]?.textContent?.trim()||'';
-          const rawAd=c[0]?.textContent?.trim()||'';
-          const nsdP=parseCompositeField(rawNsd);
-          const adP=parseCompositeField(rawAd);
-          const proc={action_date:adP.date||rawAd,action_type:c[1]?.textContent?.trim()||'',decision:c[2]?.textContent?.trim()||'',next_session_date:nsdP.date,session_time:nsdP.time||adP.time||'',court_room:nsdP.room||''};
-          // Check additional columns for time/room
-          for(let i=4;i<c.length;i++){
-            const txt=(c[i]?.textContent||'').trim();
-            if(!proc.session_time&&(new RegExp('^\\\\d{1,2}:\\\\d{2}$').test(txt)))proc.session_time=txt;
-            if(!proc.court_room&&(txt.includes('قاعة')||txt.includes('غرفة')))proc.court_room=txt;
-          }
-          procs.push(proc);
-        }
-      });
-      return {noResult:false,caseInfo:ci,procedures:procs,hasData:Object.keys(ci).length>0||procs.length>0,bodyPreview:body.substring(0,300)};
-    } catch(e) { return {noResult:false,caseInfo:{},procedures:[],hasData:false,bodyPreview:'err:'+e.message}; }
-  });
-  L.push('ex:'+Object.keys(result.caseInfo).length+'f,'+result.procedures.length+'p');
-} catch(e) {
-  L.push('FATAL:'+e.message);
-}
-// Return as the script's result value (Firecrawl captures this, not console.log)
-const __output = JSON.stringify({log:L,result});
-console.log(__output);
-__output;
-`;
+return JSON.stringify({log:L,ready:true});
+})()`;
 }
 
-/* Fetch case via Firecrawl Browser Sessions (PRIMARY PATH) */
+/**
+ * سكريبت اختيار محكمة الاستئناف من القائمة المنسدلة
+ */
+function buildSelectAppealScript(appealCourt: string): string {
+  const esc = (v?: string) => (v ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  return `(function(){
+var L=window.__mahakimLog||[];
+try{
+  var items=document.querySelectorAll('.p-dropdown-panel li.p-dropdown-item,.p-dropdown-items li');
+  for(var i=0;i<items.length;i++){
+    if(items[i].textContent.trim().indexOf('${esc(appealCourt)}')>=0){
+      items[i].click();
+      L.push('ac-selected:'+items[i].textContent.trim());
+      return JSON.stringify({log:L,selected:true});
+    }
+  }
+  L.push('ac-miss:'+items.length);
+}catch(e){L.push('ac-sel-err:'+e.message)}
+return JSON.stringify({log:L,selected:false});
+})()`;
+}
+
+/**
+ * سكريبت تفعيل البحث في المحكمة الابتدائية
+ */
+function buildPrimaryCourtScript(firstInstanceCourt: string): string {
+  const esc = (v?: string) => (v ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  return `(function(){
+var L=window.__mahakimLog||[];
+try{
+  var labels=document.querySelectorAll('label,span');
+  for(var i=0;i<labels.length;i++){
+    var t=labels[i].textContent||'';
+    if(t.indexOf('الابتدائية')>=0||t.indexOf('البحث بالمحاكم')>=0){
+      var cb=labels[i].querySelector('.p-checkbox-box,input[type="checkbox"]');
+      if(!cb){var p=labels[i].closest('div');if(p)cb=p.querySelector('.p-checkbox-box,input[type="checkbox"]')}
+      if(cb){cb.click();L.push('cb-clicked');break}
+      labels[i].click();L.push('label-clicked');break;
+    }
+  }
+}catch(e){L.push('cb-err:'+e.message)}
+return JSON.stringify({log:L});
+})()`;
+}
+
+function buildSelectPrimaryScript(court: string): string {
+  const esc = (v?: string) => (v ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  return `(function(){
+var L=window.__mahakimLog||[];
+try{
+  var dds=document.querySelectorAll('p-dropdown .p-dropdown-trigger');
+  if(dds.length>1){dds[dds.length-1].click();L.push('pc-dd-clicked')}
+  else L.push('pc-no-dd:'+dds.length);
+}catch(e){L.push('pc-err:'+e.message)}
+return JSON.stringify({log:L});
+})()`;
+}
+
+function buildSelectPrimaryItemScript(court: string): string {
+  const esc = (v?: string) => (v ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  return `(function(){
+var L=window.__mahakimLog||[];
+try{
+  var items=document.querySelectorAll('.p-dropdown-panel li.p-dropdown-item,.p-dropdown-items li');
+  for(var i=0;i<items.length;i++){
+    if(items[i].textContent.trim().indexOf('${esc(court)}')>=0){
+      items[i].click();L.push('pc-selected:'+items[i].textContent.trim());
+      return JSON.stringify({log:L,selected:true});
+    }
+  }
+  L.push('pc-miss:'+items.length);
+}catch(e){L.push('pc-sel-err:'+e.message)}
+return JSON.stringify({log:L,selected:false});
+})()`;
+}
+
+/**
+ * سكريبت الضغط على زر البحث
+ */
+function buildSearchClickScript(): string {
+  return `(function(){
+var L=window.__mahakimLog||[];
+var bs=document.querySelectorAll('button');
+for(var i=0;i<bs.length;i++){
+  var t=bs[i].textContent.trim();
+  if(t==='بحث'||(t.indexOf('بحث')>=0&&t.indexOf('المحاكم')<0)){
+    bs[i].click();L.push('search-clicked');
+    return JSON.stringify({log:L,clicked:true});
+  }
+}
+L.push('search-miss:'+bs.length);
+return JSON.stringify({log:L,clicked:false});
+})()`;
+}
+
+/**
+ * سكريبت استخراج النتائج بعد البحث
+ */
+function buildExtractResultsScript(): string {
+  return `(function(){
+var L=window.__mahakimLog||[];
+try{
+  var body=document.body.innerText;
+  var html=document.body.innerHTML;
+  
+  if(body.indexOf('لا توجد أية نتيجة')>=0||body.indexOf('لا توجد')>=0){
+    return JSON.stringify({log:L,noResult:true,caseInfo:{},procedures:[],hasData:false});
+  }
+  
+  var ci={};
+  var fields=[['court','المحكمة'],['judge','القاضي المقرر'],['judge','القاضي'],['department','الشعبة'],['case_type','نوع الملف'],['status','الحالة'],['registration_date','تاريخ التسجيل'],['national_number','الرقم الوطني'],['subject','الموضوع']];
+  for(var f=0;f<fields.length;f++){
+    var k=fields[f][0],label=fields[f][1];
+    if(ci[k])continue;
+    var idx=html.indexOf(label);
+    if(idx===-1)continue;
+    var after=html.substring(idx,idx+500);
+    var m=after.match(/>([^<]{2,100})</);
+    if(m&&m[1].trim()!==label&&m[1].trim().length>1)ci[k]=m[1].trim();
+  }
+  
+  var procs=[];
+  var rows=document.querySelectorAll('table tbody tr,.p-datatable-tbody tr');
+  rows.forEach(function(r){
+    var c=r.querySelectorAll('td');
+    if(c.length>=2){
+      var rawAd=(c[0]&&c[0].textContent)?c[0].textContent.trim():'';
+      var rawNsd=(c[3]&&c[3].textContent)?c[3].textContent.trim():'';
+      var dateRe=/(\\d{2}\\/\\d{2}\\/\\d{4})/;
+      var timeRe=/(?:\\u0627\\u0644\\u0633\\u0627\\u0639\\u0629\\s*)?(\\d{1,2}:\\d{2})/;
+      var adM=rawAd.match(dateRe);
+      var nsdM=rawNsd.match(dateRe);
+      var nsdT=rawNsd.match(timeRe);
+      procs.push({
+        action_date:adM?adM[1]:rawAd,
+        action_type:(c[1]&&c[1].textContent)?c[1].textContent.trim():'',
+        decision:(c[2]&&c[2].textContent)?c[2].textContent.trim():'',
+        next_session_date:nsdM?nsdM[1]:'',
+        session_time:nsdT?nsdT[1]:'',
+        court_room:''
+      });
+    }
+  });
+  
+  L.push('extracted:'+Object.keys(ci).length+'f,'+procs.length+'p');
+  return JSON.stringify({log:L,noResult:false,caseInfo:ci,procedures:procs,hasData:Object.keys(ci).length>0||procs.length>0,bodyPreview:body.substring(0,300)});
+}catch(e){
+  L.push('extract-err:'+e.message);
+  return JSON.stringify({log:L,noResult:false,caseInfo:{},procedures:[],hasData:false,error:e.message});
+}
+})()`;
+}
+
+
+/* ══════════════════════════════════════════════════════════════════
+   Fetch case via Firecrawl Scrape API with Actions (PRIMARY PATH)
+   
+   يستخدم بروكسي مغربي مع تفاعل مباشر مع النموذج
+   ══════════════════════════════════════════════════════════════════ */
 async function fetchViaFirecrawl(
   apiKey: string,
   input: CaseInput,
@@ -463,115 +512,146 @@ async function fetchViaFirecrawl(
 ): Promise<CaseResult | null> {
   const caseLabel = `${input.numero}/${input.code}/${input.annee}`;
   const start = Date.now();
-  log(`🔥 [FC-Browser] Starting for ${caseLabel} | ac="${appealCourt}" pc="${firstInstanceCourt}"`);
-  const sessionConfigs = [
-    { name: 'ma-stealth', body: { ttl: 120, activityTtl: 90, location: { country: 'MA', languages: ['ar'] }, proxy: { location: { country: 'MA' } }, stealth: true, region: 'eu' } },
-    { name: 'ma-location', body: { ttl: 120, activityTtl: 90, location: { country: 'MA', languages: ['ar'] }, stealth: true } },
-    { name: 'default', body: { ttl: 120, activityTtl: 90 } },
+  log(`🔥 [FC-Scrape] Starting for ${caseLabel} | ac="${appealCourt}" pc="${firstInstanceCourt}"`);
+
+  // بناء سلسلة الأوامر (actions) للتفاعل مع النموذج
+  const actions: Array<Record<string, unknown>> = [
+    // 1. انتظار تحميل الصفحة
+    { type: 'wait', milliseconds: 5000 },
+    // 2. ملء حقول النموذج
+    { type: 'executeJavascript', script: buildFormFillerScript(input.numero, input.code, input.annee, appealCourt, firstInstanceCourt) },
+    { type: 'wait', milliseconds: 1500 },
   ];
 
-  for (const config of sessionConfigs) {
-    let sessionId: string | null = null;
+  // 3. اختيار محكمة الاستئناف إن وُجدت
+  if (appealCourt) {
+    actions.push({ type: 'wait', milliseconds: 1000 });
+    actions.push({ type: 'executeJavascript', script: buildSelectAppealScript(appealCourt) });
+    actions.push({ type: 'wait', milliseconds: 1500 });
+  }
 
+  // 4. تفعيل واختيار المحكمة الابتدائية إن وُجدت
+  if (firstInstanceCourt) {
+    actions.push({ type: 'executeJavascript', script: buildPrimaryCourtScript(firstInstanceCourt) });
+    actions.push({ type: 'wait', milliseconds: 2500 });
+    actions.push({ type: 'executeJavascript', script: buildSelectPrimaryScript(firstInstanceCourt) });
+    actions.push({ type: 'wait', milliseconds: 1000 });
+    actions.push({ type: 'executeJavascript', script: buildSelectPrimaryItemScript(firstInstanceCourt) });
+    actions.push({ type: 'wait', milliseconds: 1500 });
+  }
+
+  // 5. الضغط على زر البحث
+  actions.push({ type: 'executeJavascript', script: buildSearchClickScript() });
+  // 6. انتظار ظهور النتائج
+  actions.push({ type: 'wait', milliseconds: 8000 });
+  // 7. استخراج البيانات
+  actions.push({ type: 'executeJavascript', script: buildExtractResultsScript() });
+  // 8. لقطة شاشة للتشخيص (اختياري)
+  actions.push({ type: 'screenshot', fullPage: false });
+
+  // تكوينات مختلفة للمحاولة
+  const configs = [
+    { name: 'ma-proxy', location: { country: 'MA', languages: ['ar'] } },
+    { name: 'default', location: undefined },
+  ];
+
+  for (const config of configs) {
     try {
-      const createResp = await fcRequest(apiKey, 'POST', '/browser', config.body);
-      if (!createResp.ok || !createResp.data?.id) {
-        const errDetail = JSON.stringify(createResp.data).substring(0, 200);
-        log(`🔥 [FC-Browser:${config.name}] Failed to create session: ${createResp.status} — ${errDetail}`);
-        if (createResp.status === 402) {
-          return { ...input, status: 'error' as const, caseInfo: {}, procedures: [], nextSessionDate: null, error: 'رصيد Firecrawl غير كافٍ — جرّب لاحقاً أو فعّل مزوداً احتياطياً' };
+      log(`🔥 [FC-Scrape:${config.name}] Attempting scrape with actions...`);
+
+      const scrapeBody: Record<string, unknown> = {
+        url: 'https://www.mahakim.ma/#/suivi/dossier-suivi',
+        formats: ['html'],
+        actions,
+        waitFor: 5000,
+        timeout: 90000,
+      };
+      if (config.location) {
+        scrapeBody.location = config.location;
+      }
+
+      const resp = await fcRequest(apiKey, 'POST', '/scrape', scrapeBody);
+      const elapsed = Date.now() - start;
+
+      if (!resp.ok) {
+        const errDetail = JSON.stringify(resp.data).substring(0, 300);
+        log(`🔥 [FC-Scrape:${config.name}] Failed: ${resp.status} — ${errDetail}`);
+        
+        if (resp.status === 402) {
+          return { ...input, status: 'error' as const, caseInfo: {}, procedures: [], nextSessionDate: null, error: 'رصيد Firecrawl غير كافٍ — يُرجى ترقية الخطة أو استخدام كوبون LOVABLE50' };
         }
-        if (createResp.status === 401 || createResp.status === 403) {
+        if (resp.status === 401 || resp.status === 403) {
           return { ...input, status: 'error' as const, caseInfo: {}, procedures: [], nextSessionDate: null, error: 'مفتاح Firecrawl غير صالح — تحقق من إعدادات الربط' };
         }
-        if (createResp.status === 429) {
+        if (resp.status === 429) {
           return { ...input, status: 'error' as const, caseInfo: {}, procedures: [], nextSessionDate: null, error: 'تم تجاوز حد طلبات Firecrawl — أعد المحاولة بعد قليل' };
         }
         continue;
       }
 
-      sessionId = createResp.data.id;
-      log(`🔥 [FC-Browser:${config.name}] Session created: ${sessionId} (${Date.now() - start}ms)`);
+      log(`🔥 [FC-Scrape:${config.name}] Response OK (${elapsed}ms)`);
 
-      const script = buildPlaywrightScript(input.numero, input.code, input.annee, appealCourt, firstInstanceCourt);
-      const execResp = await fcRequest(apiKey, 'POST', `/browser/${sessionId}/execute`, {
-        code: script,
-        language: 'node',
-        timeout: 90,
-      });
+      // استخراج نتائج الـ actions
+      const scrapeData = resp.data?.data || resp.data;
+      const actionsResults = scrapeData?.actions?.results || scrapeData?.actions || [];
+      const html = scrapeData?.html || '';
+      const screenshot = scrapeData?.actions?.screenshots?.[0] || scrapeData?.screenshot || '';
+      
+      log(`🔥 [FC-Scrape:${config.name}] HTML length: ${html.length} | Actions results: ${actionsResults.length} | Screenshot: ${screenshot ? 'yes' : 'no'}`);
 
-      const elapsed = Date.now() - start;
-
-      if (!execResp.ok) {
-        const errDetail = JSON.stringify(execResp.data).substring(0, 300);
-        log(`🔥 [FC-Browser:${config.name}] Execute failed: ${execResp.status} — ${errDetail}`);
-        if (execResp.status === 408 || errDetail.includes('timeout')) {
-          continue;
-        }
-        continue;
-      }
-
-      const execData = execResp.data || {};
-      const stdout = execData.stdout || '';
-      const stderr = execData.stderr || '';
-      const resultVal = execData.result;
-      const output = execData.output || '';
-      const returnValue = execData.returnValue || execData.return_value || '';
-      const resultStr = typeof resultVal === 'string' ? resultVal : JSON.stringify(resultVal || '');
-
-      const allKeys = Object.keys(execData).join(',');
-      log(`🔥 [FC-Browser:${config.name}] Execute done (${elapsed}ms) | keys=[${allKeys}] | stdout=${stdout.length} | stderr=${(stderr || '').substring(0, 200)} | result=${resultStr.substring(0, 300)} | output=${String(output).substring(0, 200)} | returnValue=${String(returnValue).substring(0, 200)} | exitCode=${execData.exitCode}`);
-
-      let parsed: { log: string[]; result: { noResult: boolean; caseInfo: Record<string, string>; procedures: Array<Record<string, string>>; hasData: boolean; bodyPreview?: string } } | null = null;
-      const candidates = [stdout, resultStr, String(output), String(returnValue)];
-      for (const candidate of candidates) {
-        if (!candidate || candidate === 'null' || candidate === '""' || candidate.length < 5) continue;
+      // البحث عن نتيجة استخراج البيانات من آخر executeJavascript
+      let extractedData: any = null;
+      
+      // Try to find the extraction result from actions
+      for (let i = actionsResults.length - 1; i >= 0; i--) {
+        const r = actionsResults[i];
+        const resultStr = typeof r === 'string' ? r : (r?.result || r?.output || JSON.stringify(r));
+        if (!resultStr || resultStr.length < 10) continue;
         try {
-          const jsonMatch = candidate.match(/\{[\s\S]*\}/);
+          const jsonMatch = String(resultStr).match(/\{[\s\S]*\}/);
           if (jsonMatch) {
-            const attempt = JSON.parse(jsonMatch[0]);
-            if (attempt && (attempt.log || attempt.result)) { parsed = attempt; break; }
+            const parsed = JSON.parse(jsonMatch[0]);
+            if (parsed.caseInfo || parsed.procedures || parsed.hasData !== undefined) {
+              extractedData = parsed;
+              log(`🔥 [FC-Scrape:${config.name}] Found extracted data from action #${i}`);
+              break;
+            }
           }
         } catch {}
       }
 
-      if (!parsed && resultVal && typeof resultVal === 'object') {
-        if (resultVal.log || resultVal.result) parsed = resultVal as any;
+      // إن لم نجد من الـ actions، نحلل الـ HTML مباشرة
+      if (!extractedData && html.length > 500) {
+        log(`🔥 [FC-Scrape:${config.name}] Parsing HTML fallback (${html.length} chars)...`);
+        const parsed = parseHtmlFallback(html);
+        if (parsed.hasData || parsed.noResult) {
+          extractedData = parsed;
+        }
       }
 
-      if (!parsed) {
-        log(`🔥 [FC-Browser:${config.name}] Could not parse output. Full response: ${JSON.stringify(execData).substring(0, 500)}`);
+      if (!extractedData) {
+        log(`🔥 [FC-Scrape:${config.name}] No data extracted. Trying next config...`);
         continue;
       }
 
-      log(`🔥 [FC-Browser:${config.name}] Script log: ${parsed.log?.join(' → ')}`);
-
-      const joinedLog = (parsed.log || []).join(' ');
-      if (joinedLog.includes('ERR_TUNNEL_CONNECTION_FAILED')) {
-        log(`🔥 [FC-Browser:${config.name}] Tunnel failure detected, trying next Firecrawl config`);
-        continue;
-      }
-
-      if (parsed.result.noResult) {
-        log(`🔥 [FC-Browser:${config.name}] ${caseLabel}: portal returned no results`);
+      // تحقق من عدم وجود نتائج
+      if (extractedData.noResult) {
+        log(`🔥 [FC-Scrape:${config.name}] Portal returned: لا توجد نتيجة`);
         return {
-          ...input,
-          status: 'no_data',
-          caseInfo: {},
-          procedures: [],
-          nextSessionDate: null,
+          ...input, status: 'no_data', caseInfo: {}, procedures: [], nextSessionDate: null,
           error: 'لم يتم العثور على بيانات — تأكد من صحة رقم الملف واختيار المحكمة',
         };
       }
 
-      if (!parsed.result.hasData) {
-        log(`🔥 [FC-Browser:${config.name}] ${caseLabel}: no data extracted. Body: ${parsed.result.bodyPreview?.substring(0, 200)}`);
+      if (!extractedData.hasData && !extractedData.caseInfo) {
+        log(`🔥 [FC-Scrape:${config.name}] No useful data. Body preview: ${extractedData.bodyPreview?.substring(0, 200)}`);
         continue;
       }
 
+      // استخراج تاريخ الجلسة القادمة
       const now = new Date();
       let nextSessionDate: string | null = null;
-      for (const proc of parsed.result.procedures) {
+      for (const proc of (extractedData.procedures || [])) {
         const d = proc.next_session_date;
         if (d) {
           const dm = d.match(/(\d{2})\/(\d{2})\/(\d{4})/);
@@ -585,28 +665,22 @@ async function fetchViaFirecrawl(
         }
       }
 
-      log(`🔥 [FC-Browser:${config.name}] ${caseLabel}: ✓ ${Object.keys(parsed.result.caseInfo).length} fields, ${parsed.result.procedures.length} procedures`);
+      const fieldCount = Object.keys(extractedData.caseInfo || {}).length;
+      const procCount = (extractedData.procedures || []).length;
+      log(`🔥 [FC-Scrape:${config.name}] ✓ Success: ${fieldCount} fields, ${procCount} procedures (${elapsed}ms)`);
 
       return {
         ...input,
         status: 'success',
-        caseInfo: parsed.result.caseInfo,
-        procedures: parsed.result.procedures,
+        caseInfo: extractedData.caseInfo || {},
+        procedures: extractedData.procedures || [],
         nextSessionDate,
       };
+
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown';
-      log(`🔥 [FC-Browser:${config.name}] ${caseLabel}: error — ${msg}`);
-      if (msg.includes('timeout') || msg.includes('AbortError')) {
-        continue;
-      }
-    } finally {
-      if (sessionId) {
-        try {
-          await fcRequest(apiKey, 'DELETE', `/browser/${sessionId}`);
-          log(`🔥 [FC-Browser:${config.name}] Session ${sessionId} closed`);
-        } catch {}
-      }
+      log(`🔥 [FC-Scrape:${config.name}] Error: ${msg}`);
+      if (msg.includes('timeout') || msg.includes('AbortError')) continue;
     }
   }
 
@@ -616,7 +690,7 @@ async function fetchViaFirecrawl(
     caseInfo: {},
     procedures: [],
     nextSessionDate: null,
-    error: 'تعذر على Firecrawl الوصول إلى بوابة محاكم بعد عدة محاولات ذكية — يبدو أن البوابة ترفض مسار الاتصال الحالي',
+    error: 'تعذر على Firecrawl الوصول لبوابة محاكم — قد تكون البوابة تحظر الاتصال من خارج المغرب',
   };
 }
 
