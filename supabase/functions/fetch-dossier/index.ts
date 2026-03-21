@@ -308,10 +308,10 @@ const L = [];
 let result = { noResult: false, caseInfo: {}, procedures: [], hasData: false, bodyPreview: '' };
 
 try {
-  await page.goto('https://www.mahakim.ma/#/suivi/dossier-suivi', { waitUntil: 'domcontentloaded', timeout: 15000 });
+  await page.goto('https://www.mahakim.ma/#/suivi/dossier-suivi', { waitUntil: 'domcontentloaded', timeout: 30000 });
   L.push('nav');
 
-  await page.waitForSelector('input[formcontrolname="mark"]', { timeout: 12000 });
+  await page.waitForSelector('input[formcontrolname="mark"]', { timeout: 15000 });
   L.push('form');
 
   async function setField(sel, val) {
@@ -415,11 +415,11 @@ ${firstInstanceCourt ? `
       function parseCompositeField(raw){
         if(!raw)return{date:'',time:'',room:''};
         let date='',time='',room='';
-        const dm=raw.match(/(\d{2}\/\d{2}\/\d{4})/);
+        const dm=raw.match(new RegExp('(\\\\d{2}/\\\\d{2}/\\\\d{4})'));
         if(dm)date=dm[1];
-        const tm=raw.match(/(?:الساعة\s*)?(\d{1,2}:\d{2})/);
+        const tm=raw.match(new RegExp('(?:\u0627\u0644\u0633\u0627\u0639\u0629\\\\s*)?(\\\\d{1,2}:\\\\d{2})'));
         if(tm)time=tm[1];
-        const rm=raw.match(/(?:بالقاعة|القاعة|غرفة)\s*(.+?)$/);
+        const rm=raw.match(new RegExp('(?:\u0628\u0627\u0644\u0642\u0627\u0639\u0629|\u0627\u0644\u0642\u0627\u0639\u0629|\u063a\u0631\u0641\u0629)\\\\s*(.+?)$'));
         if(rm)room=rm[1].trim();
         return{date,time,room};
       }
@@ -434,7 +434,7 @@ ${firstInstanceCourt ? `
           // Check additional columns for time/room
           for(let i=4;i<c.length;i++){
             const txt=(c[i]?.textContent||'').trim();
-            if(!proc.session_time&&(/^\d{1,2}:\d{2}$/.test(txt)))proc.session_time=txt;
+            if(!proc.session_time&&(new RegExp('^\\\\d{1,2}:\\\\d{2}$').test(txt)))proc.session_time=txt;
             if(!proc.court_room&&(txt.includes('قاعة')||txt.includes('غرفة')))proc.court_room=txt;
           }
           procs.push(proc);
