@@ -1137,6 +1137,212 @@ async function persistResults(
 }
 
 /* ══════════════════════════════════════════════════════════════════
+   Apify Actor — Residential proxy scraping (Primary Provider)
+   
+   يشغل Actor يتفاعل مع بوابة محاكم عبر بروكسي سكني مغربي
+   ويرسل النتائج عبر Webhook لتحديث قاعدة البيانات بشكل غير متزامن
+   ══════════════════════════════════════════════════════════════════ */
+
+async function launchApifyActor(
+  apiToken: string,
+  input: CaseInput,
+  jobId: string,
+  caseId: string,
+  userId: string,
+  caseNumber: string,
+  appealCourt?: string,
+  firstInstanceCourt?: string,
+): Promise<{ launched: boolean; runId?: string; error?: string }> {
+  const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/apify-mahakim-webhook`;
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+
+  // Apify Actor input — uses web-scraper or custom Actor
+  const actorInput = {
+    startUrls: [{ url: 'https://www.mahakim.ma/#/suivi/dossier-suivi' }],
+    // Custom scraping instructions
+    customData: {
+      numero: input.numero,
+      code: input.code,
+      annee: input.annee,
+      appealCourt: appealCourt || '',
+      firstInstanceCourt: firstInstanceCourt || '',
+      jobId,
+      caseId,
+      userId,
+      caseNumber,
+      webhookUrl,
+      webhookHeaders: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${anonKey}`,
+        'apikey': anonKey,
+      },
+    },
+    proxyConfiguration: {
+      useApifyProxy: true,
+      apifyProxyGroups: ['RESIDENTIAL'],
+      apifyProxyCountry: 'MA',
+    },
+    maxRequestRetries: 2,
+    requestHandlerTimeoutSecs: 120,
+    // Page function to interact with the Angular portal
+    pageFunction: `async function pageFunction(context) {
+      const { page, request, log, customData } = context;
+      const { numero, code, annee, appealCourt, firstInstanceCourt, jobId, caseId, userId, caseNumber, webhookUrl, webhookHeaders } = customData;
+      
+      log.info('Navigating to Mahakim portal...');
+      await page.waitForSelector('input[formcontrolname="mark"]', { timeout: 30000 });
+      
+      // Fill form fields
+      await page.evaluate((data) => {
+        function setField(sel, val) {
+          const el = document.querySelector(sel);
+          if (!el) return;
+          const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+          if (desc && desc.set) desc.set.call(el, val);
+          else el.value = val;
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        setField('input[formcontrolname="mark"]', data.code);
+        setField('input[formcontrolname="numero"]', data.numero);
+        setField('input[formcontrolname="annee"]', data.annee);
+      }, { numero, code, annee });
+      
+      // Select appeal court if needed
+      if (appealCourt) {
+        const dropdowns = await page.$$('p-dropdown .p-dropdown-trigger');
+        if (dropdowns.length > 0) {
+          await dropdowns[0].click();
+          await page.waitForTimeout(1000);
+          const items = await page.$$('.p-dropdown-panel li');
+          for (const item of items) {
+            const text = await item.textContent();
+            if (text && text.includes(appealCourt)) {
+              await item.click();
+              break;
+            }
+          }
+          await page.waitForTimeout(500);
+        }
+      }
+      
+      // Click search button
+      const searchBtn = await page.$('button[type="submit"], button.p-button');
+      if (searchBtn) await searchBtn.click();
+      
+      // Wait for results
+      await page.waitForTimeout(15000);
+      
+      // Extract data
+      const results = await page.evaluate(() => {
+        const caseInfo = {};
+        const procedures = [];
+        
+        // Extract case info
+        const patterns = [
+          ['court', ['المحكمة']], ['judge', ['القاضي المقرر', 'القاضي']],
+          ['department', ['الشعبة']], ['case_type', ['نوع القضية']], ['status', ['الحالة']]
+        ];
+        
+        for (const [key, labels] of patterns) {
+          for (const label of labels) {
+            const elements = document.querySelectorAll('td, th, span, label, div');
+            for (const el of elements) {
+              if (el.textContent && el.textContent.trim() === label) {
+                const next = el.nextElementSibling || el.parentElement?.nextElementSibling;
+                if (next && next.textContent) {
+                  caseInfo[key] = next.textContent.trim();
+                  break;
+                }
+              }
+            }
+            if (caseInfo[key]) break;
+          }
+        }
+        
+        // Extract procedures table
+        const tables = document.querySelectorAll('table');
+        for (const table of tables) {
+          const rows = table.querySelectorAll('tr');
+          let isHeader = true;
+          for (const row of rows) {
+            const cells = row.querySelectorAll('td');
+            if (cells.length >= 2) {
+              if (isHeader) { isHeader = false; continue; }
+              procedures.push({
+                action_date: cells[0]?.textContent?.trim() || '',
+                action_type: cells[1]?.textContent?.trim() || '',
+                decision: cells[2]?.textContent?.trim() || '',
+                next_session_date: cells[3]?.textContent?.trim() || '',
+              });
+            }
+          }
+        }
+        
+        return { caseInfo, procedures };
+      });
+      
+      // Find next session date
+      let nextSessionDate = null;
+      const now = new Date();
+      for (const proc of results.procedures) {
+        if (proc.next_session_date) {
+          const m = proc.next_session_date.match(/(\\d{2})\\/(\\d{2})\\/(\\d{4})/);
+          if (m) {
+            const d = new Date(m[3] + '-' + m[2] + '-' + m[1]);
+            if (d >= now) {
+              nextSessionDate = m[3] + '-' + m[2] + '-' + m[1];
+              break;
+            }
+          }
+        }
+      }
+      
+      // Send results via webhook
+      log.info('Sending results to webhook...');
+      await fetch(webhookUrl, {
+        method: 'POST',
+        headers: webhookHeaders,
+        body: JSON.stringify({
+          jobId, caseId, userId, caseNumber,
+          results: { ...results, nextSessionDate },
+        }),
+      });
+      
+      return results;
+    }`,
+  };
+
+  try {
+    // Launch the web-scraper Actor
+    const resp = await fetch(
+      `${APIFY_API_BASE}/acts/apify~web-scraper/runs?token=${apiToken}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(actorInput),
+        signal: AbortSignal.timeout(30000),
+      }
+    );
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      log(`✗ [Apify] Launch failed: ${resp.status} — ${errText.substring(0, 200)}`);
+      return { launched: false, error: `Apify error: ${resp.status}` };
+    }
+
+    const data = await resp.json();
+    const runId = data?.data?.id;
+    log(`✓ [Apify] Actor launched: runId=${runId}`);
+    return { launched: true, runId };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown';
+    log(`✗ [Apify] Launch error: ${msg}`);
+    return { launched: false, error: msg };
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
    Main HTTP Handler
    ══════════════════════════════════════════════════════════════════ */
 Deno.serve(async (req) => {
