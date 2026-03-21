@@ -1193,12 +1193,14 @@ async function launchApifyActor(
   const { numero, code, annee, appealCourt, firstInstanceCourt,
           jobId, caseId, userId, caseNumber, webhookUrl, anonKey } = customData;
 
+  const delay = (ms) => new Promise(r => setTimeout(r, ms));
+
   log.info('Waiting for Angular form to load...');
   try {
     await page.waitForSelector('input[formcontrolname="mark"]', { timeout: 45000 });
   } catch (e) {
-    log.error('Form not found — portal may be blocked or down');
-    await sendWebhook(webhookUrl, anonKey, { jobId, caseId, userId, caseNumber, error: 'تعذر تحميل نموذج البحث — البوابة قد تكون معطلة' });
+    log.error('Form not found');
+    await sendWebhook(webhookUrl, anonKey, { jobId, caseId, userId, caseNumber, error: 'تعذر تحميل نموذج البحث' });
     return { error: 'form_not_found' };
   }
 
@@ -1218,54 +1220,43 @@ async function launchApifyActor(
     setField('input[formcontrolname="annee"]', d.annee);
   }, { numero, code, annee });
 
-  // Select appeal court dropdown if needed
   if (appealCourt) {
     log.info('Selecting appeal court: ' + appealCourt);
     try {
       const dropdowns = await page.$$('p-dropdown .p-dropdown-trigger');
       if (dropdowns.length > 0) {
         await dropdowns[0].click();
-        await page.waitForTimeout(1500);
+        await delay(1500);
         const items = await page.$$('.p-dropdown-panel li, .p-dropdown-items li');
         for (const item of items) {
           const text = await item.evaluate(el => el.textContent || '');
-          if (text.includes(appealCourt)) {
-            await item.click();
-            log.info('Appeal court selected');
-            break;
-          }
+          if (text.includes(appealCourt)) { await item.click(); break; }
         }
-        await page.waitForTimeout(800);
+        await delay(800);
       }
-    } catch (e) { log.warning('Appeal court selection failed: ' + e.message); }
+    } catch (e) { log.warning('Court select failed: ' + e.message); }
   }
 
-  // Click search button
   log.info('Clicking search...');
   const searchBtn = await page.$('button[type="submit"], button.p-button');
   if (searchBtn) await searchBtn.click();
   else {
-    await sendWebhook(webhookUrl, anonKey, { jobId, caseId, userId, caseNumber, error: 'لم يتم العثور على زر البحث' });
-    return { error: 'search_btn_not_found' };
+    await sendWebhook(webhookUrl, anonKey, { jobId, caseId, userId, caseNumber, error: 'زر البحث غير موجود' });
+    return { error: 'no_search_btn' };
   }
 
-  // Wait for results to load
-  log.info('Waiting for results (15s)...');
-  await page.waitForTimeout(15000);
+  log.info('Waiting 15s for results...');
+  await delay(15000);
 
-  // Extract data from DOM
   log.info('Extracting data...');
   const extracted = await page.evaluate(() => {
     const caseInfo = {};
     const procedures = [];
-
-    // Extract case info from key-value pairs
     const patterns = [
       ['court', ['المحكمة']], ['judge', ['القاضي المقرر', 'القاضي']],
       ['department', ['الشعبة']], ['case_type', ['نوع القضية', 'نوع الملف']],
       ['status', ['الحالة', 'حالة القضية']],
-      ['registration_date', ['تاريخ التسجيل']],
-      ['subject', ['الموضوع']],
+      ['registration_date', ['تاريخ التسجيل']], ['subject', ['الموضوع']],
     ];
     const allEls = document.querySelectorAll('td, th, span, label, div, dt, dd');
     for (const [key, labels] of patterns) {
@@ -1274,25 +1265,18 @@ async function launchApifyActor(
           const t = (el.textContent || '').trim();
           if (t === label || t === label + ':' || t === label + ' :') {
             const next = el.nextElementSibling || el.parentElement?.nextElementSibling;
-            if (next) {
-              const val = (next.textContent || '').trim();
-              if (val && val !== label) { caseInfo[key] = val; break; }
-            }
+            if (next) { const val = (next.textContent || '').trim(); if (val && val !== label) { caseInfo[key] = val; break; } }
           }
         }
         if (caseInfo[key]) break;
       }
     }
-
-    // Extract procedures table
     const tables = document.querySelectorAll('table, p-table table');
     for (const table of tables) {
       const rows = table.querySelectorAll('tbody tr, tr');
-      let headerSkipped = false;
       for (const row of rows) {
         const cells = row.querySelectorAll('td');
         if (cells.length >= 2) {
-          if (!headerSkipped && row.querySelector('th')) { headerSkipped = true; continue; }
           procedures.push({
             action_date: (cells[0]?.textContent || '').trim(),
             action_type: (cells[1]?.textContent || '').trim(),
@@ -1302,17 +1286,13 @@ async function launchApifyActor(
         }
       }
     }
-
-    // Also check for "no data" indicators
     const bodyText = document.body.textContent || '';
     const noData = bodyText.includes('لا توجد نتائج') || bodyText.includes('غير موجود');
-
-    return { caseInfo, procedures, noData, bodyLength: bodyText.length };
+    return { caseInfo, procedures, noData };
   });
 
-  log.info('Extracted: ' + JSON.stringify({ info: Object.keys(extracted.caseInfo), procs: extracted.procedures.length, noData: extracted.noData }));
+  log.info('Extracted: info=' + Object.keys(extracted.caseInfo).length + ' procs=' + extracted.procedures.length);
 
-  // Determine next session date
   let nextSessionDate = null;
   const now = new Date();
   for (const proc of extracted.procedures) {
@@ -1325,18 +1305,9 @@ async function launchApifyActor(
     }
   }
 
-  // Send results to webhook
-  const payload = {
-    jobId, caseId, userId, caseNumber,
-    results: {
-      caseInfo: extracted.caseInfo,
-      procedures: extracted.procedures,
-      nextSessionDate,
-    },
-  };
-
+  const payload = { jobId, caseId, userId, caseNumber, results: { caseInfo: extracted.caseInfo, procedures: extracted.procedures, nextSessionDate } };
   if (extracted.noData || (extracted.procedures.length === 0 && Object.keys(extracted.caseInfo).length === 0)) {
-    payload.error = 'لا توجد نتائج لهذا الملف في بوابة محاكم';
+    payload.error = 'لا توجد نتائج لهذا الملف';
   }
 
   log.info('Sending to webhook...');
@@ -1346,19 +1317,9 @@ async function launchApifyActor(
 
   async function sendWebhook(url, key, data) {
     try {
-      const resp = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + key,
-          'apikey': key,
-        },
-        body: JSON.stringify(data),
-      });
+      const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key, 'apikey': key }, body: JSON.stringify(data) });
       log.info('Webhook response: ' + resp.status);
-    } catch (e) {
-      log.error('Webhook failed: ' + e.message);
-    }
+    } catch (e) { log.error('Webhook failed: ' + e.message); }
   }
 }`,
   };
