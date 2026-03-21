@@ -385,7 +385,6 @@ Deno.serve(async (req) => {
         }
       }
     }
-    }
 
     // 4. Update sync job as completed
     await supabase.from('mahakim_sync_jobs').update({
