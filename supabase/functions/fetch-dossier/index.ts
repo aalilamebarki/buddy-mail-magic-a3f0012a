@@ -489,7 +489,11 @@ async function fetchViaFirecrawl(
     const elapsed = Date.now() - start;
 
     if (!execResp.ok) {
-      log(`🔥 [FC-Browser] Execute failed: ${execResp.status} — ${JSON.stringify(execResp.data).substring(0, 300)}`);
+      const errDetail = JSON.stringify(execResp.data).substring(0, 300);
+      log(`🔥 [FC-Browser] Execute failed: ${execResp.status} — ${errDetail}`);
+      if (execResp.status === 408 || errDetail.includes('timeout')) {
+        return { ...input, status: 'error' as const, caseInfo: {}, procedures: [], nextSessionDate: null, error: 'انتهت مهلة الاتصال بالبوابة — قد تكون البوابة بطيئة، جرّب مرة أخرى' };
+      }
       return null;
     }
 
