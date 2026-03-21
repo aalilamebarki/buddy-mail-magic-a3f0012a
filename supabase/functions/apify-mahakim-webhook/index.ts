@@ -26,7 +26,54 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { jobId, caseId, userId, caseNumber, results, error: apifyError } = body;
+    console.log('[apify-webhook] Received:', JSON.stringify(body).substring(0, 500));
+    
+    let { jobId, caseId, userId, caseNumber, results, error: apifyError } = body;
+
+    // Handle Apify built-in webhook format (eventType + datasetId)
+    if (body.eventType && body.datasetId) {
+      console.log('[apify-webhook] Built-in webhook: event=' + body.eventType + ' runId=' + body.runId);
+      
+      // If actor failed/timed out
+      if (body.eventType !== 'ACTOR.RUN.SUCCEEDED' || body.status === 'FAILED' || body.status === 'TIMED_OUT' || body.status === 'ABORTED') {
+        apifyError = `فشل Apify Actor: ${body.status || body.eventType}`;
+      } else {
+        // Fetch results from Apify dataset
+        const APIFY_TOKEN = Deno.env.get('APIFY_API_TOKEN');
+        if (APIFY_TOKEN && body.datasetId) {
+          try {
+            const dsResp = await fetch(
+              `https://api.apify.com/v2/datasets/${body.datasetId}/items?token=${APIFY_TOKEN}&format=json`,
+              { signal: AbortSignal.timeout(15000) }
+            );
+            if (dsResp.ok) {
+              const items = await dsResp.json();
+              console.log('[apify-webhook] Dataset items:', items.length);
+              if (items.length > 0) {
+                const item = items[0];
+                if (item.error) {
+                  apifyError = item.error;
+                } else {
+                  results = {
+                    caseInfo: item.caseInfo || {},
+                    procedures: item.procedures || [],
+                    nextSessionDate: null,
+                  };
+                }
+              } else {
+                apifyError = 'لم يتم استخراج أي بيانات من البوابة';
+              }
+            } else {
+              console.error('[apify-webhook] Dataset fetch failed:', dsResp.status);
+              apifyError = 'تعذر جلب نتائج Apify Dataset';
+            }
+          } catch (e) {
+            console.error('[apify-webhook] Dataset error:', e);
+            apifyError = 'خطأ في جلب البيانات من Apify';
+          }
+        }
+      }
+    }
 
     if (!jobId || !caseId) {
       return new Response(JSON.stringify({ error: 'Missing jobId or caseId' }), {
