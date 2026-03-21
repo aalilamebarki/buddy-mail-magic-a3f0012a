@@ -308,13 +308,10 @@ const L = [];
 let result = { noResult: false, caseInfo: {}, procedures: [], hasData: false, bodyPreview: '' };
 
 try {
-  await page.goto('https://www.mahakim.ma/', { waitUntil: 'domcontentloaded', timeout: 30000 });
-  L.push('home');
-  await page.waitForTimeout(3000);
   await page.goto('https://www.mahakim.ma/#/suivi/dossier-suivi', { waitUntil: 'domcontentloaded', timeout: 30000 });
   L.push('nav');
 
-  await page.waitForSelector('input[formcontrolname="mark"]', { timeout: 20000 });
+  await page.waitForSelector('input[formcontrolname="mark"]', { timeout: 15000 });
   L.push('form');
 
   async function setField(sel, val) {
