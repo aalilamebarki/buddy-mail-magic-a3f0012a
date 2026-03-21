@@ -1559,7 +1559,7 @@ async function launchApifyActor(
     requestHandlerTimeoutSecs: 240,
     navigationTimeoutSecs: 120,
     useChrome: true,
-    headless: 'new',
+    headless: true,
     preNavigationHooks: `[
       async ({ page }, goToOptions) => {
         await page.evaluateOnNewDocument(() => {
