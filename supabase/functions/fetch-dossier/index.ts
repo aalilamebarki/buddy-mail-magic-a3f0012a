@@ -1193,8 +1193,7 @@ async function launchApifyActor(
      * ويوفر context.page (Puppeteer Page) + context.request + context.log
      */
     pageFunction: `async function pageFunction(context) {
-  const { page, request, log } = context;
-  const customData = JSON.parse(request.userData.customData || '{}');
+  const { page, request, log, customData } = context;
   const { numero, code, annee, appealCourt, firstInstanceCourt,
           jobId, caseId, userId, caseNumber, webhookUrl, anonKey } = customData;
 
