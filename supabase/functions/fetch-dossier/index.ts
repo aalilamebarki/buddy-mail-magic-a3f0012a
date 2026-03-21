@@ -1231,17 +1231,24 @@ Deno.serve(async (req) => {
         const result = await fetchCase(input, appealCourt, firstInstanceCourt);
         const persistLog = await persistResults(supabase, jCaseId, body.userId, result);
 
+        const finalStatus = result.status === 'success' ? 'completed' : 'failed';
         await supabase.from('mahakim_sync_jobs').update({
-          status: result.status === 'success' ? 'completed' : 'failed',
-          result_data: result.caseInfo,
+          status: finalStatus,
+          result_data: { ...result.caseInfo, _provider: result.usedProvider },
           error_message: result.error || null,
           next_session_date: result.nextSessionDate,
           completed_at: new Date().toISOString(),
         }).eq('id', jobId);
 
+        // Notify on failure
+        if (finalStatus === 'failed' && body.userId) {
+          await notifyOnFailure(supabase, body.userId, jCaseId, caseNumber, result.error || 'خطأ غير معروف');
+        }
+
         return new Response(JSON.stringify({
           success: result.status === 'success',
           status: result.status,
+          usedProvider: result.usedProvider,
           mapping_log: persistLog,
           next_session_date: result.nextSessionDate,
           logs,
@@ -1252,6 +1259,10 @@ Deno.serve(async (req) => {
           status: 'failed', error_message: errMsg,
           completed_at: new Date().toISOString(),
         }).eq('id', jobId);
+
+        if (body.userId) {
+          await notifyOnFailure(supabase, body.userId, jCaseId, caseNumber, errMsg);
+        }
 
         return new Response(JSON.stringify({ success: false, error: errMsg, logs }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
