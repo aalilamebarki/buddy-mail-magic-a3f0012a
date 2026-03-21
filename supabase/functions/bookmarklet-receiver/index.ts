@@ -56,7 +56,32 @@ Deno.serve(async (req) => {
     }
 
     const caseId = caseRow.id;
-    const resolvedUserId = userId || caseRow.assigned_to;
+    let resolvedUserId = userId || caseRow.assigned_to;
+
+    // إذا لم يتم تحديد المستخدم، نبحث في آخر مهمة مزامنة أو أول director
+    if (!resolvedUserId) {
+      const { data: lastJob } = await supabase
+        .from('mahakim_sync_jobs')
+        .select('user_id')
+        .eq('case_id', caseId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (lastJob?.user_id) {
+        resolvedUserId = lastJob.user_id;
+      } else {
+        // احتياط: أول director في النظام
+        const { data: director } = await supabase
+          .from('user_roles')
+          .select('user_id')
+          .eq('role', 'director')
+          .limit(1)
+          .maybeSingle();
+        if (director?.user_id) resolvedUserId = director.user_id;
+      }
+    }
+    console.log('[bookmarklet] resolvedUserId:', resolvedUserId);
     const parsedCaseInfo = caseInfo || {};
     const parsedProcedures = procedures || [];
 
