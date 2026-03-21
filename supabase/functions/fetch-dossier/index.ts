@@ -1628,7 +1628,7 @@ async function launchApifyActor(
 
   const pf = buildApifyPageFunction(input, appealCourt, firstInstanceCourt);
 
-  // Build the request with Apify's built-in webhook
+  // Build the request with enhanced stealth configuration
   const actorInput = {
     startUrls: [{ url: 'https://www.mahakim.ma/#/suivi/dossier-suivi' }],
     proxyConfiguration: {
@@ -1636,18 +1636,78 @@ async function launchApifyActor(
       apifyProxyGroups: ['RESIDENTIAL'],
       apifyProxyCountry: 'MA',
     },
-    maxRequestRetries: 2,
-    requestHandlerTimeoutSecs: 240,
+    maxRequestRetries: 3,
+    requestHandlerTimeoutSecs: 300,  // 5 minutes for slow portal
     navigationTimeoutSecs: 120,
     useChrome: true,
     headless: true,
+    // Solution #6: Fingerprint rotation & stealth
     preNavigationHooks: `[
       async ({ page }, goToOptions) => {
+        // Comprehensive anti-detection
         await page.evaluateOnNewDocument(() => {
-          Object.defineProperty(navigator, 'webdriver', { get: () => false });
-          Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+          // Hide webdriver
+          Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+          
+          // Fake plugins
+          Object.defineProperty(navigator, 'plugins', {
+            get: () => {
+              var arr = [
+                { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer' },
+                { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai' },
+                { name: 'Native Client', filename: 'internal-nacl-plugin' },
+              ];
+              arr.length = 3;
+              return arr;
+            }
+          });
+          
+          // Languages
           Object.defineProperty(navigator, 'languages', { get: () => ['ar', 'fr', 'en-US', 'en'] });
-          window.chrome = { runtime: {} };
+          Object.defineProperty(navigator, 'language', { get: () => 'ar' });
+          
+          // Chrome runtime
+          window.chrome = { runtime: {}, loadTimes: function(){}, csi: function(){} };
+          
+          // Permissions
+          const originalQuery = window.navigator.permissions.query;
+          window.navigator.permissions.query = (parameters) =>
+            parameters.name === 'notifications'
+              ? Promise.resolve({ state: Notification.permission })
+              : originalQuery(parameters);
+          
+          // Canvas fingerprint noise
+          const origToDataURL = HTMLCanvasElement.prototype.toDataURL;
+          HTMLCanvasElement.prototype.toDataURL = function(type) {
+            if (type === 'image/png' && this.width > 0) {
+              const ctx = this.getContext('2d');
+              if (ctx) {
+                const imageData = ctx.getImageData(0, 0, this.width, this.height);
+                for (let i = 0; i < imageData.data.length; i += 100) {
+                  imageData.data[i] = imageData.data[i] ^ (Math.random() * 2 | 0);
+                }
+                ctx.putImageData(imageData, 0, 0);
+              }
+            }
+            return origToDataURL.apply(this, arguments);
+          };
+          
+          // WebGL vendor/renderer
+          const getParameter = WebGLRenderingContext.prototype.getParameter;
+          WebGLRenderingContext.prototype.getParameter = function(parameter) {
+            if (parameter === 37445) return 'Intel Inc.';
+            if (parameter === 37446) return 'Intel Iris OpenGL Engine';
+            return getParameter.apply(this, arguments);
+          };
+        });
+        
+        // Set realistic viewport
+        await page.setViewport({ width: 1366, height: 768, deviceScaleFactor: 1 });
+        
+        // Set extra headers to look like a real Moroccan browser
+        await page.setExtraHTTPHeaders({
+          'Accept-Language': 'ar,fr;q=0.9,en-US;q=0.8,en;q=0.7',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
         });
       }
     ]`,
