@@ -1,4 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+/**
+ * هوك جلب الفواتير مع التخزين المؤقت عبر react-query
+ */
+
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface InvoiceRecord {
@@ -36,23 +41,34 @@ export interface InvoiceRecord {
   fee_statements?: { statement_number: string; total_amount: number; lawyer_fees: number } | null;
 }
 
+const SELECT_QUERY = '*, clients(full_name, cin, phone), cases(title, case_number, case_type), letterheads(lawyer_name, name_fr, title_ar, title_fr, bar_name_ar, bar_name_fr, address, city, phone, email, header_data, template_path), fee_statements(statement_number, total_amount, lawyer_fees)';
+
 export const useInvoices = () => {
-  const [invoices, setInvoices] = useState<InvoiceRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  const fetchInvoices = useCallback(async () => {
-    setLoading(true);
-    const { data } = await supabase
-      .from('invoices')
-      .select('*, clients(full_name, cin, phone), cases(title, case_number, case_type), letterheads(lawyer_name, name_fr, title_ar, title_fr, bar_name_ar, bar_name_fr, address, city, phone, email, header_data, template_path), fee_statements(statement_number, total_amount, lawyer_fees)')
-      .order('created_at', { ascending: false });
-    if (data) setInvoices(data as unknown as InvoiceRecord[]);
-    setLoading(false);
-  }, []);
+  const { data: invoices = [], isLoading: loading, refetch } = useQuery({
+    queryKey: ['invoices'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('invoices')
+        .select(SELECT_QUERY)
+        .order('created_at', { ascending: false });
+      return (data || []) as unknown as InvoiceRecord[];
+    },
+  });
 
-  useEffect(() => { fetchInvoices(); }, [fetchInvoices]);
+  useEffect(() => {
+    const channel = supabase
+      .channel('invoices_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'invoices' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      })
+      .subscribe();
 
-  return { invoices, loading, refetch: fetchInvoices };
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient]);
+
+  return { invoices, loading, refetch };
 };
 
 export interface LetterheadOption {
@@ -70,18 +86,16 @@ export interface LetterheadOption {
 }
 
 export const useLetterheadOptions = () => {
-  const [letterheads, setLetterheads] = useState<LetterheadOption[]>([]);
-
-  useEffect(() => {
-    const fetch = async () => {
+  const { data: letterheads = [] } = useQuery({
+    queryKey: ['letterhead_options'],
+    queryFn: async () => {
       const { data } = await supabase
         .from('letterheads')
         .select('id, lawyer_name, name_fr, title_ar, title_fr, bar_name_ar, bar_name_fr, address, city, phone, email')
         .order('created_at', { ascending: false });
-      if (data) setLetterheads(data);
-    };
-    fetch();
-  }, []);
+      return (data || []) as LetterheadOption[];
+    },
+  });
 
   return letterheads;
 };
