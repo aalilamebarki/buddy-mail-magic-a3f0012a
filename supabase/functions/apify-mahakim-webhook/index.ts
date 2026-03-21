@@ -287,24 +287,60 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 3. Schedule future court sessions
+    // 3. Schedule future court sessions from ALL available sources
     let newSessionsCount = 0;
     if (userId) {
       const now = new Date();
       now.setHours(0, 0, 0, 0);
       const futureSessionMap = new Map<string, { time: string; room: string }>();
 
+      const addCandidate = (raw: string | undefined, fallback?: { time?: string; room?: string }) => {
+        const parsed = parseDateField(raw, now);
+        if (!parsed) return;
+        const existing = futureSessionMap.get(parsed.dateKey);
+        futureSessionMap.set(parsed.dateKey, {
+          time: parsed.time || fallback?.time || existing?.time || '',
+          room: parsed.room || fallback?.room || existing?.room || '',
+        });
+      };
+
+      // Extract from procedures: check ALL date-like fields
       for (const proc of procedures) {
-        const parsed = parseDateField(proc.next_session_date, now);
-        if (parsed) {
-          if (!futureSessionMap.has(parsed.dateKey)) {
-            futureSessionMap.set(parsed.dateKey, { time: parsed.time, room: parsed.room });
-          }
+        const fallback = {
+          time: proc.session_time || '',
+          room: proc.court_room || '',
+        };
+        addCandidate(proc.next_session_date, fallback);
+        addCandidate(proc.action_date, fallback);
+        addCandidate(proc.decision, fallback);
+        addCandidate(proc.court_room, fallback);
+        addCandidate(proc.action_type, fallback);
+      }
+
+      // Extract from caseInfo
+      if (caseInfo) {
+        addCandidate(caseInfo.next_hearing);
+        addCandidate(caseInfo.next_session_date);
+      }
+
+      // Extract from allLabels
+      if (allLabels) {
+        const labelKeys = ['الجلسة المقبلة', 'تاريخ الجلسة المقبلة', 'جلسة مقبلة'];
+        for (const key of labelKeys) {
+          addCandidate(allLabels[key]);
         }
       }
 
-      if (nextSessionDate && !futureSessionMap.has(nextSessionDate)) {
-        futureSessionMap.set(nextSessionDate, { time: '', room: '' });
+      // Fallback: top-level nextSessionDate
+      if (nextSessionDate) {
+        const parsed = parseDateField(nextSessionDate, now);
+        if (parsed && !futureSessionMap.has(parsed.dateKey)) {
+          futureSessionMap.set(parsed.dateKey, { time: parsed.time, room: parsed.room });
+        } else if (!parsed && /^\d{4}-\d{2}-\d{2}$/.test(nextSessionDate) && new Date(nextSessionDate) >= now) {
+          if (!futureSessionMap.has(nextSessionDate)) {
+            futureSessionMap.set(nextSessionDate, { time: '', room: '' });
+          }
+        }
       }
 
       if (futureSessionMap.size > 0) {
@@ -331,7 +367,6 @@ Deno.serve(async (req) => {
               court_room: info.room || null,
             });
           } else {
-            // Update time/room if changed
             const existing = existingByDate.get(d);
             const needsUpdate = (info.time && info.time !== existing.session_time) ||
                                 (info.room && info.room !== existing.court_room);
@@ -349,6 +384,7 @@ Deno.serve(async (req) => {
           newSessionsCount = newSessions.length;
         }
       }
+    }
     }
 
     // 4. Update sync job as completed
