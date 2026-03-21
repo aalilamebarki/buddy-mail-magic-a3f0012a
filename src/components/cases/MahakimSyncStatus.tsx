@@ -1,12 +1,6 @@
 /**
  * مكون المزامنة الرئيسي مع بوابة محاكم
- * Main Mahakim sync component — orchestrates sub-components
- *
- * المكونات الفرعية:
- * - SyncDialog: نافذة تأكيد المزامنة
- * - SyncStatusCard: بطاقة نتائج آخر مزامنة
- * - SyncBanners: أشرطة الحالة المؤقتة
- * - ProviderSelector: اختيار مزود الجلب
+ * Main Mahakim sync component — المزود يُختار تلقائياً
  */
 
 import { useState } from 'react';
@@ -22,7 +16,6 @@ export type { MahakimSyncStatusProps } from './mahakim/types';
 export const MahakimSyncStatus = ({
   caseNumber,
   courtName,
-  courtLevel,
   latestJob,
   syncing,
   onSync,
@@ -33,7 +26,6 @@ export const MahakimSyncStatus = ({
 
   return (
     <div className="space-y-2">
-      {/* ── أزرار المزامنة وفتح البوابة ── */}
       <div className="flex gap-2">
         <Button
           variant="default"
@@ -51,7 +43,6 @@ export const MahakimSyncStatus = ({
         </Button>
       </div>
 
-      {/* ── نافذة التأكيد ── */}
       <SyncDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
@@ -61,13 +52,9 @@ export const MahakimSyncStatus = ({
         onConfirm={onSync}
       />
 
-      {/* ── بطاقة حالة آخر مزامنة ── */}
       {latestJob && <SyncStatusCard job={latestJob} />}
-
-      {/* ── أشرطة التنبيهات المؤقتة ── */}
       <SyncBanners job={latestJob} />
 
-      {/* ── رقم الملف ── */}
       <p className="text-[10px] text-muted-foreground text-center">
         رقم الملف: <span dir="ltr" className="font-mono font-bold">{caseNumber}</span>
       </p>
