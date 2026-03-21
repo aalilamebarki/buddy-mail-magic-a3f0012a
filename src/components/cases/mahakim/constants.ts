@@ -1,11 +1,11 @@
 /**
  * ثوابت مكونات مزامنة محاكم
- * Constants for Mahakim sync UI — status labels, provider options
+ * Constants for Mahakim sync UI — status labels
  */
 
 import { Clock, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { createElement } from 'react';
-import type { StatusConfig, ProviderOption } from './types';
+import type { StatusConfig } from './types';
 
 /** خريطة حالات المزامنة مع الأيقونات والألوان */
 export const STATUS_CONFIG: Record<string, StatusConfig> = {
@@ -29,11 +29,4 @@ export const STATUS_CONFIG: Record<string, StatusConfig> = {
     icon: createElement(XCircle, { className: 'h-3.5 w-3.5' }),
     color: 'text-destructive',
   },
-};
-
-/** خيارات مزودي الجلب مع وصف مختصر */
-export const PROVIDER_OPTIONS: Record<string, ProviderOption> = {
-  auto: { label: 'تلقائي', desc: 'يجرب Firecrawl أولاً ثم ScrapingBee' },
-  firecrawl: { label: 'Firecrawl', desc: 'متصفح Playwright — أسرع' },
-  scrapingbee: { label: 'ScrapingBee', desc: 'بروكسي مغربي — أكثر استقراراً' },
 };

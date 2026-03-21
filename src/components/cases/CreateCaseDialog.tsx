@@ -9,12 +9,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Plus, X, ChevronsUpDown, Check, UserPlus, UserRoundPlus } from 'lucide-react';
+import { Plus, X, ChevronsUpDown, Check, UserPlus, UserRoundPlus, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useClients } from '@/hooks/useClients';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { CaseNumberInput } from '@/components/cases/CaseNumberInput';
+import { getCategoryFromCode, COURT_HIERARCHY, filterAppellateByCode, validateHierarchy, type AppellateCourt } from '@/lib/court-mapping';
 
 /* ─── Types ─── */
 export interface Opponent {
@@ -35,7 +36,7 @@ export interface CaseForm {
   description: string;
   client_id: string;
   court: string;
-  case_number_raw: string; // composite "numero/code/annee"
+  case_number_raw: string;
 }
 
 /* ─── Constants ─── */
@@ -47,15 +48,18 @@ export const caseTypes = ['مدني', 'جنائي', 'تجاري', 'إداري', 
 
 const isNiyaba = (name: string) => HIDDEN_ADDRESS_PARTIES.includes(name.trim());
 
+const categoryLabels: Record<string, string> = {
+  civil: 'مدني / جنائي / أسري',
+  commercial: 'تجاري',
+  administrative: 'إداري',
+};
+
 /* ─── Props ─── */
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Called after successful creation with the new case id */
   onCreated: (caseId: string) => void;
-  /** Pre-select a client (e.g. from billing) */
   preselectedClientId?: string;
-  /** Edit mode – pass existing case data */
   editingCase?: any;
 }
 
@@ -69,12 +73,17 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
   const [againstAllInterested, setAgainstAllInterested] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Court
+  // Court selection — hierarchical
   const [courtLevel, setCourtLevel] = useState('');
   const [courtSubType, setCourtSubType] = useState('');
   const [courtsDb, setCourtsDb] = useState<any[]>([]);
   const [courtPopoverOpen, setCourtPopoverOpen] = useState(false);
   const [courtSearchTerm, setCourtSearchTerm] = useState('');
+
+  // Parent-child: selected appellate court index
+  const [selectedAppellateIdx, setSelectedAppellateIdx] = useState<number>(-1);
+  const [appellatePopoverOpen, setAppellatePopoverOpen] = useState(false);
+  const [appellateSearchTerm, setAppellateSearchTerm] = useState('');
 
   // Client
   const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
@@ -101,7 +110,6 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
         court: editingCase.court || '',
         case_number_raw: editingCase.case_number || '',
       });
-      // Load opponents
       supabase.from('case_opponents').select('*').eq('case_id', editingCase.id).order('sort_order').then(({ data }) => {
         if (data && data.length > 0) {
           const opps = data.filter((o: any) => o.party_type !== 'presence');
@@ -116,10 +124,6 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
           setAgainstAllInterested(false);
         }
       });
-      // Determine court level
-      if (editingCase.court) {
-        // Will be set after courtsDb loads
-      }
     } else {
       setForm({ ...emptyForm, client_id: preselectedClientId || '' });
       setOpponents([{ ...emptyOpponent }]);
@@ -129,6 +133,8 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
     setCourtLevel('');
     setCourtSubType('');
     setCourtSearchTerm('');
+    setSelectedAppellateIdx(-1);
+    setAppellateSearchTerm('');
   }, [open, editingCase, preselectedClientId]);
 
   // Set court level when courtsDb is ready + editing
@@ -148,6 +154,55 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
 
   const updateField = (field: keyof CaseForm, value: string) => setForm(prev => ({ ...prev, [field]: value }));
 
+  /* ─── Derived: case code and category ─── */
+  const parsedCode = useMemo(() => {
+    const parts = form.case_number_raw.split('/');
+    return parts[1]?.trim() || '';
+  }, [form.case_number_raw]);
+
+  const codeCategory = useMemo(() => {
+    return parsedCode.length === 4 ? getCategoryFromCode(parsedCode) : null;
+  }, [parsedCode]);
+
+  /** 
+   * Filtered appellate courts based on case code category.
+   * If code is entered → only show matching category appellate courts.
+   */
+  const filteredAppellateCourts = useMemo(() => {
+    let courts = parsedCode.length === 4
+      ? filterAppellateByCode(parsedCode)
+      : COURT_HIERARCHY;
+    
+    if (appellateSearchTerm) {
+      const q = appellateSearchTerm.toLowerCase();
+      courts = courts.filter(ac => ac.label.toLowerCase().includes(q) || ac.portalLabel.toLowerCase().includes(q));
+    }
+    return courts;
+  }, [parsedCode, appellateSearchTerm]);
+
+  /** 
+   * Primary courts — only from the selected appellate court.
+   */
+  const filteredPrimaryCourts = useMemo(() => {
+    if (selectedAppellateIdx < 0) return [];
+    const ac = COURT_HIERARCHY[selectedAppellateIdx];
+    if (!ac) return [];
+    let courts = ac.primaryCourts;
+    if (courtSearchTerm) {
+      const q = courtSearchTerm.toLowerCase();
+      courts = courts.filter(pc => pc.label.toLowerCase().includes(q) || pc.portalLabel.toLowerCase().includes(q));
+    }
+    return courts;
+  }, [selectedAppellateIdx, courtSearchTerm]);
+
+  /** Hierarchy validation — mismatch between code and selected court */
+  const hierarchyError = useMemo(() => {
+    if (selectedAppellateIdx >= 0 && parsedCode.length === 4) {
+      return validateHierarchy(parsedCode, selectedAppellateIdx);
+    }
+    return null;
+  }, [parsedCode, selectedAppellateIdx]);
+
   /* ─── Opponents ─── */
   const updateOpponent = (i: number, field: keyof Opponent, value: string) =>
     setOpponents(prev => prev.map((o, idx) => idx === i ? { ...o, [field]: value } : o));
@@ -160,7 +215,7 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
   const addPresenceParty = () => setPresenceParties(prev => [...prev, { name: '', address: '', phone: '' }]);
   const removePresenceParty = (i: number) => setPresenceParties(prev => prev.filter((_, idx) => idx !== i));
 
-  /* ─── Court filtering ─── */
+  /* ─── Legacy court filtering (for DB-based courts) ─── */
   const filteredCourts = useMemo(() => {
     let filtered = courtsDb;
     if (courtLevel === 'ابتدائية') {
@@ -205,6 +260,7 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
     if (!form.client_id) { toast.error('يجب اختيار الموكل'); return; }
     if (!form.court.trim()) { toast.error('المحكمة مطلوبة'); return; }
     if (!form.case_type) { toast.error('نوع الملف مطلوب'); return; }
+    if (hierarchyError) { toast.error(hierarchyError); return; }
 
     const ALL_INTERESTED = 'كل من له المصلحة';
     const hasNiyabaPresence = presenceParties.some(p => isNiyaba(p.name));
@@ -275,7 +331,6 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
         caseId = data.id;
       }
 
-      // Insert opponents & presence
       const validPresence = presenceParties.filter(p => p.name.trim());
       const opponentsPayload = againstAllInterested
         ? [{ case_id: caseId, name: ALL_INTERESTED, address: null, phone: null, sort_order: 0, party_type: 'opponent' }]
@@ -288,8 +343,6 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
       onOpenChange(false);
       onCreated(caseId);
 
-      // Auto-sync is now handled by a database trigger (trg_auto_sync_mahakim)
-      // No need to manually invoke the edge function
       if (!editingCase && caseNum) {
         toast.info('جاري جلب بيانات الملف من بوابة محاكم تلقائياً...', { duration: 5000 });
       }
@@ -299,6 +352,36 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
       setSaving(false);
     }
   };
+
+  /**
+   * Select an appellate court from hierarchy → auto-set court level.
+   * If primary court level is selected, show child courts.
+   */
+  const handleSelectAppellate = (globalIdx: number) => {
+    setSelectedAppellateIdx(globalIdx);
+    const ac = COURT_HIERARCHY[globalIdx];
+    if (!ac) return;
+
+    // If court level is "استئناف", set the appellate court directly
+    if (courtLevel === 'استئناف') {
+      updateField('court', ac.label);
+      setAppellatePopoverOpen(false);
+      setAppellateSearchTerm('');
+    } else {
+      // For ابتدائية, just select the parent — user will pick child
+      updateField('court', '');
+      setAppellatePopoverOpen(false);
+      setAppellateSearchTerm('');
+    }
+  };
+
+  const handleSelectPrimary = (primaryLabel: string) => {
+    updateField('court', primaryLabel);
+    setCourtPopoverOpen(false);
+    setCourtSearchTerm('');
+  };
+
+  const selectedAppellate = selectedAppellateIdx >= 0 ? COURT_HIERARCHY[selectedAppellateIdx] : null;
 
   return (
     <>
@@ -356,17 +439,28 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
               <Input value={form.title} onChange={e => updateField('title', e.target.value)} placeholder="مثال: نزاع عقاري - الدار البيضاء" />
             </div>
 
-            {/* Case Number — single smart input */}
+            {/* Case Number */}
             <div className="space-y-2">
               <Label>رقم الملف</Label>
               <CaseNumberInput
                 value={form.case_number_raw}
-                onChange={v => updateField('case_number_raw', v)}
+                onChange={v => {
+                  updateField('case_number_raw', v);
+                  // Reset appellate selection when code changes
+                  setSelectedAppellateIdx(-1);
+                  updateField('court', courtLevel === 'نقض' ? 'محكمة النقض' : '');
+                }}
                 placeholder="رقم/رمز/سنة — مثال: 1/1401/2025"
               />
               <p className="text-[10px] text-muted-foreground">
                 اكتب الرقم ثم / ثم الرمز (4 أرقام) ثم السنة — السلاش يُضاف تلقائياً بعد الرمز
               </p>
+              {/* Show detected category */}
+              {codeCategory && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                  {categoryLabels[codeCategory]} — سيتم تصفية المحاكم تلقائياً
+                </Badge>
+              )}
             </div>
 
             {/* Case Type */}
@@ -481,9 +575,11 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
               </Button>
             </div>
 
-            {/* Court */}
+            {/* ═══ Court Selection — Hierarchical Parent-Child ═══ */}
             <div className="space-y-3">
               <Label>المحكمة *</Label>
+              
+              {/* Court Level Buttons */}
               <div className="flex gap-2">
                 {['ابتدائية', 'استئناف', 'نقض'].map(level => (
                   <Button
@@ -495,6 +591,8 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
                       setCourtLevel(level);
                       setCourtSubType('');
                       setCourtSearchTerm('');
+                      setSelectedAppellateIdx(-1);
+                      setAppellateSearchTerm('');
                       updateField('court', level === 'نقض' ? 'محكمة النقض' : '');
                     }}
                     className="flex-1"
@@ -504,6 +602,15 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
                 ))}
               </div>
 
+              {/* Hierarchy mismatch warning */}
+              {hierarchyError && (
+                <div className="flex items-start gap-2 p-2.5 rounded-md bg-destructive/10 border border-destructive/30">
+                  <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                  <p className="text-xs text-destructive">{hierarchyError}</p>
+                </div>
+              )}
+
+              {/* Sub-type badges for ابتدائية */}
               {courtLevel === 'ابتدائية' && (
                 <div className="flex flex-wrap gap-1">
                   {[
@@ -523,74 +630,183 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
                 </div>
               )}
 
-              {courtLevel === 'نقض' ? (
+              {/* نقض — auto-selected */}
+              {courtLevel === 'نقض' && (
                 <div className="border rounded-lg p-3 bg-muted/30 text-center">
                   <p className="text-sm text-muted-foreground"><strong className="text-foreground">محكمة النقض</strong> - الرباط</p>
                 </div>
-              ) : courtLevel && (courtLevel === 'استئناف' || courtSubType) ? (
-                <Popover open={courtPopoverOpen} onOpenChange={setCourtPopoverOpen}>
+              )}
+
+              {/* ═══ Step 1: Select Appellate Court (Parent) ═══ */}
+              {courtLevel === 'استئناف' && (
+                <Popover open={appellatePopoverOpen} onOpenChange={setAppellatePopoverOpen}>
                   <PopoverTrigger asChild>
                     <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-                      {form.court || 'ابحث عن المحكمة...'}
+                      {selectedAppellate?.label || form.court || 'اختر محكمة الاستئناف...'}
                       <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                     <Command shouldFilter={false}>
-                      <CommandInput placeholder="ابحث باسم المحكمة أو المدينة..." value={courtSearchTerm} onValueChange={setCourtSearchTerm} />
+                      <CommandInput placeholder="ابحث عن محكمة الاستئناف..." value={appellateSearchTerm} onValueChange={setAppellateSearchTerm} />
                       <CommandList>
                         <CommandEmpty>
-                          <div className="py-2 text-center space-y-2">
-                            <p className="text-sm text-muted-foreground">لا توجد نتائج</p>
-                            {courtSearchTerm.trim() && (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="gap-1.5"
-                                onClick={async () => {
-                                  const courtType = courtLevel === 'استئناف'
-                                    ? (courtSearchTerm.includes('تجارية') ? 'استئناف تجارية' : courtSearchTerm.includes('إدارية') ? 'استئناف إدارية' : 'استئناف')
-                                    : (courtSubType || 'ابتدائية');
-                                  const { data, error } = await supabase.from('courts').insert({
-                                    name: courtSearchTerm.trim(),
-                                    city: '',
-                                    court_type: courtType,
-                                    addressee: courtLevel === 'استئناف' ? 'السيد الرئيس الأول لمحكمة الاستئناف' : 'السيد رئيس المحكمة الابتدائية',
-                                  }).select().single();
-                                  if (!error && data) {
-                                    setCourtsDb(prev => [...prev, data]);
-                                    updateField('court', data.name);
-                                    setCourtPopoverOpen(false);
-                                    setCourtSearchTerm('');
-                                    toast.success('تمت إضافة المحكمة بنجاح');
-                                  } else {
-                                    toast.error('خطأ في إضافة المحكمة');
-                                  }
-                                }}
-                              >
-                                <Plus className="h-3.5 w-3.5" />
-                                إضافة "{courtSearchTerm.trim()}"
-                              </Button>
-                            )}
-                          </div>
+                          <p className="text-sm text-muted-foreground py-4 text-center">لا توجد نتائج</p>
                         </CommandEmpty>
-                        <CommandGroup>
-                          {filteredCourts.map(c => (
-                            <CommandItem key={c.id} value={c.id} onSelect={() => { updateField('court', c.name); setCourtPopoverOpen(false); setCourtSearchTerm(''); }}>
-                              <Check className={cn("ml-2 h-4 w-4", form.court === c.name ? "opacity-100" : "opacity-0")} />
-                              <div className="flex flex-col">
-                                <span className="text-sm">{c.name}</span>
-                                <span className="text-xs text-muted-foreground">{c.city}</span>
-                              </div>
-                            </CommandItem>
-                          ))}
+                        <CommandGroup heading={codeCategory ? `${categoryLabels[codeCategory]} فقط` : 'جميع محاكم الاستئناف'}>
+                          {filteredAppellateCourts.map(ac => {
+                            const globalIdx = COURT_HIERARCHY.indexOf(ac);
+                            return (
+                              <CommandItem key={globalIdx} value={String(globalIdx)} onSelect={() => handleSelectAppellate(globalIdx)}>
+                                <Check className={cn("ml-2 h-4 w-4", selectedAppellateIdx === globalIdx ? "opacity-100" : "opacity-0")} />
+                                <div className="flex flex-col">
+                                  <span className="text-sm">{ac.label}</span>
+                                  <span className="text-[10px] text-muted-foreground">{ac.primaryCourts.length} محكمة ابتدائية تابعة</span>
+                                </div>
+                              </CommandItem>
+                            );
+                          })}
                         </CommandGroup>
                       </CommandList>
                     </Command>
                   </PopoverContent>
                 </Popover>
-              ) : null}
+              )}
+
+              {/* ═══ Step 2 (ابتدائية): Select Appellate Parent, then pick child ═══ */}
+              {courtLevel === 'ابتدائية' && (courtSubType || true) && (
+                <>
+                  {/* Step A: Pick parent appellate */}
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] text-muted-foreground">الدائرة القضائية (محكمة الاستئناف الأم)</Label>
+                    <Popover open={appellatePopoverOpen} onOpenChange={setAppellatePopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" role="combobox" size="sm" className="w-full justify-between font-normal text-xs">
+                          {selectedAppellate?.label || 'اختر الدائرة القضائية...'}
+                          <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                        <Command shouldFilter={false}>
+                          <CommandInput placeholder="ابحث..." value={appellateSearchTerm} onValueChange={setAppellateSearchTerm} />
+                          <CommandList>
+                            <CommandEmpty><p className="text-sm text-muted-foreground py-4 text-center">لا توجد نتائج</p></CommandEmpty>
+                            <CommandGroup heading={codeCategory ? `${categoryLabels[codeCategory]}` : 'جميع الدوائر'}>
+                              {filteredAppellateCourts.map(ac => {
+                                const globalIdx = COURT_HIERARCHY.indexOf(ac);
+                                return (
+                                  <CommandItem key={globalIdx} value={String(globalIdx)} onSelect={() => handleSelectAppellate(globalIdx)}>
+                                    <Check className={cn("ml-2 h-4 w-4", selectedAppellateIdx === globalIdx ? "opacity-100" : "opacity-0")} />
+                                    <div className="flex flex-col">
+                                      <span className="text-xs">{ac.label}</span>
+                                      <span className="text-[10px] text-muted-foreground">{ac.primaryCourts.length} محكمة تابعة</span>
+                                    </div>
+                                  </CommandItem>
+                                );
+                              })}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {/* Step B: Pick child primary court */}
+                  {selectedAppellateIdx >= 0 && (
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] text-muted-foreground">المحكمة الابتدائية التابعة</Label>
+                      <Popover open={courtPopoverOpen} onOpenChange={setCourtPopoverOpen}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                            {form.court || 'اختر المحكمة الابتدائية...'}
+                            <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                          <Command shouldFilter={false}>
+                            <CommandInput placeholder="ابحث..." value={courtSearchTerm} onValueChange={setCourtSearchTerm} />
+                            <CommandList>
+                              <CommandEmpty><p className="text-sm text-muted-foreground py-4 text-center">لا توجد نتائج</p></CommandEmpty>
+                              <CommandGroup heading={selectedAppellate?.label}>
+                                {filteredPrimaryCourts.map((pc, i) => (
+                                  <CommandItem key={i} value={pc.label} onSelect={() => handleSelectPrimary(pc.label)}>
+                                    <Check className={cn("ml-2 h-4 w-4", form.court === pc.label ? "opacity-100" : "opacity-0")} />
+                                    <span className="text-sm">{pc.label}</span>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  )}
+
+                  {/* Fallback: if no appellate selected, show DB courts */}
+                  {selectedAppellateIdx < 0 && courtSubType && (
+                    <Popover open={courtPopoverOpen} onOpenChange={setCourtPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                          {form.court || 'ابحث عن المحكمة...'}
+                          <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                        <Command shouldFilter={false}>
+                          <CommandInput placeholder="ابحث باسم المحكمة أو المدينة..." value={courtSearchTerm} onValueChange={setCourtSearchTerm} />
+                          <CommandList>
+                            <CommandEmpty>
+                              <div className="py-2 text-center space-y-2">
+                                <p className="text-sm text-muted-foreground">لا توجد نتائج</p>
+                                {courtSearchTerm.trim() && (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="gap-1.5"
+                                    onClick={async () => {
+                                      const courtType = courtSubType || 'ابتدائية';
+                                      const { data, error } = await supabase.from('courts').insert({
+                                        name: courtSearchTerm.trim(),
+                                        city: '',
+                                        court_type: courtType,
+                                        addressee: 'السيد رئيس المحكمة الابتدائية',
+                                      }).select().single();
+                                      if (!error && data) {
+                                        setCourtsDb(prev => [...prev, data]);
+                                        updateField('court', data.name);
+                                        setCourtPopoverOpen(false);
+                                        setCourtSearchTerm('');
+                                        toast.success('تمت إضافة المحكمة بنجاح');
+                                      } else {
+                                        toast.error('خطأ في إضافة المحكمة');
+                                      }
+                                    }}
+                                  >
+                                    <Plus className="h-3.5 w-3.5" />
+                                    إضافة "{courtSearchTerm.trim()}"
+                                  </Button>
+                                )}
+                              </div>
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {filteredCourts.map(c => (
+                                <CommandItem key={c.id} value={c.id} onSelect={() => { updateField('court', c.name); setCourtPopoverOpen(false); setCourtSearchTerm(''); }}>
+                                  <Check className={cn("ml-2 h-4 w-4", form.court === c.name ? "opacity-100" : "opacity-0")} />
+                                  <div className="flex flex-col">
+                                    <span className="text-sm">{c.name}</span>
+                                    <span className="text-xs text-muted-foreground">{c.city}</span>
+                                  </div>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  )}
+                </>
+              )}
             </div>
 
             {/* Notes */}
@@ -601,7 +817,7 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>إلغاء</Button>
-            <Button onClick={handleSave} disabled={saving}>{saving ? 'جاري الحفظ...' : 'حفظ'}</Button>
+            <Button onClick={handleSave} disabled={saving || !!hierarchyError}>{saving ? 'جاري الحفظ...' : 'حفظ'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

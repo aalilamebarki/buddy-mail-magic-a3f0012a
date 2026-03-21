@@ -305,8 +305,6 @@ const CaseDetail = () => {
                   syncing={syncing}
                   onSync={(appealCourt, firstInstanceCourt) => startSync(caseData.case_number, appealCourt, firstInstanceCourt)}
                   onOpenPortal={() => openPortal(caseData.case_number)}
-                  caseId={id}
-                  onSyncComplete={fetchData}
                 />
               </div>
             )}

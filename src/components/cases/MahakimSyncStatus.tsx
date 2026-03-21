@@ -5,18 +5,16 @@
  * ● لا أزرار تقنية — المزامنة تلقائية 100%
  * ● يظهر فقط شريط حالة دقيق أثناء الجلب
  * ● عند النجاح: يعرض ملخصاً سريعاً يختفي تلقائياً
- * ● عند الفشل: يقترح "المزامنة اليدوية" كبديل
+ * ● عند الفشل: يقترح إعادة المحاولة
  * ● رابط خفي لفتح البوابة يدوياً
  */
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
   Loader2, CheckCircle2, XCircle, RefreshCw,
-  ExternalLink, ClipboardPaste, ChevronDown, ChevronUp,
+  ExternalLink, ChevronDown, ChevronUp,
 } from 'lucide-react';
-import { SmartSyncAssistant } from './mahakim/SmartSyncAssistant';
 import { SyncDialog } from './mahakim/SyncDialog';
 import type { MahakimSyncStatusProps } from './mahakim/types';
 import type { SyncJob } from '@/hooks/useMahakimSync';
@@ -37,11 +35,8 @@ export const MahakimSyncStatus = ({
   syncing,
   onSync,
   onOpenPortal,
-  caseId,
-  onSyncComplete,
 }: MahakimSyncStatusProps) => {
   const [expanded, setExpanded] = useState(false);
-  const [smartSyncOpen, setSmartSyncOpen] = useState(false);
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
 
   const isActive = syncing || latestJob?.status === 'pending' || latestJob?.status === 'scraping';
@@ -80,7 +75,7 @@ export const MahakimSyncStatus = ({
         </div>
       )}
 
-      {/* ── فشل حديث — يقترح البديل ── */}
+      {/* ── فشل حديث — يقترح إعادة المحاولة ── */}
       {showRecentFailure && (
         <div className="space-y-2">
           <div className="flex items-start gap-2.5 p-3 rounded-lg bg-destructive/5 border border-destructive/20">
@@ -94,15 +89,14 @@ export const MahakimSyncStatus = ({
               </p>
             </div>
           </div>
-          {/* زر المزامنة اليدوية كبديل */}
           <Button
             variant="outline"
             size="sm"
             className="w-full gap-2 text-xs"
-            onClick={() => setSmartSyncOpen(true)}
+            onClick={() => setSyncDialogOpen(true)}
           >
-            <ClipboardPaste className="h-3.5 w-3.5" />
-            مزامنة يدوية (نسخ ولصق — مجانية)
+            <RefreshCw className="h-3.5 w-3.5" />
+            إعادة المحاولة
           </Button>
         </div>
       )}
@@ -134,20 +128,10 @@ export const MahakimSyncStatus = ({
             <ExternalLink className="h-3 w-3" />
             فتح البوابة
           </Button>
-          <span className="text-muted-foreground/30">|</span>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 text-[10px] text-muted-foreground hover:text-foreground gap-1"
-            onClick={() => setSmartSyncOpen(true)}
-          >
-            <ClipboardPaste className="h-3 w-3" />
-            لصق يدوي
-          </Button>
         </div>
       )}
 
-      {/* ── النوافذ ── */}
+      {/* ── نافذة إعادة المزامنة ── */}
       <SyncDialog
         open={syncDialogOpen}
         onOpenChange={setSyncDialogOpen}
@@ -156,16 +140,6 @@ export const MahakimSyncStatus = ({
         latestJob={latestJob}
         onConfirm={onSync}
       />
-
-      {caseId && (
-        <SmartSyncAssistant
-          open={smartSyncOpen}
-          onOpenChange={setSmartSyncOpen}
-          caseId={caseId}
-          caseNumber={caseNumber}
-          onSyncComplete={onSyncComplete || (() => {})}
-        />
-      )}
     </div>
   );
 };
@@ -227,9 +201,10 @@ const CompletedSyncSummary = ({ job, expanded, onToggle }: { job: SyncJob; expan
 
 /* ── تحويل رسائل الخطأ التقنية لرسائل مفهومة ── */
 function getUserFriendlyError(msg?: string | null): string {
-  if (!msg) return 'يمكنك استخدام المزامنة اليدوية بالنسخ واللصق كبديل';
-  if (msg.includes('رصيد') || msg.includes('402')) return 'مشكلة في خدمة الجلب — استخدم المزامنة اليدوية كبديل';
-  if (msg.includes('مهلة') || msg.includes('timeout')) return 'البوابة بطيئة — أعد المحاولة لاحقاً أو استخدم المزامنة اليدوية';
-  if (msg.includes('حظر') || msg.includes('blocked')) return 'البوابة تمنع الوصول — استخدم المزامنة اليدوية';
-  return 'يمكنك استخدام المزامنة اليدوية بالنسخ واللصق كبديل';
+  if (!msg) return 'حدث خطأ غير متوقع — أعد المحاولة لاحقاً';
+  if (msg.includes('رصيد') || msg.includes('402')) return 'مشكلة في خدمة الجلب — أعد المحاولة لاحقاً';
+  if (msg.includes('مهلة') || msg.includes('timeout')) return 'البوابة بطيئة — أعد المحاولة لاحقاً';
+  if (msg.includes('حظر') || msg.includes('blocked')) return 'البوابة تمنع الوصول حالياً — أعد المحاولة لاحقاً';
+  if (msg.includes('لم يتم استلام')) return 'انتهت مهلة الانتظار — أعد المحاولة';
+  return 'حدث خطأ — أعد المحاولة لاحقاً';
 }
