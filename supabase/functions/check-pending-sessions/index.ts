@@ -347,10 +347,12 @@ Deno.serve(async (req) => {
 
       let didRetry = false;
       const latestActivityAt = latestJob?.created_at || caseRow.last_synced_at;
+      const isEmptyResult = !!(caseRow.last_sync_result && (caseRow.last_sync_result as any).empty === true);
+      const cooldown = isEmptyResult ? EMPTY_RESULT_RETRY_MINUTES : RETRY_COOLDOWN_MINUTES;
       const canRetry = !!userId
         && !!caseRow.case_number
         && !["pending", "scraping"].includes(latestJob?.status || "")
-        && minutesSince(latestActivityAt) >= RETRY_COOLDOWN_MINUTES;
+        && minutesSince(latestActivityAt) >= cooldown;
 
       if (canRetry) {
         try {
