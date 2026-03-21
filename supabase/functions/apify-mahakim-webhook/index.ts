@@ -60,11 +60,18 @@ Deno.serve(async (req) => {
     // ── Parse Apify results ──
     const { caseInfo = {}, procedures = [], nextSessionDate } = results;
 
+    // Handle "not found" — no data returned from portal
+    const isEmptyResult = !caseInfo.judge && !caseInfo.department && !caseInfo.status && procedures.length === 0;
+
     // 1. Update case metadata
     const caseUpdate: Record<string, unknown> = {
       last_synced_at: new Date().toISOString(),
-      last_sync_result: { caseInfo, procedures, _provider: 'apify' },
+      last_sync_result: { caseInfo, procedures, _provider: 'apify', empty: isEmptyResult },
     };
+
+    if (isEmptyResult) {
+      caseUpdate.mahakim_status = 'لا يزال غير موجود';
+    }
     if (caseInfo.judge) caseUpdate.mahakim_judge = caseInfo.judge;
     if (caseInfo.department) caseUpdate.mahakim_department = caseInfo.department;
     if (caseInfo.status) caseUpdate.mahakim_status = caseInfo.status;
