@@ -654,6 +654,217 @@ function parseMarkdownResult(markdown: string): {
 }
 
 
+/* ══════════════════════════════════════════════════════════════════
+   ScrapingBee — Fallback scraper with Moroccan proxies
+   ══════════════════════════════════════════════════════════════════ */
+function buildJsScenario(numero: string, code: string, annee: string, appealCourt?: string, firstInstanceCourt?: string) {
+  const esc = (value?: string) => (value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  const megaScript = `(()=>{
+window.__L=[];
+var set=function(q,v){var e=document.querySelector(q);if(!e){window.__L.push('miss:'+q);return 0}var d=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');d&&d.set?d.set.call(e,v):e.value=v;e.dispatchEvent(new Event('input',{bubbles:1}));e.dispatchEvent(new Event('change',{bubbles:1}));return 1};
+var ac='${esc(appealCourt||'')}';
+var pc='${esc(firstInstanceCourt||'')}';
+var num='${esc(numero)}';
+var ann='${esc(annee)}';
+var code='${esc(code)}';
+function waitForForm(cb){
+  var a=0;
+  function poll(){
+    var m=document.querySelector('input[formcontrolname="mark"]');
+    if(m){window.__L.push('form-ready');cb();return}
+    if(++a<30){setTimeout(poll,300);return}
+    window.__L.push('form-timeout');
+  }
+  poll();
+}
+waitForForm(function(){
+  set('input[formcontrolname="mark"]',code);
+  window.__L.push('mark-set');
+function selectDD(idx,target,cb){
+  var a=0;
+  function poll(){
+    var dds=document.querySelectorAll('p-dropdown .p-dropdown-trigger');
+    if(dds.length<=idx){if(++a<40){setTimeout(poll,400);return}window.__L.push('dd'+idx+'-timeout:found='+dds.length);cb();return}
+    dds[idx].click();
+    setTimeout(function(){
+      var panel=document.querySelector('.p-dropdown-panel');
+      var li=panel?panel.querySelectorAll('li.p-dropdown-item,.p-dropdown-items li'):document.querySelectorAll('li.p-dropdown-item');
+      if(li.length<2&&a<40){a++;setTimeout(poll,400);return}
+      var f=[];
+      for(var i=0;i<li.length;i++){var x=li[i].textContent.trim();f.push(x);if(x.indexOf(target)>=0){li[i].click();window.__L.push('dd'+idx+'-ok:'+x);setTimeout(cb,600);return}}
+      window.__L.push('dd'+idx+'-miss:'+li.length+':'+f.slice(0,5).join(','));
+      cb();
+    },600);
+  }
+  poll();
+}
+function clickPrimaryCheckbox(cb){
+  var a=0;
+  function poll(){
+    var cbs=[].slice.call(document.querySelectorAll('p-checkbox,input[type="checkbox"],.p-checkbox'));
+    var labels=[].slice.call(document.querySelectorAll('label,span'));
+    var found=null;
+    for(var i=0;i<labels.length;i++){
+      var t=labels[i].textContent||'';
+      if(t.indexOf('الابتدائية')>=0||t.indexOf('الإبتدائية')>=0||t.indexOf('البحث بالمحاكم')>=0){
+        var cb2=labels[i].querySelector('input[type="checkbox"],.p-checkbox-box');
+        if(!cb2){var p=labels[i].closest('.p-field-checkbox,div');if(p)cb2=p.querySelector('input[type="checkbox"],.p-checkbox-box')}
+        if(!cb2){cb2=labels[i].previousElementSibling||labels[i].parentElement.querySelector('input[type="checkbox"],.p-checkbox-box,.p-checkbox')}
+        if(cb2){found=cb2;break}
+        found=labels[i];break;
+      }
+    }
+    if(!found&&cbs.length>0){found=cbs[0]}
+    if(found){found.click();window.__L.push('checkbox-clicked:'+found.tagName+':'+found.className);setTimeout(cb,2000);return}
+    if(++a<15){setTimeout(poll,400);return}
+    window.__L.push('checkbox-miss');cb();
+  }
+  poll();
+}
+function finalSearch(){
+  window.__L.push('fields-done');
+  setTimeout(function(){
+    var btns=[].slice.call(document.querySelectorAll('button'));
+    var b=btns.find(function(x){var t=x.textContent.trim();return t==='بحث'||t==='بحث '});
+    if(!b){b=btns.find(function(x){return x.textContent.indexOf('بحث')>=0&&x.textContent.indexOf('المحاكم')<0})}
+    if(b){b.click();window.__L.push('search-clicked')}else{window.__L.push('search-miss')}
+  },500);
+}
+function fillFields(){
+  set('input[formcontrolname="numero"]',num);
+  set('input[formcontrolname="annee"]',ann);
+}
+function step2(){
+  fillFields();
+  if(pc){
+    clickPrimaryCheckbox(function(){
+      var dds=document.querySelectorAll('p-dropdown .p-dropdown-trigger');
+      if(dds.length>1){selectDD(1,pc,finalSearch)}else{window.__L.push('no-dd1-direct-search');finalSearch()}
+    });
+  }else{
+    finalSearch();
+  }
+}
+  if(ac){selectDD(0,ac,step2)}else{fillFields();finalSearch()}
+});
+return 1;
+})()`;
+
+  const instructions: Array<Record<string, unknown>> = [
+    { wait: 4000 },
+    { evaluate: megaScript.replace(/\n/g, '') },
+    { wait: 25000 },
+    {
+      evaluate: `(()=>{var v={};document.querySelectorAll('input[formcontrolname]').forEach(function(i){v[i.getAttribute('formcontrolname')]=i.value});var dd=[];document.querySelectorAll('.p-dropdown-label').forEach(function(d){dd.push(d.textContent.trim())});var d=document.createElement('div');d.id='__debug__';d.style.display='none';d.setAttribute('data-debug',JSON.stringify({s:window.__L||[],i:v,d:dd,t:!!document.querySelector('table,.p-datatable'),n:document.body.innerText.includes('لا توجد'),b:document.body.innerText.substring(0,250)}));document.body.appendChild(d);return 1})()`
+    },
+  ];
+  return { instructions };
+}
+
+async function fetchViaScrapingBee(apiKey: string, input: CaseInput, appealCourt?: string, firstInstanceCourt?: string): Promise<CaseResult> {
+  const caseLabel = `${input.numero}/${input.code}/${input.annee}`;
+  const start = Date.now();
+  log(`🐝 [ScrapingBee] Starting for ${caseLabel}`);
+
+  const scenario = buildJsScenario(input.numero, input.code, input.annee, appealCourt, firstInstanceCourt);
+  const scenarioJson = JSON.stringify(scenario);
+  const params = new URLSearchParams({
+    api_key: apiKey,
+    url: 'https://www.mahakim.ma/#/suivi/dossier-suivi',
+    render_js: 'true',
+    premium_proxy: 'true',
+    country_code: 'ma',
+    js_scenario: scenarioJson,
+    wait: '35000',
+    timeout: '90000',
+    block_resources: 'false',
+  });
+
+  try {
+    const resp = await fetch(`https://app.scrapingbee.com/api/v1/?${params}`, {
+      signal: AbortSignal.timeout(100000),
+    });
+    const elapsed = Date.now() - start;
+    log(`🐝 [ScrapingBee] Response: status=${resp.status} (${elapsed}ms)`);
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      log(`✗ [ScrapingBee] ${caseLabel}: ${resp.status} — ${errText.substring(0, 200)}`);
+      return {
+        ...input, status: 'error', caseInfo: {}, procedures: [], nextSessionDate: null,
+        error: `خطأ ScrapingBee: ${resp.status}`,
+      };
+    }
+
+    const html = await resp.text();
+    log(`✓ [ScrapingBee] ${caseLabel}: ${html.length} chars (${elapsed}ms)`);
+
+    const lower = html.toLowerCase();
+    if ((lower.includes('captcha') || lower.includes('access denied')) && !lower.includes('p-dropdown')) {
+      return { ...input, status: 'error', caseInfo: {}, procedures: [], nextSessionDate: null, error: 'تم حظر الطلب — يُرجى المحاولة لاحقاً' };
+    }
+
+    const parsed = parseHtmlFallback(html);
+
+    if (parsed.noResult) {
+      return { ...input, status: 'no_data', caseInfo: {}, procedures: [], nextSessionDate: null, error: 'لم يتم العثور على بيانات' };
+    }
+
+    if (!parsed.hasData) {
+      return { ...input, status: 'no_data', caseInfo: {}, procedures: [], nextSessionDate: null, error: 'لم يتم استخراج بيانات' };
+    }
+
+    const now = new Date();
+    let nextSessionDate: string | null = null;
+    for (const proc of parsed.procedures) {
+      const d = proc.next_session_date;
+      if (d && /\d{2}\/\d{2}\/\d{4}/.test(d)) {
+        const [day, month, year] = d.split('/');
+        const dateObj = new Date(`${year}-${month}-${day}`);
+        if (dateObj >= now && (!nextSessionDate || dateObj < new Date(nextSessionDate))) {
+          nextSessionDate = `${year}-${month}-${day}`;
+        }
+      }
+    }
+
+    return { ...input, status: 'success', caseInfo: parsed.caseInfo, procedures: parsed.procedures, nextSessionDate };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown';
+    log(`✗ [ScrapingBee] ${caseLabel}: ${msg}`);
+    return { ...input, status: 'error', caseInfo: {}, procedures: [], nextSessionDate: null, error: msg.includes('timeout') ? 'انتهت المهلة' : msg };
+  }
+}
+
+function parseHtmlFallback(html: string): {
+  caseInfo: Record<string, string>;
+  procedures: Array<Record<string, string>>;
+  hasData: boolean;
+  noResult: boolean;
+} {
+  if (html.includes('لا توجد أية نتيجة')) {
+    return { caseInfo: {}, procedures: [], hasData: false, noResult: true };
+  }
+  const caseInfo: Record<string, string> = {};
+  const procedures: Array<Record<string, string>> = [];
+  const patterns: [string, string[]][] = [
+    ['court', ['المحكمة']], ['judge', ['القاضي المقرر', 'القاضي']],
+    ['department', ['الشعبة']], ['case_type', ['نوع القضية']], ['status', ['الحالة']],
+  ];
+  for (const [key, labels] of patterns) {
+    for (const label of labels) {
+      const idx = html.indexOf(label);
+      if (idx === -1) continue;
+      const after = html.substring(idx, idx + 500);
+      const valueMatch = after.match(/>([^<]{2,100})</);
+      if (valueMatch && valueMatch[1].trim() !== label) {
+        caseInfo[key] = valueMatch[1].trim();
+        break;
+      }
+    }
+  }
+  return { caseInfo, procedures, hasData: Object.keys(caseInfo).length > 0, noResult: false };
+}
+
 /* ── Persist results to database ── */
 async function persistResults(
   supabase: ReturnType<typeof createClient>,
