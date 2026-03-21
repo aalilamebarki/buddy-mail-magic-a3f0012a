@@ -244,10 +244,15 @@ const CourtSessions = () => {
   const handleDeleteSession = async (sessionId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm('هل تريد حذف هذه الجلسة؟')) return;
+    // Optimistic delete
+    setSessions(prev => prev.filter(s => s.id !== sessionId));
     const { error } = await supabase.from('court_sessions').delete().eq('id', sessionId);
-    if (error) { toast.error('خطأ في حذف الجلسة'); return; }
+    if (error) {
+      toast.error('خطأ في حذف الجلسة');
+      refetchSessions(); // rollback
+      return;
+    }
     toast.success('تم حذف الجلسة');
-    fetchData();
   };
 
   const getSessionBadge = (date: string) => {
