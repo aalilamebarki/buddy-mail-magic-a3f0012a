@@ -462,7 +462,17 @@ async function fetchViaFirecrawl(
     // 1. Create browser session
     const createResp = await fcRequest(apiKey, 'POST', '/browser', { ttl: 120, activityTtl: 90 });
     if (!createResp.ok || !createResp.data?.id) {
-      log(`🔥 [FC-Browser] Failed to create session: ${createResp.status} — ${JSON.stringify(createResp.data).substring(0, 200)}`);
+      const errDetail = JSON.stringify(createResp.data).substring(0, 200);
+      log(`🔥 [FC-Browser] Failed to create session: ${createResp.status} — ${errDetail}`);
+      if (createResp.status === 402) {
+        return { ...input, status: 'error' as const, caseInfo: {}, procedures: [], nextSessionDate: null, error: 'رصيد Firecrawl غير كافٍ — جرّب ScrapingBee أو أعد شحن حسابك' };
+      }
+      if (createResp.status === 401 || createResp.status === 403) {
+        return { ...input, status: 'error' as const, caseInfo: {}, procedures: [], nextSessionDate: null, error: 'مفتاح Firecrawl غير صالح — تحقق من إعدادات الربط' };
+      }
+      if (createResp.status === 429) {
+        return { ...input, status: 'error' as const, caseInfo: {}, procedures: [], nextSessionDate: null, error: 'تم تجاوز حد الطلبات — انتظر دقيقة ثم أعد المحاولة' };
+      }
       return null;
     }
     sessionId = createResp.data.id;
@@ -479,7 +489,11 @@ async function fetchViaFirecrawl(
     const elapsed = Date.now() - start;
 
     if (!execResp.ok) {
-      log(`🔥 [FC-Browser] Execute failed: ${execResp.status} — ${JSON.stringify(execResp.data).substring(0, 300)}`);
+      const errDetail = JSON.stringify(execResp.data).substring(0, 300);
+      log(`🔥 [FC-Browser] Execute failed: ${execResp.status} — ${errDetail}`);
+      if (execResp.status === 408 || errDetail.includes('timeout')) {
+        return { ...input, status: 'error' as const, caseInfo: {}, procedures: [], nextSessionDate: null, error: 'انتهت مهلة الاتصال بالبوابة — قد تكون البوابة بطيئة، جرّب مرة أخرى' };
+      }
       return null;
     }
 
@@ -518,7 +532,7 @@ async function fetchViaFirecrawl(
 
     if (!parsed) {
       log(`🔥 [FC-Browser] Could not parse output. Full response: ${JSON.stringify(execData).substring(0, 500)}`);
-      return null;
+      return { ...input, status: 'error' as const, caseInfo: {}, procedures: [], nextSessionDate: null, error: 'لم يتم استخراج بيانات من البوابة — قد تكون البوابة قد غيّرت هيكلها، جرّب ScrapingBee' };
     }
 
     log(`🔥 [FC-Browser] Script log: ${parsed.log?.join(' → ')}`);
@@ -571,6 +585,9 @@ async function fetchViaFirecrawl(
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown';
     log(`🔥 [FC-Browser] ${caseLabel}: error — ${msg}`);
+    if (msg.includes('timeout') || msg.includes('AbortError')) {
+      return { ...input, status: 'error' as const, caseInfo: {}, procedures: [], nextSessionDate: null, error: 'انتهت مهلة الاتصال (90 ثانية) — البوابة قد تكون محملة، جرّب لاحقاً أو استخدم ScrapingBee' };
+    }
     return null;
   } finally {
     // 3. Always close the session
@@ -790,9 +807,14 @@ async function fetchViaScrapingBee(apiKey: string, input: CaseInput, appealCourt
     if (!resp.ok) {
       const errText = await resp.text();
       log(`✗ [ScrapingBee] ${caseLabel}: ${resp.status} — ${errText.substring(0, 200)}`);
+      let userError = `خطأ ScrapingBee: ${resp.status}`;
+      if (resp.status === 401) userError = 'مفتاح ScrapingBee غير صالح — تحقق من الإعدادات';
+      else if (resp.status === 402 || errText.includes('credit')) userError = 'رصيد ScrapingBee منتهي — أعد شحن حسابك أو استخدم Firecrawl';
+      else if (resp.status === 429) userError = 'تجاوزت حد طلبات ScrapingBee — انتظر دقيقة ثم أعد المحاولة';
+      else if (resp.status === 500) userError = 'خطأ داخلي في ScrapingBee — جرّب Firecrawl بدلاً منه';
       return {
         ...input, status: 'error', caseInfo: {}, procedures: [], nextSessionDate: null,
-        error: `خطأ ScrapingBee: ${resp.status}`,
+        error: userError,
       };
     }
 
@@ -831,7 +853,10 @@ async function fetchViaScrapingBee(apiKey: string, input: CaseInput, appealCourt
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown';
     log(`✗ [ScrapingBee] ${caseLabel}: ${msg}`);
-    return { ...input, status: 'error', caseInfo: {}, procedures: [], nextSessionDate: null, error: msg.includes('timeout') ? 'انتهت المهلة' : msg };
+    let userError = msg;
+    if (msg.includes('timeout') || msg.includes('AbortError')) userError = 'انتهت مهلة ScrapingBee (100 ثانية) — البوابة بطيئة، جرّب Firecrawl أو أعد المحاولة لاحقاً';
+    else if (msg.includes('fetch')) userError = 'تعذر الاتصال بخدمة ScrapingBee — تحقق من اتصال الإنترنت';
+    return { ...input, status: 'error', caseInfo: {}, procedures: [], nextSessionDate: null, error: userError };
   }
 }
 
@@ -1078,7 +1103,7 @@ Deno.serve(async (req) => {
 
       return {
         ...input, status: 'error', caseInfo: {}, procedures: [], nextSessionDate: null,
-        error: 'فشل الجلب عبر جميع المزودين — حاول مرة أخرى',
+        error: 'فشل الجلب عبر جميع المزودين. اقتراحات: ① تحقق من صحة رقم الملف ② جرّب مزوداً مختلفاً ③ تأكد أن البوابة متاحة عبر mahakim.ma',
         usedProvider: 'none',
       };
     }

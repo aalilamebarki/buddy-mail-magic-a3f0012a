@@ -241,9 +241,23 @@ export const MahakimSyncStatus = ({
             )}
 
             {latestJob.status === 'failed' && latestJob.error_message && (
-              <p className="text-xs text-destructive bg-destructive/10 rounded p-2">
-                {latestJob.error_message}
-              </p>
+              <div className="text-xs bg-destructive/10 rounded p-2.5 space-y-1.5">
+                <p className="text-destructive font-medium">{latestJob.error_message}</p>
+                <div className="text-muted-foreground text-[10px] space-y-0.5">
+                  {latestJob.error_message.includes('رصيد') && (
+                    <p>💳 قم بإعادة شحن حسابك أو اختر مزوداً آخر من القائمة</p>
+                  )}
+                  {latestJob.error_message.includes('مهلة') && (
+                    <p>⏱ البوابة قد تكون بطيئة — أعد المحاولة بعد دقيقة</p>
+                  )}
+                  {latestJob.error_message.includes('مفتاح') && (
+                    <p>🔑 تواصل مع المسؤول لتحديث مفتاح الخدمة</p>
+                  )}
+                  {!latestJob.error_message.includes('رصيد') && !latestJob.error_message.includes('مهلة') && !latestJob.error_message.includes('مفتاح') && (
+                    <p>💡 جرّب تغيير طريقة الجلب أو تحقق من رقم الملف</p>
+                  )}
+                </div>
+              </div>
             )}
 
             {latestJob.status === 'completed' && latestJob.result_data && (
@@ -323,11 +337,16 @@ export const MahakimSyncStatus = ({
       {/* Failure notification */}
       {latestJob && latestJob.status === 'failed' && latestJob.completed_at &&
         (Date.now() - new Date(latestJob.completed_at).getTime() < 60000) && (
-        <div className="flex items-center gap-2 p-2.5 rounded-md bg-destructive/10 border border-destructive/30">
-          <XCircle className="h-4 w-4 text-destructive shrink-0" />
-          <p className="text-xs font-medium text-destructive">
-            فشل الجلب: {latestJob.error_message || 'خطأ غير معروف'}
-          </p>
+        <div className="flex items-start gap-2 p-2.5 rounded-md bg-destructive/10 border border-destructive/30">
+          <XCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+          <div className="text-xs space-y-1">
+            <p className="font-medium text-destructive">
+              فشل الجلب: {latestJob.error_message || 'خطأ غير معروف'}
+            </p>
+            <p className="text-muted-foreground text-[10px]">
+              💡 يمكنك إعادة المحاولة بمزود مختلف أو فتح البوابة يدوياً
+            </p>
+          </div>
         </div>
       )}
 
