@@ -19,6 +19,58 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+function isPlaceholderValue(value?: string | null) {
+  const normalized = value?.trim() || '';
+  return !normalized
+    || normalized === 'الرقم الكامل للملف'
+    || normalized.startsWith('اختيار ')
+    || normalized.includes('اختيار محكمة الاستئناف')
+    || normalized.includes('اختيار المحكمة الإبتدائية')
+    || normalized.includes('اختيار المحكمة الابتدائية');
+}
+
+function detectBlockedPortalResult(input: {
+  caseInfo?: Record<string, string>;
+  procedures?: Array<Record<string, string>>;
+  dropdowns?: string[];
+  allLabels?: Record<string, string>;
+  rawText?: string;
+  noData?: boolean;
+}) {
+  if (input.noData) {
+    return { blocked: false, reason: '' };
+  }
+
+  const caseInfo = input.caseInfo || {};
+  const procedures = input.procedures || [];
+  const dropdowns = input.dropdowns || [];
+  const allLabels = input.allLabels || {};
+  const rawText = input.rawText || '';
+
+  const meaningfulCaseValues = Object.values(caseInfo).filter((value) => !isPlaceholderValue(value));
+  const onlyPlaceholderDropdowns = dropdowns.length > 0 && dropdowns.every((value) => isPlaceholderValue(value));
+  const labelValues = Object.values(allLabels).map((value) => String(value || ''));
+  const onlyPlaceholderLabels = labelValues.length > 0 && labelValues.every((value) => isPlaceholderValue(value));
+  const looksLikeChallengeScript =
+    /window\.[A-Za-z0-9_$]{3,}\s*=!!window\./.test(rawText)
+    || rawText.includes('RegExp("\\x3c")')
+    || (rawText.includes('navigator') && rawText.includes('userAgent'));
+
+  const blocked = procedures.length === 0
+    && meaningfulCaseValues.length === 0
+    && (looksLikeChallengeScript || onlyPlaceholderDropdowns || onlyPlaceholderLabels);
+
+  const reason = looksLikeChallengeScript
+    ? 'challenge_page'
+    : onlyPlaceholderDropdowns
+      ? 'unresolved_dropdowns'
+      : onlyPlaceholderLabels
+        ? 'placeholder_labels'
+        : '';
+
+  return { blocked, reason };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -123,34 +175,79 @@ Deno.serve(async (req) => {
 
     // ── Parse Apify results ──
     const { caseInfo = {}, procedures = [], nextSessionDate, allLabels, dropdowns, tables, rawText, pageTitle, noData: resultNoData } = results;
+    const blockedDetection = detectBlockedPortalResult({
+      caseInfo,
+      procedures,
+      dropdowns,
+      allLabels,
+      rawText,
+      noData: resultNoData,
+    });
 
-    // Handle "not found" — no data returned from portal
-    const isEmptyResult = !caseInfo.judge && !caseInfo.department && !caseInfo.status && procedures.length === 0;
+    // Handle "not found" — only when the portal really returned an empty result
+    const isEmptyResult = !blockedDetection.blocked
+      && !caseInfo.judge
+      && !caseInfo.department
+      && !caseInfo.status
+      && procedures.length === 0;
+
+    const lastSyncPayload = {
+      caseInfo,
+      procedures,
+      allLabels: allLabels || {},
+      dropdowns: dropdowns || [],
+      tables: tables || [],
+      rawText: (rawText || '').substring(0, 10000),
+      pageTitle: pageTitle || '',
+      _provider: 'apify',
+      _timestamp: new Date().toISOString(),
+      empty: isEmptyResult,
+      blocked: blockedDetection.blocked,
+      blocked_reason: blockedDetection.reason || null,
+    };
+
+    if (blockedDetection.blocked) {
+      await supabase.from('cases').update({
+        last_synced_at: new Date().toISOString(),
+        last_sync_result: lastSyncPayload,
+      }).eq('id', caseId);
+
+      const blockedMessage = 'تم حظر الجلب من بوابة محاكم مؤقتاً ولم يتم استخراج البيانات الفعلية';
+      await supabase.from('mahakim_sync_jobs').update({
+        status: 'failed',
+        error_message: blockedMessage,
+        result_data: {
+          _provider: 'apify',
+          blocked: true,
+          blocked_reason: blockedDetection.reason,
+          procedures_count: 0,
+          labels_count: Object.keys(allLabels || {}).length,
+          tables_count: (tables || []).length,
+        },
+        completed_at: new Date().toISOString(),
+      }).eq('id', jobId);
+
+      await createNotification(supabase, userId, caseId, caseNumber,
+        `تعذر جلب الملف ${caseNumber} لأن البوابة منعت الطلب مؤقتاً — ستتم إعادة المحاولة لاحقاً`);
+
+      return new Response(JSON.stringify({ status: 'blocked', error: blockedMessage }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // 1. Update case metadata — store FULL raw JSON
     const caseUpdate: Record<string, unknown> = {
       last_synced_at: new Date().toISOString(),
-      last_sync_result: {
-        caseInfo,
-        procedures,
-        allLabels: allLabels || {},
-        dropdowns: dropdowns || [],
-        tables: tables || [],
-        rawText: (rawText || '').substring(0, 10000),
-        pageTitle: pageTitle || '',
-        _provider: 'apify',
-        _timestamp: new Date().toISOString(),
-        empty: isEmptyResult,
-      },
+      last_sync_result: lastSyncPayload,
     };
 
     if (isEmptyResult) {
       caseUpdate.mahakim_status = 'لا يزال غير موجود';
     }
-    if (caseInfo.judge) caseUpdate.mahakim_judge = caseInfo.judge;
-    if (caseInfo.department) caseUpdate.mahakim_department = caseInfo.department;
-    if (caseInfo.status) caseUpdate.mahakim_status = caseInfo.status;
-    if (caseInfo.court) caseUpdate.court = caseInfo.court;
+    if (caseInfo.judge && !isPlaceholderValue(caseInfo.judge)) caseUpdate.mahakim_judge = caseInfo.judge;
+    if (caseInfo.department && !isPlaceholderValue(caseInfo.department)) caseUpdate.mahakim_department = caseInfo.department;
+    if (caseInfo.status && !isPlaceholderValue(caseInfo.status)) caseUpdate.mahakim_status = caseInfo.status;
+    if (caseInfo.court && !isPlaceholderValue(caseInfo.court)) caseUpdate.court = caseInfo.court;
 
     await supabase.from('cases').update(caseUpdate).eq('id', caseId);
 
