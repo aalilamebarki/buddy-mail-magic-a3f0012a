@@ -853,7 +853,10 @@ async function fetchViaScrapingBee(apiKey: string, input: CaseInput, appealCourt
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown';
     log(`✗ [ScrapingBee] ${caseLabel}: ${msg}`);
-    return { ...input, status: 'error', caseInfo: {}, procedures: [], nextSessionDate: null, error: msg.includes('timeout') ? 'انتهت المهلة' : msg };
+    let userError = msg;
+    if (msg.includes('timeout') || msg.includes('AbortError')) userError = 'انتهت مهلة ScrapingBee (100 ثانية) — البوابة بطيئة، جرّب Firecrawl أو أعد المحاولة لاحقاً';
+    else if (msg.includes('fetch')) userError = 'تعذر الاتصال بخدمة ScrapingBee — تحقق من اتصال الإنترنت';
+    return { ...input, status: 'error', caseInfo: {}, procedures: [], nextSessionDate: null, error: userError };
   }
 }
 
