@@ -221,6 +221,11 @@ export const MahakimSyncStatus = ({
               <div className={`flex items-center gap-1.5 text-xs font-medium ${status.color}`}>
                 {status.icon}
                 {status.label}
+                {lastProvider && latestJob.status === 'completed' && (
+                  <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-normal">
+                    {lastProvider === 'firecrawl' ? 'Firecrawl' : lastProvider === 'scrapingbee' ? 'ScrapingBee' : lastProvider}
+                  </Badge>
+                )}
               </div>
               {latestJob.completed_at && (
                 <span className="text-[10px] text-muted-foreground">
