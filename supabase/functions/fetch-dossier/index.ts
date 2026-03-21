@@ -532,7 +532,7 @@ async function fetchViaFirecrawl(
 
     if (!parsed) {
       log(`🔥 [FC-Browser] Could not parse output. Full response: ${JSON.stringify(execData).substring(0, 500)}`);
-      return null;
+      return { ...input, status: 'error' as const, caseInfo: {}, procedures: [], nextSessionDate: null, error: 'لم يتم استخراج بيانات من البوابة — قد تكون البوابة قد غيّرت هيكلها، جرّب ScrapingBee' };
     }
 
     log(`🔥 [FC-Browser] Script log: ${parsed.log?.join(' → ')}`);
