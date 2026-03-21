@@ -287,24 +287,60 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 3. Schedule future court sessions
+    // 3. Schedule future court sessions from ALL available sources
     let newSessionsCount = 0;
     if (userId) {
       const now = new Date();
       now.setHours(0, 0, 0, 0);
       const futureSessionMap = new Map<string, { time: string; room: string }>();
 
+      const addCandidate = (raw: string | undefined, fallback?: { time?: string; room?: string }) => {
+        const parsed = parseDateField(raw, now);
+        if (!parsed) return;
+        const existing = futureSessionMap.get(parsed.dateKey);
+        futureSessionMap.set(parsed.dateKey, {
+          time: parsed.time || fallback?.time || existing?.time || '',
+          room: parsed.room || fallback?.room || existing?.room || '',
+        });
+      };
+
+      // Extract from procedures: check ALL date-like fields
       for (const proc of procedures) {
-        const parsed = parseDateField(proc.next_session_date, now);
-        if (parsed) {
-          if (!futureSessionMap.has(parsed.dateKey)) {
-            futureSessionMap.set(parsed.dateKey, { time: parsed.time, room: parsed.room });
-          }
+        const fallback = {
+          time: proc.session_time || '',
+          room: proc.court_room || '',
+        };
+        addCandidate(proc.next_session_date, fallback);
+        addCandidate(proc.action_date, fallback);
+        addCandidate(proc.decision, fallback);
+        addCandidate(proc.court_room, fallback);
+        addCandidate(proc.action_type, fallback);
+      }
+
+      // Extract from caseInfo
+      if (caseInfo) {
+        addCandidate(caseInfo.next_hearing);
+        addCandidate(caseInfo.next_session_date);
+      }
+
+      // Extract from allLabels
+      if (allLabels) {
+        const labelKeys = ['الجلسة المقبلة', 'تاريخ الجلسة المقبلة', 'جلسة مقبلة'];
+        for (const key of labelKeys) {
+          addCandidate(allLabels[key]);
         }
       }
 
-      if (nextSessionDate && !futureSessionMap.has(nextSessionDate)) {
-        futureSessionMap.set(nextSessionDate, { time: '', room: '' });
+      // Fallback: top-level nextSessionDate
+      if (nextSessionDate) {
+        const parsed = parseDateField(nextSessionDate, now);
+        if (parsed && !futureSessionMap.has(parsed.dateKey)) {
+          futureSessionMap.set(parsed.dateKey, { time: parsed.time, room: parsed.room });
+        } else if (!parsed && /^\d{4}-\d{2}-\d{2}$/.test(nextSessionDate) && new Date(nextSessionDate) >= now) {
+          if (!futureSessionMap.has(nextSessionDate)) {
+            futureSessionMap.set(nextSessionDate, { time: '', room: '' });
+          }
+        }
       }
 
       if (futureSessionMap.size > 0) {
@@ -331,7 +367,6 @@ Deno.serve(async (req) => {
               court_room: info.room || null,
             });
           } else {
-            // Update time/room if changed
             const existing = existingByDate.get(d);
             const needsUpdate = (info.time && info.time !== existing.session_time) ||
                                 (info.room && info.room !== existing.court_room);
@@ -387,18 +422,32 @@ Deno.serve(async (req) => {
   }
 });
 
-/** Parse composite date field like "dd/mm/yyyy على الساعة HH:MM بالقاعة ..." */
+/** Parse composite date field like "dd/mm/yyyy على الساعة HH:MM بالقاعة ..." or ISO "yyyy-mm-dd" */
 function parseDateField(raw: string | undefined, now: Date): { dateKey: string; time: string; room: string } | null {
-  if (!raw) return null;
-  const m = raw.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-  if (!m) return null;
-  const [, day, month, year] = m;
-  const dateObj = new Date(`${year}-${month}-${day}`);
+  if (!raw || typeof raw !== 'string') return null;
+  const text = raw.trim();
+  if (!text) return null;
+
+  let dateKey: string | null = null;
+  const slashMatch = text.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  const isoMatch = text.match(/(\d{4})-(\d{2})-(\d{2})/);
+
+  if (slashMatch) {
+    const [, day, month, year] = slashMatch;
+    dateKey = `${year}-${month}-${day}`;
+  } else if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    dateKey = `${year}-${month}-${day}`;
+  }
+
+  if (!dateKey) return null;
+  const dateObj = new Date(`${dateKey}T00:00:00`);
   if (isNaN(dateObj.getTime()) || dateObj < now) return null;
-  const tm = raw.match(/(?:الساعة\s*)?(\d{1,2}:\d{2})/);
-  const rm = raw.match(/(?:بالقاعة|القاعة|غرفة)\s*(.+?)$/);
+
+  const tm = text.match(/(?:الساعة\s*)?(\d{1,2}:\d{2})/);
+  const rm = text.match(/(?:بالقاعة|القاعة|غرفة)\s*(.+?)$/);
   return {
-    dateKey: `${year}-${month}-${day}`,
+    dateKey,
     time: tm ? tm[1] : '',
     room: rm ? rm[1].trim() : '',
   };
