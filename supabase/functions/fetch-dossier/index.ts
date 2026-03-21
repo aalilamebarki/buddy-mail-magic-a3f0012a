@@ -1182,12 +1182,8 @@ async function launchApifyActor(
     },
     maxRequestRetries: 2,
     requestHandlerTimeoutSecs: 120,
-    preNavigationHooks: `[
-      async ({ page }, goToOptions) => {
-        goToOptions.waitUntil = 'networkidle2';
-        goToOptions.timeout = 60000;
-      }
-    ]`,
+    navigationTimeoutSecs: 60,
+    useChrome: false,
     /**
      * pageFunction في puppeteer-scraper يعمل في Node.js context
      * ويوفر context.page (Puppeteer Page) + context.request + context.log
