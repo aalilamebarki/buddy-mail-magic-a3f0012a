@@ -799,7 +799,7 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
                             </CommandEmpty>
                             <CommandGroup>
                               {filteredCourts.map(c => (
-                                <CommandItem key={c.id} value={c.id} onSelect={() => { updateField('court', c.name); setCourtPopoverOpen(false); setCourtSearchTerm(''); }}>
+                                <CommandItem key={c.id} value={c.id} onSelect={() => { updateField('court', c.name); const parentIdx = findAppellateByPrimary(c.name); if (parentIdx >= 0) setSelectedAppellateIdx(parentIdx); setCourtPopoverOpen(false); setCourtSearchTerm(''); }}>
                                   <Check className={cn("ml-2 h-4 w-4", form.court === c.name ? "opacity-100" : "opacity-0")} />
                                   <div className="flex flex-col">
                                     <span className="text-sm">{c.name}</span>
