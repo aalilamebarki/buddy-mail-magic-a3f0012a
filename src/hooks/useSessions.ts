@@ -23,6 +23,8 @@ export interface SessionRecord {
   } | null;
 }
 
+const SELECT_QUERY = '*, cases(title, case_number, court, opposing_party, clients(full_name))';
+
 export const useSessions = () => {
   const [sessions, setSessions] = useState<SessionRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,13 +33,49 @@ export const useSessions = () => {
     setLoading(true);
     const { data } = await supabase
       .from('court_sessions')
-      .select('*, cases(title, case_number, court, opposing_party, clients(full_name))')
+      .select(SELECT_QUERY)
       .order('session_date', { ascending: true });
     if (data) setSessions(data as SessionRecord[]);
     setLoading(false);
   }, []);
 
   useEffect(() => { fetchSessions(); }, [fetchSessions]);
+
+  // Realtime subscription — only refetch the changed row
+  useEffect(() => {
+    const channel = supabase
+      .channel('court_sessions_realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'court_sessions' }, async (payload) => {
+        // Fetch full row with joins
+        const { data } = await supabase
+          .from('court_sessions')
+          .select(SELECT_QUERY)
+          .eq('id', payload.new.id)
+          .single();
+        if (data) {
+          setSessions(prev => {
+            if (prev.some(s => s.id === data.id)) return prev;
+            return [...prev, data as SessionRecord].sort((a, b) => a.session_date.localeCompare(b.session_date));
+          });
+        }
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'court_sessions' }, async (payload) => {
+        const { data } = await supabase
+          .from('court_sessions')
+          .select(SELECT_QUERY)
+          .eq('id', payload.new.id)
+          .single();
+        if (data) {
+          setSessions(prev => prev.map(s => s.id === data.id ? (data as SessionRecord) : s));
+        }
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'court_sessions' }, (payload) => {
+        setSessions(prev => prev.filter(s => s.id !== payload.old.id));
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   const today = format(new Date(), 'yyyy-MM-dd');
 

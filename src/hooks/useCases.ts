@@ -29,11 +29,11 @@ export const useCases = (options: UseCasesOptions = {}) => {
   const [cases, setCases] = useState<CaseRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const selectQuery = options.withClients !== false ? '*, clients(full_name)' : '*';
+
   const fetchCases = useCallback(async () => {
     setLoading(true);
-    let query = supabase.from('cases').select(
-      options.withClients !== false ? '*, clients(full_name)' : '*'
-    );
+    let query = supabase.from('cases').select(selectQuery);
     if (options.status) query = query.eq('status', options.status);
     query = query.order('created_at', { ascending: false });
     const { data } = await query;
@@ -42,6 +42,50 @@ export const useCases = (options: UseCasesOptions = {}) => {
   }, [options.status, options.withClients]);
 
   useEffect(() => { fetchCases(); }, [fetchCases]);
+
+  // Realtime subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel('cases_realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'cases' }, async (payload) => {
+        const { data } = await supabase
+          .from('cases')
+          .select(selectQuery)
+          .eq('id', payload.new.id)
+          .single();
+        if (data) {
+          const record = data as unknown as CaseRecord;
+          // Apply status filter if set
+          if (options.status && record.status !== options.status) return;
+          setCases(prev => {
+            if (prev.some(c => c.id === record.id)) return prev;
+            return [record, ...prev];
+          });
+        }
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'cases' }, async (payload) => {
+        const { data } = await supabase
+          .from('cases')
+          .select(selectQuery)
+          .eq('id', payload.new.id)
+          .single();
+        if (data) {
+          const record = data as unknown as CaseRecord;
+          if (options.status && record.status !== options.status) {
+            // Status changed — remove from filtered list
+            setCases(prev => prev.filter(c => c.id !== record.id));
+          } else {
+            setCases(prev => prev.map(c => c.id === record.id ? record : c));
+          }
+        }
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'cases' }, (payload) => {
+        setCases(prev => prev.filter(c => c.id !== payload.old.id));
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [options.status, options.withClients]);
 
   return { cases, setCases, loading, refetch: fetchCases };
 };
