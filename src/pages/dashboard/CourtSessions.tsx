@@ -14,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { CalendarDays, Plus, Search, ChevronsUpDown, Check, FolderOpen, Pencil, Trash2, FileDown, CalendarRange, List } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { useSessions } from '@/hooks/useSessions';
+import { useSessions, type SessionRecord } from '@/hooks/useSessions';
 import { useCases } from '@/hooks/useCases';
 import { toast } from 'sonner';
 import { format, startOfWeek, endOfWeek } from 'date-fns';
