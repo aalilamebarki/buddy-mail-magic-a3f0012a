@@ -15,7 +15,7 @@ import { useClients } from '@/hooks/useClients';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { CaseNumberInput } from '@/components/cases/CaseNumberInput';
-import { getCategoryFromCode, COURT_HIERARCHY, filterAppellateByCode, validateHierarchy, type AppellateCourt } from '@/lib/court-mapping';
+import { getCategoryFromCode, COURT_HIERARCHY, filterAppellateByCode, validateHierarchy, findAppellateByPrimary, type AppellateCourt } from '@/lib/court-mapping';
 
 /* ─── Types ─── */
 export interface Opponent {
