@@ -45,6 +45,8 @@ export const useSyncQueue = () => {
     isRunning: false,
     currentBatch: [],
     lastError: null,
+    failures: [],
+    successCount: 0,
   });
 
   const queueRef = useRef<string[]>([]);
