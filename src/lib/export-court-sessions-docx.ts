@@ -282,7 +282,7 @@ export const exportCourtSessionsWord = async ({
         requiredAction: s.required_action || '—',
         sessionTime: s.session_time || '',
         courtRoom: s.court_room || '',
-        notes: s.notes || '',
+        notes: '',  // Always empty in export — reserved for handwritten notes
       }));
 
       children.push(...buildCourtSection(courtName, rows));
