@@ -1227,23 +1227,16 @@ async function launchApifyActor(
   };
 
   try {
-    // Launch with webhook that fires on completion
-    const runUrl = `${APIFY_API_BASE}/acts/apify~puppeteer-scraper/runs?token=${apiToken}&webhooks=${encodeURIComponent(JSON.stringify([{
+    // Build webhook config — Apify expects base64-encoded JSON in the query param
+    const webhookConfig = [{
       eventTypes: ['ACTOR.RUN.SUCCEEDED', 'ACTOR.RUN.FAILED', 'ACTOR.RUN.TIMED_OUT', 'ACTOR.RUN.ABORTED'],
       requestUrl: webhookUrl,
-      payloadTemplate: JSON.stringify({
-        jobId, caseId, userId, caseNumber,
-        eventType: '{{eventType}}',
-        runId: '{{resource.id}}',
-        datasetId: '{{resource.defaultDatasetId}}',
-        status: '{{resource.status}}',
-      }),
-      headersTemplate: JSON.stringify({
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${anonKey}`,
-        'apikey': anonKey,
-      }),
-    }]))}`;
+      shouldInterpolateStrings: true,
+      payloadTemplate: `{"jobId":"${jobId}","caseId":"${caseId}","userId":"${userId}","caseNumber":"${caseNumber}","eventType":{{eventType}},"runId":{{resource.id}},"datasetId":{{resource.defaultDatasetId}},"status":{{resource.status}}}`,
+      headersTemplate: `{"Content-Type":"application/json","Authorization":"Bearer ${anonKey}","apikey":"${anonKey}"}`,
+    }];
+    const webhooksParam = btoa(JSON.stringify(webhookConfig));
+    const runUrl = `${APIFY_API_BASE}/acts/apify~puppeteer-scraper/runs?token=${apiToken}&webhooks=${webhooksParam}`;
 
     const resp = await fetch(runUrl, {
       method: 'POST',
