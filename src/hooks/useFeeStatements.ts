@@ -1,4 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+/**
+ * هوك جلب بيانات الأتعاب مع التخزين المؤقت عبر react-query
+ */
+
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface FeeStatementItemRecord {
@@ -60,21 +65,32 @@ export interface FeeStatementRecord {
   fee_statement_cases?: FeeStatementCaseRecord[];
 }
 
+const SELECT_QUERY = '*, clients(full_name, cin, phone), cases(title, case_number, court, case_type), letterheads(lawyer_name, name_fr, title_ar, title_fr, bar_name_ar, bar_name_fr, address, city, phone, email, header_data, template_path), fee_statement_items(*), fee_statement_cases(*, cases(title, case_number, court, case_type))';
+
 export const useFeeStatements = () => {
-  const [statements, setStatements] = useState<FeeStatementRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  const fetch = useCallback(async () => {
-    setLoading(true);
-    const { data } = await supabase
-      .from('fee_statements')
-      .select('*, clients(full_name, cin, phone), cases(title, case_number, court, case_type), letterheads(lawyer_name, name_fr, title_ar, title_fr, bar_name_ar, bar_name_fr, address, city, phone, email, header_data, template_path), fee_statement_items(*), fee_statement_cases(*, cases(title, case_number, court, case_type))')
-      .order('created_at', { ascending: false });
-    if (data) setStatements(data as unknown as FeeStatementRecord[]);
-    setLoading(false);
-  }, []);
+  const { data: statements = [], isLoading: loading, refetch } = useQuery({
+    queryKey: ['fee_statements'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('fee_statements')
+        .select(SELECT_QUERY)
+        .order('created_at', { ascending: false });
+      return (data || []) as unknown as FeeStatementRecord[];
+    },
+  });
 
-  useEffect(() => { fetch(); }, [fetch]);
+  useEffect(() => {
+    const channel = supabase
+      .channel('fee_statements_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'fee_statements' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['fee_statements'] });
+      })
+      .subscribe();
 
-  return { statements, loading, refetch: fetch };
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient]);
+
+  return { statements, loading, refetch };
 };
