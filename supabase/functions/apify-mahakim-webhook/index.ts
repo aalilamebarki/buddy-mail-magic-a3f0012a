@@ -320,12 +320,10 @@ async function createNotification(
       .order('created_at', { ascending: false })
       .limit(1);
 
-    if (!session?.[0]?.id) return;
-
     await supabase.from('notifications').insert({
       user_id: userId,
       case_id: caseId,
-      session_id: session[0].id,
+      session_id: session?.[0]?.id ?? null,
       message,
       is_read: false,
     });

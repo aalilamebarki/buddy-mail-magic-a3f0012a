@@ -1387,8 +1387,7 @@ Deno.serve(async (req) => {
           .order('created_at', { ascending: false })
           .limit(1);
 
-        const sessionId = session?.[0]?.id;
-        if (!sessionId) return; // Can't create notification without session
+        const sessionId = session?.[0]?.id ?? null;
 
         await supabaseClient.from('notifications').insert({
           user_id: jobUserId,
