@@ -499,6 +499,16 @@ const CaseDetail = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Browser Fetch Dialog */}
+      {caseData.case_number && (
+        <BrowserFetchDialog
+          open={browserFetchOpen}
+          onOpenChange={setBrowserFetchOpen}
+          caseId={caseData.id}
+          caseNumber={caseData.case_number}
+          onSuccess={fetchData}
+        />
+      )}
     </div>
   );
 };
