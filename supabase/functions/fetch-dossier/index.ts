@@ -1155,10 +1155,12 @@ Deno.serve(async (req) => {
 
     const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
     const SCRAPINGBEE_API_KEY = Deno.env.get('SCRAPINGBEE_API_KEY');
-    if (!FIRECRAWL_API_KEY && !SCRAPINGBEE_API_KEY) {
+    const APIFY_API_TOKEN = Deno.env.get('APIFY_API_TOKEN');
+    
+    if (!FIRECRAWL_API_KEY && !SCRAPINGBEE_API_KEY && !APIFY_API_TOKEN) {
       return new Response(JSON.stringify({
         status: 'error',
-        error: 'لم يتم تعيين أي مفتاح للجلب (Firecrawl أو ScrapingBee)',
+        error: 'لم يتم تعيين أي مفتاح للجلب (Apify أو Firecrawl أو ScrapingBee)',
       }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
