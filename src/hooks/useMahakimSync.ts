@@ -48,6 +48,22 @@ export const useMahakimSync = (caseId: string | undefined) => {
   /* ── الاستماع للتحديثات في الوقت الحقيقي ── */
   useEffect(() => {
     if (!caseId) return;
+
+    // Timeout: إغلاق المهام العالقة بعد 5 دقائق
+    const timeoutInterval = setInterval(async () => {
+      if (latestJob && (latestJob.status === 'scraping' || latestJob.status === 'pending')) {
+        const age = Date.now() - new Date(latestJob.created_at).getTime();
+        if (age > 5 * 60 * 1000) {
+          await supabase.from('mahakim_sync_jobs').update({
+            status: 'failed',
+            error_message: 'انتهت مهلة المزامنة — لم يتم استلام النتائج',
+            completed_at: new Date().toISOString(),
+          }).eq('id', latestJob.id);
+          setSyncing(false);
+        }
+      }
+    }, 30000);
+
     const channel = supabase
       .channel(`mahakim-sync-${caseId}`)
       .on('postgres_changes', {
@@ -71,8 +87,11 @@ export const useMahakimSync = (caseId: string | undefined) => {
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
-  }, [caseId]);
+    return () => {
+      clearInterval(timeoutInterval);
+      supabase.removeChannel(channel);
+    };
+  }, [caseId, latestJob]);
 
   /* ── بدء مزامنة جديدة ── */
   const startSync = useCallback(async (
