@@ -308,10 +308,10 @@ const L = [];
 let result = { noResult: false, caseInfo: {}, procedures: [], hasData: false, bodyPreview: '' };
 
 try {
-  await page.goto('https://www.mahakim.ma/#/suivi/dossier-suivi', { waitUntil: 'domcontentloaded', timeout: 15000 });
+  await page.goto('https://www.mahakim.ma/#/suivi/dossier-suivi', { waitUntil: 'networkidle', timeout: 45000 });
   L.push('nav');
 
-  await page.waitForSelector('input[formcontrolname="mark"]', { timeout: 12000 });
+  await page.waitForSelector('input[formcontrolname="mark"]', { timeout: 20000 });
   L.push('form');
 
   async function setField(sel, val) {
