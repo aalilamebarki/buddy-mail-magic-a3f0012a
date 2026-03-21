@@ -19,6 +19,58 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+function isPlaceholderValue(value?: string | null) {
+  const normalized = value?.trim() || '';
+  return !normalized
+    || normalized === 'الرقم الكامل للملف'
+    || normalized.startsWith('اختيار ')
+    || normalized.includes('اختيار محكمة الاستئناف')
+    || normalized.includes('اختيار المحكمة الإبتدائية')
+    || normalized.includes('اختيار المحكمة الابتدائية');
+}
+
+function detectBlockedPortalResult(input: {
+  caseInfo?: Record<string, string>;
+  procedures?: Array<Record<string, string>>;
+  dropdowns?: string[];
+  allLabels?: Record<string, string>;
+  rawText?: string;
+  noData?: boolean;
+}) {
+  if (input.noData) {
+    return { blocked: false, reason: '' };
+  }
+
+  const caseInfo = input.caseInfo || {};
+  const procedures = input.procedures || [];
+  const dropdowns = input.dropdowns || [];
+  const allLabels = input.allLabels || {};
+  const rawText = input.rawText || '';
+
+  const meaningfulCaseValues = Object.values(caseInfo).filter((value) => !isPlaceholderValue(value));
+  const onlyPlaceholderDropdowns = dropdowns.length > 0 && dropdowns.every((value) => isPlaceholderValue(value));
+  const labelValues = Object.values(allLabels).map((value) => String(value || ''));
+  const onlyPlaceholderLabels = labelValues.length > 0 && labelValues.every((value) => isPlaceholderValue(value));
+  const looksLikeChallengeScript =
+    /window\.[A-Za-z0-9_$]{3,}\s*=!!window\./.test(rawText)
+    || rawText.includes('RegExp("\\x3c")')
+    || (rawText.includes('navigator') && rawText.includes('userAgent'));
+
+  const blocked = procedures.length === 0
+    && meaningfulCaseValues.length === 0
+    && (looksLikeChallengeScript || onlyPlaceholderDropdowns || onlyPlaceholderLabels);
+
+  const reason = looksLikeChallengeScript
+    ? 'challenge_page'
+    : onlyPlaceholderDropdowns
+      ? 'unresolved_dropdowns'
+      : onlyPlaceholderLabels
+        ? 'placeholder_labels'
+        : '';
+
+  return { blocked, reason };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
