@@ -1,4 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+/**
+ * هوك جلب الملفات (القضايا) مع التخزين المؤقت عبر react-query
+ * Uses react-query for instant cache-based navigation
+ */
+
+import { useCallback, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface CaseRecord {
@@ -26,66 +32,39 @@ interface UseCasesOptions {
 }
 
 export const useCases = (options: UseCasesOptions = {}) => {
-  const [cases, setCases] = useState<CaseRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-
+  const queryClient = useQueryClient();
   const selectQuery = options.withClients !== false ? '*, clients(full_name)' : '*';
+  const queryKey = ['cases', options.status || 'all', options.withClients !== false];
 
-  const fetchCases = useCallback(async () => {
-    setLoading(true);
-    let query = supabase.from('cases').select(selectQuery);
-    if (options.status) query = query.eq('status', options.status);
-    query = query.order('created_at', { ascending: false });
-    const { data } = await query;
-    if (data) setCases(data as unknown as CaseRecord[]);
-    setLoading(false);
-  }, [options.status, options.withClients]);
+  const { data: cases = [], isLoading: loading, refetch } = useQuery({
+    queryKey,
+    queryFn: async () => {
+      let query = supabase.from('cases').select(selectQuery);
+      if (options.status) query = query.eq('status', options.status);
+      query = query.order('created_at', { ascending: false });
+      const { data } = await query;
+      return (data || []) as unknown as CaseRecord[];
+    },
+  });
 
-  useEffect(() => { fetchCases(); }, [fetchCases]);
-
-  // Realtime subscription
+  // Realtime — update cache directly
   useEffect(() => {
     const channel = supabase
       .channel('cases_realtime')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'cases' }, async (payload) => {
-        const { data } = await supabase
-          .from('cases')
-          .select(selectQuery)
-          .eq('id', payload.new.id)
-          .single();
-        if (data) {
-          const record = data as unknown as CaseRecord;
-          // Apply status filter if set
-          if (options.status && record.status !== options.status) return;
-          setCases(prev => {
-            if (prev.some(c => c.id === record.id)) return prev;
-            return [record, ...prev];
-          });
-        }
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'cases' }, async (payload) => {
-        const { data } = await supabase
-          .from('cases')
-          .select(selectQuery)
-          .eq('id', payload.new.id)
-          .single();
-        if (data) {
-          const record = data as unknown as CaseRecord;
-          if (options.status && record.status !== options.status) {
-            // Status changed — remove from filtered list
-            setCases(prev => prev.filter(c => c.id !== record.id));
-          } else {
-            setCases(prev => prev.map(c => c.id === record.id ? record : c));
-          }
-        }
-      })
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'cases' }, (payload) => {
-        setCases(prev => prev.filter(c => c.id !== payload.old.id));
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cases' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['cases'] });
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [options.status, options.withClients]);
+  }, [queryClient]);
 
-  return { cases, setCases, loading, refetch: fetchCases };
+  const setCases = useCallback((updater: CaseRecord[] | ((prev: CaseRecord[]) => CaseRecord[])) => {
+    queryClient.setQueryData(queryKey, (prev: CaseRecord[] | undefined) => {
+      if (typeof updater === 'function') return updater(prev || []);
+      return updater;
+    });
+  }, [queryClient, queryKey]);
+
+  return { cases, setCases, loading, refetch };
 };

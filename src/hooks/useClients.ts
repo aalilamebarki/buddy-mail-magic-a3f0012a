@@ -1,4 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+/**
+ * هوك جلب الموكلين مع التخزين المؤقت عبر react-query
+ */
+
+import { useCallback, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface ClientRecord {
@@ -15,20 +20,36 @@ export interface ClientRecord {
 }
 
 export const useClients = () => {
-  const [clients, setClients] = useState<ClientRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  const fetchClients = useCallback(async () => {
-    setLoading(true);
-    const { data } = await supabase
-      .from('clients')
-      .select('*')
-      .order('full_name');
-    if (data) setClients(data);
-    setLoading(false);
-  }, []);
+  const { data: clients = [], isLoading: loading, refetch } = useQuery({
+    queryKey: ['clients'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('clients')
+        .select('*')
+        .order('full_name');
+      return (data || []) as ClientRecord[];
+    },
+  });
 
-  useEffect(() => { fetchClients(); }, [fetchClients]);
+  useEffect(() => {
+    const channel = supabase
+      .channel('clients_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['clients'] });
+      })
+      .subscribe();
 
-  return { clients, setClients, loading, refetch: fetchClients };
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient]);
+
+  const setClients = useCallback((updater: ClientRecord[] | ((prev: ClientRecord[]) => ClientRecord[])) => {
+    queryClient.setQueryData(['clients'], (prev: ClientRecord[] | undefined) => {
+      if (typeof updater === 'function') return updater(prev || []);
+      return updater;
+    });
+  }, [queryClient]);
+
+  return { clients, setClients, loading, refetch };
 };

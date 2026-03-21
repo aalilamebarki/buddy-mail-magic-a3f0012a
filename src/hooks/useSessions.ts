@@ -1,4 +1,9 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+/**
+ * هوك جلب الجلسات مع التخزين المؤقت عبر react-query
+ */
+
+import { useCallback, useEffect, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 
@@ -26,56 +31,37 @@ export interface SessionRecord {
 const SELECT_QUERY = '*, cases(title, case_number, court, opposing_party, clients(full_name))';
 
 export const useSessions = () => {
-  const [sessions, setSessions] = useState<SessionRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  const fetchSessions = useCallback(async () => {
-    setLoading(true);
-    const { data } = await supabase
-      .from('court_sessions')
-      .select(SELECT_QUERY)
-      .order('session_date', { ascending: true });
-    if (data) setSessions(data as SessionRecord[]);
-    setLoading(false);
-  }, []);
+  const { data: sessions = [], isLoading: loading, refetch } = useQuery({
+    queryKey: ['court_sessions'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('court_sessions')
+        .select(SELECT_QUERY)
+        .order('session_date', { ascending: true });
+      return (data || []) as SessionRecord[];
+    },
+  });
 
-  useEffect(() => { fetchSessions(); }, [fetchSessions]);
-
-  // Realtime subscription — only refetch the changed row
+  // Realtime — invalidate cache on any change
   useEffect(() => {
     const channel = supabase
       .channel('court_sessions_realtime')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'court_sessions' }, async (payload) => {
-        // Fetch full row with joins
-        const { data } = await supabase
-          .from('court_sessions')
-          .select(SELECT_QUERY)
-          .eq('id', payload.new.id)
-          .single();
-        if (data) {
-          setSessions(prev => {
-            if (prev.some(s => s.id === data.id)) return prev;
-            return [...prev, data as SessionRecord].sort((a, b) => a.session_date.localeCompare(b.session_date));
-          });
-        }
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'court_sessions' }, async (payload) => {
-        const { data } = await supabase
-          .from('court_sessions')
-          .select(SELECT_QUERY)
-          .eq('id', payload.new.id)
-          .single();
-        if (data) {
-          setSessions(prev => prev.map(s => s.id === data.id ? (data as SessionRecord) : s));
-        }
-      })
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'court_sessions' }, (payload) => {
-        setSessions(prev => prev.filter(s => s.id !== payload.old.id));
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'court_sessions' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['court_sessions'] });
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [queryClient]);
+
+  const setSessions = useCallback((updater: SessionRecord[] | ((prev: SessionRecord[]) => SessionRecord[])) => {
+    queryClient.setQueryData(['court_sessions'], (prev: SessionRecord[] | undefined) => {
+      if (typeof updater === 'function') return updater(prev || []);
+      return updater;
+    });
+  }, [queryClient]);
 
   const today = format(new Date(), 'yyyy-MM-dd');
 
@@ -103,6 +89,6 @@ export const useSessions = () => {
     upcomingSessions,
     pastSessions,
     getNextSession,
-    refetch: fetchSessions,
+    refetch,
   };
 };
