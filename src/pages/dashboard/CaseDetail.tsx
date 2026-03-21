@@ -12,7 +12,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowRight, FileText, User, Scale, MapPin, ClipboardList, CalendarDays, Plus, Pencil, Trash2, Check, X } from 'lucide-react';
+import { ArrowRight, FileText, User, Scale, MapPin, ClipboardList, CalendarDays, Plus, Pencil, Trash2, Check, X, Globe } from 'lucide-react';
+import { BrowserFetchDialog } from '@/components/cases/BrowserFetchDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -39,6 +40,7 @@ const CaseDetail = () => {
   const [editingCaseNumber, setEditingCaseNumber] = useState(false);
   const [caseNumberEdit, setCaseNumberEdit] = useState('');
   const [saving, setSaving] = useState(false);
+  const [browserFetchOpen, setBrowserFetchOpen] = useState(false);
   const { latestJob, syncing, startSync, openPortal } = useMahakimSync(id);
 
   const fetchData = async () => {
@@ -296,7 +298,7 @@ const CaseDetail = () => {
             <div className="flex justify-between"><span className="text-muted-foreground">التاريخ:</span><span>{new Date(caseData.created_at).toLocaleDateString('ar-MA')}</span></div>
             {caseData.description && <div className="pt-2 border-t"><p className="text-muted-foreground">{caseData.description}</p></div>}
             {caseData.case_number && (
-              <div className="pt-2 border-t">
+              <div className="pt-2 border-t space-y-2">
                 <MahakimSyncStatus
                   caseNumber={caseData.case_number}
                   courtName={caseData.court}
@@ -306,6 +308,15 @@ const CaseDetail = () => {
                   onSync={(appealCourt, firstInstanceCourt) => startSync(caseData.case_number, appealCourt, firstInstanceCourt)}
                   onOpenPortal={() => openPortal(caseData.case_number)}
                 />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full gap-1.5"
+                  onClick={() => setBrowserFetchOpen(true)}
+                >
+                  <Globe className="h-3.5 w-3.5" />
+                  جلب من المتصفح
+                </Button>
               </div>
             )}
           </CardContent>
@@ -488,6 +499,16 @@ const CaseDetail = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Browser Fetch Dialog */}
+      {caseData.case_number && (
+        <BrowserFetchDialog
+          open={browserFetchOpen}
+          onOpenChange={setBrowserFetchOpen}
+          caseId={caseData.id}
+          caseNumber={caseData.case_number}
+          onSuccess={fetchData}
+        />
+      )}
     </div>
   );
 };
