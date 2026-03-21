@@ -337,11 +337,16 @@ export const MahakimSyncStatus = ({
       {/* Failure notification */}
       {latestJob && latestJob.status === 'failed' && latestJob.completed_at &&
         (Date.now() - new Date(latestJob.completed_at).getTime() < 60000) && (
-        <div className="flex items-center gap-2 p-2.5 rounded-md bg-destructive/10 border border-destructive/30">
-          <XCircle className="h-4 w-4 text-destructive shrink-0" />
-          <p className="text-xs font-medium text-destructive">
-            فشل الجلب: {latestJob.error_message || 'خطأ غير معروف'}
-          </p>
+        <div className="flex items-start gap-2 p-2.5 rounded-md bg-destructive/10 border border-destructive/30">
+          <XCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+          <div className="text-xs space-y-1">
+            <p className="font-medium text-destructive">
+              فشل الجلب: {latestJob.error_message || 'خطأ غير معروف'}
+            </p>
+            <p className="text-muted-foreground text-[10px]">
+              💡 يمكنك إعادة المحاولة بمزود مختلف أو فتح البوابة يدوياً
+            </p>
+          </div>
         </div>
       )}
 

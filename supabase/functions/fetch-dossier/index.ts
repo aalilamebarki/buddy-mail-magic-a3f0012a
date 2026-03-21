@@ -1103,7 +1103,7 @@ Deno.serve(async (req) => {
 
       return {
         ...input, status: 'error', caseInfo: {}, procedures: [], nextSessionDate: null,
-        error: 'فشل الجلب عبر جميع المزودين — حاول مرة أخرى',
+        error: 'فشل الجلب عبر جميع المزودين. اقتراحات: ① تحقق من صحة رقم الملف ② جرّب مزوداً مختلفاً ③ تأكد أن البوابة متاحة عبر mahakim.ma',
         usedProvider: 'none',
       };
     }
