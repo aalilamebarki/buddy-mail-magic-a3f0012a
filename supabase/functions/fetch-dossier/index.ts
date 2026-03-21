@@ -1162,7 +1162,7 @@ async function launchApifyActor(
    */
   const actorInput = {
     startUrls: [{ url: 'https://www.mahakim.ma/#/suivi/dossier-suivi' }],
-    customData: JSON.stringify({
+    customData: {
       numero: input.numero,
       code: input.code,
       annee: input.annee,
@@ -1174,7 +1174,7 @@ async function launchApifyActor(
       caseNumber,
       webhookUrl,
       anonKey,
-    }),
+    },
     proxyConfiguration: {
       useApifyProxy: true,
       apifyProxyGroups: ['RESIDENTIAL'],
