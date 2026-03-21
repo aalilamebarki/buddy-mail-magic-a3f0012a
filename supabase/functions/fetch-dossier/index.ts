@@ -1223,7 +1223,7 @@ async function launchApifyActor(
     requestHandlerTimeoutSecs: 120,
     navigationTimeoutSecs: 60,
     useChrome: false,
-    pageFunction,
+    pageFunction: pf,
   };
 
   try {
