@@ -58,6 +58,13 @@ Deno.serve(async (req) => {
                     caseInfo: item.caseInfo || {},
                     procedures: item.procedures || [],
                     nextSessionDate: null,
+                    // Store ALL raw data from the page
+                    allLabels: item.allLabels || {},
+                    dropdowns: item.dropdowns || [],
+                    tables: item.tables || [],
+                    rawText: item.rawText || '',
+                    pageTitle: item.pageTitle || '',
+                    noData: item.noData || false,
                   };
                 }
               } else {
