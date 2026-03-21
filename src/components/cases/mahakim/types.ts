@@ -3,10 +3,10 @@
  * Shared types for Mahakim sync UI components
  */
 
-import { SyncJob } from '@/hooks/useMahakimSync';
+import type { SyncJob, ScrapeProvider } from '@/hooks/useMahakimSync';
 
-/** نوع مزود الجلب — تلقائي أو مباشر */
-export type ScrapeProvider = 'auto' | 'firecrawl' | 'scrapingbee';
+/** Re-export for convenience */
+export type { ScrapeProvider };
 
 /** الخصائص المشتركة لمكون المزامنة الرئيسي */
 export interface MahakimSyncStatusProps {
