@@ -184,17 +184,22 @@ const CourtSessions = () => {
         await supabase.from('cases').update({ case_number: caseNumber.trim() }).eq('id', selectedCaseId);
       }
       if (editingSession) {
-        const { error } = await supabase.from('court_sessions').update({
+        const updatedFields = {
           session_date: format(sessionDate, 'yyyy-MM-dd'),
           required_action: requiredAction.trim(),
           notes: notes || null,
           session_time: sessionTime || null,
           court_room: courtRoom || null,
-        }).eq('id', editingSession.id);
+        };
+        const { error } = await supabase.from('court_sessions').update(updatedFields).eq('id', editingSession.id);
         if (error) throw error;
+        // Optimistic update — patch local state
+        setSessions(prev => prev.map(s =>
+          s.id === editingSession.id ? { ...s, ...updatedFields } : s
+        ));
         toast.success('تم تعديل الجلسة');
       } else {
-        const { error } = await supabase.from('court_sessions').insert({
+        const newSession = {
           case_id: selectedCaseId,
           session_date: format(sessionDate, 'yyyy-MM-dd'),
           required_action: requiredAction.trim(),
@@ -202,8 +207,14 @@ const CourtSessions = () => {
           session_time: sessionTime || null,
           court_room: courtRoom || null,
           user_id: user.id,
-        });
+        };
+        const { data, error } = await supabase.from('court_sessions')
+          .insert(newSession)
+          .select('*, cases(title, case_number, court, opposing_party, clients(full_name))')
+          .single();
         if (error) throw error;
+        // Optimistic insert — add to local state
+        if (data) setSessions(prev => [...prev, data as SessionRecord].sort((a, b) => a.session_date.localeCompare(b.session_date)));
         toast.success('تمت إضافة الجلسة');
       }
       // Auto-save custom action if not in options
@@ -221,7 +232,6 @@ const CourtSessions = () => {
       setSessionTime('');
       setCourtRoom('');
       setCaseNumber('');
-      fetchData();
 
       // Auto-sync to Google Calendar in background
       syncToGoogleCalendar();
