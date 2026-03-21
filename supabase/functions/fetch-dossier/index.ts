@@ -1144,85 +1144,392 @@ async function persistResults(
    ══════════════════════════════════════════════════════════════════ */
 
 function buildApifyPageFunction(input: CaseInput, ac?: string, pc?: string): string {
-  const lines: string[] = [];
-  lines.push('async function pageFunction(context) {');
-  lines.push('  const { page, log } = context;');
-  lines.push('  const delay = ms => new Promise(r => setTimeout(r, ms));');
-  lines.push('  log.info("Starting mahakim scrape...");');
-  lines.push('  await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");');
-  lines.push('  try { await page.waitForSelector("input[formcontrolname=\\"mark\\"]", { timeout: 60000 }); } catch(e) { log.warning("Form not found, retrying..."); return { error: "form_not_found" }; }');
-  lines.push('  await page.evaluate((d) => {');
-  lines.push('    function sf(s,v){var e=document.querySelector(s);if(!e)return;var p=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value");if(p&&p.set)p.set.call(e,v);else e.value=v;e.dispatchEvent(new Event("input",{bubbles:true}));e.dispatchEvent(new Event("change",{bubbles:true}));e.dispatchEvent(new Event("blur",{bubbles:true}));}');
-  lines.push('    sf("input[formcontrolname=\\"mark\\"]",d.code);sf("input[formcontrolname=\\"numero\\"]",d.numero);sf("input[formcontrolname=\\"annee\\"]",d.annee);');
-  lines.push('  }, { numero: "' + input.numero + '", code: "' + input.code + '", annee: "' + input.annee + '" });');
-  lines.push('  await delay(800);');
+  const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/'/g, "\\'");
+  const numero = esc(input.numero);
+  const code = esc(input.code);
+  const annee = esc(input.annee);
+  const acEsc = ac ? esc(ac) : '';
+  const pcEsc = pc ? esc(pc) : '';
 
-  if (ac) {
-    const acEsc = ac.replace(/"/g, '\\"');
-    lines.push('  try { var dds = await page.$$("p-dropdown .p-dropdown-trigger, .p-dropdown-trigger");');
-    lines.push('    if(dds.length>0){ await dds[0].click(); await delay(1500);');
-    lines.push('      await page.evaluate(function(t){ var items=document.querySelectorAll(".p-dropdown-panel li, .p-dropdown-items li, .p-dropdown-item"); for(var i=0;i<items.length;i++){if((items[i].textContent||"").trim().indexOf(t)>=0){items[i].click();return;}} }, "' + acEsc + '");');
-    lines.push('      await delay(1000); }');
-    lines.push('  } catch(e){ log.warning("Court err: "+e.message); }');
+  // Build a cleaner, more robust page function
+  return `async function pageFunction(context) {
+  const { page, log } = context;
+  const delay = ms => new Promise(r => setTimeout(r, ms));
+
+  log.info("Starting mahakim scrape for ${numero}/${code}/${annee}...");
+
+  // Step 0: Wait for any anti-bot challenge to clear (Imperva/F5)
+  log.info("Waiting for page to fully load and pass any challenges...");
+  await delay(5000);
+
+  // Step 1: Wait for Angular form to render
+  try {
+    await page.waitForSelector('input[formcontrolname="mark"]', { timeout: 90000 });
+    log.info("Angular form found");
+  } catch(e) {
+    // Take screenshot for debugging
+    try {
+      var ss = await page.screenshot({ encoding: 'base64', fullPage: false });
+      log.info("Form not found - page title: " + await page.title());
+      return { error: "form_not_found", screenshot: ss ? ss.substring(0, 5000) : null, pageTitle: await page.title() };
+    } catch(e2) {
+      return { error: "form_not_found" };
+    }
   }
 
-  if (pc) {
-    const pcEsc = pc.replace(/"/g, '\\"');
-    lines.push('  try { await page.evaluate(function(){ var ls=document.querySelectorAll("label,span"); for(var i=0;i<ls.length;i++){var t=ls[i].textContent||""; if(t.indexOf("\\u0627\\u0644\\u0627\\u0628\\u062a\\u062f\\u0627\\u0626\\u064a\\u0629")>=0||t.indexOf("\\u0627\\u0644\\u0628\\u062d\\u062b \\u0628\\u0627\\u0644\\u0645\\u062d\\u0627\\u0643\\u0645")>=0){var cb=ls[i].querySelector(".p-checkbox-box,input[type=checkbox]");if(!cb){var p=ls[i].closest("div");if(p)cb=p.querySelector(".p-checkbox-box,input[type=checkbox]");}if(cb){cb.click();return;}ls[i].click();return;}} });');
-    lines.push('    await delay(2000);');
-    lines.push('    var dd2=await page.$$("p-dropdown .p-dropdown-trigger, .p-dropdown-trigger");');
-    lines.push('    if(dd2.length>1){ await dd2[1].click(); await delay(1500);');
-    lines.push('      await page.evaluate(function(t){ var items=document.querySelectorAll(".p-dropdown-panel li, .p-dropdown-items li"); for(var i=0;i<items.length;i++){if((items[i].textContent||"").trim().indexOf(t)>=0){items[i].click();return;}} }, "' + pcEsc + '");');
-    lines.push('      await delay(800); }');
-    lines.push('  } catch(e){ log.warning("PC err: "+e.message); }');
+  // Extra wait for Angular to fully bootstrap
+  await delay(2000);
+
+  // Step 2: Fill form fields using Angular-compatible method
+  await page.evaluate((d) => {
+    function setAngularInput(selector, value) {
+      var el = document.querySelector(selector);
+      if (!el) return false;
+      // Use native setter to trigger Angular change detection
+      var nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+      nativeInputValueSetter.call(el, value);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+      el.dispatchEvent(new Event('blur', { bubbles: true }));
+      // Also try triggering Angular's ngModel update
+      el.dispatchEvent(new Event('keyup', { bubbles: true }));
+      return true;
+    }
+    setAngularInput('input[formcontrolname="mark"]', d.code);
+    setAngularInput('input[formcontrolname="numero"]', d.numero);
+    setAngularInput('input[formcontrolname="annee"]', d.annee);
+  }, { numero: "${numero}", code: "${code}", annee: "${annee}" });
+
+  log.info("Form fields filled");
+  await delay(1500);
+
+${ac ? `
+  // Step 3a: Select Appeal Court from PrimeNG dropdown
+  try {
+    log.info("Selecting appeal court: ${acEsc}");
+    // Find all p-dropdown components
+    var dropdowns = await page.$$('p-dropdown');
+    if (dropdowns.length === 0) dropdowns = await page.$$('.p-dropdown');
+    
+    if (dropdowns.length > 0) {
+      // Click the first dropdown (appeal court)
+      await dropdowns[0].click();
+      await delay(2000);
+
+      // Wait for dropdown panel to appear
+      try {
+        await page.waitForSelector('.p-dropdown-panel .p-dropdown-item, .p-dropdown-panel li, .p-dropdown-items-wrapper li', { timeout: 5000 });
+      } catch(e) {
+        log.warning("Dropdown panel not found, trying trigger button...");
+        var triggers = await page.$$('.p-dropdown-trigger');
+        if (triggers.length > 0) { await triggers[0].click(); await delay(2000); }
+      }
+
+      // Select the court by text content
+      var selected = await page.evaluate(function(courtName) {
+        var selectors = [
+          '.p-dropdown-panel .p-dropdown-item',
+          '.p-dropdown-panel li.p-element',
+          '.p-dropdown-items-wrapper li',
+          '.p-dropdown-items li',
+          '.p-dropdown-panel li',
+          'p-dropdownitem li',
+        ];
+        for (var s = 0; s < selectors.length; s++) {
+          var items = document.querySelectorAll(selectors[s]);
+          for (var i = 0; i < items.length; i++) {
+            var text = (items[i].textContent || '').trim();
+            if (text.indexOf(courtName) >= 0) {
+              items[i].click();
+              return { found: true, text: text, selector: selectors[s], totalItems: items.length };
+            }
+          }
+          if (items.length > 0) return { found: false, selector: selectors[s], totalItems: items.length, firstItem: (items[0].textContent || '').trim() };
+        }
+        return { found: false, noItems: true };
+      }, "${acEsc}");
+
+      log.info("Appeal court selection: " + JSON.stringify(selected));
+      await delay(1500);
+    } else {
+      log.warning("No dropdown components found on page");
+    }
+  } catch(e) {
+    log.warning("Appeal court selection error: " + e.message);
+  }
+` : ''}
+
+${pc ? `
+  // Step 3b: Enable primary court checkbox and select
+  try {
+    log.info("Selecting primary court: ${pcEsc}");
+    
+    // Find and click the checkbox to enable primary court search
+    var cbClicked = await page.evaluate(function() {
+      // Look for checkbox related to primary court search
+      var allCheckboxes = document.querySelectorAll('.p-checkbox, .p-checkbox-box, input[type="checkbox"]');
+      for (var i = 0; i < allCheckboxes.length; i++) {
+        var parent = allCheckboxes[i].closest('.p-field-checkbox, .p-checkbox-wrapper, div');
+        var label = parent ? parent.textContent || '' : '';
+        if (label.indexOf('الابتدائية') >= 0 || label.indexOf('البحث بالمحاكم') >= 0 || label.indexOf('المحكمة') >= 0) {
+          allCheckboxes[i].click();
+          return { clicked: true, label: label.trim().substring(0, 100) };
+        }
+      }
+      // Try clicking any checkbox that appears after the dropdowns
+      if (allCheckboxes.length > 0) {
+        allCheckboxes[0].click();
+        return { clicked: true, fallback: true };
+      }
+      return { clicked: false };
+    });
+    log.info("Checkbox: " + JSON.stringify(cbClicked));
+    await delay(2500);
+
+    // Now select the primary court from the second dropdown
+    var dropdowns2 = await page.$$('p-dropdown');
+    if (dropdowns2.length === 0) dropdowns2 = await page.$$('.p-dropdown');
+    
+    if (dropdowns2.length > 1) {
+      // Click the second dropdown (primary court) - or the last one
+      var ddIdx = dropdowns2.length > 2 ? 2 : 1;
+      await dropdowns2[ddIdx].click();
+      await delay(2000);
+
+      try {
+        await page.waitForSelector('.p-dropdown-panel .p-dropdown-item, .p-dropdown-panel li, .p-dropdown-items-wrapper li', { timeout: 5000 });
+      } catch(e) {
+        var triggers2 = await page.$$('.p-dropdown-trigger');
+        if (triggers2.length > ddIdx) { await triggers2[ddIdx].click(); await delay(2000); }
+      }
+
+      var selected2 = await page.evaluate(function(courtName) {
+        var selectors = [
+          '.p-dropdown-panel .p-dropdown-item',
+          '.p-dropdown-panel li.p-element',
+          '.p-dropdown-items-wrapper li',
+          '.p-dropdown-items li',
+          '.p-dropdown-panel li',
+        ];
+        for (var s = 0; s < selectors.length; s++) {
+          var items = document.querySelectorAll(selectors[s]);
+          for (var i = 0; i < items.length; i++) {
+            var text = (items[i].textContent || '').trim();
+            if (text.indexOf(courtName) >= 0) {
+              items[i].click();
+              return { found: true, text: text };
+            }
+          }
+        }
+        return { found: false };
+      }, "${pcEsc}");
+
+      log.info("Primary court selection: " + JSON.stringify(selected2));
+      await delay(1500);
+    }
+  } catch(e) {
+    log.warning("Primary court error: " + e.message);
+  }
+` : ''}
+
+  // Step 4: Click search button
+  var clicked = await page.evaluate(function() {
+    // Try finding the search button by text
+    var btns = document.querySelectorAll('button');
+    for (var i = 0; i < btns.length; i++) {
+      var t = (btns[i].textContent || '').trim();
+      // "بحث" = search, but not "البحث بالمحاكم" (court search checkbox label)
+      if (t === '\\u0628\\u062d\\u062b' || (t.indexOf('\\u0628\\u062d\\u062b') >= 0 && t.length < 15)) {
+        btns[i].click();
+        return { clicked: true, text: t };
+      }
+    }
+    // Fallback: submit button
+    var sb = document.querySelector('button[type="submit"]');
+    if (sb) { sb.click(); return { clicked: true, type: 'submit' }; }
+    // Last resort: any primary button
+    var primary = document.querySelector('.p-button-primary, .p-button');
+    if (primary) { primary.click(); return { clicked: true, type: 'p-button' }; }
+    return { clicked: false };
+  });
+
+  log.info("Search button: " + JSON.stringify(clicked));
+  if (!clicked || !clicked.clicked) {
+    var ss2 = await page.screenshot({ encoding: 'base64', fullPage: false });
+    return { error: "search_btn_not_found", screenshot: ss2 ? ss2.substring(0, 5000) : null };
   }
 
-  lines.push('  var clicked = await page.evaluate(function(){ var btns=document.querySelectorAll("button"); for(var i=0;i<btns.length;i++){var t=(btns[i].textContent||"").trim(); if(t==="\\u0628\\u062d\\u062b"||(t.indexOf("\\u0628\\u062d\\u062b")>=0&&t.indexOf("\\u0627\\u0644\\u0645\\u062d\\u0627\\u0643\\u0645")<0)){btns[i].click();return true;}} var sb=document.querySelector("button[type=submit]"); if(sb){sb.click();return true;} return false; });');
-  lines.push('  if(!clicked) return {error:"search_btn_not_found"};');
-  lines.push('  log.info("Search clicked, waiting for results...");');
-  lines.push('  for(var i=0;i<20;i++){ await delay(2000); var ok=await page.evaluate(function(){var b=document.body.textContent||"";return !!(document.querySelector("table tbody tr td")||document.querySelector(".p-datatable-tbody tr")||b.indexOf("\\u0644\\u0627 \\u062a\\u0648\\u062c\\u062f")>=0||b.indexOf("\\u0627\\u0644\\u0642\\u0627\\u0636\\u064a")>=0);}); if(ok)break; }');
-  
-  // ── Full JSON extraction — capture EVERYTHING on the page ──
-  lines.push('  var data=await page.evaluate(function(){');
-  lines.push('    var ci={},procs=[],rawTexts=[],allLabels={},dropdowns=[],tables=[];');
-  lines.push('    var body=document.body.textContent||"",html=document.body.innerHTML;');
-  lines.push('    var noData=body.indexOf("\\u0644\\u0627 \\u062a\\u0648\\u062c\\u062f \\u0623\\u064a\\u0629 \\u0646\\u062a\\u064a\\u062c\\u0629")>=0;');
-  
-  // Extract ALL label-value pairs from the page
-  lines.push('    var allFields=[["court","\\u0627\\u0644\\u0645\\u062d\\u0643\\u0645\\u0629"],["judge","\\u0627\\u0644\\u0642\\u0627\\u0636\\u064a \\u0627\\u0644\\u0645\\u0642\\u0631\\u0631"],["judge","\\u0627\\u0644\\u0642\\u0627\\u0636\\u064a"],["department","\\u0627\\u0644\\u0634\\u0639\\u0628\\u0629"],["status","\\u0627\\u0644\\u062d\\u0627\\u0644\\u0629"],["case_type","\\u0646\\u0648\\u0639 \\u0627\\u0644\\u0645\\u0644\\u0641"],["case_type2","\\u0646\\u0648\\u0639 \\u0627\\u0644\\u0642\\u0636\\u064a\\u0629"],["registration_date","\\u062a\\u0627\\u0631\\u064a\\u062e \\u0627\\u0644\\u062a\\u0633\\u062c\\u064a\\u0644"],["national_number","\\u0627\\u0644\\u0631\\u0642\\u0645 \\u0627\\u0644\\u0648\\u0637\\u0646\\u064a"],["subject","\\u0627\\u0644\\u0645\\u0648\\u0636\\u0648\\u0639"],["last_decision","\\u0622\\u062e\\u0631 \\u062d\\u0643\\u0645"],["parties","\\u0627\\u0644\\u0623\\u0637\\u0631\\u0627\\u0641"],["plaintiff","\\u0627\\u0644\\u0645\\u062f\\u0639\\u064a"],["defendant","\\u0627\\u0644\\u0645\\u062f\\u0639\\u0649 \\u0639\\u0644\\u064a\\u0647"],["lawyer","\\u0627\\u0644\\u0645\\u062d\\u0627\\u0645\\u064a"],["file_number","\\u0631\\u0642\\u0645 \\u0627\\u0644\\u0645\\u0644\\u0641"],["section","\\u0627\\u0644\\u0642\\u0633\\u0645"],["hearing_room","\\u0627\\u0644\\u0642\\u0627\\u0639\\u0629"],["next_hearing","\\u0627\\u0644\\u062c\\u0644\\u0633\\u0629 \\u0627\\u0644\\u0645\\u0642\\u0628\\u0644\\u0629"]];');
-  lines.push('    for(var i=0;i<allFields.length;i++){if(ci[allFields[i][0]])continue;var idx=html.indexOf(allFields[i][1]);if(idx===-1)continue;var af=html.substring(idx,idx+500);var m=af.match(/>([^<]{2,200})</);if(m&&m[1].trim()!==allFields[i][1]&&m[1].trim().length>1)ci[allFields[i][0]]=m[1].trim();}');
-  
-  // Capture ALL visible label:value pairs generically
-  lines.push('    var labelEls=document.querySelectorAll("label,.p-field label,.field-label,th,dt,.label,strong");');
-  lines.push('    labelEls.forEach(function(el){var lbl=(el.textContent||"").trim();if(lbl.length<2||lbl.length>60)return;var next=el.nextElementSibling||el.parentElement&&el.parentElement.querySelector("span,div,td,dd,p,.value");if(next){var val=(next.textContent||"").trim();if(val&&val!==lbl&&val.length>0&&val.length<500){allLabels[lbl]=val;}}});');
-  
-  // Capture all dropdown values
-  lines.push('    document.querySelectorAll(".p-dropdown-label,select").forEach(function(d){var v=(d.textContent||d.value||"").trim();if(v&&v.length>1)dropdowns.push(v);});');
-  
-  // Capture ALL tables (not just procedures)
-  lines.push('    document.querySelectorAll("table,.p-datatable").forEach(function(tbl,tIdx){');
-  lines.push('      var headers=[],rows=[];');
-  lines.push('      tbl.querySelectorAll("thead th,.p-datatable-thead th").forEach(function(th){headers.push((th.textContent||"").trim());});');
-  lines.push('      tbl.querySelectorAll("tbody tr,.p-datatable-tbody tr").forEach(function(tr){');
-  lines.push('        var cells=[];tr.querySelectorAll("td").forEach(function(td){cells.push((td.textContent||"").trim());});');
-  lines.push('        if(cells.length>0)rows.push(cells);');
-  lines.push('      });');
-  lines.push('      tables.push({index:tIdx,headers:headers,rows:rows});');
-  lines.push('    });');
-  
-  // Build procedures from the main procedures table
-  lines.push('    var rows=document.querySelectorAll("table tbody tr, .p-datatable-tbody tr");');
-  lines.push('    for(var j=0;j<rows.length;j++){var c=rows[j].querySelectorAll("td");if(c.length>=2){var ad=c[0]?c[0].textContent.trim():"";if(ad&&ad.indexOf("\\u062a\\u0627\\u0631\\u064a\\u062e")<0&&ad.length<60){procs.push({action_date:ad,action_type:c[1]?c[1].textContent.trim():"",decision:c.length>2&&c[2]?c[2].textContent.trim():"",next_session_date:c.length>3&&c[3]?c[3].textContent.trim():"",col5:c.length>4&&c[4]?c[4].textContent.trim():"",col6:c.length>5&&c[5]?c[5].textContent.trim():""})}}}');
-  
-  // Capture raw body text for further processing
-  lines.push('    rawTexts.push(body.substring(0,5000));');
-  
-  lines.push('    return {caseInfo:ci,procedures:procs,noData:noData,allLabels:allLabels,dropdowns:dropdowns,tables:tables,rawText:body.substring(0,8000),pageTitle:document.title,url:window.location.href};');
-  lines.push('  });');
-  lines.push('  log.info("Done: "+Object.keys(data.caseInfo).length+" fields, "+data.procedures.length+" procs, "+Object.keys(data.allLabels||{}).length+" labels, "+(data.tables||[]).length+" tables");');
-  lines.push('  return data;');
-  lines.push('}');
-  return lines.join('\n');
+  // Step 5: Wait for results (up to 40 seconds)
+  log.info("Waiting for results...");
+  var resultFound = false;
+  for (var attempt = 0; attempt < 20; attempt++) {
+    await delay(2000);
+    var check = await page.evaluate(function() {
+      var body = document.body.textContent || '';
+      var hasTables = !!(document.querySelector('table tbody tr td') || document.querySelector('.p-datatable-tbody tr'));
+      var hasNoData = body.indexOf('\\u0644\\u0627 \\u062a\\u0648\\u062c\\u062f') >= 0;
+      var hasJudge = body.indexOf('\\u0627\\u0644\\u0642\\u0627\\u0636\\u064a \\u0627\\u0644\\u0645\\u0642\\u0631\\u0631') >= 0;
+      var hasCaseInfo = body.indexOf('\\u0627\\u0644\\u0634\\u0639\\u0628\\u0629') >= 0 || body.indexOf('\\u0627\\u0644\\u062d\\u0627\\u0644\\u0629') >= 0;
+      return { hasTables: hasTables, hasNoData: hasNoData, hasJudge: hasJudge, hasCaseInfo: hasCaseInfo, ready: hasTables || hasNoData || hasJudge || hasCaseInfo };
+    });
+    if (check.ready) {
+      log.info("Results detected at attempt " + attempt + ": " + JSON.stringify(check));
+      resultFound = true;
+      await delay(2000); // Extra wait for full render
+      break;
+    }
+  }
+
+  if (!resultFound) {
+    log.warning("No results detected after 40s wait");
+  }
+
+  // Step 6: Extract ALL data from page
+  var data = await page.evaluate(function() {
+    var ci = {}, procs = [], allLabels = {}, dropdowns = [], tables = [];
+    var body = document.body.textContent || '';
+    var html = document.body.innerHTML;
+    var noData = body.indexOf('\\u0644\\u0627 \\u062a\\u0648\\u062c\\u062f \\u0623\\u064a\\u0629 \\u0646\\u062a\\u064a\\u062c\\u0629') >= 0;
+
+    // Extract case info fields
+    var fields = [
+      ['court','\\u0627\\u0644\\u0645\\u062d\\u0643\\u0645\\u0629'],
+      ['judge','\\u0627\\u0644\\u0642\\u0627\\u0636\\u064a \\u0627\\u0644\\u0645\\u0642\\u0631\\u0631'],
+      ['judge','\\u0627\\u0644\\u0642\\u0627\\u0636\\u064a'],
+      ['department','\\u0627\\u0644\\u0634\\u0639\\u0628\\u0629'],
+      ['status','\\u0627\\u0644\\u062d\\u0627\\u0644\\u0629'],
+      ['case_type','\\u0646\\u0648\\u0639 \\u0627\\u0644\\u0645\\u0644\\u0641'],
+      ['registration_date','\\u062a\\u0627\\u0631\\u064a\\u062e \\u0627\\u0644\\u062a\\u0633\\u062c\\u064a\\u0644'],
+      ['national_number','\\u0627\\u0644\\u0631\\u0642\\u0645 \\u0627\\u0644\\u0648\\u0637\\u0646\\u064a'],
+      ['subject','\\u0627\\u0644\\u0645\\u0648\\u0636\\u0648\\u0639'],
+      ['parties','\\u0627\\u0644\\u0623\\u0637\\u0631\\u0627\\u0641'],
+      ['plaintiff','\\u0627\\u0644\\u0645\\u062f\\u0639\\u064a'],
+      ['defendant','\\u0627\\u0644\\u0645\\u062f\\u0639\\u0649 \\u0639\\u0644\\u064a\\u0647'],
+      ['section','\\u0627\\u0644\\u0642\\u0633\\u0645'],
+      ['hearing_room','\\u0627\\u0644\\u0642\\u0627\\u0639\\u0629'],
+      ['next_hearing','\\u0627\\u0644\\u062c\\u0644\\u0633\\u0629 \\u0627\\u0644\\u0645\\u0642\\u0628\\u0644\\u0629']
+    ];
+
+    // Method 1: Parse from HTML context
+    for (var i = 0; i < fields.length; i++) {
+      if (ci[fields[i][0]]) continue;
+      var idx = html.indexOf(fields[i][1]);
+      if (idx === -1) continue;
+      var chunk = html.substring(idx, idx + 500);
+      var m = chunk.match(/>([^<]{2,200})</);
+      if (m && m[1].trim() !== fields[i][1] && m[1].trim().length > 1) {
+        // Skip form field labels that got captured
+        var val = m[1].trim();
+        if (val.indexOf('\\u0627\\u062e\\u062a\\u064a\\u0627\\u0631') < 0 && val.indexOf('formcontrol') < 0) {
+          ci[fields[i][0]] = val;
+        }
+      }
+    }
+
+    // Method 2: Try structured label-value pairs
+    var infoCards = document.querySelectorAll('.p-card, .card, .info-section, .case-info, .detail-section, [class*="info"], [class*="detail"]');
+    infoCards.forEach(function(card) {
+      var labels = card.querySelectorAll('label, .label, strong, b, dt, th');
+      labels.forEach(function(lbl) {
+        var key = (lbl.textContent || '').trim();
+        if (key.length < 2 || key.length > 50) return;
+        var valEl = lbl.nextElementSibling || (lbl.parentElement && lbl.parentElement.nextElementSibling);
+        if (valEl) {
+          var val = (valEl.textContent || '').trim();
+          if (val && val !== key && val.length > 0 && val.length < 300 && val.indexOf('\\u0627\\u062e\\u062a\\u064a\\u0627\\u0631') < 0) {
+            allLabels[key] = val;
+          }
+        }
+      });
+    });
+
+    // Also capture generic label-value pairs
+    document.querySelectorAll('label, .p-field label, th, dt, strong').forEach(function(el) {
+      var lbl = (el.textContent || '').trim();
+      if (lbl.length < 2 || lbl.length > 60) return;
+      var next = el.nextElementSibling;
+      if (!next && el.parentElement) next = el.parentElement.querySelector('span, div, td, dd, p, .value');
+      if (next) {
+        var val = (next.textContent || '').trim();
+        if (val && val !== lbl && val.length > 0 && val.length < 500 && val.indexOf('\\u0627\\u062e\\u062a\\u064a\\u0627\\u0631') < 0) {
+          allLabels[lbl] = val;
+        }
+      }
+    });
+
+    // Capture dropdown current values
+    document.querySelectorAll('.p-dropdown-label, select').forEach(function(d) {
+      var v = (d.textContent || d.value || '').trim();
+      if (v && v.length > 1) dropdowns.push(v);
+    });
+
+    // Capture ALL tables
+    document.querySelectorAll('table, .p-datatable').forEach(function(tbl, tIdx) {
+      var headers = [], rows = [];
+      tbl.querySelectorAll('thead th, .p-datatable-thead th').forEach(function(th) {
+        headers.push((th.textContent || '').trim());
+      });
+      tbl.querySelectorAll('tbody tr, .p-datatable-tbody tr').forEach(function(tr) {
+        var cells = [];
+        tr.querySelectorAll('td').forEach(function(td) { cells.push((td.textContent || '').trim()); });
+        if (cells.length > 0) rows.push(cells);
+      });
+      tables.push({ index: tIdx, headers: headers, rows: rows });
+    });
+
+    // Build procedures from tables
+    var allRows = document.querySelectorAll('table tbody tr, .p-datatable-tbody tr');
+    for (var j = 0; j < allRows.length; j++) {
+      var c = allRows[j].querySelectorAll('td');
+      if (c.length >= 2) {
+        var ad = c[0] ? c[0].textContent.trim() : '';
+        // Skip header rows and empty rows
+        if (ad && ad.indexOf('\\u062a\\u0627\\u0631\\u064a\\u062e') < 0 && ad.length < 60 && ad.length > 0) {
+          procs.push({
+            action_date: ad,
+            action_type: c[1] ? c[1].textContent.trim() : '',
+            decision: c.length > 2 && c[2] ? c[2].textContent.trim() : '',
+            next_session_date: c.length > 3 && c[3] ? c[3].textContent.trim() : '',
+            col5: c.length > 4 && c[4] ? c[4].textContent.trim() : '',
+            col6: c.length > 5 && c[5] ? c[5].textContent.trim() : '',
+          });
+        }
+      }
+    }
+
+    return {
+      caseInfo: ci,
+      procedures: procs,
+      noData: noData,
+      allLabels: allLabels,
+      dropdowns: dropdowns,
+      tables: tables,
+      rawText: body.substring(0, 8000),
+      pageTitle: document.title,
+      url: window.location.href,
+      _debug: {
+        totalTables: document.querySelectorAll('table, .p-datatable').length,
+        totalRows: allRows.length,
+        totalDropdowns: document.querySelectorAll('p-dropdown, .p-dropdown').length,
+        totalButtons: document.querySelectorAll('button').length,
+        bodyLength: body.length,
+      }
+    };
+  });
+
+  // Take screenshot if no procedures found (for debugging)
+  if (data.procedures.length === 0 && !data.noData) {
+    try {
+      var debugSS = await page.screenshot({ encoding: 'base64', fullPage: false });
+      data._screenshot = debugSS ? debugSS.substring(0, 50000) : null;
+      log.info("No procedures found — screenshot captured for debugging");
+    } catch(e3) {}
+  }
+
+  log.info("Done: " + Object.keys(data.caseInfo).length + " fields, " + data.procedures.length + " procs, " + Object.keys(data.allLabels || {}).length + " labels, " + (data.tables || []).length + " tables");
+  log.info("Debug: " + JSON.stringify(data._debug || {}));
+  return data;
+}`;
 }
 
 async function launchApifyActor(
@@ -1240,7 +1547,6 @@ async function launchApifyActor(
 
   const pf = buildApifyPageFunction(input, appealCourt, firstInstanceCourt);
 
-
   // Build the request with Apify's built-in webhook
   const actorInput = {
     startUrls: [{ url: 'https://www.mahakim.ma/#/suivi/dossier-suivi' }],
@@ -1249,14 +1555,23 @@ async function launchApifyActor(
       apifyProxyGroups: ['RESIDENTIAL'],
       apifyProxyCountry: 'MA',
     },
-    maxRequestRetries: 3,
-    requestHandlerTimeoutSecs: 180,
-    navigationTimeoutSecs: 90,
+    maxRequestRetries: 2,
+    requestHandlerTimeoutSecs: 240,
+    navigationTimeoutSecs: 120,
     useChrome: true,
-    headless: true,
+    headless: 'new',
+    preNavigationHooks: `[
+      async ({ page }, goToOptions) => {
+        await page.evaluateOnNewDocument(() => {
+          Object.defineProperty(navigator, 'webdriver', { get: () => false });
+          Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+          Object.defineProperty(navigator, 'languages', { get: () => ['ar', 'fr', 'en-US', 'en'] });
+          window.chrome = { runtime: {} };
+        });
+      }
+    ]`,
     pageFunction: pf,
   };
-
   try {
     // Build webhook config — Apify expects base64-encoded JSON in the query param
     const webhookConfig = [{
