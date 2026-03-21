@@ -1149,7 +1149,8 @@ function buildApifyPageFunction(input: CaseInput, ac?: string, pc?: string): str
   lines.push('  const { page, log } = context;');
   lines.push('  const delay = ms => new Promise(r => setTimeout(r, ms));');
   lines.push('  log.info("Starting mahakim scrape...");');
-  lines.push('  try { await page.waitForSelector("input[formcontrolname=\\"mark\\"]", { timeout: 45000 }); } catch(e) { return { error: "form_not_found" }; }');
+  lines.push('  await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");');
+  lines.push('  try { await page.waitForSelector("input[formcontrolname=\\"mark\\"]", { timeout: 60000 }); } catch(e) { log.warning("Form not found, retrying..."); return { error: "form_not_found" }; }');
   lines.push('  await page.evaluate((d) => {');
   lines.push('    function sf(s,v){var e=document.querySelector(s);if(!e)return;var p=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value");if(p&&p.set)p.set.call(e,v);else e.value=v;e.dispatchEvent(new Event("input",{bubbles:true}));e.dispatchEvent(new Event("change",{bubbles:true}));e.dispatchEvent(new Event("blur",{bubbles:true}));}');
   lines.push('    sf("input[formcontrolname=\\"mark\\"]",d.code);sf("input[formcontrolname=\\"numero\\"]",d.numero);sf("input[formcontrolname=\\"annee\\"]",d.annee);');
