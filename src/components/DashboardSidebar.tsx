@@ -98,6 +98,13 @@ const SidebarContent = ({ onNavigate, syncIndicator }: { onNavigate?: () => void
         </nav>
       </ScrollArea>
 
+      {/* Sync Indicator */}
+      {syncIndicator && (
+        <div className="px-3 py-2 border-t border-border">
+          {syncIndicator}
+        </div>
+      )}
+
       {/* Footer */}
       <div className="p-3 border-t border-border space-y-2">
         <Link to="/" onClick={onNavigate}>
@@ -116,7 +123,6 @@ const SidebarContent = ({ onNavigate, syncIndicator }: { onNavigate?: () => void
           تسجيل الخروج
         </Button>
       </div>
-    </div>
   );
 };
 
