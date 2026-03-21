@@ -329,26 +329,49 @@ const CourtSessions = () => {
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold text-foreground flex items-center gap-2">
-            <CalendarDays className="h-6 w-6" /> يومية الجلسات
-          </h1>
-          <p className="text-sm text-muted-foreground">إدارة مواعيد الجلسات لجميع الملفات</p>
-        </div>
-        <div className="flex gap-2 flex-wrap items-center">
-          <Button size="sm" onClick={openAddSession} className="gap-1">
-            <Plus className="h-4 w-4" /> إضافة جلسة
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold text-foreground flex items-center gap-2">
+              <CalendarDays className="h-6 w-6" /> يومية الجلسات
+            </h1>
+            <p className="text-sm text-muted-foreground mt-0.5">إدارة مواعيد الجلسات لجميع الملفات</p>
+          </div>
+          <Button size="sm" onClick={openAddSession} className="gap-1.5 shrink-0">
+            <Plus className="h-4 w-4" /> <span className="hidden sm:inline">إضافة جلسة</span><span className="sm:hidden">جلسة</span>
           </Button>
+        </div>
+
+        {/* Toolbar - single row, scrollable on mobile */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {/* View toggle */}
+          <div className="flex gap-0.5 bg-muted rounded-lg p-0.5 shrink-0">
+            <Button
+              variant={viewMode === 'table' ? 'default' : 'ghost'}
+              size="sm"
+              className="gap-1 h-8 text-xs px-2.5"
+              onClick={() => setViewMode('table')}
+            >
+              <List className="h-3.5 w-3.5" /> جدول
+            </Button>
+            <Button
+              variant={viewMode === 'calendar' ? 'default' : 'ghost'}
+              size="sm"
+              className="gap-1 h-8 text-xs px-2.5"
+              onClick={() => setViewMode('calendar')}
+            >
+              <CalendarRange className="h-3.5 w-3.5" /> تقويم
+            </Button>
+          </div>
 
           {viewMode === 'table' && (
             <>
               {/* Filter by date */}
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-1">
-                    <Search className="h-4 w-4" />
-                    {filterDate ? format(filterDate, 'dd/MM/yyyy') : 'تصفية بالتاريخ'}
+                  <Button variant="outline" size="sm" className="gap-1 h-8 text-xs shrink-0">
+                    <Search className="h-3.5 w-3.5" />
+                    {filterDate ? format(filterDate, 'dd/MM/yyyy') : 'تصفية'}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="end">
@@ -364,8 +387,8 @@ const CourtSessions = () => {
               {/* Export Word */}
               <Popover open={exportMode !== null} onOpenChange={(open) => { if (!open) setExportMode(null); }}>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-1" onClick={() => setExportMode('day')}>
-                    <FileDown className="h-4 w-4" /> تحميل Word
+                  <Button variant="outline" size="sm" className="gap-1 h-8 text-xs shrink-0" onClick={() => setExportMode('day')}>
+                    <FileDown className="h-3.5 w-3.5" /> تصدير
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-72 p-4 pointer-events-auto" align="end">
@@ -394,25 +417,10 @@ const CourtSessions = () => {
             </>
           )}
 
-          <div className="flex gap-1 bg-muted rounded-lg p-1">
-            <Button
-              variant={viewMode === 'table' ? 'default' : 'ghost'}
-              size="sm"
-              className="gap-1 h-8 text-xs"
-              onClick={() => setViewMode('table')}
-            >
-              <List className="h-3.5 w-3.5" /> جدول
-            </Button>
-            <Button
-              variant={viewMode === 'calendar' ? 'default' : 'ghost'}
-              size="sm"
-              className="gap-1 h-8 text-xs"
-              onClick={() => setViewMode('calendar')}
-            >
-              <CalendarRange className="h-3.5 w-3.5" /> تقويم
-            </Button>
-          </div>
+          {/* Spacer pushes Google Calendar to the end */}
+          <div className="flex-1 min-w-[8px]" />
 
+          {/* Google Calendar - always visible */}
           <GoogleCalendarQuickAction />
         </div>
       </div>
