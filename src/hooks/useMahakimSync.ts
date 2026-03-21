@@ -1,29 +1,34 @@
+/**
+ * هوك إدارة مزامنة بيانات الملفات من بوابة محاكم
+ * Hook for managing Mahakim portal sync jobs
+ *
+ * المسؤوليات:
+ * - جلب آخر مهمة مزامنة للملف
+ * - الاستماع للتحديثات في الوقت الحقيقي عبر Realtime
+ * - إنشاء مهمة مزامنة جديدة واستدعاء Edge Function
+ * - فتح بوابة محاكم يدوياً مع نسخ رقم الملف
+ */
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import type { Tables } from '@/integrations/supabase/types';
 
-export interface SyncJob {
-  id: string;
-  case_id: string;
-  user_id: string;
+/** نوع مهمة المزامنة — مطابق لجدول mahakim_sync_jobs */
+export type SyncJob = Tables<'mahakim_sync_jobs'> & {
   status: 'pending' | 'scraping' | 'completed' | 'failed';
-  case_number: string;
-  result_data: Record<string, unknown> | null;
-  error_message: string | null;
-  next_session_date: string | null;
-  retry_count: number;
-  max_retries: number;
-  created_at: string;
-  updated_at: string;
-  completed_at: string | null;
-}
+};
+
+/** نوع مزود الجلب */
+export type ScrapeProvider = 'auto' | 'firecrawl' | 'scrapingbee';
 
 export const useMahakimSync = (caseId: string | undefined) => {
   const { user } = useAuth();
   const [latestJob, setLatestJob] = useState<SyncJob | null>(null);
   const [syncing, setSyncing] = useState(false);
 
+  /* ── جلب آخر مهمة مزامنة ── */
   const fetchLatestJob = useCallback(async () => {
     if (!caseId) return;
     const { data } = await supabase
@@ -33,13 +38,14 @@ export const useMahakimSync = (caseId: string | undefined) => {
       .order('created_at', { ascending: false })
       .limit(1);
 
-    if (data && data.length > 0) {
-      setLatestJob(data[0] as unknown as SyncJob);
+    if (data?.[0]) {
+      setLatestJob(data[0] as SyncJob);
     }
   }, [caseId]);
 
   useEffect(() => { fetchLatestJob(); }, [fetchLatestJob]);
 
+  /* ── الاستماع للتحديثات في الوقت الحقيقي ── */
   useEffect(() => {
     if (!caseId) return;
     const channel = supabase
@@ -50,16 +56,17 @@ export const useMahakimSync = (caseId: string | undefined) => {
         table: 'mahakim_sync_jobs',
         filter: `case_id=eq.${caseId}`,
       }, (payload) => {
-        const newJob = payload.new as unknown as SyncJob;
-        if (newJob && newJob.id) {
-          setLatestJob(newJob);
-          if (newJob.status === 'completed') {
-            setSyncing(false);
-            toast.success('تم جلب بيانات الملف من بوابة محاكم بنجاح');
-          } else if (newJob.status === 'failed') {
-            setSyncing(false);
-            toast.error(newJob.error_message || 'فشل جلب البيانات');
-          }
+        const newJob = payload.new as SyncJob;
+        if (!newJob?.id) return;
+
+        setLatestJob(newJob);
+
+        if (newJob.status === 'completed') {
+          setSyncing(false);
+          toast.success('تم جلب بيانات الملف من بوابة محاكم بنجاح');
+        } else if (newJob.status === 'failed') {
+          setSyncing(false);
+          toast.error(newJob.error_message || 'فشل جلب البيانات');
         }
       })
       .subscribe();
@@ -67,22 +74,20 @@ export const useMahakimSync = (caseId: string | undefined) => {
     return () => { supabase.removeChannel(channel); };
   }, [caseId]);
 
-  /** Start sync with court selection and provider preference */
+  /* ── بدء مزامنة جديدة ── */
   const startSync = useCallback(async (
     caseNumber: string,
     appealCourt?: string,
     firstInstanceCourt?: string,
-    provider: 'auto' | 'firecrawl' | 'scrapingbee' = 'auto',
+    provider: ScrapeProvider = 'auto',
   ) => {
     if (!caseId || !user) return;
     setSyncing(true);
 
-    const parts = caseNumber.split('/');
-    const numero = parts[0] || '';
-    const code = parts[1] || '';
-    const annee = parts[2] || '';
-
+    const [numero, code, annee] = caseNumber.split('/');
     const jobId = crypto.randomUUID();
+
+    // إدراج مهمة جديدة في قاعدة البيانات
     const { error: insertError } = await supabase
       .from('mahakim_sync_jobs')
       .insert({
@@ -92,7 +97,7 @@ export const useMahakimSync = (caseId: string | undefined) => {
         case_number: caseNumber,
         status: 'pending',
         request_payload: { appealCourt, firstInstanceCourt, numero, code, annee, provider },
-      } as any);
+      });
 
     if (insertError) {
       console.error('Failed to create sync job:', insertError);
@@ -101,6 +106,7 @@ export const useMahakimSync = (caseId: string | undefined) => {
       return;
     }
 
+    // تحديث الحالة المحلية فوراً (optimistic update)
     setLatestJob({
       id: jobId,
       case_id: caseId,
@@ -110,6 +116,7 @@ export const useMahakimSync = (caseId: string | undefined) => {
       result_data: null,
       error_message: null,
       next_session_date: null,
+      request_payload: null,
       retry_count: 0,
       max_retries: 2,
       created_at: new Date().toISOString(),
@@ -117,8 +124,9 @@ export const useMahakimSync = (caseId: string | undefined) => {
       completed_at: null,
     });
 
+    // استدعاء Edge Function لبدء الجلب
     try {
-      const { data, error } = await supabase.functions.invoke('fetch-dossier', {
+      const { error } = await supabase.functions.invoke('fetch-dossier', {
         body: {
           action: 'submitSyncJob',
           jobId,
@@ -146,6 +154,7 @@ export const useMahakimSync = (caseId: string | undefined) => {
     }
   }, [caseId, user]);
 
+  /* ── فتح بوابة محاكم يدوياً ── */
   const openPortal = useCallback(async (caseNumber: string) => {
     await navigator.clipboard.writeText(caseNumber);
     toast.info('تم نسخ رقم الملف — سيتم فتح بوابة محاكم');
