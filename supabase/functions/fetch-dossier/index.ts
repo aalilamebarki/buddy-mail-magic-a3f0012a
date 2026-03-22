@@ -2082,7 +2082,7 @@ async function fetchViaGAS(
         appealCourt: appealCourt || '',
         primaryCourt: firstInstanceCourt || '',
       }),
-      signal: AbortSignal.timeout(20000),
+      signal: AbortSignal.timeout(60000),
     });
 
     const elapsed = Date.now() - start;
