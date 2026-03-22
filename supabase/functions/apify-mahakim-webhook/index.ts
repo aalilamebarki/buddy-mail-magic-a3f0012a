@@ -29,6 +29,47 @@ function isPlaceholderValue(value?: string | null) {
     || normalized.includes('اختيار المحكمة الابتدائية');
 }
 
+function normalizeCourtName(value?: string | null) {
+  return (value || '')
+    .trim()
+    .replace(/^المحكمة\s+/g, '')
+    .replace(/^محكمة\s+/g, '')
+    .replace(/^الابتدائية\s+/g, '')
+    .replace(/^الابتدائية\s+ب/g, '')
+    .replace(/^الابتدائية\s+بال/g, '')
+    .replace(/^الاستئناف\s+/g, '')
+    .replace(/^الاستئناف\s+ب/g, '')
+    .replace(/^الاستئناف\s+بال/g, '')
+    .replace(/^قسم\s+قضاء\s+الأسرة\s+ب/g, 'قسم قضاء الأسرة ')
+    .replace(/^قسم\s+قضاء\s+الأسرة\s+بال/g, 'قسم قضاء الأسرة ')
+    .replace(/^ب/g, '')
+    .replace(/^بال/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function doesResultMatchExpectedCourt(
+  expectedCourt?: string | null,
+  actualCourt?: string | null,
+  fallbackTexts: Array<string | null | undefined> = [],
+) {
+  if (!expectedCourt) return true;
+  const expected = normalizeCourtName(expectedCourt);
+  if (!expected) return true;
+
+  const candidates = [actualCourt, ...fallbackTexts]
+    .filter((value): value is string => Boolean(value && value.trim()))
+    .map((value) => normalizeCourtName(value));
+
+  if (candidates.length === 0) return true;
+
+  return candidates.some((candidate) =>
+    candidate === expected
+    || candidate.includes(expected)
+    || expected.includes(candidate)
+  );
+}
+
 function detectBlockedPortalResult(input: {
   caseInfo?: Record<string, string>;
   procedures?: Array<Record<string, string>>;
@@ -79,18 +120,15 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     console.log('[apify-webhook] Received:', JSON.stringify(body).substring(0, 500));
-    
+
     let { jobId, caseId, userId, caseNumber, results, error: apifyError } = body;
 
-    // Handle Apify built-in webhook format (eventType + datasetId)
     if (body.eventType && body.datasetId) {
       console.log('[apify-webhook] Built-in webhook: event=' + body.eventType + ' runId=' + body.runId);
-      
-      // If actor failed/timed out
+
       if (body.eventType !== 'ACTOR.RUN.SUCCEEDED' || body.status === 'FAILED' || body.status === 'TIMED_OUT' || body.status === 'ABORTED') {
         apifyError = `فشل Apify Actor: ${body.status || body.eventType}`;
       } else {
-        // Fetch results from Apify dataset
         const APIFY_TOKEN = Deno.env.get('APIFY_API_TOKEN');
         if (APIFY_TOKEN && body.datasetId) {
           try {
@@ -110,7 +148,6 @@ Deno.serve(async (req) => {
                     caseInfo: item.caseInfo || {},
                     procedures: item.procedures || [],
                     nextSessionDate: null,
-                    // Store ALL raw data from the page
                     allLabels: item.allLabels || {},
                     dropdowns: item.dropdowns || [],
                     tables: item.tables || [],
@@ -145,17 +182,17 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    // Ensure userId is always resolved — fall back to sync job's user_id
-    if (!userId && jobId) {
+    let expectedCourt: string | null = null;
+    if (jobId) {
       const { data: jobRow } = await supabase
         .from('mahakim_sync_jobs')
-        .select('user_id')
+        .select('user_id, request_payload')
         .eq('id', jobId)
         .maybeSingle();
-      if (jobRow?.user_id) userId = jobRow.user_id;
+      if (!userId && jobRow?.user_id) userId = jobRow.user_id;
+      expectedCourt = (jobRow?.request_payload as Record<string, unknown> | null)?.expectedCourt as string | null || null;
     }
 
-    // ── Handle Apify error ──
     if (apifyError || !results) {
       const errMsg = apifyError || 'لم يتم استلام نتائج من Apify';
       await supabase.from('mahakim_sync_jobs').update({
@@ -164,7 +201,6 @@ Deno.serve(async (req) => {
         completed_at: new Date().toISOString(),
       }).eq('id', jobId);
 
-      // Create failure notification
       await createNotification(supabase, userId, caseId, caseNumber,
         `فشل المزامنة التلقائية للملف ${caseNumber}: ${errMsg}`);
 
@@ -173,7 +209,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── Parse Apify results ──
     const { caseInfo = {}, procedures = [], nextSessionDate, allLabels, dropdowns, tables, rawText, pageTitle, noData: resultNoData } = results;
     const blockedDetection = detectBlockedPortalResult({
       caseInfo,
@@ -184,16 +219,20 @@ Deno.serve(async (req) => {
       noData: resultNoData,
     });
 
-    // Handle "not found" — only when the portal really returned an empty result
     const isEmptyResult = !blockedDetection.blocked
       && !caseInfo.judge
       && !caseInfo.department
       && !caseInfo.status
       && procedures.length === 0;
 
-    // ── Additional detection: if caseInfo only has placeholder values ──
     const caseInfoValues = Object.values(caseInfo).filter(v => v && !isPlaceholderValue(v));
     const isEffectivelyEmpty = !blockedDetection.blocked && caseInfoValues.length === 0 && procedures.length === 0;
+
+    const courtMatched = doesResultMatchExpectedCourt(
+      expectedCourt,
+      caseInfo.court,
+      [caseInfo.section, caseInfo.department, caseInfo.subject, ...(dropdowns || [])],
+    );
 
     const lastSyncPayload = {
       caseInfo,
@@ -208,6 +247,8 @@ Deno.serve(async (req) => {
       empty: isEmptyResult || isEffectivelyEmpty,
       blocked: blockedDetection.blocked,
       blocked_reason: blockedDetection.reason || null,
+      expected_court: expectedCourt,
+      court_match: courtMatched,
     };
 
     if (blockedDetection.blocked) {
@@ -227,6 +268,7 @@ Deno.serve(async (req) => {
           procedures_count: 0,
           labels_count: Object.keys(allLabels || {}).length,
           tables_count: (tables || []).length,
+          expected_court: expectedCourt,
         },
         completed_at: new Date().toISOString(),
       }).eq('id', jobId);
@@ -239,15 +281,39 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 1. Update case metadata — store FULL raw JSON but NEVER overwrite with placeholder values
+    if (!courtMatched) {
+      const mismatchMessage = `تم تجاهل نتيجة الجلب للملف ${caseNumber} لأنها تخص محكمة أخرى غير المحكمة المسجلة${expectedCourt ? ` (${expectedCourt})` : ''}`;
+      await supabase.from('cases').update({
+        last_synced_at: new Date().toISOString(),
+        last_sync_result: lastSyncPayload,
+      }).eq('id', caseId);
+
+      await supabase.from('mahakim_sync_jobs').update({
+        status: 'failed',
+        error_message: mismatchMessage,
+        result_data: {
+          _provider: 'apify',
+          mismatch: true,
+          expected_court: expectedCourt,
+          detected_court: caseInfo.court || null,
+          full_data: { caseInfo, procedures, allLabels, dropdowns, tables },
+        },
+        completed_at: new Date().toISOString(),
+      }).eq('id', jobId);
+
+      await createNotification(supabase, userId, caseId, caseNumber, mismatchMessage);
+
+      return new Response(JSON.stringify({ status: 'mismatch', error: mismatchMessage }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const caseUpdate: Record<string, unknown> = {
       last_synced_at: new Date().toISOString(),
       last_sync_result: lastSyncPayload,
     };
 
     if (isEmptyResult || isEffectivelyEmpty) {
-      // Don't set court/judge/department to garbage placeholder values
-      // Just mark as not found yet
     }
     if (caseInfo.judge && !isPlaceholderValue(caseInfo.judge)) caseUpdate.mahakim_judge = caseInfo.judge;
     if (caseInfo.department && !isPlaceholderValue(caseInfo.department)) caseUpdate.mahakim_department = caseInfo.department;
