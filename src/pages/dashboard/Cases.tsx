@@ -8,12 +8,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, Search, Trash2, Pencil, FolderOpen, User } from 'lucide-react';
+import { Plus, Search, Trash2, Pencil, FolderOpen, User, Download } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useCases } from '@/hooks/useCases';
 import { useClients } from '@/hooks/useClients';
 import { toast } from 'sonner';
 import CreateCaseDialog from '@/components/cases/CreateCaseDialog';
+import ImportCaseDialog from '@/components/cases/ImportCaseDialog';
 
 const Cases = () => {
   const [searchParams] = useSearchParams();
@@ -26,6 +27,7 @@ const Cases = () => {
 
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [editingCase, setEditingCase] = useState<any>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingCase, setDeletingCase] = useState<any>(null);
@@ -98,6 +100,7 @@ const Cases = () => {
               <User className="h-4 w-4" /> عرض الكل
             </Button>
           )}
+          <Button variant="outline" onClick={() => setImportDialogOpen(true)} className="gap-2 w-full sm:w-auto"><Download className="h-4 w-4" /> استيراد ملف</Button>
           <Button onClick={openNew} className="gap-2 w-full sm:w-auto"><Plus className="h-4 w-4" /> ملف جديد</Button>
         </div>
       </div>
@@ -237,6 +240,8 @@ const Cases = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ImportCaseDialog open={importDialogOpen} onOpenChange={setImportDialogOpen} onImported={handleCaseCreated} />
     </div>
   );
 };
