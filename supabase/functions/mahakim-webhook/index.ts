@@ -5,6 +5,57 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+/* ── Auto-extract parties from scraped data ── */
+async function autoExtractParties(
+  supabase: ReturnType<typeof createClient>,
+  caseId: string,
+  caseInfo: Record<string, string>,
+): Promise<number> {
+  const { data: existing } = await supabase.from('case_opponents').select('id').eq('case_id', caseId).limit(1);
+  if (existing && existing.length > 0) return 0;
+
+  const { data: caseRow } = await supabase.from('cases').select('client_id').eq('id', caseId).single();
+  let clientName = '';
+  if (caseRow?.client_id) {
+    const { data: client } = await supabase.from('clients').select('full_name').eq('id', caseRow.client_id).single();
+    clientName = (client?.full_name || '').trim();
+  }
+
+  function isClientMatch(name: string): boolean {
+    if (!clientName) return false;
+    const n = name.trim();
+    return n === clientName || clientName.includes(n) || n.includes(clientName);
+  }
+
+  const rawParties: { name: string; type: string }[] = [];
+  if (caseInfo?.plaintiff) rawParties.push({ name: caseInfo.plaintiff, type: 'plaintiff' });
+  if (caseInfo?.defendant) rawParties.push({ name: caseInfo.defendant, type: 'defendant' });
+  if (caseInfo?.parties) rawParties.push({ name: caseInfo.parties, type: 'parties' });
+
+  if (rawParties.length === 0) return 0;
+
+  const institutionalPatterns = ['النيابة العامة', 'قاضي التوفيق', 'المحافظة على الأملاك العقارية', 'شركة التأمين', 'الوكيل القضائي'];
+  const opponents: { case_id: string; name: string; party_type: string; sort_order: number }[] = [];
+  const seen = new Set<string>();
+  let sortOrder = 0;
+
+  for (const { name: rawName, type } of rawParties) {
+    for (const name of rawName.split(/[،,\n\r]+/).map((n: string) => n.trim()).filter((n: string) => n.length > 2)) {
+      const key = name.replace(/\s+/g, ' ').trim();
+      if (seen.has(key) || isClientMatch(key)) continue;
+      seen.add(key);
+      let partyType = 'opponent';
+      if (type === 'intervening' || institutionalPatterns.some(p => key.includes(p))) partyType = 'intervening';
+      else if (type === 'plaintiff') partyType = 'plaintiff';
+      opponents.push({ case_id: caseId, name: key, party_type: partyType, sort_order: sortOrder++ });
+    }
+  }
+
+  if (opponents.length === 0) return 0;
+  await supabase.from('case_opponents').insert(opponents);
+  return opponents.length;
+}
+
 /* ── Supabase Admin ── */
 function getSupabaseAdmin() {
   return createClient(
@@ -92,6 +143,11 @@ Deno.serve(async (req) => {
 
       await supabase.from('case_procedures').insert(newProcs);
     }
+
+    // Auto-extract parties if none exist
+    try {
+      await autoExtractParties(supabase, caseId, caseInfo || {});
+    } catch (_) { /* ignore */ }
 
     // Update job as completed
     if (resolvedJobId) {
