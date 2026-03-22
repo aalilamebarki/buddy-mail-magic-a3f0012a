@@ -15,6 +15,82 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+/* ── Auto-extract parties from scraped data ── */
+async function autoExtractParties(
+  supabase: ReturnType<typeof createClient>,
+  caseId: string,
+  caseInfo: Record<string, string>,
+  allLabels?: Record<string, string>,
+): Promise<number> {
+  const { data: existing } = await supabase.from('case_opponents').select('id').eq('case_id', caseId).limit(1);
+  if (existing && existing.length > 0) return 0;
+
+  const { data: caseRow } = await supabase.from('cases').select('client_id').eq('id', caseId).single();
+  let clientName = '';
+  if (caseRow?.client_id) {
+    const { data: client } = await supabase.from('clients').select('full_name').eq('id', caseRow.client_id).single();
+    clientName = (client?.full_name || '').trim();
+  }
+  const clientWords = clientName.split(/\s+/).filter((w: string) => w.length > 2);
+
+  function isClientMatch(name: string): boolean {
+    if (!clientName) return false;
+    const n = name.trim();
+    if (n === clientName || clientName.includes(n) || n.includes(clientName)) return true;
+    const nameWords = n.split(/\s+/).filter((w: string) => w.length > 2);
+    if (clientWords.length > 0 && nameWords.length > 0) {
+      const matched = nameWords.filter((w: string) => clientWords.some((cw: string) => cw === w || cw.includes(w) || w.includes(cw)));
+      if (matched.length >= Math.min(clientWords.length, nameWords.length) * 0.6) return true;
+    }
+    return false;
+  }
+
+  const rawParties: { name: string; type: string }[] = [];
+  const partyLabels: Record<string, string> = {
+    'المدعي': 'plaintiff', 'المدعى عليه': 'defendant', 'المدعى عليهم': 'defendant',
+    'الأطراف': 'parties', 'المستأنف': 'plaintiff', 'المستأنف عليه': 'defendant',
+    'المدخل في الدعوى': 'intervening', 'المدخلون في الدعوى': 'intervening', 'النيابة العامة': 'intervening',
+  };
+
+  if (caseInfo.plaintiff) rawParties.push({ name: caseInfo.plaintiff, type: 'plaintiff' });
+  if (caseInfo.defendant) rawParties.push({ name: caseInfo.defendant, type: 'defendant' });
+  if (caseInfo.parties) rawParties.push({ name: caseInfo.parties, type: 'parties' });
+
+  if (allLabels) {
+    for (const [label, value] of Object.entries(allLabels)) {
+      for (const [arLabel, type] of Object.entries(partyLabels)) {
+        if (label.includes(arLabel) && value && value.length > 2) rawParties.push({ name: value, type });
+      }
+    }
+  }
+
+  if (rawParties.length === 0) return 0;
+
+  const institutionalPatterns = ['النيابة العامة', 'قاضي التوفيق', 'المحافظة على الأملاك العقارية', 'المحافظ على الأملاك العقارية', 'شركة التأمين', 'الوكيل القضائي', 'صندوق الإيداع والتدبير', 'الخازن العام', 'الدولة المغربية'];
+  const opponents: { name: string; party_type: string; sort_order: number }[] = [];
+  const seen = new Set<string>();
+  let sortOrder = 0;
+
+  for (const { name: rawName, type } of rawParties) {
+    const names = rawName.split(/[،,\n\r]+/).map((n: string) => n.trim()).filter((n: string) => n.length > 2);
+    for (const name of names) {
+      const key = name.replace(/\s+/g, ' ').trim();
+      if (seen.has(key) || isClientMatch(key)) continue;
+      seen.add(key);
+      let partyType = 'opponent';
+      if (type === 'intervening' || institutionalPatterns.some(p => key.includes(p))) partyType = 'intervening';
+      else if (type === 'defendant') partyType = 'opponent';
+      else if (type === 'plaintiff') partyType = 'plaintiff';
+      opponents.push({ name: key, party_type: partyType, sort_order: sortOrder++ });
+    }
+  }
+
+  if (opponents.length === 0) return 0;
+  await supabase.from('case_opponents').insert(opponents.map(o => ({ case_id: caseId, name: o.name, party_type: o.party_type, sort_order: o.sort_order })));
+  console.log(`👥 Auto-extracted ${opponents.length} parties for case ${caseId}`);
+  return opponents.length;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
