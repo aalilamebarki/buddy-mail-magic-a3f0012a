@@ -1495,37 +1495,13 @@ ${pc ? `
     }
 
     var verifySelection = await page.evaluate(function(cn, acn) {
-      function norm(v) {
-        return (v || '')
-          .trim()
-          .replace(/^المحكمة\s+/g, '')
-          .replace(/^محكمة\s+/g, '')
-          .replace(/^الابتدائية\s+/g, '')
-          .replace(/^الابتدائية\s+ب/g, '')
-          .replace(/^الابتدائية\s+بال/g, '')
-          .replace(/^الاستئناف\s+/g, '')
-          .replace(/^الاستئناف\s+ب/g, '')
-          .replace(/^الاستئناف\s+بال/g, '')
-          .replace(/^ب/g, '')
-          .replace(/^بال/g, '')
-          .replace(/\s+/g, ' ')
-          .trim();
-      }
       var dropdowns = Array.from(document.querySelectorAll('.p-dropdown-label')).map(function(el) {
         return (el.textContent || '').trim();
       }).filter(Boolean);
-      var primaryTarget = norm(cn);
-      var appealTarget = norm(acn);
       return {
         dropdowns: dropdowns,
-        primaryMatched: dropdowns.some(function(text) {
-          var candidate = norm(text);
-          return candidate === primaryTarget || candidate.indexOf(primaryTarget) >= 0 || primaryTarget.indexOf(candidate) >= 0;
-        }),
-        appealMatched: !acn || dropdowns.some(function(text) {
-          var candidate = norm(text);
-          return candidate === appealTarget || candidate.indexOf(appealTarget) >= 0 || appealTarget.indexOf(candidate) >= 0;
-        }),
+        primaryMatched: dropdowns.some(function(t) { return t.indexOf(cn) >= 0; }),
+        appealMatched: !acn || dropdowns.some(function(t) { return t.indexOf(acn) >= 0; }),
       };
     }, "${pcEsc}", "${acEsc}");
     log.info("Selection verify: " + JSON.stringify(verifySelection));
