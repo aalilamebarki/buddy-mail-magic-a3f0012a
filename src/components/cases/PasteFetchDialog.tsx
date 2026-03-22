@@ -169,7 +169,7 @@ export function PasteFetchDialog({ open, onOpenChange, caseNumber, caseId, onSuc
 
           {/* Result */}
           {result && (
-            <div className={`rounded-lg p-3 text-sm text-center ${result.success ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' : 'bg-destructive/10 text-destructive'}`}>
+            <div className={`rounded-lg p-3 text-sm text-center ${result.success ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>
               {result.success ? '✅' : '❌'} {result.message}
             </div>
           )}
