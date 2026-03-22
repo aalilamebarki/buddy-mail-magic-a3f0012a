@@ -14,6 +14,7 @@ import { useCases } from '@/hooks/useCases';
 import { useClients } from '@/hooks/useClients';
 import { toast } from 'sonner';
 import CreateCaseDialog from '@/components/cases/CreateCaseDialog';
+import ImportCaseDialog from '@/components/cases/ImportCaseDialog';
 
 const Cases = () => {
   const [searchParams] = useSearchParams();
