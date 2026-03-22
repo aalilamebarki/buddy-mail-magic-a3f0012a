@@ -2082,7 +2082,7 @@ async function fetchViaGAS(
         appealCourt: appealCourt || '',
         primaryCourt: firstInstanceCourt || '',
       }),
-      signal: AbortSignal.timeout(60000),
+      signal: AbortSignal.timeout(20000),
     });
 
     const elapsed = Date.now() - start;
@@ -2096,8 +2096,25 @@ async function fetchViaGAS(
     const data = await resp.json();
     log(`🌐 [GAS] Response (${elapsed}ms): status=${data.status} source=${data.source || 'N/A'}`);
 
+    const gasLogText = Array.isArray(data.logs) ? data.logs.join(' | ') : '';
+    const gasSignalText = `${data.reason || ''} ${data.error || ''} ${gasLogText}`.toLowerCase();
+    const indicatesUnsupportedApi = [
+      'open_api_unavailable',
+      'angular spa',
+      'rest api',
+      'trying api:',
+      '/api/suivi',
+      'discovered endpoint',
+      'does not expose a stable public',
+    ].some((signal) => gasSignalText.includes(signal));
+
     if (data.logs) {
       for (const l of data.logs) log(`  [GAS-LOG] ${l}`);
+    }
+
+    if (data.status === 'unsupported' || indicatesUnsupportedApi) {
+      log('⚠ [GAS] Proxy reported unsupported direct API access — falling back to next provider');
+      return null;
     }
 
     if (data.status === 'success' && (data.caseInfo || data.procedures)) {
@@ -2140,7 +2157,7 @@ async function fetchViaGAS(
         const ac = data.accessCheck;
         if (ac.blocked) {
           log(`⚠ [GAS] Portal is blocking Google Apps Script IPs`);
-          return { ...input, status: 'error' as const, caseInfo: {}, procedures: [], nextSessionDate: null, error: 'بوابة محاكم تحظر Google Apps Script — جرّب مزوداً آخر' };
+          return null;
         }
         if (!ac.accessible) {
           log(`⚠ [GAS] Portal not accessible from GAS`);
@@ -2234,6 +2251,10 @@ Deno.serve(async (req) => {
             return { ...result, usedProvider: p.name };
           }
           if (result && result.status === 'no_data') {
+            if (p.name === 'gas') {
+              log('⚠ gas returned no_data — not authoritative, continuing fallback chain');
+              continue;
+            }
             return { ...result, usedProvider: p.name };
           }
           log(`✗ ${p.name} returned ${result?.status || 'null'} — trying next provider`);

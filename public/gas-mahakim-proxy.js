@@ -65,49 +65,23 @@ function handleSearch(body) {
   
   var logs = [];
   logs.push('Starting search: ' + numero + '/' + code + '/' + annee);
-  
-  // ═══════════════════════════════════════════
-  // الطريقة 1: محاولة API المحمول المباشر
-  // ═══════════════════════════════════════════
-  var apiResult = tryMobileAPI(numero, code, annee, appealCourt, logs);
-  if (apiResult && apiResult.hasData) {
-    logs.push('✓ Mobile API succeeded');
-    return jsonResponse({
-      status: 'success',
-      source: 'mobile_api',
-      caseInfo: apiResult.caseInfo,
-      procedures: apiResult.procedures,
-      nextSessionDate: apiResult.nextSessionDate,
-      logs: logs
-    });
-  }
-  
-  // ═══════════════════════════════════════════
-  // الطريقة 2: جلب صفحة الويب وتحليل HTML
-  // ═══════════════════════════════════════════
-  var webResult = tryWebScrape(numero, code, annee, appealCourt, primaryCourt, logs);
-  if (webResult && webResult.hasData) {
-    logs.push('✓ Web scrape succeeded');
-    return jsonResponse({
-      status: 'success',
-      source: 'web_scrape',
-      caseInfo: webResult.caseInfo,
-      procedures: webResult.procedures,
-      nextSessionDate: webResult.nextSessionDate,
-      logs: logs
-    });
-  }
-  
-  // ═══════════════════════════════════════════
-  // الطريقة 3: جلب الصفحة الأساسية للتأكد من إمكانية الوصول
-  // ═══════════════════════════════════════════
+  logs.push('Open API probing disabled: Mahakim is an Angular SPA and does not expose a stable public REST API for GAS.');
+  if (appealCourt) logs.push('Appeal court hint: ' + appealCourt);
+  if (primaryCourt) logs.push('Primary court hint: ' + primaryCourt);
+
+  // ⚠️ إصلاح أساسي:
+  // لا نجرّب مسارات API وهمية أو غير مستقرة بعد الآن لأن ذلك يستهلك الوقت
+  // ويجعل البحث يتوقف قبل أن ينتقل النظام إلى المزودات الاحتياطية.
   var accessResult = tryBasicAccess(logs);
-  
+
   return jsonResponse({
-    status: 'no_data',
-    error: 'لم يتم العثور على بيانات — قد تكون البوابة محظورة أو رقم الملف غير صحيح',
+    status: 'unsupported',
+    reason: 'open_api_unavailable',
+    error: accessResult && accessResult.accessible
+      ? 'بوابة محاكم لا توفر REST API عاماً يمكن لـ Google Apps Script استخدامه مباشرةً.'
+      : 'تعذر على Google Apps Script الوصول إلى بوابة محاكم.',
     accessCheck: accessResult,
-    logs: logs
+    logs: logs,
   });
 }
 
