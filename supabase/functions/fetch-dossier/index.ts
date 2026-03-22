@@ -480,65 +480,21 @@ return JSON.stringify({log:L,opened:false});
 }
 function buildSelectPrimaryItemScript(court: string): string {
   const esc = (v?: string) => (v ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-  // Use the full court portal label for matching (e.g. "الرماني")
   const courtEsc = esc(court);
   return `(function(){
 var L=window.__mahakimLog||[];
-function norm(v){
-  return (v||'')
-    .trim()
-    .replace(/^المحكمة\\s+/g,'')
-    .replace(/^محكمة\\s+/g,'')
-    .replace(/^الابتدائية\\s+/g,'')
-    .replace(/^الابتدائية\\s+ب/g,'')
-    .replace(/^الابتدائية\\s+بال/g,'')
-    .replace(/^ب/g,'')
-    .replace(/^بال/g,'')
-    .replace(/\\s+/g,' ')
-    .trim();
-}
 try{
-  var target=norm('${courtEsc}');
-  L.push('target:'+target);
-  // Step 1: Try to match directly from visible items WITHOUT filter
   var items=document.querySelectorAll('.p-dropdown-panel li.p-dropdown-item,.p-dropdown-items li,.p-dropdown-panel li,.p-dropdown-item');
   for(var i=0;i<items.length;i++){
     var text=(items[i].textContent||'').trim();
-    var candidate=norm(text);
-    if(candidate===target||candidate.indexOf(target)>=0||target.indexOf(candidate)>=0){
-      items[i].click();L.push('pc-direct-match:'+text);
-      return JSON.stringify({log:L,selected:true,method:'direct'});
+    if(text.indexOf('${courtEsc}')>=0){
+      items[i].click();L.push('pc-ok:'+text);
+      return JSON.stringify({log:L,selected:true});
     }
   }
-  L.push('no-direct-match:'+items.length+' items');
-  // Step 2: If no direct match, try filter input with the full court label
-  var filterInput=document.querySelector('.p-dropdown-panel input[type="text"],.p-dropdown-panel .p-dropdown-filter,.p-dropdown-filter-container input,.p-dropdown-panel input');
-  if(filterInput){
-    filterInput.value='';
-    filterInput.dispatchEvent(new Event('input',{bubbles:true}));
-    var nativeSetter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');
-    if(nativeSetter&&nativeSetter.set) nativeSetter.set.call(filterInput,'${courtEsc}');
-    else filterInput.value='${courtEsc}';
-    filterInput.dispatchEvent(new Event('input',{bubbles:true}));
-    filterInput.dispatchEvent(new Event('keyup',{bubbles:true}));
-    L.push('filter-typed:${courtEsc}');
-  }
-  // Step 3: Wait briefly then select matching item after filter
-  setTimeout(function(){
-    var items2=document.querySelectorAll('.p-dropdown-panel li.p-dropdown-item,.p-dropdown-items li,.p-dropdown-panel li,.p-dropdown-item');
-    for(var i=0;i<items2.length;i++){
-      var text2=(items2[i].textContent||'').trim();
-      var candidate2=norm(text2);
-      if(candidate2===target||candidate2.indexOf(target)>=0||target.indexOf(candidate2)>=0){
-        items2[i].click();L.push('pc-filter-match:'+text2);
-        return;
-      }
-    }
-    if(items2.length===1){items2[0].click();L.push('pc-only-item:'+items2[0].textContent.trim());return}
-    L.push('pc-miss-after-filter:'+items2.length);
-  },400);
-}catch(e){L.push('pc-sel-err:'+e.message)}
-return JSON.stringify({log:L,selected:true});
+  L.push('pc-miss:'+items.length);
+}catch(e){L.push('pc-err:'+e.message)}
+return JSON.stringify({log:L,selected:false});
 })()`;
 }
 
@@ -919,30 +875,13 @@ function selectDD(idx,target,cb){
     if(dds.length<=idx){if(++a<40){setTimeout(poll,400);return}window.__L.push('dd'+idx+'-timeout:found='+dds.length);cb();return}
     dds[idx].click();
     setTimeout(function(){
-      // Step 1: Try direct match first WITHOUT filter
+      // Simple: just find item containing target text
       var panel=document.querySelector('.p-dropdown-panel');
       var li=panel?panel.querySelectorAll('li.p-dropdown-item,.p-dropdown-items li'):document.querySelectorAll('li.p-dropdown-item');
-      function normDD(v){return(v||'').trim().replace(/^المحكمة\s+/g,'').replace(/^محكمة\s+/g,'').replace(/^الابتدائية\s+/g,'').replace(/^الابتدائية\s+ب/g,'').replace(/^الابتدائية\s+بال/g,'').replace(/^ب/g,'').replace(/^بال/g,'').replace(/\s+/g,' ').trim()}
-      var tNorm=normDD(target);
-      for(var i=0;i<li.length;i++){var x=li[i].textContent.trim();var xN=normDD(x);if(xN===tNorm||xN.indexOf(tNorm)>=0||tNorm.indexOf(xN)>=0){li[i].click();window.__L.push('dd'+idx+'-direct:'+x);setTimeout(cb,600);return}}
-      // Step 2: If no direct match and filter available, type the full target
-      var filterInput=document.querySelector('.p-dropdown-panel input[type="text"],.p-dropdown-panel .p-dropdown-filter,.p-dropdown-filter-container input,.p-dropdown-panel input');
-      if(filterInput&&idx>0){
-        var ns=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');
-        if(ns&&ns.set)ns.set.call(filterInput,target);else filterInput.value=target;
-        filterInput.dispatchEvent(new Event('input',{bubbles:1}));
-        filterInput.dispatchEvent(new Event('keyup',{bubbles:1}));
-        window.__L.push('dd'+idx+'-filter:'+target);
-      }
-      setTimeout(function(){
-        var panel2=document.querySelector('.p-dropdown-panel');
-        var li2=panel2?panel2.querySelectorAll('li.p-dropdown-item,.p-dropdown-items li'):document.querySelectorAll('li.p-dropdown-item');
-        if(li2.length<1&&a<40){a++;setTimeout(poll,400);return}
-        for(var i=0;i<li2.length;i++){var x=li2[i].textContent.trim();var xN=normDD(x);if(xN===tNorm||xN.indexOf(tNorm)>=0||tNorm.indexOf(xN)>=0){li2[i].click();window.__L.push('dd'+idx+'-ok:'+x);setTimeout(cb,600);return}}
-        if(li2.length===1){li2[0].click();window.__L.push('dd'+idx+'-only:'+li2[0].textContent.trim());setTimeout(cb,600);return}
-        window.__L.push('dd'+idx+'-miss:'+li2.length);
-        cb();
-      },500);
+      for(var i=0;i<li.length;i++){var x=li[i].textContent.trim();if(x.indexOf(target)>=0){li[i].click();window.__L.push('dd'+idx+'-ok:'+x);setTimeout(cb,600);return}}
+      if(li.length<1&&a<40){a++;setTimeout(poll,400);return}
+      window.__L.push('dd'+idx+'-miss:'+li.length);
+      cb();
     },600);
   }
   poll();
@@ -1522,82 +1461,21 @@ ${pc ? `
             await page.waitForSelector('.p-dropdown-panel li, .p-dropdown-items li, .p-dropdown-item, .p-dropdown-panel input', { timeout: 3000 });
           } catch(e) {}
 
-          // Direct match: use the full court portal label (e.g. "الرماني")
-          log.info("Matching court directly: '" + courtName + "'");
-
-          // Step 1: Try direct match from visible items first
-          var directMatch = await page.evaluate(function(cn) {
-            function norm(v) {
-              return (v || '').trim()
-                .replace(/^المحكمة\s+/g, '').replace(/^محكمة\s+/g, '')
-                .replace(/^الابتدائية\s+/g, '').replace(/^الابتدائية\s+ب/g, '').replace(/^الابتدائية\s+بال/g, '')
-                .replace(/^ب/g, '').replace(/^بال/g, '').replace(/\s+/g, ' ').trim();
-            }
-            var target = norm(cn);
+          // Simple: find item containing courtName
+          log.info("Matching court: '" + courtName + "'");
+          var items = await page.evaluate(function(cn) {
             var items = Array.from(document.querySelectorAll('.p-dropdown-panel li, .p-dropdown-items li, .p-dropdown-item'));
             for (var i = 0; i < items.length; i++) {
               var text = (items[i].textContent || '').trim();
-              var candidate = norm(text);
-              if (candidate === target || candidate.indexOf(target) >= 0 || target.indexOf(candidate) >= 0) {
+              if (text.indexOf(cn) >= 0) {
                 items[i].click();
-                return { matched: true, text: text, method: 'direct' };
+                return { matched: true, text: text };
               }
             }
-            return { matched: false, count: items.length };
+            return { matched: false, count: items.length, sample: items.slice(0, 5).map(function(e){return e.textContent.trim()}) };
           }, courtName);
-
-          if (directMatch.matched) {
-            log.info("Direct match found: " + JSON.stringify(directMatch));
-            return idx;
-          }
-
-          // Step 2: If no direct match, type the full court name into filter
-          var filterResult = await page.evaluate(function(filterText) {
-            var filterInput = document.querySelector('.p-dropdown-panel input[type="text"], .p-dropdown-panel .p-dropdown-filter, .p-dropdown-filter-container input, .p-dropdown-panel input');
-            if (filterInput) {
-              filterInput.value = '';
-              filterInput.dispatchEvent(new Event('input', { bubbles: true }));
-              var nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
-              if (nativeSetter && nativeSetter.set) nativeSetter.set.call(filterInput, filterText);
-              else filterInput.value = filterText;
-              filterInput.dispatchEvent(new Event('input', { bubbles: true }));
-              filterInput.dispatchEvent(new Event('keyup', { bubbles: true }));
-              return { filtered: true, filterText: filterText };
-            }
-            return { filtered: false };
-          }, courtName);
-          log.info("Filter result: " + JSON.stringify(filterResult));
-          await rndDelay(800, 1500);
-
-          var probe = await page.evaluate(function(cn) {
-            function norm(v) {
-              return (v || '')
-                .trim()
-                .replace(/^المحكمة\s+/g, '')
-                .replace(/^محكمة\s+/g, '')
-                .replace(/^الابتدائية\s+/g, '')
-                .replace(/^الابتدائية\s+ب/g, '')
-                .replace(/^الابتدائية\s+بال/g, '')
-                .replace(/^ب/g, '')
-                .replace(/^بال/g, '')
-                .replace(/\s+/g, ' ')
-                .trim();
-            }
-            var target = norm(cn);
-            var items = Array.from(document.querySelectorAll('.p-dropdown-panel li, .p-dropdown-items li, .p-dropdown-item')).map(function(el) {
-              return (el.textContent || '').trim();
-            }).filter(Boolean);
-            return {
-              found: items.some(function(t) {
-                var candidate = norm(t);
-                return candidate === target || candidate.indexOf(target) >= 0 || target.indexOf(candidate) >= 0;
-              }),
-              count: items.length,
-              sample: items.slice(0, 8),
-            };
-          }, courtName);
-          log.info("Primary probe idx=" + idx + ": " + JSON.stringify(probe));
-          if (probe.found) return idx;
+          log.info("Match result: " + JSON.stringify(items));
+          if (items.matched) return idx;
           try { await page.keyboard.press('Escape'); } catch(e) {}
           await rndDelay(400, 800);
         } catch(e) {
@@ -1609,70 +1487,21 @@ ${pc ? `
 
     var primaryDropdownIdx = await openPrimaryDropdown("${pcEsc}");
     if (primaryDropdownIdx >= 0) {
-      var sel2 = await page.evaluate(function(cn) {
-        function norm(v) {
-          return (v || '')
-            .trim()
-            .replace(/^المحكمة\s+/g, '')
-            .replace(/^محكمة\s+/g, '')
-            .replace(/^الابتدائية\s+/g, '')
-            .replace(/^الابتدائية\s+ب/g, '')
-            .replace(/^الابتدائية\s+بال/g, '')
-            .replace(/^ب/g, '')
-            .replace(/^بال/g, '')
-            .replace(/\s+/g, ' ')
-            .trim();
-        }
-        var target = norm(cn);
-        var items = Array.from(document.querySelectorAll('.p-dropdown-panel li, .p-dropdown-items li, .p-dropdown-item'));
-        for (var i = 0; i < items.length; i++) {
-          var text = (items[i].textContent || '').trim();
-          var candidate = norm(text);
-          if (candidate === target || candidate.indexOf(target) >= 0 || target.indexOf(candidate) >= 0) {
-            items[i].click();
-            return { found: true, text: text };
-          }
-        }
-        return { found: false, count: items.length };
-      }, "${pcEsc}");
-      log.info("Primary court: " + JSON.stringify(sel2));
+      // Already clicked in openPrimaryDropdown
+      log.info("Primary court selected via openPrimaryDropdown");
       await rndDelay(1500, 2500);
     } else {
       log.warning("Primary court dropdown not identified for ${pcEsc}");
     }
 
     var verifySelection = await page.evaluate(function(cn, acn) {
-      function norm(v) {
-        return (v || '')
-          .trim()
-          .replace(/^المحكمة\s+/g, '')
-          .replace(/^محكمة\s+/g, '')
-          .replace(/^الابتدائية\s+/g, '')
-          .replace(/^الابتدائية\s+ب/g, '')
-          .replace(/^الابتدائية\s+بال/g, '')
-          .replace(/^الاستئناف\s+/g, '')
-          .replace(/^الاستئناف\s+ب/g, '')
-          .replace(/^الاستئناف\s+بال/g, '')
-          .replace(/^ب/g, '')
-          .replace(/^بال/g, '')
-          .replace(/\s+/g, ' ')
-          .trim();
-      }
       var dropdowns = Array.from(document.querySelectorAll('.p-dropdown-label')).map(function(el) {
         return (el.textContent || '').trim();
       }).filter(Boolean);
-      var primaryTarget = norm(cn);
-      var appealTarget = norm(acn);
       return {
         dropdowns: dropdowns,
-        primaryMatched: dropdowns.some(function(text) {
-          var candidate = norm(text);
-          return candidate === primaryTarget || candidate.indexOf(primaryTarget) >= 0 || primaryTarget.indexOf(candidate) >= 0;
-        }),
-        appealMatched: !acn || dropdowns.some(function(text) {
-          var candidate = norm(text);
-          return candidate === appealTarget || candidate.indexOf(appealTarget) >= 0 || appealTarget.indexOf(candidate) >= 0;
-        }),
+        primaryMatched: dropdowns.some(function(t) { return t.indexOf(cn) >= 0; }),
+        appealMatched: !acn || dropdowns.some(function(t) { return t.indexOf(acn) >= 0; }),
       };
     }, "${pcEsc}", "${acEsc}");
     log.info("Selection verify: " + JSON.stringify(verifySelection));
@@ -1695,18 +1524,7 @@ ${pc ? `
       // إعادة فتح قائمة المحكمة الابتدائية
       var retryIdx = await openPrimaryDropdown("${pcEsc}");
       if (retryIdx >= 0) {
-        await page.evaluate(function(cn) {
-          function norm(v) { return (v||'').trim().replace(/^المحكمة\s+/g,'').replace(/^محكمة\s+/g,'').replace(/^الابتدائية\s+/g,'').replace(/^الابتدائية\s+ب/g,'').replace(/^الابتدائية\s+بال/g,'').replace(/^ب/g,'').replace(/^بال/g,'').replace(/\s+/g,' ').trim(); }
-          var target = norm(cn);
-          var items = Array.from(document.querySelectorAll('.p-dropdown-panel li, .p-dropdown-items li, .p-dropdown-item'));
-          for (var i = 0; i < items.length; i++) {
-            var candidate = norm((items[i].textContent || '').trim());
-            if (candidate === target || candidate.indexOf(target) >= 0 || target.indexOf(candidate) >= 0) {
-              items[i].click(); break;
-            }
-          }
-        }, "${pcEsc}");
-        await rndDelay(1500, 2500);
+        // Already clicked in openPrimaryDropdown
         log.info("Retry primary court selection completed");
       }
     }
