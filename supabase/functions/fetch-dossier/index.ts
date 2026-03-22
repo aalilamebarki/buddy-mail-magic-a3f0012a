@@ -2055,6 +2055,119 @@ async function launchApifyActor(
 }
 
 /* ══════════════════════════════════════════════════════════════════
+   Google Apps Script Proxy — جسر مجاني عبر بنية Google التحتية
+   
+   يستخدم UrlFetchApp من Google والذي يعمل من نطاق IP موثوق
+   ══════════════════════════════════════════════════════════════════ */
+
+async function fetchViaGAS(
+  gasUrl: string,
+  input: CaseInput,
+  appealCourt?: string,
+  firstInstanceCourt?: string,
+): Promise<CaseResult | null> {
+  const caseLabel = `${input.numero}/${input.code}/${input.annee}`;
+  const start = Date.now();
+  log(`🌐 [GAS] Starting for ${caseLabel} | ac="${appealCourt}" pc="${firstInstanceCourt}"`);
+
+  try {
+    const resp = await fetch(gasUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'search',
+        numero: input.numero,
+        code: input.code,
+        annee: input.annee,
+        appealCourt: appealCourt || '',
+        primaryCourt: firstInstanceCourt || '',
+      }),
+      signal: AbortSignal.timeout(60000),
+    });
+
+    const elapsed = Date.now() - start;
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      log(`✗ [GAS] HTTP ${resp.status} (${elapsed}ms): ${errText.substring(0, 200)}`);
+      return null;
+    }
+
+    const data = await resp.json();
+    log(`🌐 [GAS] Response (${elapsed}ms): status=${data.status} source=${data.source || 'N/A'}`);
+
+    if (data.logs) {
+      for (const l of data.logs) log(`  [GAS-LOG] ${l}`);
+    }
+
+    if (data.status === 'success' && (data.caseInfo || data.procedures)) {
+      const now = new Date();
+      let nextSessionDate = data.nextSessionDate || null;
+
+      // Also check procedures for next session date
+      if (!nextSessionDate && data.procedures) {
+        for (const proc of data.procedures) {
+          const d = proc.next_session_date;
+          if (d) {
+            const dm = d.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+            if (dm) {
+              const dateStr = `${dm[3]}-${dm[2]}-${dm[1]}`;
+              const dateObj = new Date(dateStr);
+              if (dateObj >= now && (!nextSessionDate || dateObj < new Date(nextSessionDate))) {
+                nextSessionDate = dateStr;
+              }
+            }
+          }
+        }
+      }
+
+      log(`✓ [GAS] Success: ${Object.keys(data.caseInfo || {}).length} fields, ${(data.procedures || []).length} procedures`);
+
+      return {
+        ...input,
+        status: 'success',
+        caseInfo: data.caseInfo || {},
+        procedures: data.procedures || [],
+        nextSessionDate,
+      };
+    }
+
+    if (data.status === 'no_data') {
+      log(`🌐 [GAS] No data found`);
+      
+      // Check if GAS can even access the portal
+      if (data.accessCheck) {
+        const ac = data.accessCheck;
+        if (ac.blocked) {
+          log(`⚠ [GAS] Portal is blocking Google Apps Script IPs`);
+          return { ...input, status: 'error' as const, caseInfo: {}, procedures: [], nextSessionDate: null, error: 'بوابة محاكم تحظر Google Apps Script — جرّب مزوداً آخر' };
+        }
+        if (!ac.accessible) {
+          log(`⚠ [GAS] Portal not accessible from GAS`);
+          return null; // fallback to other providers
+        }
+      }
+
+      return {
+        ...input, status: 'no_data', caseInfo: {}, procedures: [], nextSessionDate: null,
+        error: data.error || 'لم يتم العثور على بيانات عبر GAS',
+      };
+    }
+
+    log(`✗ [GAS] Unexpected status: ${data.status}`);
+    return null;
+
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown';
+    log(`✗ [GAS] Error: ${msg}`);
+    if (msg.includes('timeout') || msg.includes('AbortError')) {
+      log(`⚠ [GAS] Timeout — GAS took too long`);
+    }
+    return null;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
    Main HTTP Handler
    ══════════════════════════════════════════════════════════════════ */
 Deno.serve(async (req) => {
