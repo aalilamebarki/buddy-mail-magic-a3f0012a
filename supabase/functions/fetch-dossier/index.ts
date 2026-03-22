@@ -1516,6 +1516,21 @@ ${pc ? `
             await page.waitForSelector('.p-dropdown-panel li, .p-dropdown-items li, .p-dropdown-item, .p-dropdown-panel input', { timeout: 3000 });
           } catch(e) {}
 
+          // Extract city name for filter (e.g. "المحكمة الابتدائية بالرماني" → "رماني")
+          var cityKey = courtName
+            .replace(/المحكمة\s*/g, '')
+            .replace(/الابتدائية\s*/g, '')
+            .replace(/الإبتدائية\s*/g, '')
+            .replace(/التجارية\s*/g, '')
+            .replace(/الإدارية\s*/g, '')
+            .replace(/الاستئناف\s*/g, '')
+            .replace(/^بال/g, '')
+            .replace(/^ب/g, '')
+            .trim();
+          if (!cityKey || cityKey.length < 2) cityKey = courtName.substring(courtName.length - 6);
+          var searchKey = cityKey.substring(0, Math.min(cityKey.length, 6));
+          log.info("Filter search key: '" + searchKey + "' from court: '" + courtName + "'");
+
           // Type into the filter input to narrow down results
           var filterResult = await page.evaluate(function(searchKey) {
             var filterInput = document.querySelector('.p-dropdown-panel input[type="text"], .p-dropdown-panel .p-dropdown-filter, .p-dropdown-filter-container input, .p-dropdown-panel input');
@@ -1530,7 +1545,7 @@ ${pc ? `
               return { filtered: true, searchKey: searchKey };
             }
             return { filtered: false };
-          }, courtName.substring(0, 4));
+          }, searchKey);
           log.info("Filter result: " + JSON.stringify(filterResult));
           await rndDelay(800, 1500);
 
