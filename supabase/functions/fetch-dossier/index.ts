@@ -2096,25 +2096,17 @@ async function fetchViaGAS(
     const data = await resp.json();
     log(`🌐 [GAS] Response (${elapsed}ms): status=${data.status} source=${data.source || 'N/A'}`);
 
-    const gasLogText = Array.isArray(data.logs) ? data.logs.join(' | ') : '';
-    const gasSignalText = `${data.reason || ''} ${data.error || ''} ${gasLogText}`.toLowerCase();
-    const indicatesUnsupportedApi = [
-      'open_api_unavailable',
-      'angular spa',
-      'rest api',
-      'trying api:',
-      '/api/suivi',
-      'discovered endpoint',
-      'does not expose a stable public',
-    ].some((signal) => gasSignalText.includes(signal));
-
     if (data.logs) {
       for (const l of data.logs) log(`  [GAS-LOG] ${l}`);
     }
 
-    if (data.status === 'unsupported' || indicatesUnsupportedApi) {
-      log('⚠ [GAS] Proxy reported unsupported direct API access — falling back to next provider');
-      return null;
+    // لا نتجاهل نتائج GAS — نعالجها كما هي بدون fallback
+    if (data.status === 'error') {
+      log(`✗ [GAS] Error: ${data.error || 'unknown'}`);
+      return {
+        ...input, status: 'error', caseInfo: {}, procedures: [], nextSessionDate: null,
+        error: `[GAS] ${data.error || 'خطأ غير معروف'}`,
+      };
     }
 
     if (data.status === 'success' && (data.caseInfo || data.procedures)) {
