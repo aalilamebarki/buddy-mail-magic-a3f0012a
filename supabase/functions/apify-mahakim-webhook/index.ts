@@ -300,35 +300,29 @@ Deno.serve(async (req) => {
 
     await supabase.from('cases').update(caseUpdate).eq('id', caseId);
 
-    // 2. Insert procedures (deduplicated)
+    // 2. Delete old mahakim procedures then insert fresh data
     let newProcsCount = 0;
+    // Always delete old auto-fetched procedures to avoid stale/wrong data
+    await supabase
+      .from('case_procedures')
+      .delete()
+      .eq('case_id', caseId)
+      .eq('source', 'mahakim')
+      .eq('is_manual', false);
+
     if (procedures.length > 0) {
-      const { data: existing } = await supabase
-        .from('case_procedures')
-        .select('action_date, action_type')
-        .eq('case_id', caseId)
-        .eq('source', 'mahakim');
+      const newProcs = procedures.map((p: any) => ({
+        case_id: caseId,
+        action_date: p.action_date || null,
+        action_type: p.action_type || '',
+        decision: p.decision || null,
+        next_session_date: p.next_session_date || null,
+        source: 'mahakim',
+        is_manual: false,
+      }));
 
-      const existingKeys = new Set(
-        (existing || []).map((p: any) => `${p.action_date}|${p.action_type}`)
-      );
-
-      const newProcs = procedures
-        .filter((p: any) => !existingKeys.has(`${p.action_date}|${p.action_type}`))
-        .map((p: any) => ({
-          case_id: caseId,
-          action_date: p.action_date || null,
-          action_type: p.action_type || '',
-          decision: p.decision || null,
-          next_session_date: p.next_session_date || null,
-          source: 'mahakim',
-          is_manual: false,
-        }));
-
-      if (newProcs.length > 0) {
-        await supabase.from('case_procedures').insert(newProcs);
-        newProcsCount = newProcs.length;
-      }
+      await supabase.from('case_procedures').insert(newProcs);
+      newProcsCount = newProcs.length;
     }
 
     // 3. Upsert only the next upcoming court session
