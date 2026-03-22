@@ -1487,33 +1487,8 @@ ${pc ? `
 
     var primaryDropdownIdx = await openPrimaryDropdown("${pcEsc}");
     if (primaryDropdownIdx >= 0) {
-      var sel2 = await page.evaluate(function(cn) {
-        function norm(v) {
-          return (v || '')
-            .trim()
-            .replace(/^المحكمة\s+/g, '')
-            .replace(/^محكمة\s+/g, '')
-            .replace(/^الابتدائية\s+/g, '')
-            .replace(/^الابتدائية\s+ب/g, '')
-            .replace(/^الابتدائية\s+بال/g, '')
-            .replace(/^ب/g, '')
-            .replace(/^بال/g, '')
-            .replace(/\s+/g, ' ')
-            .trim();
-        }
-        var target = norm(cn);
-        var items = Array.from(document.querySelectorAll('.p-dropdown-panel li, .p-dropdown-items li, .p-dropdown-item'));
-        for (var i = 0; i < items.length; i++) {
-          var text = (items[i].textContent || '').trim();
-          var candidate = norm(text);
-          if (candidate === target || candidate.indexOf(target) >= 0 || target.indexOf(candidate) >= 0) {
-            items[i].click();
-            return { found: true, text: text };
-          }
-        }
-        return { found: false, count: items.length };
-      }, "${pcEsc}");
-      log.info("Primary court: " + JSON.stringify(sel2));
+      // Already clicked in openPrimaryDropdown
+      log.info("Primary court selected via openPrimaryDropdown");
       await rndDelay(1500, 2500);
     } else {
       log.warning("Primary court dropdown not identified for ${pcEsc}");
