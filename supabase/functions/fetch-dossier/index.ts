@@ -542,7 +542,7 @@ return JSON.stringify({log:L,selected:true});
 })()`;
 }
 
-
+/**
  * سكريبت الضغط على زر البحث
  */
 function buildSearchClickScript(): string {
