@@ -1548,18 +1548,7 @@ ${pc ? `
       // إعادة فتح قائمة المحكمة الابتدائية
       var retryIdx = await openPrimaryDropdown("${pcEsc}");
       if (retryIdx >= 0) {
-        await page.evaluate(function(cn) {
-          function norm(v) { return (v||'').trim().replace(/^المحكمة\s+/g,'').replace(/^محكمة\s+/g,'').replace(/^الابتدائية\s+/g,'').replace(/^الابتدائية\s+ب/g,'').replace(/^الابتدائية\s+بال/g,'').replace(/^ب/g,'').replace(/^بال/g,'').replace(/\s+/g,' ').trim(); }
-          var target = norm(cn);
-          var items = Array.from(document.querySelectorAll('.p-dropdown-panel li, .p-dropdown-items li, .p-dropdown-item'));
-          for (var i = 0; i < items.length; i++) {
-            var candidate = norm((items[i].textContent || '').trim());
-            if (candidate === target || candidate.indexOf(target) >= 0 || target.indexOf(candidate) >= 0) {
-              items[i].click(); break;
-            }
-          }
-        }, "${pcEsc}");
-        await rndDelay(1500, 2500);
+        // Already clicked in openPrimaryDropdown
         log.info("Retry primary court selection completed");
       }
     }
