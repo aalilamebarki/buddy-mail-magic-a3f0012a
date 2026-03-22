@@ -136,64 +136,123 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 3. Extract and insert future court sessions
+    // 3. Upsert only the next upcoming court session
     let newSessionsCount = 0;
     if (resolvedUserId) {
       const now = new Date();
       now.setHours(0, 0, 0, 0);
-      const dateRegex = /(\d{2})\/(\d{2})\/(\d{4})|(\d{4})-(\d{2})-(\d{2})/;
-      const futureDates = new Map<string, { time: string; room: string }>();
 
-      const tryAddDate = (raw: string | undefined | null) => {
-        if (!raw || typeof raw !== 'string') return;
-        const match = raw.match(dateRegex);
-        if (!match) return;
-        let dateKey: string;
-        if (match[4]) {
-          dateKey = `${match[4]}-${match[5]}-${match[6]}`;
-        } else {
-          dateKey = `${match[3]}-${match[2]}-${match[1]}`;
+      const parseCandidate = (raw: string | undefined | null): { dateKey: string; time: string; room: string } | null => {
+        if (!raw || typeof raw !== 'string') return null;
+        const text = raw.trim();
+        if (!text) return null;
+
+        const slashMatch = text.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+        const isoMatch = text.match(/(\d{4})-(\d{2})-(\d{2})/);
+        let dateKey: string | null = null;
+
+        if (slashMatch) {
+          const [, day, month, year] = slashMatch;
+          dateKey = `${year}-${month}-${day}`;
+        } else if (isoMatch) {
+          const [, year, month, day] = isoMatch;
+          dateKey = `${year}-${month}-${day}`;
         }
-        const d = new Date(`${dateKey}T00:00:00`);
-        if (!isNaN(d.getTime()) && d >= now && !futureDates.has(dateKey)) {
-          const timeMatch = raw.match(/(\d{1,2}:\d{2})/);
-          const roomMatch = raw.match(/(?:القاعة|بالقاعة|غرفة)\s*(.+?)$/);
-          futureDates.set(dateKey, {
-            time: timeMatch ? timeMatch[1] : '',
-            room: roomMatch ? roomMatch[1].trim() : '',
-          });
+
+        if (!dateKey) return null;
+        const dateObj = new Date(`${dateKey}T00:00:00`);
+        if (isNaN(dateObj.getTime()) || dateObj < now) return null;
+
+        const timeMatch = text.match(/(?:الساعة\s*)?(\d{1,2}:\d{2})/);
+        const roomMatch = text.match(/(?:القاعة|بالقاعة|غرفة)\s*(.+?)$/);
+        return {
+          dateKey,
+          time: timeMatch ? timeMatch[1] : '',
+          room: roomMatch ? roomMatch[1].trim() : '',
+        };
+      };
+
+      let nextCandidate: { dateKey: string; time: string; room: string } | null = null;
+      const considerCandidate = (raw: string | undefined | null, fallback?: { time?: string; room?: string }) => {
+        const parsed = parseCandidate(raw);
+        if (!parsed) return;
+
+        const merged = {
+          dateKey: parsed.dateKey,
+          time: parsed.time || fallback?.time || '',
+          room: parsed.room || fallback?.room || '',
+        };
+
+        if (!nextCandidate || merged.dateKey < nextCandidate.dateKey) {
+          nextCandidate = merged;
+          return;
+        }
+
+        if (nextCandidate.dateKey === merged.dateKey) {
+          nextCandidate = {
+            dateKey: nextCandidate.dateKey,
+            time: nextCandidate.time || merged.time,
+            room: nextCandidate.room || merged.room,
+          };
         }
       };
 
       for (const proc of parsedProcedures) {
-        tryAddDate(proc.next_session_date);
-        tryAddDate(proc.action_date);
+        const fallback = { time: proc.session_time || '', room: proc.court_room || '' };
+        considerCandidate(proc.next_session_date, fallback);
+        considerCandidate(proc.action_date, fallback);
       }
 
-      if (futureDates.size > 0) {
-        const { data: existingSessions } = await supabase
+      considerCandidate(parsedCaseInfo.next_hearing);
+      considerCandidate(parsedCaseInfo.next_session_date);
+      for (const key of ['الجلسة المقبلة', 'تاريخ الجلسة المقبلة', 'جلسة مقبلة']) {
+        considerCandidate(allLabels?.[key]);
+      }
+
+      if (nextCandidate) {
+        const { data: autoSessions } = await supabase
           .from('court_sessions')
-          .select('session_date')
-          .eq('case_id', caseId);
+          .select('id, session_date, session_time, court_room')
+          .eq('case_id', caseId)
+          .in('notes', ['تم الجلب تلقائياً من بوابة محاكم', 'تم الجلب من المتصفح (Bookmarklet)'])
+          .order('session_date', { ascending: true });
 
-        const existingDates = new Set((existingSessions || []).map((s: any) => s.session_date));
+        const exactMatch = (autoSessions || []).find((session: any) => session.session_date === nextCandidate!.dateKey);
+        const sessionToKeep = exactMatch || (autoSessions || [])[0] || null;
+        let keptSessionId: string | null = null;
 
-        const newSessions = [...futureDates.entries()]
-          .filter(([d]) => !existingDates.has(d))
-          .map(([d, info]) => ({
+        if (sessionToKeep) {
+          keptSessionId = sessionToKeep.id;
+          await supabase.from('court_sessions').update({
+            session_date: nextCandidate.dateKey,
+            session_time: nextCandidate.time || null,
+            court_room: nextCandidate.room || null,
+            user_id: resolvedUserId,
+            status: 'scheduled',
+            notes: 'تم الجلب من المتصفح (Bookmarklet)',
+          }).eq('id', sessionToKeep.id);
+          newSessionsCount = 1;
+        } else {
+          const { data: inserted } = await supabase.from('court_sessions').insert({
             case_id: caseId,
-            session_date: d,
+            session_date: nextCandidate.dateKey,
             user_id: resolvedUserId,
             required_action: '',
             notes: 'تم الجلب من المتصفح (Bookmarklet)',
             status: 'scheduled',
-            session_time: info.time || null,
-            court_room: info.room || null,
-          }));
+            session_time: nextCandidate.time || null,
+            court_room: nextCandidate.room || null,
+          }).select('id').single();
+          keptSessionId = inserted?.id ?? null;
+          newSessionsCount = 1;
+        }
 
-        if (newSessions.length > 0) {
-          await supabase.from('court_sessions').insert(newSessions);
-          newSessionsCount = newSessions.length;
+        const extraIds = (autoSessions || [])
+          .filter((session: any) => session.id !== keptSessionId)
+          .map((session: any) => session.id);
+
+        if (extraIds.length > 0) {
+          await supabase.from('court_sessions').delete().in('id', extraIds);
         }
       }
     }
