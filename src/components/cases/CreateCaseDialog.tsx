@@ -15,7 +15,7 @@ import { useClients } from '@/hooks/useClients';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { CaseNumberInput } from '@/components/cases/CaseNumberInput';
-import { getCategoryFromCode, COURT_HIERARCHY, filterAppellateByCode, validateHierarchy, findAppellateByPrimary, type AppellateCourt } from '@/lib/court-mapping';
+import { getCategoryFromCode, COURT_HIERARCHY, filterAppellateByCode, validateHierarchy, findAppellateByPrimary, buildFlatCourtList, type AppellateCourt, type FlatCourtEntry } from '@/lib/court-mapping';
 
 /* ─── Types ─── */
 export interface Opponent {
@@ -73,30 +73,17 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
   const [againstAllInterested, setAgainstAllInterested] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Court selection — hierarchical
+  // Court selection — single flat dropdown
   const [courtLevel, setCourtLevel] = useState('');
-  const [courtSubType, setCourtSubType] = useState('');
-  const [courtsDb, setCourtsDb] = useState<any[]>([]);
   const [courtPopoverOpen, setCourtPopoverOpen] = useState(false);
   const [courtSearchTerm, setCourtSearchTerm] = useState('');
-
-  // Parent-child: selected appellate court index
   const [selectedAppellateIdx, setSelectedAppellateIdx] = useState<number>(-1);
-  const [appellatePopoverOpen, setAppellatePopoverOpen] = useState(false);
-  const [appellateSearchTerm, setAppellateSearchTerm] = useState('');
 
   // Client
   const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
   const [clientSearch, setClientSearch] = useState('');
   const [addClientDialogOpen, setAddClientDialogOpen] = useState(false);
   const [newClientName, setNewClientName] = useState('');
-
-  // Fetch courts once
-  useEffect(() => {
-    supabase.from('courts').select('*').order('name').then(({ data }) => {
-      if (data) setCourtsDb(data);
-    });
-  }, []);
 
   // Reset form on open
   useEffect(() => {
@@ -124,33 +111,32 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
           setAgainstAllInterested(false);
         }
       });
+      // Auto-detect court level from existing court
+      if (editingCase.court) {
+        const parentIdx = findAppellateByPrimary(editingCase.court);
+        if (parentIdx >= 0) {
+          setCourtLevel('ابتدائية');
+          setSelectedAppellateIdx(parentIdx);
+        } else {
+          const acIdx = COURT_HIERARCHY.findIndex(ac => ac.label === editingCase.court);
+          if (acIdx >= 0) {
+            setCourtLevel('استئناف');
+            setSelectedAppellateIdx(acIdx);
+          } else if (editingCase.court === 'محكمة النقض') {
+            setCourtLevel('نقض');
+          }
+        }
+      }
     } else {
       setForm({ ...emptyForm, client_id: preselectedClientId || '' });
       setOpponents([{ ...emptyOpponent }]);
       setPresenceParties([]);
       setAgainstAllInterested(false);
+      setCourtLevel('');
+      setSelectedAppellateIdx(-1);
     }
-    setCourtLevel('');
-    setCourtSubType('');
     setCourtSearchTerm('');
-    setSelectedAppellateIdx(-1);
-    setAppellateSearchTerm('');
   }, [open, editingCase, preselectedClientId]);
-
-  // Set court level when courtsDb is ready + editing
-  useEffect(() => {
-    if (!editingCase?.court || courtsDb.length === 0) return;
-    const court = courtsDb.find(c => c.name === editingCase.court);
-    if (!court) return;
-    if (['ابتدائية', 'مركز قضائي', 'ابتدائية مصنفة'].includes(court.court_type)) {
-      setCourtLevel('ابتدائية');
-      setCourtSubType(court.court_type);
-    } else if (['استئناف', 'استئناف تجارية', 'استئناف إدارية'].includes(court.court_type)) {
-      setCourtLevel('استئناف');
-    } else if (court.court_type === 'نقض') {
-      setCourtLevel('نقض');
-    }
-  }, [courtsDb, editingCase]);
 
   const updateField = (field: keyof CaseForm, value: string) => setForm(prev => ({ ...prev, [field]: value }));
 
@@ -164,36 +150,15 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
     return parsedCode.length === 4 ? getCategoryFromCode(parsedCode) : null;
   }, [parsedCode]);
 
-  /** 
-   * Filtered appellate courts based on case code category.
-   * If code is entered → only show matching category appellate courts.
-   */
-  const filteredAppellateCourts = useMemo(() => {
-    let courts = parsedCode.length === 4
-      ? filterAppellateByCode(parsedCode)
-      : COURT_HIERARCHY;
-    
-    if (appellateSearchTerm) {
-      const q = appellateSearchTerm.toLowerCase();
-      courts = courts.filter(ac => ac.label.toLowerCase().includes(q) || ac.portalLabel.toLowerCase().includes(q));
-    }
-    return courts;
-  }, [parsedCode, appellateSearchTerm]);
-
-  /** 
-   * Primary courts — only from the selected appellate court.
-   */
-  const filteredPrimaryCourts = useMemo(() => {
-    if (selectedAppellateIdx < 0) return [];
-    const ac = COURT_HIERARCHY[selectedAppellateIdx];
-    if (!ac) return [];
-    let courts = ac.primaryCourts;
+  /** Flat court list — single searchable dropdown */
+  const flatCourtList = useMemo(() => {
+    let list = buildFlatCourtList(parsedCode.length === 4 ? parsedCode : undefined);
     if (courtSearchTerm) {
       const q = courtSearchTerm.toLowerCase();
-      courts = courts.filter(pc => pc.label.toLowerCase().includes(q) || pc.portalLabel.toLowerCase().includes(q));
+      list = list.filter(c => c.label.toLowerCase().includes(q) || c.portalLabel.toLowerCase().includes(q) || (c.parentLabel || '').toLowerCase().includes(q));
     }
-    return courts;
-  }, [selectedAppellateIdx, courtSearchTerm]);
+    return list;
+  }, [parsedCode, courtSearchTerm]);
 
   /** Hierarchy validation — mismatch between code and selected court */
   const hierarchyError = useMemo(() => {
@@ -214,26 +179,6 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
     setPresenceParties(prev => prev.map((p, idx) => idx === i ? { ...p, [field]: value } : p));
   const addPresenceParty = () => setPresenceParties(prev => [...prev, { name: '', address: '', phone: '' }]);
   const removePresenceParty = (i: number) => setPresenceParties(prev => prev.filter((_, idx) => idx !== i));
-
-  /* ─── Legacy court filtering (for DB-based courts) ─── */
-  const filteredCourts = useMemo(() => {
-    let filtered = courtsDb;
-    if (courtLevel === 'ابتدائية') {
-      filtered = courtSubType
-        ? courtsDb.filter(c => c.court_type === courtSubType)
-        : courtsDb.filter(c => ['ابتدائية', 'مركز قضائي', 'ابتدائية مصنفة'].includes(c.court_type));
-    } else if (courtLevel === 'استئناف') {
-      filtered = courtsDb.filter(c => ['استئناف', 'استئناف تجارية', 'استئناف إدارية'].includes(c.court_type));
-    } else if (courtLevel === 'نقض') {
-      filtered = courtsDb.filter(c => c.court_type === 'نقض');
-    }
-    if (courtSearchTerm) {
-      const q = courtSearchTerm.toLowerCase();
-      filtered = filtered.filter(c => c.name.toLowerCase().includes(q) || c.city.toLowerCase().includes(q));
-    }
-    return filtered;
-  }, [courtsDb, courtLevel, courtSubType, courtSearchTerm]);
-
   /* ─── Client filtering ─── */
   const filteredClients = useMemo(() => {
     if (!clientSearch) return clients;
@@ -353,40 +298,13 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
     }
   };
 
-  /**
-   * Select an appellate court from hierarchy → auto-set court level.
-   * If primary court level is selected, show child courts.
-   */
-  const handleSelectAppellate = (globalIdx: number) => {
-    setSelectedAppellateIdx(globalIdx);
-    const ac = COURT_HIERARCHY[globalIdx];
-    if (!ac) return;
-
-    // If court level is "استئناف", set the appellate court directly
-    if (courtLevel === 'استئناف') {
-      updateField('court', ac.label);
-      setAppellatePopoverOpen(false);
-      setAppellateSearchTerm('');
-    } else {
-      // For ابتدائية, just select the parent — user will pick child
-      updateField('court', '');
-      setAppellatePopoverOpen(false);
-      setAppellateSearchTerm('');
-    }
-  };
-
-  const handleSelectPrimary = (primaryLabel: string) => {
-    updateField('court', primaryLabel);
+  /** Handle selecting a court from the flat list */
+  const handleSelectCourt = (entry: FlatCourtEntry) => {
+    updateField('court', entry.label);
+    setCourtLevel(entry.level);
+    setSelectedAppellateIdx(entry.appellateIdx);
     setCourtPopoverOpen(false);
     setCourtSearchTerm('');
-    
-    // Auto-set appellate court if not already selected
-    if (selectedAppellateIdx < 0) {
-      const parentIdx = findAppellateByPrimary(primaryLabel);
-      if (parentIdx >= 0) {
-        setSelectedAppellateIdx(parentIdx);
-      }
-    }
   };
 
   const selectedAppellate = selectedAppellateIdx >= 0 ? COURT_HIERARCHY[selectedAppellateIdx] : null;
@@ -583,32 +501,80 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
               </Button>
             </div>
 
-            {/* ═══ Court Selection — Hierarchical Parent-Child ═══ */}
-            <div className="space-y-3">
+            {/* ═══ Court Selection — Single Flat Searchable Dropdown ═══ */}
+            <div className="space-y-2">
               <Label>المحكمة *</Label>
               
-              {/* Court Level Buttons */}
-              <div className="flex gap-2">
-                {['ابتدائية', 'استئناف', 'نقض'].map(level => (
-                  <Button
-                    key={level}
-                    type="button"
-                    variant={courtLevel === level ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => {
-                      setCourtLevel(level);
-                      setCourtSubType('');
-                      setCourtSearchTerm('');
-                      setSelectedAppellateIdx(-1);
-                      setAppellateSearchTerm('');
-                      updateField('court', level === 'نقض' ? 'محكمة النقض' : '');
-                    }}
-                    className="flex-1"
-                  >
-                    {level}
+              <Popover open={courtPopoverOpen} onOpenChange={setCourtPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                    <span className="truncate">{form.court || 'ابحث واختر المحكمة...'}</span>
+                    <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
                   </Button>
-                ))}
-              </div>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command shouldFilter={false}>
+                    <CommandInput placeholder="ابحث باسم المحكمة أو المدينة..." value={courtSearchTerm} onValueChange={setCourtSearchTerm} />
+                    <CommandList>
+                      <CommandEmpty>
+                        <p className="text-sm text-muted-foreground py-4 text-center">لا توجد نتائج</p>
+                      </CommandEmpty>
+                      {/* Group by level */}
+                      {(() => {
+                        const appellate = flatCourtList.filter(c => c.level === 'استئناف');
+                        const primary = flatCourtList.filter(c => c.level === 'ابتدائية');
+                        const naqd = flatCourtList.filter(c => c.level === 'نقض');
+                        return (
+                          <>
+                            {naqd.length > 0 && (
+                              <CommandGroup heading="محكمة النقض">
+                                {naqd.map((entry, i) => (
+                                  <CommandItem key={`naqd-${i}`} value={entry.label} onSelect={() => handleSelectCourt(entry)}>
+                                    <Check className={cn("ml-2 h-4 w-4", form.court === entry.label ? "opacity-100" : "opacity-0")} />
+                                    <span className="text-sm">{entry.label}</span>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            )}
+                            {appellate.length > 0 && (
+                              <CommandGroup heading="محاكم الاستئناف">
+                                {appellate.map((entry, i) => (
+                                  <CommandItem key={`app-${i}`} value={entry.label} onSelect={() => handleSelectCourt(entry)}>
+                                    <Check className={cn("ml-2 h-4 w-4", form.court === entry.label ? "opacity-100" : "opacity-0")} />
+                                    <span className="text-sm">{entry.label}</span>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            )}
+                            {primary.length > 0 && (
+                              <CommandGroup heading="المحاكم الابتدائية والأقسام المتخصصة">
+                                {primary.map((entry, i) => (
+                                  <CommandItem key={`pri-${i}`} value={entry.label} onSelect={() => handleSelectCourt(entry)}>
+                                    <Check className={cn("ml-2 h-4 w-4", form.court === entry.label ? "opacity-100" : "opacity-0")} />
+                                    <div className="flex flex-col">
+                                      <span className="text-sm">{entry.label}</span>
+                                      {entry.parentLabel && (
+                                        <span className="text-[10px] text-muted-foreground">تابعة لـ {entry.parentLabel}</span>
+                                      )}
+                                    </div>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+
+              {/* Show auto-detected info */}
+              {form.court && selectedAppellate && courtLevel === 'ابتدائية' && (
+                <p className="text-[10px] text-muted-foreground">
+                  📍 تابعة لـ <strong>{selectedAppellate.label}</strong> (يُستخدم تلقائياً للجلب من البوابة)
+                </p>
+              )}
 
               {/* Hierarchy mismatch warning */}
               {hierarchyError && (
@@ -616,204 +582,6 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
                   <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
                   <p className="text-xs text-destructive">{hierarchyError}</p>
                 </div>
-              )}
-
-              {/* Sub-type badges for ابتدائية */}
-              {courtLevel === 'ابتدائية' && (
-                <div className="flex flex-wrap gap-1">
-                  {[
-                    { value: 'ابتدائية', label: 'المحاكم الابتدائية' },
-                    { value: 'مركز قضائي', label: 'المراكز القضائية' },
-                    { value: 'ابتدائية مصنفة', label: 'المحاكم المصنفة' },
-                  ].map(sub => (
-                    <Badge
-                      key={sub.value}
-                      variant={courtSubType === sub.value ? 'default' : 'outline'}
-                      className="cursor-pointer text-xs"
-                      onClick={() => { setCourtSubType(sub.value); updateField('court', ''); setCourtSearchTerm(''); }}
-                    >
-                      {sub.label}
-                    </Badge>
-                  ))}
-                </div>
-              )}
-
-              {/* نقض — auto-selected */}
-              {courtLevel === 'نقض' && (
-                <div className="border rounded-lg p-3 bg-muted/30 text-center">
-                  <p className="text-sm text-muted-foreground"><strong className="text-foreground">محكمة النقض</strong> - الرباط</p>
-                </div>
-              )}
-
-              {/* ═══ Step 1: Select Appellate Court (Parent) ═══ */}
-              {courtLevel === 'استئناف' && (
-                <Popover open={appellatePopoverOpen} onOpenChange={setAppellatePopoverOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-                      {selectedAppellate?.label || form.court || 'اختر محكمة الاستئناف...'}
-                      <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                    <Command shouldFilter={false}>
-                      <CommandInput placeholder="ابحث عن محكمة الاستئناف..." value={appellateSearchTerm} onValueChange={setAppellateSearchTerm} />
-                      <CommandList>
-                        <CommandEmpty>
-                          <p className="text-sm text-muted-foreground py-4 text-center">لا توجد نتائج</p>
-                        </CommandEmpty>
-                        <CommandGroup heading={codeCategory ? `${categoryLabels[codeCategory]} فقط` : 'جميع محاكم الاستئناف'}>
-                          {filteredAppellateCourts.map(ac => {
-                            const globalIdx = COURT_HIERARCHY.indexOf(ac);
-                            return (
-                              <CommandItem key={globalIdx} value={String(globalIdx)} onSelect={() => handleSelectAppellate(globalIdx)}>
-                                <Check className={cn("ml-2 h-4 w-4", selectedAppellateIdx === globalIdx ? "opacity-100" : "opacity-0")} />
-                                <div className="flex flex-col">
-                                  <span className="text-sm">{ac.label}</span>
-                                  <span className="text-[10px] text-muted-foreground">{ac.primaryCourts.length} محكمة ابتدائية تابعة</span>
-                                </div>
-                              </CommandItem>
-                            );
-                          })}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              )}
-
-              {/* ═══ Step 2 (ابتدائية): Select Appellate Parent, then pick child ═══ */}
-              {courtLevel === 'ابتدائية' && (courtSubType || true) && (
-                <>
-                  {/* Step A: Pick parent appellate */}
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] text-muted-foreground">الدائرة القضائية (محكمة الاستئناف الأم)</Label>
-                    <Popover open={appellatePopoverOpen} onOpenChange={setAppellatePopoverOpen}>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" role="combobox" size="sm" className="w-full justify-between font-normal text-xs">
-                          {selectedAppellate?.label || 'اختر الدائرة القضائية...'}
-                          <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                        <Command shouldFilter={false}>
-                          <CommandInput placeholder="ابحث..." value={appellateSearchTerm} onValueChange={setAppellateSearchTerm} />
-                          <CommandList>
-                            <CommandEmpty><p className="text-sm text-muted-foreground py-4 text-center">لا توجد نتائج</p></CommandEmpty>
-                            <CommandGroup heading={codeCategory ? `${categoryLabels[codeCategory]}` : 'جميع الدوائر'}>
-                              {filteredAppellateCourts.map(ac => {
-                                const globalIdx = COURT_HIERARCHY.indexOf(ac);
-                                return (
-                                  <CommandItem key={globalIdx} value={String(globalIdx)} onSelect={() => handleSelectAppellate(globalIdx)}>
-                                    <Check className={cn("ml-2 h-4 w-4", selectedAppellateIdx === globalIdx ? "opacity-100" : "opacity-0")} />
-                                    <div className="flex flex-col">
-                                      <span className="text-xs">{ac.label}</span>
-                                      <span className="text-[10px] text-muted-foreground">{ac.primaryCourts.length} محكمة تابعة</span>
-                                    </div>
-                                  </CommandItem>
-                                );
-                              })}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-
-                  {/* Step B: Pick child primary court */}
-                  {selectedAppellateIdx >= 0 && (
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] text-muted-foreground">المحكمة الابتدائية التابعة</Label>
-                      <Popover open={courtPopoverOpen} onOpenChange={setCourtPopoverOpen}>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-                            {form.court || 'اختر المحكمة الابتدائية...'}
-                            <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                          <Command shouldFilter={false}>
-                            <CommandInput placeholder="ابحث..." value={courtSearchTerm} onValueChange={setCourtSearchTerm} />
-                            <CommandList>
-                              <CommandEmpty><p className="text-sm text-muted-foreground py-4 text-center">لا توجد نتائج</p></CommandEmpty>
-                              <CommandGroup heading={selectedAppellate?.label}>
-                                {filteredPrimaryCourts.map((pc, i) => (
-                                  <CommandItem key={i} value={pc.label} onSelect={() => handleSelectPrimary(pc.label)}>
-                                    <Check className={cn("ml-2 h-4 w-4", form.court === pc.label ? "opacity-100" : "opacity-0")} />
-                                    <span className="text-sm">{pc.label}</span>
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  )}
-
-                  {/* Fallback: if no appellate selected, show DB courts */}
-                  {selectedAppellateIdx < 0 && courtSubType && (
-                    <Popover open={courtPopoverOpen} onOpenChange={setCourtPopoverOpen}>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-                          {form.court || 'ابحث عن المحكمة...'}
-                          <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                        <Command shouldFilter={false}>
-                          <CommandInput placeholder="ابحث باسم المحكمة أو المدينة..." value={courtSearchTerm} onValueChange={setCourtSearchTerm} />
-                          <CommandList>
-                            <CommandEmpty>
-                              <div className="py-2 text-center space-y-2">
-                                <p className="text-sm text-muted-foreground">لا توجد نتائج</p>
-                                {courtSearchTerm.trim() && (
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="gap-1.5"
-                                    onClick={async () => {
-                                      const courtType = courtSubType || 'ابتدائية';
-                                      const { data, error } = await supabase.from('courts').insert({
-                                        name: courtSearchTerm.trim(),
-                                        city: '',
-                                        court_type: courtType,
-                                        addressee: 'السيد رئيس المحكمة الابتدائية',
-                                      }).select().single();
-                                      if (!error && data) {
-                                        setCourtsDb(prev => [...prev, data]);
-                                        updateField('court', data.name);
-                                        setCourtPopoverOpen(false);
-                                        setCourtSearchTerm('');
-                                        toast.success('تمت إضافة المحكمة بنجاح');
-                                      } else {
-                                        toast.error('خطأ في إضافة المحكمة');
-                                      }
-                                    }}
-                                  >
-                                    <Plus className="h-3.5 w-3.5" />
-                                    إضافة "{courtSearchTerm.trim()}"
-                                  </Button>
-                                )}
-                              </div>
-                            </CommandEmpty>
-                            <CommandGroup>
-                              {filteredCourts.map(c => (
-                                <CommandItem key={c.id} value={c.id} onSelect={() => { updateField('court', c.name); const parentIdx = findAppellateByPrimary(c.name); if (parentIdx >= 0) setSelectedAppellateIdx(parentIdx); setCourtPopoverOpen(false); setCourtSearchTerm(''); }}>
-                                  <Check className={cn("ml-2 h-4 w-4", form.court === c.name ? "opacity-100" : "opacity-0")} />
-                                  <div className="flex flex-col">
-                                    <span className="text-sm">{c.name}</span>
-                                    <span className="text-xs text-muted-foreground">{c.city}</span>
-                                  </div>
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                  )}
-                </>
               )}
             </div>
 

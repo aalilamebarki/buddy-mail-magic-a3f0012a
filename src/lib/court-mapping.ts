@@ -596,6 +596,47 @@ export function parseCaseNumber(composite: string): { numero: string; code: stri
   };
 }
 
+
+export interface FlatCourtEntry {
+  label: string;
+  portalLabel: string;
+  level: 'ابتدائية' | 'استئناف' | 'نقض';
+  /** Index of parent appellate in COURT_HIERARCHY (-1 for appellate/نقض) */
+  appellateIdx: number;
+  category: CourtCategory;
+  /** Parent appellate court label (for display) */
+  parentLabel?: string;
+}
+
+/**
+ * Build a flat searchable list of ALL courts (appellate + primary + نقض).
+ * Optionally filter by case code category.
+ */
+export function buildFlatCourtList(caseCode?: string): FlatCourtEntry[] {
+  const codeCategory = caseCode && caseCode.length === 4 ? getCategoryFromCode(caseCode) : null;
+  const list: FlatCourtEntry[] = [];
+
+  // Add محكمة النقض
+  if (!codeCategory || codeCategory === 'civil') {
+    list.push({ label: 'محكمة النقض', portalLabel: 'النقض', level: 'نقض', appellateIdx: -1, category: 'civil' });
+  }
+
+  for (let i = 0; i < COURT_HIERARCHY.length; i++) {
+    const ac = COURT_HIERARCHY[i];
+    if (codeCategory && ac.category !== codeCategory) continue;
+
+    // Add appellate court itself
+    list.push({ label: ac.label, portalLabel: ac.portalLabel, level: 'استئناف', appellateIdx: i, category: ac.category });
+
+    // Add all primary/specialized courts under it
+    for (const pc of ac.primaryCourts) {
+      list.push({ label: pc.label, portalLabel: pc.portalLabel, level: 'ابتدائية', appellateIdx: i, category: ac.category, parentLabel: ac.label });
+    }
+  }
+
+  return list;
+}
+
 /**
  * Compose case number from parts.
  */
