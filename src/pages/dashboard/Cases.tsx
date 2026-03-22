@@ -240,6 +240,8 @@ const Cases = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ImportCaseDialog open={importDialogOpen} onOpenChange={setImportDialogOpen} onImported={handleCaseCreated} />
     </div>
   );
 };
