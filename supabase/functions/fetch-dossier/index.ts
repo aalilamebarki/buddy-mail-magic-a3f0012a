@@ -2233,10 +2233,6 @@ Deno.serve(async (req) => {
             return { ...result, usedProvider: p.name };
           }
           if (result && result.status === 'no_data') {
-            if (p.name === 'gas') {
-              log('⚠ gas returned no_data — not authoritative, continuing fallback chain');
-              continue;
-            }
             return { ...result, usedProvider: p.name };
           }
           log(`✗ ${p.name} returned ${result?.status || 'null'} — trying next provider`);
