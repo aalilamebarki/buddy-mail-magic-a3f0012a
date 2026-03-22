@@ -1521,36 +1521,50 @@ ${pc ? `
             await page.waitForSelector('.p-dropdown-panel li, .p-dropdown-items li, .p-dropdown-item, .p-dropdown-panel input', { timeout: 3000 });
           } catch(e) {}
 
-          // Extract city name for filter (e.g. "المحكمة الابتدائية بالرماني" → "رماني")
-          var cityKey = courtName
-            .replace(/المحكمة\s*/g, '')
-            .replace(/الابتدائية\s*/g, '')
-            .replace(/الإبتدائية\s*/g, '')
-            .replace(/التجارية\s*/g, '')
-            .replace(/الإدارية\s*/g, '')
-            .replace(/الاستئناف\s*/g, '')
-            .replace(/^بال/g, '')
-            .replace(/^ب/g, '')
-            .trim();
-          if (!cityKey || cityKey.length < 2) cityKey = courtName.substring(courtName.length - 6);
-          var searchKey = cityKey.substring(0, Math.min(cityKey.length, 6));
-          log.info("Filter search key: '" + searchKey + "' from court: '" + courtName + "'");
+          // Direct match: use the full court portal label (e.g. "الرماني")
+          log.info("Matching court directly: '" + courtName + "'");
 
-          // Type into the filter input to narrow down results
-          var filterResult = await page.evaluate(function(searchKey) {
+          // Step 1: Try direct match from visible items first
+          var directMatch = await page.evaluate(function(cn) {
+            function norm(v) {
+              return (v || '').trim()
+                .replace(/^المحكمة\s+/g, '').replace(/^محكمة\s+/g, '')
+                .replace(/^الابتدائية\s+/g, '').replace(/^الابتدائية\s+ب/g, '').replace(/^الابتدائية\s+بال/g, '')
+                .replace(/^ب/g, '').replace(/^بال/g, '').replace(/\s+/g, ' ').trim();
+            }
+            var target = norm(cn);
+            var items = Array.from(document.querySelectorAll('.p-dropdown-panel li, .p-dropdown-items li, .p-dropdown-item'));
+            for (var i = 0; i < items.length; i++) {
+              var text = (items[i].textContent || '').trim();
+              var candidate = norm(text);
+              if (candidate === target || candidate.indexOf(target) >= 0 || target.indexOf(candidate) >= 0) {
+                items[i].click();
+                return { matched: true, text: text, method: 'direct' };
+              }
+            }
+            return { matched: false, count: items.length };
+          }, courtName);
+
+          if (directMatch.matched) {
+            log.info("Direct match found: " + JSON.stringify(directMatch));
+            return idx;
+          }
+
+          // Step 2: If no direct match, type the full court name into filter
+          var filterResult = await page.evaluate(function(filterText) {
             var filterInput = document.querySelector('.p-dropdown-panel input[type="text"], .p-dropdown-panel .p-dropdown-filter, .p-dropdown-filter-container input, .p-dropdown-panel input');
             if (filterInput) {
               filterInput.value = '';
               filterInput.dispatchEvent(new Event('input', { bubbles: true }));
               var nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
-              if (nativeSetter && nativeSetter.set) nativeSetter.set.call(filterInput, searchKey);
-              else filterInput.value = searchKey;
+              if (nativeSetter && nativeSetter.set) nativeSetter.set.call(filterInput, filterText);
+              else filterInput.value = filterText;
               filterInput.dispatchEvent(new Event('input', { bubbles: true }));
               filterInput.dispatchEvent(new Event('keyup', { bubbles: true }));
-              return { filtered: true, searchKey: searchKey };
+              return { filtered: true, filterText: filterText };
             }
             return { filtered: false };
-          }, searchKey);
+          }, courtName);
           log.info("Filter result: " + JSON.stringify(filterResult));
           await rndDelay(800, 1500);
 
