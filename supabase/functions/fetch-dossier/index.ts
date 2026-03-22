@@ -212,35 +212,82 @@ function getCategoryFromCode(code: string): CourtCategory {
   return 'civil';
 }
 
+function normalizeCourtName(courtName: string | null): string {
+  return (courtName || '')
+    .trim()
+    .replace(/^المحكمة\s+/g, '')
+    .replace(/^محكمة\s+/g, '')
+    .replace(/^الابتدائية\s+/g, '')
+    .replace(/^الابتدائية\s+ب/g, '')
+    .replace(/^الابتدائية\s+بال/g, '')
+    .replace(/^الاستئناف\s+/g, '')
+    .replace(/^الاستئناف\s+ب/g, '')
+    .replace(/^الاستئناف\s+بال/g, '')
+    .replace(/^قسم\s+قضاء\s+الأسرة\s+ب/g, 'قسم قضاء الأسرة ')
+    .replace(/^قسم\s+قضاء\s+الأسرة\s+بال/g, 'قسم قضاء الأسرة ')
+    .replace(/^ب/g, '')
+    .replace(/^بال/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function resolveCourtFromName(courtName: string | null, code: string): { appeal: string | null; primary: string | null } {
   if (!courtName) return { appeal: null, primary: null };
-  
+
   const category = getCategoryFromCode(code);
   const hierarchy = category === 'commercial' ? COMMERCIAL_COURTS
     : category === 'administrative' ? ADMIN_COURTS
     : CIVIL_COURTS;
-  
-  const normalized = courtName.trim();
-  
+
+  const normalized = normalizeCourtName(courtName);
+
   for (const ac of hierarchy) {
+    const normalizedAppeal = normalizeCourtName(ac.appealPortal);
     for (const pc of ac.primaries) {
-      if (normalized.includes(pc.name) || pc.name.includes(normalized.replace(/المحكمة الابتدائية ب/g, '').replace(/محكمة الاستئناف /g, ''))) {
+      const normalizedPrimary = normalizeCourtName(pc.name);
+      const normalizedPortalPrimary = normalizeCourtName(pc.portal);
+      if (
+        normalized === normalizedPrimary
+        || normalized === normalizedPortalPrimary
+        || normalized.includes(normalizedPrimary)
+        || normalizedPrimary.includes(normalized)
+      ) {
         return { appeal: ac.appealPortal, primary: pc.portal };
       }
     }
-    // Check if the court name matches the appeal court itself
-    if (normalized.includes(ac.appealPortal) || normalized.includes('الاستئناف')) {
-      const cityMatch = normalized.match(/ب([^\s]+)/);
-      if (cityMatch && ac.appealPortal.includes(cityMatch[1])) {
-        return { appeal: ac.appealPortal, primary: null };
-      }
-      if (normalized.includes(ac.appealPortal)) {
-        return { appeal: ac.appealPortal, primary: null };
-      }
+
+    if (
+      normalized.includes('استئناف')
+      || normalized === normalizedAppeal
+      || normalized.includes(normalizedAppeal)
+    ) {
+      return { appeal: ac.appealPortal, primary: null };
     }
   }
-  
+
   return { appeal: null, primary: null };
+}
+
+function doesResultMatchExpectedCourt(
+  expectedCourt: string | null | undefined,
+  actualCourt: string | null | undefined,
+  fallbackTexts: Array<string | null | undefined> = [],
+): boolean {
+  if (!expectedCourt) return true;
+  const expected = normalizeCourtName(expectedCourt);
+  if (!expected) return true;
+
+  const candidates = [actualCourt, ...fallbackTexts]
+    .filter((value): value is string => Boolean(value && value.trim()))
+    .map((value) => normalizeCourtName(value));
+
+  if (candidates.length === 0) return true;
+
+  return candidates.some((candidate) =>
+    candidate === expected
+    || candidate.includes(expected)
+    || expected.includes(candidate)
+  );
 }
 
 /**
@@ -250,28 +297,35 @@ async function resolveCourtForCase(
   supabase: ReturnType<typeof createClient>,
   caseId: string,
   code: string,
-): Promise<{ appeal: string | null; primary: string | null }> {
+): Promise<{ appeal: string | null; primary: string | null; expectedCourt: string | null; courtLevel: string | null }> {
   const { data } = await supabase
     .from('cases')
     .select('court, court_level')
     .eq('id', caseId)
     .limit(1)
     .single();
-  
-  if (!data?.court) return { appeal: null, primary: null };
-  
+
+  if (!data?.court) return { appeal: null, primary: null, expectedCourt: null, courtLevel: data?.court_level || null };
+
   const resolved = resolveCourtFromName(data.court, code);
-  
-  // If the case is registered at the appeal court level,
-  // only search at appeal level — do NOT set primary court
+
   if (data.court_level === 'استئناف') {
-    log(`⚖ Court (appeal-level case): "${data.court}" → appeal="${resolved.appeal}", primary=null`);
-    return { appeal: resolved.appeal, primary: null };
+    log(`⚖ Appeal court retained as search target: "${data.court}" → appeal="${resolved.appeal}", expected="${data.court}"`);
+    return {
+      appeal: resolved.appeal,
+      primary: null,
+      expectedCourt: data.court,
+      courtLevel: data.court_level,
+    };
   }
-  
-  // For primary court cases, resolve both appeal + primary
-  log(`⚖ Court auto-resolved: "${data.court}" → appeal="${resolved.appeal}", primary="${resolved.primary}"`);
-  return resolved;
+
+  log(`⚖ Primary court retained as search target: "${data.court}" → appeal="${resolved.appeal}", primary="${resolved.primary}"`);
+  return {
+    appeal: resolved.appeal,
+    primary: resolved.primary,
+    expectedCourt: data.court,
+    courtLevel: data.court_level,
+  };
 }
 
 /* ══════════════════════════════════════════════════════════════════
