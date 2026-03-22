@@ -73,17 +73,11 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
   const [againstAllInterested, setAgainstAllInterested] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Court selection — hierarchical
+  // Court selection — single flat dropdown
   const [courtLevel, setCourtLevel] = useState('');
-  const [courtSubType, setCourtSubType] = useState('');
-  const [courtsDb, setCourtsDb] = useState<any[]>([]);
   const [courtPopoverOpen, setCourtPopoverOpen] = useState(false);
   const [courtSearchTerm, setCourtSearchTerm] = useState('');
-
-  // Parent-child: selected appellate court index
   const [selectedAppellateIdx, setSelectedAppellateIdx] = useState<number>(-1);
-  const [appellatePopoverOpen, setAppellatePopoverOpen] = useState(false);
-  const [appellateSearchTerm, setAppellateSearchTerm] = useState('');
 
   // Client
   const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
