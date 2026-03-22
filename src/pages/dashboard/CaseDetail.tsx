@@ -12,8 +12,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowRight, FileText, User, Scale, MapPin, ClipboardList, CalendarDays, Plus, Pencil, Trash2, Check, X, ClipboardPaste } from 'lucide-react';
-import { PasteFetchDialog } from '@/components/cases/PasteFetchDialog';
+import { ArrowRight, FileText, User, Scale, MapPin, ClipboardList, CalendarDays, Plus, Pencil, Trash2, Check, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -40,7 +39,6 @@ const CaseDetail = () => {
   const [editingCaseNumber, setEditingCaseNumber] = useState(false);
   const [caseNumberEdit, setCaseNumberEdit] = useState('');
   const [saving, setSaving] = useState(false);
-  const [browserFetchOpen, setBrowserFetchOpen] = useState(false);
   const { latestJob, syncing, startSync, openPortal } = useMahakimSync(id);
 
   const fetchData = async () => {
@@ -308,15 +306,6 @@ const CaseDetail = () => {
                   onSync={(appealCourt, firstInstanceCourt) => startSync(caseData.case_number, appealCourt, firstInstanceCourt)}
                   onOpenPortal={() => openPortal(caseData.case_number)}
                 />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full gap-1.5"
-                  onClick={() => setBrowserFetchOpen(true)}
-                >
-                  <ClipboardPaste className="h-3.5 w-3.5" />
-                  نسخ ولصق من محاكم
-                </Button>
               </div>
             )}
           </CardContent>
@@ -499,16 +488,6 @@ const CaseDetail = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {/* Paste Fetch Dialog */}
-      {caseData.case_number && (
-        <PasteFetchDialog
-          open={browserFetchOpen}
-          onOpenChange={setBrowserFetchOpen}
-          caseId={caseData.id}
-          caseNumber={caseData.case_number}
-          onSuccess={fetchData}
-        />
-      )}
     </div>
   );
 };
