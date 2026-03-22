@@ -918,27 +918,28 @@ function selectDD(idx,target,cb){
     if(dds.length<=idx){if(++a<40){setTimeout(poll,400);return}window.__L.push('dd'+idx+'-timeout:found='+dds.length);cb();return}
     dds[idx].click();
     setTimeout(function(){
-      // Try to use filter input inside dropdown panel
+      // Step 1: Try direct match first WITHOUT filter
+      var panel=document.querySelector('.p-dropdown-panel');
+      var li=panel?panel.querySelectorAll('li.p-dropdown-item,.p-dropdown-items li'):document.querySelectorAll('li.p-dropdown-item');
+      function normDD(v){return(v||'').trim().replace(/^المحكمة\s+/g,'').replace(/^محكمة\s+/g,'').replace(/^الابتدائية\s+/g,'').replace(/^الابتدائية\s+ب/g,'').replace(/^الابتدائية\s+بال/g,'').replace(/^ب/g,'').replace(/^بال/g,'').replace(/\s+/g,' ').trim()}
+      var tNorm=normDD(target);
+      for(var i=0;i<li.length;i++){var x=li[i].textContent.trim();var xN=normDD(x);if(xN===tNorm||xN.indexOf(tNorm)>=0||tNorm.indexOf(xN)>=0){li[i].click();window.__L.push('dd'+idx+'-direct:'+x);setTimeout(cb,600);return}}
+      // Step 2: If no direct match and filter available, type the full target
       var filterInput=document.querySelector('.p-dropdown-panel input[type="text"],.p-dropdown-panel .p-dropdown-filter,.p-dropdown-filter-container input,.p-dropdown-panel input');
       if(filterInput&&idx>0){
-        var searchKey=target.replace(/المحكمة\s*/g,'').replace(/الابتدائية\s*/g,'').replace(/الإبتدائية\s*/g,'').replace(/التجارية\s*/g,'').replace(/الإدارية\s*/g,'').replace(/الاستئناف\s*/g,'').replace(/^بال/g,'').replace(/^ب/g,'').trim();
-        if(!searchKey||searchKey.length<2)searchKey=target.substring(target.length-6);
-        searchKey=searchKey.substring(0,Math.min(searchKey.length,6));
         var ns=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');
-        if(ns&&ns.set)ns.set.call(filterInput,searchKey);else filterInput.value=searchKey;
+        if(ns&&ns.set)ns.set.call(filterInput,target);else filterInput.value=target;
         filterInput.dispatchEvent(new Event('input',{bubbles:1}));
         filterInput.dispatchEvent(new Event('keyup',{bubbles:1}));
-        window.__L.push('dd'+idx+'-filter:'+searchKey);
+        window.__L.push('dd'+idx+'-filter:'+target);
       }
       setTimeout(function(){
-        var panel=document.querySelector('.p-dropdown-panel');
-        var li=panel?panel.querySelectorAll('li.p-dropdown-item,.p-dropdown-items li'):document.querySelectorAll('li.p-dropdown-item');
-        if(li.length<1&&a<40){a++;setTimeout(poll,400);return}
-        var f=[];
-        for(var i=0;i<li.length;i++){var x=li[i].textContent.trim();f.push(x);if(x.indexOf(target)>=0){li[i].click();window.__L.push('dd'+idx+'-ok:'+x);setTimeout(cb,600);return}}
-        // Fallback: if only one item after filter, click it
-        if(li.length===1){li[0].click();window.__L.push('dd'+idx+'-only:'+li[0].textContent.trim());setTimeout(cb,600);return}
-        window.__L.push('dd'+idx+'-miss:'+li.length+':'+f.slice(0,5).join(','));
+        var panel2=document.querySelector('.p-dropdown-panel');
+        var li2=panel2?panel2.querySelectorAll('li.p-dropdown-item,.p-dropdown-items li'):document.querySelectorAll('li.p-dropdown-item');
+        if(li2.length<1&&a<40){a++;setTimeout(poll,400);return}
+        for(var i=0;i<li2.length;i++){var x=li2[i].textContent.trim();var xN=normDD(x);if(xN===tNorm||xN.indexOf(tNorm)>=0||tNorm.indexOf(xN)>=0){li2[i].click();window.__L.push('dd'+idx+'-ok:'+x);setTimeout(cb,600);return}}
+        if(li2.length===1){li2[0].click();window.__L.push('dd'+idx+'-only:'+li2[0].textContent.trim());setTimeout(cb,600);return}
+        window.__L.push('dd'+idx+'-miss:'+li2.length);
         cb();
       },500);
     },600);
