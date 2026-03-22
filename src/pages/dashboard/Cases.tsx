@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, Search, Trash2, Pencil, FolderOpen, User } from 'lucide-react';
+import { Plus, Search, Trash2, Pencil, FolderOpen, User, Download } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useCases } from '@/hooks/useCases';
 import { useClients } from '@/hooks/useClients';
