@@ -431,16 +431,28 @@ function buildPrimaryCourtScript(firstInstanceCourt: string): string {
   const esc = (v?: string) => (v ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
   return `(function(){
 var L=window.__mahakimLog||[];
+function norm(v){
+  return (v||'')
+    .trim()
+    .replace(/^المحكمة\s+/g,'')
+    .replace(/^محكمة\s+/g,'')
+    .replace(/^الابتدائية\s+/g,'')
+    .replace(/^الابتدائية\s+ب/g,'')
+    .replace(/^الابتدائية\s+بال/g,'')
+    .replace(/^ب/g,'')
+    .replace(/^بال/g,'')
+    .replace(/\s+/g,' ')
+    .trim();
+}
 try{
-  var labels=document.querySelectorAll('label,span');
-  for(var i=0;i<labels.length;i++){
-    var t=labels[i].textContent||'';
-    if(t.indexOf('الابتدائية')>=0||t.indexOf('البحث بالمحاكم')>=0){
-      var cb=labels[i].querySelector('.p-checkbox-box,input[type="checkbox"]');
-      if(!cb){var p=labels[i].closest('div');if(p)cb=p.querySelector('.p-checkbox-box,input[type="checkbox"]')}
-      if(cb){cb.click();L.push('cb-clicked');break}
-      labels[i].click();L.push('label-clicked');break;
-    }
+  var nodes=Array.from(document.querySelectorAll('label,span,div')).slice(0,500);
+  for(var i=0;i<nodes.length;i++){
+    var t=(nodes[i].textContent||'').trim();
+    if(!t) continue;
+    if(t.indexOf('الابتدائية')<0&&t.indexOf('الإبتدائية')<0&&t.indexOf('البحث بالمحاكم')<0) continue;
+    var box=(nodes[i].closest('.p-field-checkbox,.field-checkbox,div')||nodes[i].parentElement);
+    var cb=(box&&box.querySelector('.p-checkbox-box,.p-checkbox,input[type="checkbox"]'))||nodes[i];
+    if(cb){ cb.click(); L.push('cb-clicked:'+t.substring(0,80)); break; }
   }
 }catch(e){L.push('cb-err:'+e.message)}
 return JSON.stringify({log:L});
@@ -451,12 +463,34 @@ function buildSelectPrimaryScript(court: string): string {
   const esc = (v?: string) => (v ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
   return `(function(){
 var L=window.__mahakimLog||[];
+function norm(v){
+  return (v||'')
+    .trim()
+    .replace(/^المحكمة\s+/g,'')
+    .replace(/^محكمة\s+/g,'')
+    .replace(/^الابتدائية\s+/g,'')
+    .replace(/^الابتدائية\s+ب/g,'')
+    .replace(/^الابتدائية\s+بال/g,'')
+    .replace(/^ب/g,'')
+    .replace(/^بال/g,'')
+    .replace(/\s+/g,' ')
+    .trim();
+}
 try{
-  var dds=document.querySelectorAll('p-dropdown .p-dropdown-trigger');
-  if(dds.length>1){dds[dds.length-1].click();L.push('pc-dd-clicked')}
-  else L.push('pc-no-dd:'+dds.length);
+  var target=norm('${esc(court)}');
+  var triggers=Array.from(document.querySelectorAll('p-dropdown .p-dropdown-trigger,.p-dropdown-trigger,.p-dropdown'));
+  var indexes=[];
+  for(var i=triggers.length-1;i>=1;i--) indexes.push(i);
+  if(indexes.length===0&&triggers.length>1) indexes.push(1);
+  for(var j=0;j<indexes.length;j++){
+    var idx=indexes[j];
+    triggers[idx].click();
+    L.push('pc-dd-clicked:'+idx);
+    return JSON.stringify({log:L,opened:true,index:idx});
+  }
+  L.push('pc-no-dd:'+triggers.length);
 }catch(e){L.push('pc-err:'+e.message)}
-return JSON.stringify({log:L});
+return JSON.stringify({log:L,opened:false});
 })()`;
 }
 
@@ -464,12 +498,28 @@ function buildSelectPrimaryItemScript(court: string): string {
   const esc = (v?: string) => (v ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
   return `(function(){
 var L=window.__mahakimLog||[];
+function norm(v){
+  return (v||'')
+    .trim()
+    .replace(/^المحكمة\s+/g,'')
+    .replace(/^محكمة\s+/g,'')
+    .replace(/^الابتدائية\s+/g,'')
+    .replace(/^الابتدائية\s+ب/g,'')
+    .replace(/^الابتدائية\s+بال/g,'')
+    .replace(/^ب/g,'')
+    .replace(/^بال/g,'')
+    .replace(/\s+/g,' ')
+    .trim();
+}
 try{
-  var items=document.querySelectorAll('.p-dropdown-panel li.p-dropdown-item,.p-dropdown-items li');
+  var target=norm('${esc(court)}');
+  var items=document.querySelectorAll('.p-dropdown-panel li.p-dropdown-item,.p-dropdown-items li,.p-dropdown-panel li,.p-dropdown-item');
   for(var i=0;i<items.length;i++){
-    if(items[i].textContent.trim().indexOf('${esc(court)}')>=0){
-      items[i].click();L.push('pc-selected:'+items[i].textContent.trim());
-      return JSON.stringify({log:L,selected:true});
+    var text=(items[i].textContent||'').trim();
+    var candidate=norm(text);
+    if(candidate===target||candidate.indexOf(target)>=0||target.indexOf(candidate)>=0){
+      items[i].click();L.push('pc-selected:'+text);
+      return JSON.stringify({log:L,selected:true,text:text});
     }
   }
   L.push('pc-miss:'+items.length);
