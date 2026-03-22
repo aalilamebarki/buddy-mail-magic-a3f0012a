@@ -100,6 +100,7 @@ const Cases = () => {
               <User className="h-4 w-4" /> عرض الكل
             </Button>
           )}
+          <Button variant="outline" onClick={() => setImportDialogOpen(true)} className="gap-2 w-full sm:w-auto"><Download className="h-4 w-4" /> استيراد ملف</Button>
           <Button onClick={openNew} className="gap-2 w-full sm:w-auto"><Plus className="h-4 w-4" /> ملف جديد</Button>
         </div>
       </div>
