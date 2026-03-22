@@ -2142,29 +2142,19 @@ async function fetchViaGAS(
     }
 
     if (data.status === 'no_data') {
-      log(`🌐 [GAS] No data found`);
-      
-      // Check if GAS can even access the portal
-      if (data.accessCheck) {
-        const ac = data.accessCheck;
-        if (ac.blocked) {
-          log(`⚠ [GAS] Portal is blocking Google Apps Script IPs`);
-          return null;
-        }
-        if (!ac.accessible) {
-          log(`⚠ [GAS] Portal not accessible from GAS`);
-          return null; // fallback to other providers
-        }
-      }
-
+      log(`🌐 [GAS] No data found — returning as-is (no fallback)`);
       return {
         ...input, status: 'no_data', caseInfo: {}, procedures: [], nextSessionDate: null,
-        error: data.error || 'لم يتم العثور على بيانات عبر GAS',
+        error: data.error || 'لم يتم العثور على بيانات عبر GAS — ' + (data.reason || ''),
       };
     }
 
-    log(`✗ [GAS] Unexpected status: ${data.status}`);
-    return null;
+    // أي حالة أخرى — نعاملها كخطأ بدون fallback
+    log(`⚠ [GAS] Status: ${data.status} — reason: ${data.reason || 'N/A'}`);
+    return {
+      ...input, status: 'error', caseInfo: {}, procedures: [], nextSessionDate: null,
+      error: `[GAS] ${data.error || data.status || 'حالة غير متوقعة'} — السبب: ${data.reason || 'غير محدد'}`,
+    };
 
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown';
