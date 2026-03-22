@@ -916,13 +916,27 @@ function selectDD(idx,target,cb){
     if(dds.length<=idx){if(++a<40){setTimeout(poll,400);return}window.__L.push('dd'+idx+'-timeout:found='+dds.length);cb();return}
     dds[idx].click();
     setTimeout(function(){
-      var panel=document.querySelector('.p-dropdown-panel');
-      var li=panel?panel.querySelectorAll('li.p-dropdown-item,.p-dropdown-items li'):document.querySelectorAll('li.p-dropdown-item');
-      if(li.length<2&&a<40){a++;setTimeout(poll,400);return}
-      var f=[];
-      for(var i=0;i<li.length;i++){var x=li[i].textContent.trim();f.push(x);if(x.indexOf(target)>=0){li[i].click();window.__L.push('dd'+idx+'-ok:'+x);setTimeout(cb,600);return}}
-      window.__L.push('dd'+idx+'-miss:'+li.length+':'+f.slice(0,5).join(','));
-      cb();
+      // Try to use filter input inside dropdown panel
+      var filterInput=document.querySelector('.p-dropdown-panel input[type="text"],.p-dropdown-panel .p-dropdown-filter,.p-dropdown-filter-container input,.p-dropdown-panel input');
+      if(filterInput&&idx>0){
+        var searchKey=target.substring(0,4);
+        var ns=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');
+        if(ns&&ns.set)ns.set.call(filterInput,searchKey);else filterInput.value=searchKey;
+        filterInput.dispatchEvent(new Event('input',{bubbles:1}));
+        filterInput.dispatchEvent(new Event('keyup',{bubbles:1}));
+        window.__L.push('dd'+idx+'-filter:'+searchKey);
+      }
+      setTimeout(function(){
+        var panel=document.querySelector('.p-dropdown-panel');
+        var li=panel?panel.querySelectorAll('li.p-dropdown-item,.p-dropdown-items li'):document.querySelectorAll('li.p-dropdown-item');
+        if(li.length<1&&a<40){a++;setTimeout(poll,400);return}
+        var f=[];
+        for(var i=0;i<li.length;i++){var x=li[i].textContent.trim();f.push(x);if(x.indexOf(target)>=0){li[i].click();window.__L.push('dd'+idx+'-ok:'+x);setTimeout(cb,600);return}}
+        // Fallback: if only one item after filter, click it
+        if(li.length===1){li[0].click();window.__L.push('dd'+idx+'-only:'+li[0].textContent.trim());setTimeout(cb,600);return}
+        window.__L.push('dd'+idx+'-miss:'+li.length+':'+f.slice(0,5).join(','));
+        cb();
+      },500);
     },600);
   }
   poll();
