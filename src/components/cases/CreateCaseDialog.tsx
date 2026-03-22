@@ -298,40 +298,13 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
     }
   };
 
-  /**
-   * Select an appellate court from hierarchy → auto-set court level.
-   * If primary court level is selected, show child courts.
-   */
-  const handleSelectAppellate = (globalIdx: number) => {
-    setSelectedAppellateIdx(globalIdx);
-    const ac = COURT_HIERARCHY[globalIdx];
-    if (!ac) return;
-
-    // If court level is "استئناف", set the appellate court directly
-    if (courtLevel === 'استئناف') {
-      updateField('court', ac.label);
-      setAppellatePopoverOpen(false);
-      setAppellateSearchTerm('');
-    } else {
-      // For ابتدائية, just select the parent — user will pick child
-      updateField('court', '');
-      setAppellatePopoverOpen(false);
-      setAppellateSearchTerm('');
-    }
-  };
-
-  const handleSelectPrimary = (primaryLabel: string) => {
-    updateField('court', primaryLabel);
+  /** Handle selecting a court from the flat list */
+  const handleSelectCourt = (entry: FlatCourtEntry) => {
+    updateField('court', entry.label);
+    setCourtLevel(entry.level);
+    setSelectedAppellateIdx(entry.appellateIdx);
     setCourtPopoverOpen(false);
     setCourtSearchTerm('');
-    
-    // Auto-set appellate court if not already selected
-    if (selectedAppellateIdx < 0) {
-      const parentIdx = findAppellateByPrimary(primaryLabel);
-      if (parentIdx >= 0) {
-        setSelectedAppellateIdx(parentIdx);
-      }
-    }
   };
 
   const selectedAppellate = selectedAppellateIdx >= 0 ? COURT_HIERARCHY[selectedAppellateIdx] : null;
