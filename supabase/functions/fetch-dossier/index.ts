@@ -461,9 +461,9 @@ return JSON.stringify({log:L});
 
 function buildSelectPrimaryScript(court: string): string {
   const esc = (v?: string) => (v ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-  // Extract a short search keyword from court name (e.g. "الرماني" → "رم")
-  const shortName = court.replace(/^المحكمة\s+/g, '').replace(/^الابتدائية\s+/g, '').replace(/^ب/g, '').replace(/^بال/g, '').trim();
-  const searchKey = shortName.length > 3 ? shortName.substring(0, 4) : shortName.substring(0, 3);
+  // Extract city name for filter (e.g. "المحكمة الابتدائية بالرماني" → "رماني")
+  const shortName = court.replace(/المحكمة\s*/g, '').replace(/الابتدائية\s*/g, '').replace(/الإبتدائية\s*/g, '').replace(/التجارية\s*/g, '').replace(/الإدارية\s*/g, '').replace(/الاستئناف\s*/g, '').replace(/^بال/g, '').replace(/^ب/g, '').trim();
+  const searchKey = shortName.length > 2 ? shortName.substring(0, Math.min(shortName.length, 6)) : court.substring(court.length - 6);
   return `(function(){
 var L=window.__mahakimLog||[];
 try{
@@ -485,9 +485,9 @@ return JSON.stringify({log:L,opened:false});
 
 function buildSelectPrimaryItemScript(court: string): string {
   const esc = (v?: string) => (v ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-  // Extract search keyword for the filter input
-  const shortName = court.replace(/^المحكمة\s+/g, '').replace(/^الابتدائية\s+/g, '').replace(/^ب/g, '').replace(/^بال/g, '').trim();
-  const searchKey = shortName.length > 3 ? shortName.substring(0, 4) : shortName.substring(0, 3);
+  // Extract city name for filter (e.g. "المحكمة الابتدائية بالرماني" → "رماني")
+  const shortName = court.replace(/المحكمة\s*/g, '').replace(/الابتدائية\s*/g, '').replace(/الإبتدائية\s*/g, '').replace(/التجارية\s*/g, '').replace(/الإدارية\s*/g, '').replace(/الاستئناف\s*/g, '').replace(/^بال/g, '').replace(/^ب/g, '').trim();
+  const searchKey = shortName.length > 2 ? shortName.substring(0, Math.min(shortName.length, 6)) : court.substring(court.length - 6);
   return `(function(){
 var L=window.__mahakimLog||[];
 function norm(v){
@@ -919,7 +919,9 @@ function selectDD(idx,target,cb){
       // Try to use filter input inside dropdown panel
       var filterInput=document.querySelector('.p-dropdown-panel input[type="text"],.p-dropdown-panel .p-dropdown-filter,.p-dropdown-filter-container input,.p-dropdown-panel input');
       if(filterInput&&idx>0){
-        var searchKey=target.substring(0,4);
+        var searchKey=target.replace(/المحكمة\s*/g,'').replace(/الابتدائية\s*/g,'').replace(/الإبتدائية\s*/g,'').replace(/التجارية\s*/g,'').replace(/الإدارية\s*/g,'').replace(/الاستئناف\s*/g,'').replace(/^بال/g,'').replace(/^ب/g,'').trim();
+        if(!searchKey||searchKey.length<2)searchKey=target.substring(target.length-6);
+        searchKey=searchKey.substring(0,Math.min(searchKey.length,6));
         var ns=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');
         if(ns&&ns.set)ns.set.call(filterInput,searchKey);else filterInput.value=searchKey;
         filterInput.dispatchEvent(new Event('input',{bubbles:1}));
@@ -1516,6 +1518,21 @@ ${pc ? `
             await page.waitForSelector('.p-dropdown-panel li, .p-dropdown-items li, .p-dropdown-item, .p-dropdown-panel input', { timeout: 3000 });
           } catch(e) {}
 
+          // Extract city name for filter (e.g. "المحكمة الابتدائية بالرماني" → "رماني")
+          var cityKey = courtName
+            .replace(/المحكمة\s*/g, '')
+            .replace(/الابتدائية\s*/g, '')
+            .replace(/الإبتدائية\s*/g, '')
+            .replace(/التجارية\s*/g, '')
+            .replace(/الإدارية\s*/g, '')
+            .replace(/الاستئناف\s*/g, '')
+            .replace(/^بال/g, '')
+            .replace(/^ب/g, '')
+            .trim();
+          if (!cityKey || cityKey.length < 2) cityKey = courtName.substring(courtName.length - 6);
+          var searchKey = cityKey.substring(0, Math.min(cityKey.length, 6));
+          log.info("Filter search key: '" + searchKey + "' from court: '" + courtName + "'");
+
           // Type into the filter input to narrow down results
           var filterResult = await page.evaluate(function(searchKey) {
             var filterInput = document.querySelector('.p-dropdown-panel input[type="text"], .p-dropdown-panel .p-dropdown-filter, .p-dropdown-filter-container input, .p-dropdown-panel input');
@@ -1530,7 +1547,7 @@ ${pc ? `
               return { filtered: true, searchKey: searchKey };
             }
             return { filtered: false };
-          }, courtName.substring(0, 4));
+          }, searchKey);
           log.info("Filter result: " + JSON.stringify(filterResult));
           await rndDelay(800, 1500);
 
