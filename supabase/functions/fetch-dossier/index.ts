@@ -1363,6 +1363,14 @@ async function persistResults(
     }
   }
 
+  // 4. Auto-extract parties if none exist
+  try {
+    const partiesAdded = await autoExtractParties(supabase, caseId, result.caseInfo);
+    if (partiesAdded > 0) persistLog.push(`تم استخراج ${partiesAdded} طرف تلقائياً`);
+  } catch (e) {
+    log(`⚠ Party extraction failed: ${e instanceof Error ? e.message : 'unknown'}`);
+  }
+
   return persistLog;
 }
 

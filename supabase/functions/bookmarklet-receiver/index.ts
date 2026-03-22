@@ -250,7 +250,15 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 4. Create notification
+    // 4. Auto-extract parties if none exist
+    let partiesAdded = 0;
+    try {
+      partiesAdded = await autoExtractParties(supabase, caseId, parsedCaseInfo, allLabels);
+    } catch (e) {
+      console.log(`⚠ Party extraction failed: ${e instanceof Error ? e.message : 'unknown'}`);
+    }
+
+    // 5. Create notification
     if (resolvedUserId) {
       const msg = `تم جلب بيانات الملف ${caseNumber} من المتصفح ✅ (${newProcsCount} إجراء${newSessionsCount > 0 ? ` + ${newSessionsCount} جلسة` : ''})`;
       try {

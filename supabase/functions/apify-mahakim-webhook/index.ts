@@ -426,7 +426,15 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 4. Update sync job as completed
+    // 4. Auto-extract parties if none exist
+    let partiesAdded = 0;
+    try {
+      partiesAdded = await autoExtractParties(supabase, caseId, caseInfo, allLabels);
+    } catch (e) {
+      console.log(`⚠ Party extraction failed: ${e instanceof Error ? e.message : 'unknown'}`);
+    }
+
+    // 5. Update sync job as completed
     await supabase.from('mahakim_sync_jobs').update({
       status: 'completed',
       result_data: {
