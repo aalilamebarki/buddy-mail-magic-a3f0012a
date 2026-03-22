@@ -44,12 +44,45 @@ export const useSessions = () => {
     },
   });
 
-  // Realtime — invalidate cache on any change
+  // Realtime — patch cache instantly so the table updates without page refresh
   useEffect(() => {
+    const upsertSession = async (sessionId: string) => {
+      const { data } = await supabase
+        .from('court_sessions')
+        .select(SELECT_QUERY)
+        .eq('id', sessionId)
+        .maybeSingle();
+
+      if (!data) return;
+
+      queryClient.setQueryData(['court_sessions'], (prev: SessionRecord[] | undefined) => {
+        const next = (prev || []).filter(session => session.id !== sessionId);
+        next.push(data as SessionRecord);
+        return next.sort((a, b) => {
+          const dateCompare = a.session_date.localeCompare(b.session_date);
+          if (dateCompare !== 0) return dateCompare;
+          return (a.session_time || '').localeCompare(b.session_time || '');
+        });
+      });
+    };
+
+    const removeSession = (sessionId: string) => {
+      queryClient.setQueryData(['court_sessions'], (prev: SessionRecord[] | undefined) =>
+        (prev || []).filter(session => session.id !== sessionId)
+      );
+    };
+
     const channel = supabase
       .channel('court_sessions_realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'court_sessions' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['court_sessions'] });
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'court_sessions' }, (payload) => {
+        if (payload.eventType === 'DELETE') {
+          const deletedId = (payload.old as { id?: string } | null)?.id;
+          if (deletedId) removeSession(deletedId);
+          return;
+        }
+
+        const changedId = (payload.new as { id?: string } | null)?.id;
+        if (changedId) void upsertSession(changedId);
       })
       .subscribe();
 
