@@ -431,16 +431,28 @@ function buildPrimaryCourtScript(firstInstanceCourt: string): string {
   const esc = (v?: string) => (v ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
   return `(function(){
 var L=window.__mahakimLog||[];
+function norm(v){
+  return (v||'')
+    .trim()
+    .replace(/^المحكمة\s+/g,'')
+    .replace(/^محكمة\s+/g,'')
+    .replace(/^الابتدائية\s+/g,'')
+    .replace(/^الابتدائية\s+ب/g,'')
+    .replace(/^الابتدائية\s+بال/g,'')
+    .replace(/^ب/g,'')
+    .replace(/^بال/g,'')
+    .replace(/\s+/g,' ')
+    .trim();
+}
 try{
-  var labels=document.querySelectorAll('label,span');
-  for(var i=0;i<labels.length;i++){
-    var t=labels[i].textContent||'';
-    if(t.indexOf('الابتدائية')>=0||t.indexOf('البحث بالمحاكم')>=0){
-      var cb=labels[i].querySelector('.p-checkbox-box,input[type="checkbox"]');
-      if(!cb){var p=labels[i].closest('div');if(p)cb=p.querySelector('.p-checkbox-box,input[type="checkbox"]')}
-      if(cb){cb.click();L.push('cb-clicked');break}
-      labels[i].click();L.push('label-clicked');break;
-    }
+  var nodes=Array.from(document.querySelectorAll('label,span,div')).slice(0,500);
+  for(var i=0;i<nodes.length;i++){
+    var t=(nodes[i].textContent||'').trim();
+    if(!t) continue;
+    if(t.indexOf('الابتدائية')<0&&t.indexOf('الإبتدائية')<0&&t.indexOf('البحث بالمحاكم')<0) continue;
+    var box=(nodes[i].closest('.p-field-checkbox,.field-checkbox,div')||nodes[i].parentElement);
+    var cb=(box&&box.querySelector('.p-checkbox-box,.p-checkbox,input[type="checkbox"]'))||nodes[i];
+    if(cb){ cb.click(); L.push('cb-clicked:'+t.substring(0,80)); break; }
   }
 }catch(e){L.push('cb-err:'+e.message)}
 return JSON.stringify({log:L});
@@ -451,12 +463,34 @@ function buildSelectPrimaryScript(court: string): string {
   const esc = (v?: string) => (v ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
   return `(function(){
 var L=window.__mahakimLog||[];
+function norm(v){
+  return (v||'')
+    .trim()
+    .replace(/^المحكمة\s+/g,'')
+    .replace(/^محكمة\s+/g,'')
+    .replace(/^الابتدائية\s+/g,'')
+    .replace(/^الابتدائية\s+ب/g,'')
+    .replace(/^الابتدائية\s+بال/g,'')
+    .replace(/^ب/g,'')
+    .replace(/^بال/g,'')
+    .replace(/\s+/g,' ')
+    .trim();
+}
 try{
-  var dds=document.querySelectorAll('p-dropdown .p-dropdown-trigger');
-  if(dds.length>1){dds[dds.length-1].click();L.push('pc-dd-clicked')}
-  else L.push('pc-no-dd:'+dds.length);
+  var target=norm('${esc(court)}');
+  var triggers=Array.from(document.querySelectorAll('p-dropdown .p-dropdown-trigger,.p-dropdown-trigger,.p-dropdown'));
+  var indexes=[];
+  for(var i=triggers.length-1;i>=1;i--) indexes.push(i);
+  if(indexes.length===0&&triggers.length>1) indexes.push(1);
+  for(var j=0;j<indexes.length;j++){
+    var idx=indexes[j];
+    triggers[idx].click();
+    L.push('pc-dd-clicked:'+idx);
+    return JSON.stringify({log:L,opened:true,index:idx});
+  }
+  L.push('pc-no-dd:'+triggers.length);
 }catch(e){L.push('pc-err:'+e.message)}
-return JSON.stringify({log:L});
+return JSON.stringify({log:L,opened:false});
 })()`;
 }
 
@@ -464,12 +498,28 @@ function buildSelectPrimaryItemScript(court: string): string {
   const esc = (v?: string) => (v ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
   return `(function(){
 var L=window.__mahakimLog||[];
+function norm(v){
+  return (v||'')
+    .trim()
+    .replace(/^المحكمة\s+/g,'')
+    .replace(/^محكمة\s+/g,'')
+    .replace(/^الابتدائية\s+/g,'')
+    .replace(/^الابتدائية\s+ب/g,'')
+    .replace(/^الابتدائية\s+بال/g,'')
+    .replace(/^ب/g,'')
+    .replace(/^بال/g,'')
+    .replace(/\s+/g,' ')
+    .trim();
+}
 try{
-  var items=document.querySelectorAll('.p-dropdown-panel li.p-dropdown-item,.p-dropdown-items li');
+  var target=norm('${esc(court)}');
+  var items=document.querySelectorAll('.p-dropdown-panel li.p-dropdown-item,.p-dropdown-items li,.p-dropdown-panel li,.p-dropdown-item');
   for(var i=0;i<items.length;i++){
-    if(items[i].textContent.trim().indexOf('${esc(court)}')>=0){
-      items[i].click();L.push('pc-selected:'+items[i].textContent.trim());
-      return JSON.stringify({log:L,selected:true});
+    var text=(items[i].textContent||'').trim();
+    var candidate=norm(text);
+    if(candidate===target||candidate.indexOf(target)>=0||target.indexOf(candidate)>=0){
+      items[i].click();L.push('pc-selected:'+text);
+      return JSON.stringify({log:L,selected:true,text:text});
     }
   }
   L.push('pc-miss:'+items.length);
@@ -1400,46 +1450,161 @@ ${ac ? `
 ` : ''}
 
 ${pc ? `
-  // Step 3b: Enable primary court checkbox
+  // Step 3b: Enable primary court checkbox and force-select the exact primary court
   try {
     log.info("Enabling primary court: ${pcEsc}...");
     var cbResult = await page.evaluate(function() {
-      var checkboxes = document.querySelectorAll('.p-checkbox, .p-checkbox-box, input[type="checkbox"]');
-      for (var i = 0; i < checkboxes.length; i++) {
-        var parent = checkboxes[i].closest('.p-field-checkbox, div');
-        var label = parent ? parent.textContent || '' : '';
-        if (label.indexOf('الابتدائية') >= 0 || label.indexOf('البحث بالمحاكم') >= 0) {
-          checkboxes[i].click();
-          return { clicked: true, label: label.trim().substring(0, 80) };
+      function norm(v) { return (v || '').replace(/\s+/g, ' ').trim(); }
+      var nodes = Array.from(document.querySelectorAll('label, span, div')).slice(0, 500);
+      for (var i = 0; i < nodes.length; i++) {
+        var text = norm(nodes[i].textContent || '');
+        if (!text) continue;
+        if (text.indexOf('الابتدائية') < 0 && text.indexOf('الإبتدائية') < 0 && text.indexOf('البحث بالمحاكم') < 0) continue;
+        var container = nodes[i].closest('.p-field-checkbox, .field-checkbox, div') || nodes[i].parentElement;
+        var clickable = (container && container.querySelector('.p-checkbox-box, .p-checkbox, input[type="checkbox"]')) || nodes[i];
+        if (clickable) {
+          clickable.click();
+          return { clicked: true, text: text.substring(0, 120), tag: clickable.tagName || '', className: clickable.className || '' };
         }
       }
-      if (checkboxes.length > 0) { checkboxes[0].click(); return { clicked: true, fallback: true }; }
+      var fallback = document.querySelector('.p-checkbox-box, .p-checkbox, input[type="checkbox"]');
+      if (fallback) {
+        fallback.click();
+        return { clicked: true, fallback: true, tag: fallback.tagName || '', className: fallback.className || '' };
+      }
       return { clicked: false };
     });
     log.info("Checkbox: " + JSON.stringify(cbResult));
     await rndDelay(2500, 4000);
 
-    // Select primary court dropdown
-    var dropdowns2 = await page.$$('p-dropdown, .p-dropdown');
-    if (dropdowns2.length > 1) {
-      var ddIdx = dropdowns2.length > 2 ? 2 : 1;
-      await dropdowns2[ddIdx].click();
-      await rndDelay(1500, 2500);
-      try {
-        await page.waitForSelector('.p-dropdown-panel li', { timeout: 5000 });
-      } catch(e) {
-        var t2 = await page.$$('.p-dropdown-trigger');
-        if (t2.length > ddIdx) { await t2[ddIdx].click(); await rndDelay(2000, 3000); }
-      }
-      var sel2 = await page.evaluate(function(cn) {
-        var items = document.querySelectorAll('.p-dropdown-panel li');
-        for (var i = 0; i < items.length; i++) {
-          if ((items[i].textContent || '').trim().indexOf(cn) >= 0) { items[i].click(); return { found: true }; }
+    const openPrimaryDropdown = async (courtName) => {
+      var triggers = await page.$$('.p-dropdown-trigger, p-dropdown .p-dropdown-trigger, .p-dropdown');
+      var indexes = [];
+      for (var i = triggers.length - 1; i >= 1; i--) indexes.push(i);
+      if (indexes.length === 0 && triggers.length > 1) indexes.push(1);
+
+      for (const idx of indexes) {
+        try {
+          await triggers[idx].click();
+          await rndDelay(1200, 2200);
+          try {
+            await page.waitForSelector('.p-dropdown-panel li, .p-dropdown-items li, .p-dropdown-item', { timeout: 3000 });
+          } catch(e) {}
+
+          var probe = await page.evaluate(function(cn) {
+            function norm(v) {
+              return (v || '')
+                .trim()
+                .replace(/^المحكمة\s+/g, '')
+                .replace(/^محكمة\s+/g, '')
+                .replace(/^الابتدائية\s+/g, '')
+                .replace(/^الابتدائية\s+ب/g, '')
+                .replace(/^الابتدائية\s+بال/g, '')
+                .replace(/^ب/g, '')
+                .replace(/^بال/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+            }
+            var target = norm(cn);
+            var items = Array.from(document.querySelectorAll('.p-dropdown-panel li, .p-dropdown-items li, .p-dropdown-item')).map(function(el) {
+              return (el.textContent || '').trim();
+            }).filter(Boolean);
+            return {
+              found: items.some(function(t) {
+                var candidate = norm(t);
+                return candidate === target || candidate.indexOf(target) >= 0 || target.indexOf(candidate) >= 0;
+              }),
+              count: items.length,
+              sample: items.slice(0, 8),
+            };
+          }, courtName);
+          log.info("Primary probe idx=" + idx + ": " + JSON.stringify(probe));
+          if (probe.found) return idx;
+          try { await page.keyboard.press('Escape'); } catch(e) {}
+          await rndDelay(400, 800);
+        } catch(e) {
+          log.warning("Primary probe error idx=" + idx + ": " + e.message);
         }
-        return { found: false };
+      }
+      return -1;
+    };
+
+    var primaryDropdownIdx = await openPrimaryDropdown("${pcEsc}");
+    if (primaryDropdownIdx >= 0) {
+      var sel2 = await page.evaluate(function(cn) {
+        function norm(v) {
+          return (v || '')
+            .trim()
+            .replace(/^المحكمة\s+/g, '')
+            .replace(/^محكمة\s+/g, '')
+            .replace(/^الابتدائية\s+/g, '')
+            .replace(/^الابتدائية\s+ب/g, '')
+            .replace(/^الابتدائية\s+بال/g, '')
+            .replace(/^ب/g, '')
+            .replace(/^بال/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+        }
+        var target = norm(cn);
+        var items = Array.from(document.querySelectorAll('.p-dropdown-panel li, .p-dropdown-items li, .p-dropdown-item'));
+        for (var i = 0; i < items.length; i++) {
+          var text = (items[i].textContent || '').trim();
+          var candidate = norm(text);
+          if (candidate === target || candidate.indexOf(target) >= 0 || target.indexOf(candidate) >= 0) {
+            items[i].click();
+            return { found: true, text: text };
+          }
+        }
+        return { found: false, count: items.length };
       }, "${pcEsc}");
       log.info("Primary court: " + JSON.stringify(sel2));
       await rndDelay(1500, 2500);
+    } else {
+      log.warning("Primary court dropdown not identified for ${pcEsc}");
+    }
+
+    var verifySelection = await page.evaluate(function(cn, acn) {
+      function norm(v) {
+        return (v || '')
+          .trim()
+          .replace(/^المحكمة\s+/g, '')
+          .replace(/^محكمة\s+/g, '')
+          .replace(/^الابتدائية\s+/g, '')
+          .replace(/^الابتدائية\s+ب/g, '')
+          .replace(/^الابتدائية\s+بال/g, '')
+          .replace(/^الاستئناف\s+/g, '')
+          .replace(/^الاستئناف\s+ب/g, '')
+          .replace(/^الاستئناف\s+بال/g, '')
+          .replace(/^ب/g, '')
+          .replace(/^بال/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+      }
+      var dropdowns = Array.from(document.querySelectorAll('.p-dropdown-label')).map(function(el) {
+        return (el.textContent || '').trim();
+      }).filter(Boolean);
+      var primaryTarget = norm(cn);
+      var appealTarget = norm(acn);
+      return {
+        dropdowns: dropdowns,
+        primaryMatched: dropdowns.some(function(text) {
+          var candidate = norm(text);
+          return candidate === primaryTarget || candidate.indexOf(primaryTarget) >= 0 || primaryTarget.indexOf(candidate) >= 0;
+        }),
+        appealMatched: !acn || dropdowns.some(function(text) {
+          var candidate = norm(text);
+          return candidate === appealTarget || candidate.indexOf(appealTarget) >= 0 || appealTarget.indexOf(candidate) >= 0;
+        }),
+      };
+    }, "${pcEsc}", "${acEsc}");
+    log.info("Selection verify: " + JSON.stringify(verifySelection));
+    if (!verifySelection.primaryMatched) {
+      return {
+        error: "primary_court_not_selected",
+        dropdowns: verifySelection.dropdowns,
+        pageTitle: await page.title(),
+        rawText: await page.evaluate(() => document.body.textContent.substring(0, 2000)),
+      };
     }
   } catch(e) { log.warning("PC error: " + e.message); }
 ` : ''}
