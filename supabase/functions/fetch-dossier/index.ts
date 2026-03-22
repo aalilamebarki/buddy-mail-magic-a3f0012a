@@ -2094,6 +2094,11 @@ Deno.serve(async (req) => {
     ): Promise<CaseResult & { usedProvider?: string }> {
       const providers: Array<{ name: string; fn: () => Promise<CaseResult | null> }> = [];
 
+      // GAS proxy is always first priority (free, zero-cost)
+      if (GAS_PROXY_URL) {
+        providers.push({ name: 'gas', fn: () => fetchViaGAS(GAS_PROXY_URL!, input, ac, pc) });
+      }
+
       if (preferredProvider === 'firecrawl' && FIRECRAWL_API_KEY) {
         providers.push({ name: 'firecrawl', fn: () => fetchViaFirecrawl(FIRECRAWL_API_KEY!, input, ac, pc) });
         if (SCRAPINGBEE_API_KEY) providers.push({ name: 'scrapingbee', fn: () => fetchViaScrapingBee(SCRAPINGBEE_API_KEY!, input, ac, pc) });
