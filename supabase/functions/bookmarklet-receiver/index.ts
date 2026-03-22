@@ -201,12 +201,14 @@ Deno.serve(async (req) => {
     // 4. Create notification
     if (resolvedUserId) {
       const msg = `تم جلب بيانات الملف ${caseNumber} من المتصفح ✅ (${newProcsCount} إجراء${newSessionsCount > 0 ? ` + ${newSessionsCount} جلسة` : ''})`;
-      await supabase.from('notifications').insert({
-        user_id: resolvedUserId,
-        case_id: caseId,
-        message: msg,
-        is_read: false,
-      }).catch(() => {});
+      try {
+        await supabase.from('notifications').insert({
+          user_id: resolvedUserId,
+          case_id: caseId,
+          message: msg,
+          is_read: false,
+        });
+      } catch (_) { /* ignore notification errors */ }
     }
 
     // 5. Update any pending sync job
