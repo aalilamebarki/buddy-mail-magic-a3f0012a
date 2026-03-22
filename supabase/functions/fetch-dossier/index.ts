@@ -2074,11 +2074,12 @@ Deno.serve(async (req) => {
     const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
     const SCRAPINGBEE_API_KEY = Deno.env.get('SCRAPINGBEE_API_KEY');
     const APIFY_API_TOKEN = Deno.env.get('APIFY_API_TOKEN');
+    const GAS_PROXY_URL = Deno.env.get('GAS_PROXY_URL');
     
-    if (!FIRECRAWL_API_KEY && !SCRAPINGBEE_API_KEY && !APIFY_API_TOKEN) {
+    if (!FIRECRAWL_API_KEY && !SCRAPINGBEE_API_KEY && !APIFY_API_TOKEN && !GAS_PROXY_URL) {
       return new Response(JSON.stringify({
         status: 'error',
-        error: 'لم يتم تعيين أي مفتاح للجلب (Apify أو Firecrawl أو ScrapingBee)',
+        error: 'لم يتم تعيين أي مفتاح للجلب (GAS أو Apify أو Firecrawl أو ScrapingBee)',
       }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
