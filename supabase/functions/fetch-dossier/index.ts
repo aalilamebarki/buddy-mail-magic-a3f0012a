@@ -461,9 +461,9 @@ return JSON.stringify({log:L});
 
 function buildSelectPrimaryScript(court: string): string {
   const esc = (v?: string) => (v ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-  // Extract a short search keyword from court name (e.g. "الرماني" → "رم")
-  const shortName = court.replace(/^المحكمة\s+/g, '').replace(/^الابتدائية\s+/g, '').replace(/^ب/g, '').replace(/^بال/g, '').trim();
-  const searchKey = shortName.length > 3 ? shortName.substring(0, 4) : shortName.substring(0, 3);
+  // Extract city name for filter (e.g. "المحكمة الابتدائية بالرماني" → "رماني")
+  const shortName = court.replace(/المحكمة\s*/g, '').replace(/الابتدائية\s*/g, '').replace(/الإبتدائية\s*/g, '').replace(/التجارية\s*/g, '').replace(/الإدارية\s*/g, '').replace(/الاستئناف\s*/g, '').replace(/^بال/g, '').replace(/^ب/g, '').trim();
+  const searchKey = shortName.length > 2 ? shortName.substring(0, Math.min(shortName.length, 6)) : court.substring(court.length - 6);
   return `(function(){
 var L=window.__mahakimLog||[];
 try{
