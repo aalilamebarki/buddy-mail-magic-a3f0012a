@@ -303,60 +303,47 @@ function discoverAPIEndpoints(html, logs) {
   var endpoints = [];
   var base = 'https://www.mahakim.ma';
   
-  // البحث عن URLs في الكود المصدري
-  var patterns = [
-    /['"]\/api\/([^'"]+)['"]/g,
-    /['"]\/suivi\/([^'"]+)['"]/g,
-    /['"]\/dossier\/([^'"]+)['"]/g,
-    /environment\.\w+\s*\+\s*['"]([^'"]+)['"]/g,
-    /apiUrl['"]\s*:\s*['"]([^'"]+)['"]/g,
+  // البحث عن مسارات API بسيطة في HTML
+  var knownPaths = [
+    '/api/suivi/dossier',
+    '/api/suivi/search',
+    '/api/dossier/search',
+    '/api/affaire/search',
+    '/api/v1/suivi/dossier',
   ];
   
-  for (var p = 0; p < patterns.length; p++) {
-    var match;
-    while ((match = patterns[p].exec(html)) !== null) {
-      var path = match[1] || match[0];
-      if (path.indexOf('.js') >= 0 || path.indexOf('.css') >= 0) continue;
-      var fullUrl = path.indexOf('http') === 0 ? path : base + '/' + path.replace(/^\//, '');
-      if (endpoints.indexOf(fullUrl) < 0) {
-        endpoints.push(fullUrl);
-      }
+  for (var i = 0; i < knownPaths.length; i++) {
+    if (html.indexOf(knownPaths[i]) >= 0) {
+      endpoints.push(base + knownPaths[i]);
+      logs.push('Found endpoint in HTML: ' + knownPaths[i]);
     }
   }
   
   // محاولة جلب ملفات JS الرئيسية لاكتشاف API
-  var jsPatterns = html.match(/src="(main[^"]*\.js)"/g) || [];
-  for (var j = 0; j < Math.min(jsPatterns.length, 2); j++) {
+  var mainJsMatch = html.match(/src="(main[^"]*\.js)"/);
+  if (mainJsMatch) {
     try {
-      var jsUrl = jsPatterns[j].replace('src="', '').replace('"', '');
-      if (jsUrl.indexOf('http') !== 0) jsUrl = base + '/' + jsUrl.replace(/^\//, '');
+      var jsUrl = mainJsMatch[1];
+      if (jsUrl.indexOf('http') !== 0) {
+        jsUrl = base + '/' + jsUrl.replace(/^\//, '');
+      }
       
       logs.push('Fetching JS bundle: ' + jsUrl.substring(jsUrl.lastIndexOf('/') + 1));
       var jsResp = UrlFetchApp.fetch(jsUrl, { muteHttpExceptions: true });
       
       if (jsResp.getResponseCode() === 200) {
         var jsCode = jsResp.getContentText();
-        logs.push('  → JS size: ' + jsCode.length);
+        logs.push('JS size: ' + jsCode.length);
         
-        // البحث عن API URLs في الكود
-        var apiMatches = jsCode.match(/['"]\/api\/[^'"]{3,50}['"]/g) || [];
-        var envMatches = jsCode.match(/apiUrl['"]\s*:\s*['"][^'"]+['"]/g) || [];
-        var httpMatches = jsCode.match(/https?:\/\/[^'"}\s]{10,80}\/api\/[^'"}\s]+/g) || [];
-        
-        for (var a = 0; a < apiMatches.length; a++) {
-          var ep = apiMatches[a].replace(/['"]/g, '');
-          var full = base + ep;
-          if (endpoints.indexOf(full) < 0) endpoints.push(full);
+        for (var k = 0; k < knownPaths.length; k++) {
+          if (jsCode.indexOf(knownPaths[k]) >= 0 && endpoints.indexOf(base + knownPaths[k]) < 0) {
+            endpoints.push(base + knownPaths[k]);
+            logs.push('Found endpoint in JS: ' + knownPaths[k]);
+          }
         }
-        
-        for (var h = 0; h < httpMatches.length; h++) {
-          if (endpoints.indexOf(httpMatches[h]) < 0) endpoints.push(httpMatches[h]);
-        }
-        
-        logs.push('  → Found ' + (apiMatches.length + httpMatches.length) + ' API references');
       }
     } catch (err) {
-      logs.push('  → JS fetch error: ' + (err.message || '').substring(0, 50));
+      logs.push('JS fetch error: ' + (err.message || '').substring(0, 50));
     }
   }
   
