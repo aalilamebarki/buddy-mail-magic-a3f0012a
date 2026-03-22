@@ -2082,7 +2082,7 @@ async function fetchViaGAS(
         appealCourt: appealCourt || '',
         primaryCourt: firstInstanceCourt || '',
       }),
-      signal: AbortSignal.timeout(20000),
+      signal: AbortSignal.timeout(60000),
     });
 
     const elapsed = Date.now() - start;
@@ -2096,25 +2096,17 @@ async function fetchViaGAS(
     const data = await resp.json();
     log(`🌐 [GAS] Response (${elapsed}ms): status=${data.status} source=${data.source || 'N/A'}`);
 
-    const gasLogText = Array.isArray(data.logs) ? data.logs.join(' | ') : '';
-    const gasSignalText = `${data.reason || ''} ${data.error || ''} ${gasLogText}`.toLowerCase();
-    const indicatesUnsupportedApi = [
-      'open_api_unavailable',
-      'angular spa',
-      'rest api',
-      'trying api:',
-      '/api/suivi',
-      'discovered endpoint',
-      'does not expose a stable public',
-    ].some((signal) => gasSignalText.includes(signal));
-
     if (data.logs) {
       for (const l of data.logs) log(`  [GAS-LOG] ${l}`);
     }
 
-    if (data.status === 'unsupported' || indicatesUnsupportedApi) {
-      log('⚠ [GAS] Proxy reported unsupported direct API access — falling back to next provider');
-      return null;
+    // لا نتجاهل نتائج GAS — نعالجها كما هي بدون fallback
+    if (data.status === 'error') {
+      log(`✗ [GAS] Error: ${data.error || 'unknown'}`);
+      return {
+        ...input, status: 'error', caseInfo: {}, procedures: [], nextSessionDate: null,
+        error: `[GAS] ${data.error || 'خطأ غير معروف'}`,
+      };
     }
 
     if (data.status === 'success' && (data.caseInfo || data.procedures)) {
@@ -2150,29 +2142,19 @@ async function fetchViaGAS(
     }
 
     if (data.status === 'no_data') {
-      log(`🌐 [GAS] No data found`);
-      
-      // Check if GAS can even access the portal
-      if (data.accessCheck) {
-        const ac = data.accessCheck;
-        if (ac.blocked) {
-          log(`⚠ [GAS] Portal is blocking Google Apps Script IPs`);
-          return null;
-        }
-        if (!ac.accessible) {
-          log(`⚠ [GAS] Portal not accessible from GAS`);
-          return null; // fallback to other providers
-        }
-      }
-
+      log(`🌐 [GAS] No data found — returning as-is (no fallback)`);
       return {
         ...input, status: 'no_data', caseInfo: {}, procedures: [], nextSessionDate: null,
-        error: data.error || 'لم يتم العثور على بيانات عبر GAS',
+        error: data.error || 'لم يتم العثور على بيانات عبر GAS — ' + (data.reason || ''),
       };
     }
 
-    log(`✗ [GAS] Unexpected status: ${data.status}`);
-    return null;
+    // أي حالة أخرى — نعاملها كخطأ بدون fallback
+    log(`⚠ [GAS] Status: ${data.status} — reason: ${data.reason || 'N/A'}`);
+    return {
+      ...input, status: 'error', caseInfo: {}, procedures: [], nextSessionDate: null,
+      error: `[GAS] ${data.error || data.status || 'حالة غير متوقعة'} — السبب: ${data.reason || 'غير محدد'}`,
+    };
 
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown';
@@ -2251,10 +2233,6 @@ Deno.serve(async (req) => {
             return { ...result, usedProvider: p.name };
           }
           if (result && result.status === 'no_data') {
-            if (p.name === 'gas') {
-              log('⚠ gas returned no_data — not authoritative, continuing fallback chain');
-              continue;
-            }
             return { ...result, usedProvider: p.name };
           }
           log(`✗ ${p.name} returned ${result?.status || 'null'} — trying next provider`);
