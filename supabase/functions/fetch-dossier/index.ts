@@ -540,8 +540,9 @@ try{
 }catch(e){L.push('pc-sel-err:'+e.message)}
 return JSON.stringify({log:L,selected:true});
 })()`;
+}
 
-/**
+
  * سكريبت الضغط على زر البحث
  */
 function buildSearchClickScript(): string {
