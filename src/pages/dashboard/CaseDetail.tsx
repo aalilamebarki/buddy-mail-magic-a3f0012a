@@ -314,8 +314,8 @@ const CaseDetail = () => {
                   className="w-full gap-1.5"
                   onClick={() => setBrowserFetchOpen(true)}
                 >
-                  <Globe className="h-3.5 w-3.5" />
-                  جلب من المتصفح
+                  <ClipboardPaste className="h-3.5 w-3.5" />
+                  نسخ ولصق من محاكم
                 </Button>
               </div>
             )}
