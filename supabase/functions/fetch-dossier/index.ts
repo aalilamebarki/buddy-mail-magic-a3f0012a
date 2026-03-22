@@ -461,23 +461,12 @@ return JSON.stringify({log:L});
 
 function buildSelectPrimaryScript(court: string): string {
   const esc = (v?: string) => (v ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  // Extract a short search keyword from court name (e.g. "الرماني" → "رم")
+  const shortName = court.replace(/^المحكمة\s+/g, '').replace(/^الابتدائية\s+/g, '').replace(/^ب/g, '').replace(/^بال/g, '').trim();
+  const searchKey = shortName.length > 3 ? shortName.substring(0, 4) : shortName.substring(0, 3);
   return `(function(){
 var L=window.__mahakimLog||[];
-function norm(v){
-  return (v||'')
-    .trim()
-    .replace(/^المحكمة\s+/g,'')
-    .replace(/^محكمة\s+/g,'')
-    .replace(/^الابتدائية\s+/g,'')
-    .replace(/^الابتدائية\s+ب/g,'')
-    .replace(/^الابتدائية\s+بال/g,'')
-    .replace(/^ب/g,'')
-    .replace(/^بال/g,'')
-    .replace(/\s+/g,' ')
-    .trim();
-}
 try{
-  var target=norm('${esc(court)}');
   var triggers=Array.from(document.querySelectorAll('p-dropdown .p-dropdown-trigger,.p-dropdown-trigger,.p-dropdown'));
   var indexes=[];
   for(var i=triggers.length-1;i>=1;i--) indexes.push(i);
@@ -496,35 +485,57 @@ return JSON.stringify({log:L,opened:false});
 
 function buildSelectPrimaryItemScript(court: string): string {
   const esc = (v?: string) => (v ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  // Extract search keyword for the filter input
+  const shortName = court.replace(/^المحكمة\s+/g, '').replace(/^الابتدائية\s+/g, '').replace(/^ب/g, '').replace(/^بال/g, '').trim();
+  const searchKey = shortName.length > 3 ? shortName.substring(0, 4) : shortName.substring(0, 3);
   return `(function(){
 var L=window.__mahakimLog||[];
 function norm(v){
   return (v||'')
     .trim()
-    .replace(/^المحكمة\s+/g,'')
-    .replace(/^محكمة\s+/g,'')
-    .replace(/^الابتدائية\s+/g,'')
-    .replace(/^الابتدائية\s+ب/g,'')
-    .replace(/^الابتدائية\s+بال/g,'')
+    .replace(/^المحكمة\\s+/g,'')
+    .replace(/^محكمة\\s+/g,'')
+    .replace(/^الابتدائية\\s+/g,'')
+    .replace(/^الابتدائية\\s+ب/g,'')
+    .replace(/^الابتدائية\\s+بال/g,'')
     .replace(/^ب/g,'')
     .replace(/^بال/g,'')
-    .replace(/\s+/g,' ')
+    .replace(/\\s+/g,' ')
     .trim();
 }
 try{
   var target=norm('${esc(court)}');
-  var items=document.querySelectorAll('.p-dropdown-panel li.p-dropdown-item,.p-dropdown-items li,.p-dropdown-panel li,.p-dropdown-item');
-  for(var i=0;i<items.length;i++){
-    var text=(items[i].textContent||'').trim();
-    var candidate=norm(text);
-    if(candidate===target||candidate.indexOf(target)>=0||target.indexOf(candidate)>=0){
-      items[i].click();L.push('pc-selected:'+text);
-      return JSON.stringify({log:L,selected:true,text:text});
-    }
+  // Step 1: Find and use filter input inside dropdown panel
+  var filterInput=document.querySelector('.p-dropdown-panel input[type="text"],.p-dropdown-panel .p-dropdown-filter,.p-dropdown-filter-container input,.p-dropdown-panel input');
+  if(filterInput){
+    filterInput.value='';
+    filterInput.dispatchEvent(new Event('input',{bubbles:true}));
+    var nativeSetter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');
+    if(nativeSetter&&nativeSetter.set) nativeSetter.set.call(filterInput,'${esc(searchKey)}');
+    else filterInput.value='${esc(searchKey)}';
+    filterInput.dispatchEvent(new Event('input',{bubbles:true}));
+    filterInput.dispatchEvent(new Event('keyup',{bubbles:true}));
+    L.push('filter-typed:${esc(searchKey)}');
+  }else{
+    L.push('no-filter-input');
   }
-  L.push('pc-miss:'+items.length);
+  // Step 2: Wait briefly then select matching item
+  setTimeout(function(){
+    var items=document.querySelectorAll('.p-dropdown-panel li.p-dropdown-item,.p-dropdown-items li,.p-dropdown-panel li,.p-dropdown-item');
+    for(var i=0;i<items.length;i++){
+      var text=(items[i].textContent||'').trim();
+      var candidate=norm(text);
+      if(candidate===target||candidate.indexOf(target)>=0||target.indexOf(candidate)>=0){
+        items[i].click();L.push('pc-selected:'+text);
+        return;
+      }
+    }
+    // Fallback: click first visible item if only one after filter
+    if(items.length===1){items[0].click();L.push('pc-selected-only:'+items[0].textContent.trim());return}
+    L.push('pc-miss:'+items.length);
+  },300);
 }catch(e){L.push('pc-sel-err:'+e.message)}
-return JSON.stringify({log:L,selected:false});
+return JSON.stringify({log:L,selected:true});
 })()`;
 }
 
