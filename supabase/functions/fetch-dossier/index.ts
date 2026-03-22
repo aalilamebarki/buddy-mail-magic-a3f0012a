@@ -1499,8 +1499,26 @@ ${pc ? `
           await triggers[idx].click();
           await rndDelay(1200, 2200);
           try {
-            await page.waitForSelector('.p-dropdown-panel li, .p-dropdown-items li, .p-dropdown-item', { timeout: 3000 });
+            await page.waitForSelector('.p-dropdown-panel li, .p-dropdown-items li, .p-dropdown-item, .p-dropdown-panel input', { timeout: 3000 });
           } catch(e) {}
+
+          // Type into the filter input to narrow down results
+          var filterResult = await page.evaluate(function(searchKey) {
+            var filterInput = document.querySelector('.p-dropdown-panel input[type="text"], .p-dropdown-panel .p-dropdown-filter, .p-dropdown-filter-container input, .p-dropdown-panel input');
+            if (filterInput) {
+              filterInput.value = '';
+              filterInput.dispatchEvent(new Event('input', { bubbles: true }));
+              var nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+              if (nativeSetter && nativeSetter.set) nativeSetter.set.call(filterInput, searchKey);
+              else filterInput.value = searchKey;
+              filterInput.dispatchEvent(new Event('input', { bubbles: true }));
+              filterInput.dispatchEvent(new Event('keyup', { bubbles: true }));
+              return { filtered: true, searchKey: searchKey };
+            }
+            return { filtered: false };
+          }, courtName.substring(0, 4));
+          log.info("Filter result: " + JSON.stringify(filterResult));
+          await rndDelay(800, 1500);
 
           var probe = await page.evaluate(function(cn) {
             function norm(v) {
