@@ -1599,7 +1599,38 @@ ${pc ? `
     }, "${pcEsc}", "${acEsc}");
     log.info("Selection verify: " + JSON.stringify(verifySelection));
     if (!verifySelection.primaryMatched) {
-      log.warning("Primary court not confirmed in dropdown — proceeding with appeal court search (case number is unique within jurisdiction)");
+      log.warning("Primary court not confirmed — retrying checkbox + dropdown once more...");
+      // إعادة المحاولة: تفعيل الخانة مجدداً ثم اختيار المحكمة
+      await rndDelay(1000, 2000);
+      await page.evaluate(function() {
+        var labels = Array.from(document.querySelectorAll('label, span, div')).slice(0, 500);
+        for (var i = 0; i < labels.length; i++) {
+          var t = (labels[i].textContent || '').trim();
+          if (t.indexOf('الابتدائية') >= 0 || t.indexOf('الإبتدائية') >= 0 || t.indexOf('البحث بالمحاكم') >= 0) {
+            var box = labels[i].closest('.p-field-checkbox, div') || labels[i].parentElement;
+            var cb = (box && box.querySelector('.p-checkbox-box, input[type="checkbox"]')) || labels[i];
+            if (cb) { cb.click(); break; }
+          }
+        }
+      });
+      await rndDelay(2500, 4000);
+      // إعادة فتح قائمة المحكمة الابتدائية
+      var retryIdx = await openPrimaryDropdown("${pcEsc}");
+      if (retryIdx >= 0) {
+        await page.evaluate(function(cn) {
+          function norm(v) { return (v||'').trim().replace(/^المحكمة\s+/g,'').replace(/^محكمة\s+/g,'').replace(/^الابتدائية\s+/g,'').replace(/^الابتدائية\s+ب/g,'').replace(/^الابتدائية\s+بال/g,'').replace(/^ب/g,'').replace(/^بال/g,'').replace(/\s+/g,' ').trim(); }
+          var target = norm(cn);
+          var items = Array.from(document.querySelectorAll('.p-dropdown-panel li, .p-dropdown-items li, .p-dropdown-item'));
+          for (var i = 0; i < items.length; i++) {
+            var candidate = norm((items[i].textContent || '').trim());
+            if (candidate === target || candidate.indexOf(target) >= 0 || target.indexOf(candidate) >= 0) {
+              items[i].click(); break;
+            }
+          }
+        }, "${pcEsc}");
+        await rndDelay(1500, 2500);
+        log.info("Retry primary court selection completed");
+      }
     }
   } catch(e) { log.warning("PC error: " + e.message); }
 ` : ''}
