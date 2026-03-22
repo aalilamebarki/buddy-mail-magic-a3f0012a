@@ -919,7 +919,9 @@ function selectDD(idx,target,cb){
       // Try to use filter input inside dropdown panel
       var filterInput=document.querySelector('.p-dropdown-panel input[type="text"],.p-dropdown-panel .p-dropdown-filter,.p-dropdown-filter-container input,.p-dropdown-panel input');
       if(filterInput&&idx>0){
-        var searchKey=target.substring(0,4);
+        var searchKey=target.replace(/المحكمة\s*/g,'').replace(/الابتدائية\s*/g,'').replace(/الإبتدائية\s*/g,'').replace(/التجارية\s*/g,'').replace(/الإدارية\s*/g,'').replace(/الاستئناف\s*/g,'').replace(/^بال/g,'').replace(/^ب/g,'').trim();
+        if(!searchKey||searchKey.length<2)searchKey=target.substring(target.length-6);
+        searchKey=searchKey.substring(0,Math.min(searchKey.length,6));
         var ns=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');
         if(ns&&ns.set)ns.set.call(filterInput,searchKey);else filterInput.value=searchKey;
         filterInput.dispatchEvent(new Event('input',{bubbles:1}));
