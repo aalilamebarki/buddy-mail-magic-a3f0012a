@@ -841,6 +841,142 @@ function parseMarkdownResult(markdown: string): {
   };
 }
 
+/* ── Auto-extract parties from scraped data ── */
+async function autoExtractParties(
+  supabase: ReturnType<typeof createClient>,
+  caseId: string,
+  caseInfo: Record<string, string>,
+  allLabels?: Record<string, string>,
+): Promise<number> {
+  // Check if opponents already exist
+  const { data: existing } = await supabase
+    .from('case_opponents')
+    .select('id')
+    .eq('case_id', caseId)
+    .limit(1);
+
+  if (existing && existing.length > 0) return 0;
+
+  // Get client name to exclude from opponents
+  const { data: caseRow } = await supabase
+    .from('cases')
+    .select('client_id')
+    .eq('id', caseId)
+    .single();
+
+  let clientName = '';
+  if (caseRow?.client_id) {
+    const { data: client } = await supabase
+      .from('clients')
+      .select('full_name')
+      .eq('id', caseRow.client_id)
+      .single();
+    clientName = (client?.full_name || '').trim();
+  }
+
+  const clientWords = clientName.split(/\s+/).filter(w => w.length > 2);
+
+  function isClientMatch(name: string): boolean {
+    if (!clientName) return false;
+    const n = name.trim();
+    if (n === clientName) return true;
+    if (clientName.includes(n) || n.includes(clientName)) return true;
+    // Check if most words match
+    const nameWords = n.split(/\s+/).filter(w => w.length > 2);
+    if (clientWords.length > 0 && nameWords.length > 0) {
+      const matched = nameWords.filter(w => clientWords.some(cw => cw === w || cw.includes(w) || w.includes(cw)));
+      if (matched.length >= Math.min(clientWords.length, nameWords.length) * 0.6) return true;
+    }
+    return false;
+  }
+
+  // Collect raw party strings
+  const rawParties: { name: string; type: string }[] = [];
+
+  // Known party labels from allLabels
+  const partyLabels: Record<string, string> = {
+    'المدعي': 'plaintiff',
+    'المدعى عليه': 'defendant',
+    'المدعى عليهم': 'defendant',
+    'الأطراف': 'parties',
+    'المستأنف': 'plaintiff',
+    'المستأنف عليه': 'defendant',
+    'المدخل في الدعوى': 'intervening',
+    'المدخلون في الدعوى': 'intervening',
+    'النيابة العامة': 'intervening',
+  };
+
+  // From caseInfo
+  if (caseInfo.plaintiff) rawParties.push({ name: caseInfo.plaintiff, type: 'plaintiff' });
+  if (caseInfo.defendant) rawParties.push({ name: caseInfo.defendant, type: 'defendant' });
+  if (caseInfo.parties) rawParties.push({ name: caseInfo.parties, type: 'parties' });
+
+  // From allLabels
+  if (allLabels) {
+    for (const [label, value] of Object.entries(allLabels)) {
+      for (const [arLabel, type] of Object.entries(partyLabels)) {
+        if (label.includes(arLabel) && value && value.length > 2) {
+          rawParties.push({ name: value, type });
+        }
+      }
+    }
+  }
+
+  if (rawParties.length === 0) return 0;
+
+  // Parse and deduplicate
+  const opponents: { name: string; party_type: string; sort_order: number }[] = [];
+  const seen = new Set<string>();
+
+  // Known institutional parties that are always "intervening"
+  const institutionalPatterns = [
+    'النيابة العامة', 'قاضي التوفيق', 'المحافظة على الأملاك العقارية',
+    'المحافظ على الأملاك العقارية', 'شركة التأمين', 'الوكيل القضائي',
+    'صندوق الإيداع والتدبير', 'الخازن العام', 'الدولة المغربية',
+  ];
+
+  function isInstitutional(name: string): boolean {
+    return institutionalPatterns.some(p => name.includes(p));
+  }
+
+  let sortOrder = 0;
+  for (const { name: rawName, type } of rawParties) {
+    // Split by common separators
+    const names = rawName.split(/[،,\n\r]+/).map(n => n.trim()).filter(n => n.length > 2);
+    
+    for (const name of names) {
+      const key = name.replace(/\s+/g, ' ').trim();
+      if (seen.has(key) || isClientMatch(key)) continue;
+      seen.add(key);
+
+      let partyType = 'opponent';
+      if (type === 'intervening' || isInstitutional(key)) {
+        partyType = 'intervening';
+      } else if (type === 'defendant') {
+        partyType = 'opponent';
+      } else if (type === 'plaintiff') {
+        // If plaintiff is not the client, they're still a party
+        partyType = 'plaintiff';
+      }
+
+      opponents.push({ name: key, party_type: partyType, sort_order: sortOrder++ });
+    }
+  }
+
+  if (opponents.length === 0) return 0;
+
+  const rows = opponents.map(o => ({
+    case_id: caseId,
+    name: o.name,
+    party_type: o.party_type,
+    sort_order: o.sort_order,
+  }));
+
+  await supabase.from('case_opponents').insert(rows);
+  log(`👥 Auto-extracted ${rows.length} parties for case ${caseId}`);
+  return rows.length;
+}
+
 
 /* ══════════════════════════════════════════════════════════════════
    ScrapingBee — Fallback scraper with Moroccan proxies
