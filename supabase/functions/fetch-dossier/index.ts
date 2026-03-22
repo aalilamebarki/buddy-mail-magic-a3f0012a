@@ -25,7 +25,7 @@ const corsHeaders = {
    • رسائل خطأ واضحة مع اقتراحات (402=رصيد، 429=حد الطلبات، إلخ)
    ══════════════════════════════════════════════════════════════════════ */
 
-type ScrapeProvider = 'firecrawl' | 'scrapingbee' | 'apify' | 'auto';
+type ScrapeProvider = 'firecrawl' | 'scrapingbee' | 'apify' | 'gas' | 'auto';
 
 /* ── Apify configuration ── */
 const APIFY_API_BASE = 'https://api.apify.com/v2';
