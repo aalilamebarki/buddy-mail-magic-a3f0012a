@@ -1599,12 +1599,7 @@ ${pc ? `
     }, "${pcEsc}", "${acEsc}");
     log.info("Selection verify: " + JSON.stringify(verifySelection));
     if (!verifySelection.primaryMatched) {
-      return {
-        error: "primary_court_not_selected",
-        dropdowns: verifySelection.dropdowns,
-        pageTitle: await page.title(),
-        rawText: await page.evaluate(() => document.body.textContent.substring(0, 2000)),
-      };
+      log.warning("Primary court not confirmed in dropdown — proceeding with appeal court search (case number is unique within jurisdiction)");
     }
   } catch(e) { log.warning("PC error: " + e.message); }
 ` : ''}

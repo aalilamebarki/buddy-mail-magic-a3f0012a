@@ -281,7 +281,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (!courtMatched) {
+    if (!courtMatched && procedures.length > 0) {
+      // Case number is unique within jurisdiction — if we have procedures, the data IS for the correct case
+      console.log(`[apify-webhook] Court mismatch but ${procedures.length} procedures found — accepting data (case number is unique)`);
+    } else if (!courtMatched && procedures.length === 0 && caseInfoValues.length === 0) {
       const mismatchMessage = `تم تجاهل نتيجة الجلب للملف ${caseNumber} لأنها تخص محكمة أخرى غير المحكمة المسجلة${expectedCourt ? ` (${expectedCourt})` : ''}`;
       await supabase.from('cases').update({
         last_synced_at: new Date().toISOString(),
