@@ -478,7 +478,7 @@ try{
 return JSON.stringify({log:L,opened:false});
 })()`;
 }
-
+function buildSelectPrimaryItemScript(court: string): string {
   const esc = (v?: string) => (v ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
   // Use the full court portal label for matching (e.g. "الرماني")
   const courtEsc = esc(court);
