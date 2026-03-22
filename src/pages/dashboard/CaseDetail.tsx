@@ -488,16 +488,6 @@ const CaseDetail = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {/* Paste Fetch Dialog */}
-      {caseData.case_number && (
-        <PasteFetchDialog
-          open={browserFetchOpen}
-          onOpenChange={setBrowserFetchOpen}
-          caseId={caseData.id}
-          caseNumber={caseData.case_number}
-          onSuccess={fetchData}
-        />
-      )}
     </div>
   );
 };
