@@ -461,23 +461,12 @@ return JSON.stringify({log:L});
 
 function buildSelectPrimaryScript(court: string): string {
   const esc = (v?: string) => (v ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  // Extract a short search keyword from court name (e.g. "الرماني" → "رم")
+  const shortName = court.replace(/^المحكمة\s+/g, '').replace(/^الابتدائية\s+/g, '').replace(/^ب/g, '').replace(/^بال/g, '').trim();
+  const searchKey = shortName.length > 3 ? shortName.substring(0, 4) : shortName.substring(0, 3);
   return `(function(){
 var L=window.__mahakimLog||[];
-function norm(v){
-  return (v||'')
-    .trim()
-    .replace(/^المحكمة\s+/g,'')
-    .replace(/^محكمة\s+/g,'')
-    .replace(/^الابتدائية\s+/g,'')
-    .replace(/^الابتدائية\s+ب/g,'')
-    .replace(/^الابتدائية\s+بال/g,'')
-    .replace(/^ب/g,'')
-    .replace(/^بال/g,'')
-    .replace(/\s+/g,' ')
-    .trim();
-}
 try{
-  var target=norm('${esc(court)}');
   var triggers=Array.from(document.querySelectorAll('p-dropdown .p-dropdown-trigger,.p-dropdown-trigger,.p-dropdown'));
   var indexes=[];
   for(var i=triggers.length-1;i>=1;i--) indexes.push(i);
@@ -496,35 +485,57 @@ return JSON.stringify({log:L,opened:false});
 
 function buildSelectPrimaryItemScript(court: string): string {
   const esc = (v?: string) => (v ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  // Extract search keyword for the filter input
+  const shortName = court.replace(/^المحكمة\s+/g, '').replace(/^الابتدائية\s+/g, '').replace(/^ب/g, '').replace(/^بال/g, '').trim();
+  const searchKey = shortName.length > 3 ? shortName.substring(0, 4) : shortName.substring(0, 3);
   return `(function(){
 var L=window.__mahakimLog||[];
 function norm(v){
   return (v||'')
     .trim()
-    .replace(/^المحكمة\s+/g,'')
-    .replace(/^محكمة\s+/g,'')
-    .replace(/^الابتدائية\s+/g,'')
-    .replace(/^الابتدائية\s+ب/g,'')
-    .replace(/^الابتدائية\s+بال/g,'')
+    .replace(/^المحكمة\\s+/g,'')
+    .replace(/^محكمة\\s+/g,'')
+    .replace(/^الابتدائية\\s+/g,'')
+    .replace(/^الابتدائية\\s+ب/g,'')
+    .replace(/^الابتدائية\\s+بال/g,'')
     .replace(/^ب/g,'')
     .replace(/^بال/g,'')
-    .replace(/\s+/g,' ')
+    .replace(/\\s+/g,' ')
     .trim();
 }
 try{
   var target=norm('${esc(court)}');
-  var items=document.querySelectorAll('.p-dropdown-panel li.p-dropdown-item,.p-dropdown-items li,.p-dropdown-panel li,.p-dropdown-item');
-  for(var i=0;i<items.length;i++){
-    var text=(items[i].textContent||'').trim();
-    var candidate=norm(text);
-    if(candidate===target||candidate.indexOf(target)>=0||target.indexOf(candidate)>=0){
-      items[i].click();L.push('pc-selected:'+text);
-      return JSON.stringify({log:L,selected:true,text:text});
-    }
+  // Step 1: Find and use filter input inside dropdown panel
+  var filterInput=document.querySelector('.p-dropdown-panel input[type="text"],.p-dropdown-panel .p-dropdown-filter,.p-dropdown-filter-container input,.p-dropdown-panel input');
+  if(filterInput){
+    filterInput.value='';
+    filterInput.dispatchEvent(new Event('input',{bubbles:true}));
+    var nativeSetter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');
+    if(nativeSetter&&nativeSetter.set) nativeSetter.set.call(filterInput,'${esc(searchKey)}');
+    else filterInput.value='${esc(searchKey)}';
+    filterInput.dispatchEvent(new Event('input',{bubbles:true}));
+    filterInput.dispatchEvent(new Event('keyup',{bubbles:true}));
+    L.push('filter-typed:${esc(searchKey)}');
+  }else{
+    L.push('no-filter-input');
   }
-  L.push('pc-miss:'+items.length);
+  // Step 2: Wait briefly then select matching item
+  setTimeout(function(){
+    var items=document.querySelectorAll('.p-dropdown-panel li.p-dropdown-item,.p-dropdown-items li,.p-dropdown-panel li,.p-dropdown-item');
+    for(var i=0;i<items.length;i++){
+      var text=(items[i].textContent||'').trim();
+      var candidate=norm(text);
+      if(candidate===target||candidate.indexOf(target)>=0||target.indexOf(candidate)>=0){
+        items[i].click();L.push('pc-selected:'+text);
+        return;
+      }
+    }
+    // Fallback: click first visible item if only one after filter
+    if(items.length===1){items[0].click();L.push('pc-selected-only:'+items[0].textContent.trim());return}
+    L.push('pc-miss:'+items.length);
+  },300);
 }catch(e){L.push('pc-sel-err:'+e.message)}
-return JSON.stringify({log:L,selected:false});
+return JSON.stringify({log:L,selected:true});
 })()`;
 }
 
@@ -905,13 +916,27 @@ function selectDD(idx,target,cb){
     if(dds.length<=idx){if(++a<40){setTimeout(poll,400);return}window.__L.push('dd'+idx+'-timeout:found='+dds.length);cb();return}
     dds[idx].click();
     setTimeout(function(){
-      var panel=document.querySelector('.p-dropdown-panel');
-      var li=panel?panel.querySelectorAll('li.p-dropdown-item,.p-dropdown-items li'):document.querySelectorAll('li.p-dropdown-item');
-      if(li.length<2&&a<40){a++;setTimeout(poll,400);return}
-      var f=[];
-      for(var i=0;i<li.length;i++){var x=li[i].textContent.trim();f.push(x);if(x.indexOf(target)>=0){li[i].click();window.__L.push('dd'+idx+'-ok:'+x);setTimeout(cb,600);return}}
-      window.__L.push('dd'+idx+'-miss:'+li.length+':'+f.slice(0,5).join(','));
-      cb();
+      // Try to use filter input inside dropdown panel
+      var filterInput=document.querySelector('.p-dropdown-panel input[type="text"],.p-dropdown-panel .p-dropdown-filter,.p-dropdown-filter-container input,.p-dropdown-panel input');
+      if(filterInput&&idx>0){
+        var searchKey=target.substring(0,4);
+        var ns=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');
+        if(ns&&ns.set)ns.set.call(filterInput,searchKey);else filterInput.value=searchKey;
+        filterInput.dispatchEvent(new Event('input',{bubbles:1}));
+        filterInput.dispatchEvent(new Event('keyup',{bubbles:1}));
+        window.__L.push('dd'+idx+'-filter:'+searchKey);
+      }
+      setTimeout(function(){
+        var panel=document.querySelector('.p-dropdown-panel');
+        var li=panel?panel.querySelectorAll('li.p-dropdown-item,.p-dropdown-items li'):document.querySelectorAll('li.p-dropdown-item');
+        if(li.length<1&&a<40){a++;setTimeout(poll,400);return}
+        var f=[];
+        for(var i=0;i<li.length;i++){var x=li[i].textContent.trim();f.push(x);if(x.indexOf(target)>=0){li[i].click();window.__L.push('dd'+idx+'-ok:'+x);setTimeout(cb,600);return}}
+        // Fallback: if only one item after filter, click it
+        if(li.length===1){li[0].click();window.__L.push('dd'+idx+'-only:'+li[0].textContent.trim());setTimeout(cb,600);return}
+        window.__L.push('dd'+idx+'-miss:'+li.length+':'+f.slice(0,5).join(','));
+        cb();
+      },500);
     },600);
   }
   poll();
@@ -1488,8 +1513,26 @@ ${pc ? `
           await triggers[idx].click();
           await rndDelay(1200, 2200);
           try {
-            await page.waitForSelector('.p-dropdown-panel li, .p-dropdown-items li, .p-dropdown-item', { timeout: 3000 });
+            await page.waitForSelector('.p-dropdown-panel li, .p-dropdown-items li, .p-dropdown-item, .p-dropdown-panel input', { timeout: 3000 });
           } catch(e) {}
+
+          // Type into the filter input to narrow down results
+          var filterResult = await page.evaluate(function(searchKey) {
+            var filterInput = document.querySelector('.p-dropdown-panel input[type="text"], .p-dropdown-panel .p-dropdown-filter, .p-dropdown-filter-container input, .p-dropdown-panel input');
+            if (filterInput) {
+              filterInput.value = '';
+              filterInput.dispatchEvent(new Event('input', { bubbles: true }));
+              var nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+              if (nativeSetter && nativeSetter.set) nativeSetter.set.call(filterInput, searchKey);
+              else filterInput.value = searchKey;
+              filterInput.dispatchEvent(new Event('input', { bubbles: true }));
+              filterInput.dispatchEvent(new Event('keyup', { bubbles: true }));
+              return { filtered: true, searchKey: searchKey };
+            }
+            return { filtered: false };
+          }, courtName.substring(0, 4));
+          log.info("Filter result: " + JSON.stringify(filterResult));
+          await rndDelay(800, 1500);
 
           var probe = await page.evaluate(function(cn) {
             function norm(v) {
