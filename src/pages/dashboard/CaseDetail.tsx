@@ -499,9 +499,9 @@ const CaseDetail = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {/* Browser Fetch Dialog */}
+      {/* Paste Fetch Dialog */}
       {caseData.case_number && (
-        <BrowserFetchDialog
+        <PasteFetchDialog
           open={browserFetchOpen}
           onOpenChange={setBrowserFetchOpen}
           caseId={caseData.id}
