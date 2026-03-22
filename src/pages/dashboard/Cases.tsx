@@ -27,6 +27,7 @@ const Cases = () => {
 
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [editingCase, setEditingCase] = useState<any>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingCase, setDeletingCase] = useState<any>(null);
