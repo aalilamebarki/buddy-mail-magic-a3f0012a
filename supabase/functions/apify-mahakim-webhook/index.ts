@@ -281,34 +281,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (!courtMatched && procedures.length > 0) {
-      // Case number is unique within jurisdiction — if we have procedures, the data IS for the correct case
-      console.log(`[apify-webhook] Court mismatch but ${procedures.length} procedures found — accepting data (case number is unique)`);
-    } else if (!courtMatched && procedures.length === 0 && caseInfoValues.length === 0) {
-      const mismatchMessage = `تم تجاهل نتيجة الجلب للملف ${caseNumber} لأنها تخص محكمة أخرى غير المحكمة المسجلة${expectedCourt ? ` (${expectedCourt})` : ''}`;
-      await supabase.from('cases').update({
-        last_synced_at: new Date().toISOString(),
-        last_sync_result: lastSyncPayload,
-      }).eq('id', caseId);
-
-      await supabase.from('mahakim_sync_jobs').update({
-        status: 'failed',
-        error_message: mismatchMessage,
-        result_data: {
-          _provider: 'apify',
-          mismatch: true,
-          expected_court: expectedCourt,
-          detected_court: caseInfo.court || null,
-          full_data: { caseInfo, procedures, allLabels, dropdowns, tables },
-        },
-        completed_at: new Date().toISOString(),
-      }).eq('id', jobId);
-
-      await createNotification(supabase, userId, caseId, caseNumber, mismatchMessage);
-
-      return new Response(JSON.stringify({ status: 'mismatch', error: mismatchMessage }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    // نثق بالنتائج — رقم الملف فريد داخل الاختصاص القضائي
+    if (!courtMatched) {
+      console.log(`[apify-webhook] Court name differs: expected="${expectedCourt}" actual="${caseInfo.court || 'N/A'}" — accepting results (case number is unique within jurisdiction)`);
     }
 
     const caseUpdate: Record<string, unknown> = {
