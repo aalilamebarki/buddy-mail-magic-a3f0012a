@@ -12,8 +12,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowRight, FileText, User, Scale, MapPin, ClipboardList, CalendarDays, Plus, Pencil, Trash2, Check, X, Globe } from 'lucide-react';
-import { BrowserFetchDialog } from '@/components/cases/BrowserFetchDialog';
+import { ArrowRight, FileText, User, Scale, MapPin, ClipboardList, CalendarDays, Plus, Pencil, Trash2, Check, X, ClipboardPaste } from 'lucide-react';
+import { PasteFetchDialog } from '@/components/cases/PasteFetchDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -314,8 +314,8 @@ const CaseDetail = () => {
                   className="w-full gap-1.5"
                   onClick={() => setBrowserFetchOpen(true)}
                 >
-                  <Globe className="h-3.5 w-3.5" />
-                  جلب من المتصفح
+                  <ClipboardPaste className="h-3.5 w-3.5" />
+                  نسخ ولصق من محاكم
                 </Button>
               </div>
             )}
@@ -499,9 +499,9 @@ const CaseDetail = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {/* Browser Fetch Dialog */}
+      {/* Paste Fetch Dialog */}
       {caseData.case_number && (
-        <BrowserFetchDialog
+        <PasteFetchDialog
           open={browserFetchOpen}
           onOpenChange={setBrowserFetchOpen}
           caseId={caseData.id}
