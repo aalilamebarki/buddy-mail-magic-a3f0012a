@@ -212,35 +212,82 @@ function getCategoryFromCode(code: string): CourtCategory {
   return 'civil';
 }
 
+function normalizeCourtName(courtName: string | null): string {
+  return (courtName || '')
+    .trim()
+    .replace(/^المحكمة\s+/g, '')
+    .replace(/^محكمة\s+/g, '')
+    .replace(/^الابتدائية\s+/g, '')
+    .replace(/^الابتدائية\s+ب/g, '')
+    .replace(/^الابتدائية\s+بال/g, '')
+    .replace(/^الاستئناف\s+/g, '')
+    .replace(/^الاستئناف\s+ب/g, '')
+    .replace(/^الاستئناف\s+بال/g, '')
+    .replace(/^قسم\s+قضاء\s+الأسرة\s+ب/g, 'قسم قضاء الأسرة ')
+    .replace(/^قسم\s+قضاء\s+الأسرة\s+بال/g, 'قسم قضاء الأسرة ')
+    .replace(/^ب/g, '')
+    .replace(/^بال/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function resolveCourtFromName(courtName: string | null, code: string): { appeal: string | null; primary: string | null } {
   if (!courtName) return { appeal: null, primary: null };
-  
+
   const category = getCategoryFromCode(code);
   const hierarchy = category === 'commercial' ? COMMERCIAL_COURTS
     : category === 'administrative' ? ADMIN_COURTS
     : CIVIL_COURTS;
-  
-  const normalized = courtName.trim();
-  
+
+  const normalized = normalizeCourtName(courtName);
+
   for (const ac of hierarchy) {
+    const normalizedAppeal = normalizeCourtName(ac.appealPortal);
     for (const pc of ac.primaries) {
-      if (normalized.includes(pc.name) || pc.name.includes(normalized.replace(/المحكمة الابتدائية ب/g, '').replace(/محكمة الاستئناف /g, ''))) {
+      const normalizedPrimary = normalizeCourtName(pc.name);
+      const normalizedPortalPrimary = normalizeCourtName(pc.portal);
+      if (
+        normalized === normalizedPrimary
+        || normalized === normalizedPortalPrimary
+        || normalized.includes(normalizedPrimary)
+        || normalizedPrimary.includes(normalized)
+      ) {
         return { appeal: ac.appealPortal, primary: pc.portal };
       }
     }
-    // Check if the court name matches the appeal court itself
-    if (normalized.includes(ac.appealPortal) || normalized.includes('الاستئناف')) {
-      const cityMatch = normalized.match(/ب([^\s]+)/);
-      if (cityMatch && ac.appealPortal.includes(cityMatch[1])) {
-        return { appeal: ac.appealPortal, primary: null };
-      }
-      if (normalized.includes(ac.appealPortal)) {
-        return { appeal: ac.appealPortal, primary: null };
-      }
+
+    if (
+      normalized.includes('استئناف')
+      || normalized === normalizedAppeal
+      || normalized.includes(normalizedAppeal)
+    ) {
+      return { appeal: ac.appealPortal, primary: null };
     }
   }
-  
+
   return { appeal: null, primary: null };
+}
+
+function doesResultMatchExpectedCourt(
+  expectedCourt: string | null | undefined,
+  actualCourt: string | null | undefined,
+  fallbackTexts: Array<string | null | undefined> = [],
+): boolean {
+  if (!expectedCourt) return true;
+  const expected = normalizeCourtName(expectedCourt);
+  if (!expected) return true;
+
+  const candidates = [actualCourt, ...fallbackTexts]
+    .filter((value): value is string => Boolean(value && value.trim()))
+    .map((value) => normalizeCourtName(value));
+
+  if (candidates.length === 0) return true;
+
+  return candidates.some((candidate) =>
+    candidate === expected
+    || candidate.includes(expected)
+    || expected.includes(candidate)
+  );
 }
 
 /**
@@ -250,28 +297,35 @@ async function resolveCourtForCase(
   supabase: ReturnType<typeof createClient>,
   caseId: string,
   code: string,
-): Promise<{ appeal: string | null; primary: string | null }> {
+): Promise<{ appeal: string | null; primary: string | null; expectedCourt: string | null; courtLevel: string | null }> {
   const { data } = await supabase
     .from('cases')
     .select('court, court_level')
     .eq('id', caseId)
     .limit(1)
     .single();
-  
-  if (!data?.court) return { appeal: null, primary: null };
-  
+
+  if (!data?.court) return { appeal: null, primary: null, expectedCourt: null, courtLevel: data?.court_level || null };
+
   const resolved = resolveCourtFromName(data.court, code);
-  
-  // If the case is registered at the appeal court level,
-  // only search at appeal level — do NOT set primary court
+
   if (data.court_level === 'استئناف') {
-    log(`⚖ Court (appeal-level case): "${data.court}" → appeal="${resolved.appeal}", primary=null`);
-    return { appeal: resolved.appeal, primary: null };
+    log(`⚖ Appeal court retained as search target: "${data.court}" → appeal="${resolved.appeal}", expected="${data.court}"`);
+    return {
+      appeal: resolved.appeal,
+      primary: null,
+      expectedCourt: data.court,
+      courtLevel: data.court_level,
+    };
   }
-  
-  // For primary court cases, resolve both appeal + primary
-  log(`⚖ Court auto-resolved: "${data.court}" → appeal="${resolved.appeal}", primary="${resolved.primary}"`);
-  return resolved;
+
+  log(`⚖ Primary court retained as search target: "${data.court}" → appeal="${resolved.appeal}", primary="${resolved.primary}"`);
+  return {
+    appeal: resolved.appeal,
+    primary: resolved.primary,
+    expectedCourt: data.court,
+    courtLevel: data.court_level,
+  };
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -1780,7 +1834,12 @@ Deno.serve(async (req) => {
     const preferredProvider = (body.provider as ScrapeProvider) || 'auto';
 
     /** Smart dual-provider fetch with automatic fallback */
-    async function fetchCase(input: CaseInput, ac?: string, pc?: string): Promise<CaseResult & { usedProvider?: string }> {
+    async function fetchCase(
+      input: CaseInput,
+      ac?: string,
+      pc?: string,
+      expectedCourt?: string,
+    ): Promise<CaseResult & { usedProvider?: string }> {
       const providers: Array<{ name: string; fn: () => Promise<CaseResult | null> }> = [];
 
       if (preferredProvider === 'firecrawl' && FIRECRAWL_API_KEY) {
@@ -1790,7 +1849,6 @@ Deno.serve(async (req) => {
         providers.push({ name: 'scrapingbee', fn: () => fetchViaScrapingBee(SCRAPINGBEE_API_KEY!, input, ac, pc) });
         if (FIRECRAWL_API_KEY) providers.push({ name: 'firecrawl', fn: () => fetchViaFirecrawl(FIRECRAWL_API_KEY!, input, ac, pc) });
       } else {
-        // Auto mode: Firecrawl first (cheaper, no monthly cap), ScrapingBee fallback
         if (FIRECRAWL_API_KEY) providers.push({ name: 'firecrawl', fn: () => fetchViaFirecrawl(FIRECRAWL_API_KEY!, input, ac, pc) });
         if (SCRAPINGBEE_API_KEY) providers.push({ name: 'scrapingbee', fn: () => fetchViaScrapingBee(SCRAPINGBEE_API_KEY!, input, ac, pc) });
       }
@@ -1800,11 +1858,26 @@ Deno.serve(async (req) => {
         try {
           const result = await p.fn();
           if (result && result.status === 'success') {
+            const matchesExpectedCourt = doesResultMatchExpectedCourt(
+              expectedCourt,
+              result.caseInfo.court,
+              [result.caseInfo.section, result.caseInfo.department, result.caseInfo.subject],
+            );
+
+            if (!matchesExpectedCourt) {
+              log(`⛔ Ignored mismatched result from ${p.name}: expected="${expectedCourt}" actual="${result.caseInfo.court || ''}"`);
+              return {
+                ...result,
+                status: 'error',
+                usedProvider: p.name,
+                error: `تم العثور على نتيجة من محكمة أخرى غير المحكمة المسجلة (${expectedCourt}) وتم تجاهلها حفاظاً على صحة الملف`,
+              };
+            }
+
             log(`✓ ${p.name} succeeded`);
             return { ...result, usedProvider: p.name };
           }
           if (result && result.status === 'no_data') {
-            // no_data means case genuinely not found — don't try other provider
             return { ...result, usedProvider: p.name };
           }
           log(`✗ ${p.name} returned ${result?.status || 'null'} — trying next provider`);
@@ -1823,7 +1896,6 @@ Deno.serve(async (req) => {
     /** Create notification on persistent failure */
     async function notifyOnFailure(supabaseClient: ReturnType<typeof createClient>, jobUserId: string, jobCaseId: string, caseNumber: string, errorMsg: string) {
       try {
-        // Check if there's already a recent failure notification for this case
         const { data: existing } = await supabaseClient
           .from('notifications')
           .select('id')
@@ -1833,9 +1905,8 @@ Deno.serve(async (req) => {
           .ilike('message', '%فشل المزامنة%')
           .limit(1);
 
-        if (existing && existing.length > 0) return; // Don't spam
+        if (existing && existing.length > 0) return;
 
-        // We need a session_id — create a placeholder or find one
         const { data: session } = await supabaseClient
           .from('court_sessions')
           .select('id')
@@ -1863,7 +1934,6 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    // ── ACTION: processQueue — process pending jobs from DB ──
     if (action === 'processQueue') {
       const { data: pendingJobs } = await supabase
         .from('mahakim_sync_jobs')
@@ -1894,27 +1964,27 @@ Deno.serve(async (req) => {
           const payload = job.request_payload as Record<string, unknown> || {};
           let appealCourt = payload.appealCourt as string | undefined;
           let firstInstanceCourt = payload.firstInstanceCourt as string | undefined;
-          
-          // Auto-resolve courts from case record if not provided
-          if (!appealCourt) {
+          let expectedCourt = payload.expectedCourt as string | undefined;
+
+          if (!appealCourt || !expectedCourt) {
             const resolved = await resolveCourtForCase(supabase, job.case_id, input.code);
-            appealCourt = resolved.appeal || undefined;
+            appealCourt = appealCourt || resolved.appeal || undefined;
             firstInstanceCourt = firstInstanceCourt || resolved.primary || undefined;
+            expectedCourt = expectedCourt || resolved.expectedCourt || undefined;
           }
-          
-          const result = await fetchCase(input, appealCourt, firstInstanceCourt);
+
+          const result = await fetchCase(input, appealCourt, firstInstanceCourt, expectedCourt);
           await persistResults(supabase, job.case_id, job.user_id, result);
 
           const finalStatus = result.status === 'success' ? 'completed' : 'failed';
           await supabase.from('mahakim_sync_jobs').update({
             status: finalStatus,
-            result_data: { ...result.caseInfo, _provider: result.usedProvider },
+            result_data: { ...result.caseInfo, _provider: result.usedProvider, expected_court: expectedCourt || null },
             error_message: result.error || null,
             next_session_date: result.nextSessionDate,
             completed_at: new Date().toISOString(),
           }).eq('id', job.id);
 
-          // Notify on failure (only if retries exhausted)
           if (finalStatus === 'failed' && (job.retry_count || 0) >= 1) {
             await notifyOnFailure(supabase, job.user_id, job.case_id, job.case_number, result.error || 'خطأ غير معروف');
           }
@@ -1937,7 +2007,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── ACTION: submitSyncJob — triggered by DB trigger or orchestrator ──
     if (action === 'submitSyncJob') {
       const { jobId, caseId: jCaseId, caseNumber } = body;
       if (!jobId || !jCaseId || !caseNumber) {
@@ -1953,16 +2022,16 @@ Deno.serve(async (req) => {
       const parts = caseNumber.split('/');
       const input: CaseInput = { numero: parts[0] || '', code: parts[1] || '', annee: parts[2] || '' };
 
-      // Auto-resolve courts
       let appealCourt = body.appealCourt as string | undefined;
       let firstInstanceCourt = body.firstInstanceCourt as string | undefined;
-      if (!appealCourt) {
+      let expectedCourt = body.expectedCourt as string | undefined;
+      if (!appealCourt || !expectedCourt) {
         const resolved = await resolveCourtForCase(supabase, jCaseId, input.code);
-        appealCourt = resolved.appeal || undefined;
+        appealCourt = appealCourt || resolved.appeal || undefined;
         firstInstanceCourt = firstInstanceCourt || resolved.primary || undefined;
+        expectedCourt = expectedCourt || resolved.expectedCourt || undefined;
       }
 
-      // ── Try Apify first (async — launches and returns immediately) ──
       if (APIFY_API_TOKEN) {
         log('🚀 Launching Apify Actor (async residential proxy)...');
         const apifyResult = await launchApifyActor(
@@ -1971,13 +2040,15 @@ Deno.serve(async (req) => {
           appealCourt, firstInstanceCourt,
         );
         if (apifyResult.launched) {
-          // Apify launched — update job to 'scraping' with apify info
           await supabase.from('mahakim_sync_jobs').update({
             status: 'scraping',
             request_payload: {
               ...(body.request_payload || {}),
               provider: 'apify',
               apify_run_id: apifyResult.runId,
+              appealCourt: appealCourt || null,
+              firstInstanceCourt: firstInstanceCourt || null,
+              expectedCourt: expectedCourt || null,
             },
           }).eq('id', jobId);
 
@@ -1993,22 +2064,19 @@ Deno.serve(async (req) => {
         log(`⚠ Apify launch failed: ${apifyResult.error} — falling back to sync providers`);
       }
 
-      // ── Fallback: synchronous providers (Firecrawl → ScrapingBee) ──
       try {
-        
-        const result = await fetchCase(input, appealCourt, firstInstanceCourt);
+        const result = await fetchCase(input, appealCourt, firstInstanceCourt, expectedCourt);
         const persistLog = await persistResults(supabase, jCaseId, body.userId, result);
 
         const finalStatus = result.status === 'success' ? 'completed' : 'failed';
         await supabase.from('mahakim_sync_jobs').update({
           status: finalStatus,
-          result_data: { ...result.caseInfo, _provider: result.usedProvider },
+          result_data: { ...result.caseInfo, _provider: result.usedProvider, expected_court: expectedCourt || null },
           error_message: result.error || null,
           next_session_date: result.nextSessionDate,
           completed_at: new Date().toISOString(),
         }).eq('id', jobId);
 
-        // Notify on failure
         if (finalStatus === 'failed' && body.userId) {
           await notifyOnFailure(supabase, body.userId, jCaseId, caseNumber, result.error || 'خطأ غير معروف');
         }
@@ -2038,7 +2106,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── Default: Direct case fetch (POST /fetch-dossier with cases array) ──
     if (!cases || !Array.isArray(cases) || cases.length === 0) {
       return new Response(JSON.stringify({
         status: 'error',
@@ -2055,23 +2122,23 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Process max 2 cases per request (each takes ~22s)
     const batch = cases.slice(0, 2);
     const results: CaseResult[] = [];
 
     for (let i = 0; i < batch.length; i++) {
       if (i > 0) await randomDelay();
-      
-      // Auto-resolve courts if caseId is provided
+
       let appealCourt = batch[i].courtType === 'appeal' ? undefined : undefined;
       let primaryCourt: string | undefined;
+      let expectedCourt: string | undefined;
       if (caseId) {
         const resolved = await resolveCourtForCase(supabase, caseId, batch[i].code);
         appealCourt = resolved.appeal || undefined;
         primaryCourt = resolved.primary || undefined;
+        expectedCourt = resolved.expectedCourt || undefined;
       }
-      
-      const result = await fetchCase(batch[i], appealCourt, primaryCourt);
+
+      const result = await fetchCase(batch[i], appealCourt, primaryCourt, expectedCourt);
       results.push(result);
       if (caseId || userId) {
         await persistResults(supabase, caseId, userId, result);
