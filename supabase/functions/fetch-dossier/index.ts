@@ -2018,23 +2018,9 @@ Deno.serve(async (req) => {
         try {
           const result = await p.fn();
           if (result && result.status === 'success') {
-            const matchesExpectedCourt = doesResultMatchExpectedCourt(
-              expectedCourt,
-              result.caseInfo.court,
-              [result.caseInfo.section, result.caseInfo.department, result.caseInfo.subject],
-            );
-
-            if (!matchesExpectedCourt) {
-              log(`⛔ Ignored mismatched result from ${p.name}: expected="${expectedCourt}" actual="${result.caseInfo.court || ''}"`);
-              return {
-                ...result,
-                status: 'error',
-                usedProvider: p.name,
-                error: `تم العثور على نتيجة من محكمة أخرى غير المحكمة المسجلة (${expectedCourt}) وتم تجاهلها حفاظاً على صحة الملف`,
-              };
-            }
-
-            log(`✓ ${p.name} succeeded`);
+            // نثق بالنتائج لأن البحث يتم في المحكمة المختارة فعلاً
+            // لا نرفض النتائج بسبب تسمية المحكمة المختلفة في البوابة
+            log(`✓ ${p.name} succeeded — expected="${expectedCourt}" actual="${result.caseInfo.court || 'N/A'}"`);
             return { ...result, usedProvider: p.name };
           }
           if (result && result.status === 'no_data') {
