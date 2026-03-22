@@ -306,15 +306,6 @@ const CaseDetail = () => {
                   onSync={(appealCourt, firstInstanceCourt) => startSync(caseData.case_number, appealCourt, firstInstanceCourt)}
                   onOpenPortal={() => openPortal(caseData.case_number)}
                 />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full gap-1.5"
-                  onClick={() => setBrowserFetchOpen(true)}
-                >
-                  <ClipboardPaste className="h-3.5 w-3.5" />
-                  نسخ ولصق من محاكم
-                </Button>
               </div>
             )}
           </CardContent>
