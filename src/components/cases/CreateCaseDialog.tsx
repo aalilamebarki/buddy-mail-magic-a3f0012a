@@ -85,13 +85,6 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
   const [addClientDialogOpen, setAddClientDialogOpen] = useState(false);
   const [newClientName, setNewClientName] = useState('');
 
-  // Fetch courts once
-  useEffect(() => {
-    supabase.from('courts').select('*').order('name').then(({ data }) => {
-      if (data) setCourtsDb(data);
-    });
-  }, []);
-
   // Reset form on open
   useEffect(() => {
     if (!open) return;
@@ -118,33 +111,32 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
           setAgainstAllInterested(false);
         }
       });
+      // Auto-detect court level from existing court
+      if (editingCase.court) {
+        const parentIdx = findAppellateByPrimary(editingCase.court);
+        if (parentIdx >= 0) {
+          setCourtLevel('ابتدائية');
+          setSelectedAppellateIdx(parentIdx);
+        } else {
+          const acIdx = COURT_HIERARCHY.findIndex(ac => ac.label === editingCase.court);
+          if (acIdx >= 0) {
+            setCourtLevel('استئناف');
+            setSelectedAppellateIdx(acIdx);
+          } else if (editingCase.court === 'محكمة النقض') {
+            setCourtLevel('نقض');
+          }
+        }
+      }
     } else {
       setForm({ ...emptyForm, client_id: preselectedClientId || '' });
       setOpponents([{ ...emptyOpponent }]);
       setPresenceParties([]);
       setAgainstAllInterested(false);
+      setCourtLevel('');
+      setSelectedAppellateIdx(-1);
     }
-    setCourtLevel('');
-    setCourtSubType('');
     setCourtSearchTerm('');
-    setSelectedAppellateIdx(-1);
-    setAppellateSearchTerm('');
   }, [open, editingCase, preselectedClientId]);
-
-  // Set court level when courtsDb is ready + editing
-  useEffect(() => {
-    if (!editingCase?.court || courtsDb.length === 0) return;
-    const court = courtsDb.find(c => c.name === editingCase.court);
-    if (!court) return;
-    if (['ابتدائية', 'مركز قضائي', 'ابتدائية مصنفة'].includes(court.court_type)) {
-      setCourtLevel('ابتدائية');
-      setCourtSubType(court.court_type);
-    } else if (['استئناف', 'استئناف تجارية', 'استئناف إدارية'].includes(court.court_type)) {
-      setCourtLevel('استئناف');
-    } else if (court.court_type === 'نقض') {
-      setCourtLevel('نقض');
-    }
-  }, [courtsDb, editingCase]);
 
   const updateField = (field: keyof CaseForm, value: string) => setForm(prev => ({ ...prev, [field]: value }));
 
@@ -158,36 +150,15 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
     return parsedCode.length === 4 ? getCategoryFromCode(parsedCode) : null;
   }, [parsedCode]);
 
-  /** 
-   * Filtered appellate courts based on case code category.
-   * If code is entered → only show matching category appellate courts.
-   */
-  const filteredAppellateCourts = useMemo(() => {
-    let courts = parsedCode.length === 4
-      ? filterAppellateByCode(parsedCode)
-      : COURT_HIERARCHY;
-    
-    if (appellateSearchTerm) {
-      const q = appellateSearchTerm.toLowerCase();
-      courts = courts.filter(ac => ac.label.toLowerCase().includes(q) || ac.portalLabel.toLowerCase().includes(q));
-    }
-    return courts;
-  }, [parsedCode, appellateSearchTerm]);
-
-  /** 
-   * Primary courts — only from the selected appellate court.
-   */
-  const filteredPrimaryCourts = useMemo(() => {
-    if (selectedAppellateIdx < 0) return [];
-    const ac = COURT_HIERARCHY[selectedAppellateIdx];
-    if (!ac) return [];
-    let courts = ac.primaryCourts;
+  /** Flat court list — single searchable dropdown */
+  const flatCourtList = useMemo(() => {
+    let list = buildFlatCourtList(parsedCode.length === 4 ? parsedCode : undefined);
     if (courtSearchTerm) {
       const q = courtSearchTerm.toLowerCase();
-      courts = courts.filter(pc => pc.label.toLowerCase().includes(q) || pc.portalLabel.toLowerCase().includes(q));
+      list = list.filter(c => c.label.toLowerCase().includes(q) || c.portalLabel.toLowerCase().includes(q) || (c.parentLabel || '').toLowerCase().includes(q));
     }
-    return courts;
-  }, [selectedAppellateIdx, courtSearchTerm]);
+    return list;
+  }, [parsedCode, courtSearchTerm]);
 
   /** Hierarchy validation — mismatch between code and selected court */
   const hierarchyError = useMemo(() => {
@@ -208,26 +179,6 @@ const CreateCaseDialog = ({ open, onOpenChange, onCreated, preselectedClientId, 
     setPresenceParties(prev => prev.map((p, idx) => idx === i ? { ...p, [field]: value } : p));
   const addPresenceParty = () => setPresenceParties(prev => [...prev, { name: '', address: '', phone: '' }]);
   const removePresenceParty = (i: number) => setPresenceParties(prev => prev.filter((_, idx) => idx !== i));
-
-  /* ─── Legacy court filtering (for DB-based courts) ─── */
-  const filteredCourts = useMemo(() => {
-    let filtered = courtsDb;
-    if (courtLevel === 'ابتدائية') {
-      filtered = courtSubType
-        ? courtsDb.filter(c => c.court_type === courtSubType)
-        : courtsDb.filter(c => ['ابتدائية', 'مركز قضائي', 'ابتدائية مصنفة'].includes(c.court_type));
-    } else if (courtLevel === 'استئناف') {
-      filtered = courtsDb.filter(c => ['استئناف', 'استئناف تجارية', 'استئناف إدارية'].includes(c.court_type));
-    } else if (courtLevel === 'نقض') {
-      filtered = courtsDb.filter(c => c.court_type === 'نقض');
-    }
-    if (courtSearchTerm) {
-      const q = courtSearchTerm.toLowerCase();
-      filtered = filtered.filter(c => c.name.toLowerCase().includes(q) || c.city.toLowerCase().includes(q));
-    }
-    return filtered;
-  }, [courtsDb, courtLevel, courtSubType, courtSearchTerm]);
-
   /* ─── Client filtering ─── */
   const filteredClients = useMemo(() => {
     if (!clientSearch) return clients;
