@@ -144,6 +144,11 @@ Deno.serve(async (req) => {
       await supabase.from('case_procedures').insert(newProcs);
     }
 
+    // Auto-extract parties if none exist
+    try {
+      await autoExtractParties(supabase, caseId, caseInfo || {});
+    } catch (_) { /* ignore */ }
+
     // Update job as completed
     if (resolvedJobId) {
       await supabase.from('mahakim_sync_jobs').update({
