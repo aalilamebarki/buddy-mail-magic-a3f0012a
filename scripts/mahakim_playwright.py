@@ -163,28 +163,36 @@ async def search_mahakim(
             # اختيار المحكمة الابتدائية إذا طُلب
             if primary_court:
                 # تفعيل خانة البحث بالمحاكم الابتدائية
-                checkbox = await page.query_selector(
-                    'input[name="groupname"], .p-checkbox'
+                # PrimeNG يخفي الـ input — ننقر على النص المرافق
+                cb_label = await page.query_selector(
+                    "text=هل تريد البحث بالمحاكم الابتدائية"
                 )
-                if checkbox:
-                    await checkbox.click()
-                    await page.wait_for_timeout(2000)
+                if cb_label:
+                    await cb_label.click()
+                else:
+                    cb_box = await page.query_selector(
+                        ".p-checkbox, p-checkbox"
+                    )
+                    if cb_box:
+                        await cb_box.click()
 
-                    # فتح القائمة الثانية
-                    dropdowns2 = await page.query_selector_all(".p-dropdown")
-                    if len(dropdowns2) > 1:
-                        await dropdowns2[1].click()
-                        await page.wait_for_timeout(1500)
-                        opts2 = await page.query_selector_all(
-                            ".p-dropdown-item, li.p-dropdown-item"
-                        )
-                        for opt in opts2:
-                            txt = (await opt.inner_text()).strip()
-                            if primary_court in txt or txt in primary_court:
-                                await opt.click()
-                                print(f"[2b] محكمة ابتدائية: {txt}")
-                                break
-                        await page.wait_for_timeout(1000)
+                await page.wait_for_timeout(2000)
+
+                # فتح القائمة الثانية
+                dropdowns2 = await page.query_selector_all(".p-dropdown")
+                if len(dropdowns2) > 1:
+                    await dropdowns2[1].click()
+                    await page.wait_for_timeout(1500)
+                    opts2 = await page.query_selector_all(
+                        ".p-dropdown-item, li.p-dropdown-item"
+                    )
+                    for opt in opts2:
+                        txt = (await opt.inner_text()).strip()
+                        if primary_court in txt or txt in primary_court:
+                            await opt.click()
+                            print(f"[2b] محكمة ابتدائية: {txt}")
+                            break
+                    await page.wait_for_timeout(1000)
 
             # النقر على البحث
             search_btn = await page.query_selector("button:has-text('بحث')")
