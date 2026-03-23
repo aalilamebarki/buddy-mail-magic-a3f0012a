@@ -16,6 +16,7 @@ import {
   ExternalLink, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { SyncDialog } from './mahakim/SyncDialog';
+import { BookmarkletButton } from './mahakim/BookmarkletButton';
 import type { MahakimSyncStatusProps } from './mahakim/types';
 import type { SyncJob } from '@/hooks/useMahakimSync';
 import { formatDistanceToNow } from 'date-fns';
