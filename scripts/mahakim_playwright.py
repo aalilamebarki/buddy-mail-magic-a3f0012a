@@ -306,36 +306,60 @@ async def search_mahakim(
 
             # ── استخراج الأطراف ──
             try:
-                # النقر على تبويب "لائحة الأطراف" أولاً
-                party_tab = await page.query_selector(
-                    "text=لائحة الأطراف"
-                )
+                party_tab = await page.query_selector("text=لائحة الأطراف")
                 if party_tab:
                     await party_tab.click()
                     await page.wait_for_timeout(2000)
 
-                    # البحث عن الجدول الذي يحتوي أسماء (وليس تواريخ)
+                    # Capture visible text after clicking the tab
+                    parties_body = await page.inner_text("body")
+
+                    # البحث عن الجدول النشط في تبويب الأطراف
                     all_tables = await page.query_selector_all("table")
+                    skip_words = {
+                        "الاسم", "الصفة", "العنوان", "تاريخ الإجراء",
+                        "نوع الإجراء", "القرار", "تاريخ الجلسة المقبلة",
+                        "مدعي", "مدعى عليه", "متدخل",
+                        "لا توجد", "لائحة",
+                    }
+
                     for tbl in all_tables:
                         rows = await tbl.query_selector_all("tr")
                         for row in rows:
                             cells = await row.query_selector_all("td")
                             if len(cells) >= 2:
-                                name = (await cells[0].inner_text()).strip()
-                                # تجاهل التواريخ والعناوين
-                                if (
-                                    name
-                                    and len(name) > 2
-                                    and not re.match(r"^\d{2}/\d{2}/\d{4}", name)
-                                    and name not in ("الاسم", "الصفة", "العنوان", "تاريخ الإجراء")
-                                ):
+                                col0 = (await cells[0].inner_text()).strip()
+                                col1 = (await cells[1].inner_text()).strip()
+
+                                # تحديد أي عمود هو الاسم وأيهم الصفة
+                                # الاسم عادة أطول ولا يكون تاريخاً ولا كلمة واحدة معروفة
+                                is_col0_role = col0 in ("مدعي", "مدعى عليه", "متدخل", "طالب", "مطلوب ضده")
+                                is_col1_role = col1 in ("مدعي", "مدعى عليه", "متدخل", "طالب", "مطلوب ضده")
+
+                                if is_col0_role and col1 and not is_col1_role:
+                                    name, role = col1, col0
+                                elif is_col1_role and col0 and not is_col0_role:
+                                    name, role = col0, col1
+                                elif col0 and not re.match(r"^\d{2}/\d{2}/\d{4}", col0) and col0 not in skip_words:
+                                    name, role = col0, col1
+                                else:
+                                    continue
+
+                                if not name or len(name) < 3 or re.match(r"^\d{2}/\d{2}/\d{4}", name):
+                                    continue
+
+                                party_type = "plaintiff"
+                                if "مدعى عليه" in role or "مطلوب" in role:
+                                    party_type = "defendant"
+                                elif "متدخل" in role:
+                                    party_type = "intervening"
+                                elif "مدعي" in role or "طالب" in role:
                                     party_type = "plaintiff"
-                                    if len(cells) > 1:
-                                        role = (await cells[1].inner_text()).strip()
-                                        if "مدعى عليه" in role or "مطلوب" in role:
-                                            party_type = "defendant"
-                                        elif "متدخل" in role:
-                                            party_type = "intervening"
+
+                                # تجنب التكرار
+                                if not any(
+                                    p["name"] == name for p in result["parties"]
+                                ):
                                     result["parties"].append(
                                         {"name": name, "type": party_type}
                                     )
