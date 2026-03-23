@@ -306,23 +306,36 @@ async def search_mahakim(
 
             # ── استخراج الأطراف ──
             try:
-                parties_tabs = await page.query_selector_all(
-                    "p-tabpanel, .p-tabview-panel"
+                # النقر على تبويب "لائحة الأطراف" أولاً
+                party_tab = await page.query_selector(
+                    "text=لائحة الأطراف"
                 )
-                for tab in parties_tabs:
-                    tab_text = await tab.inner_text()
-                    if "الأطراف" in tab_text or "المدعي" in tab_text:
-                        rows = await tab.query_selector_all("tr")
+                if party_tab:
+                    await party_tab.click()
+                    await page.wait_for_timeout(2000)
+
+                    # البحث عن الجدول الذي يحتوي أسماء (وليس تواريخ)
+                    all_tables = await page.query_selector_all("table")
+                    for tbl in all_tables:
+                        rows = await tbl.query_selector_all("tr")
                         for row in rows:
                             cells = await row.query_selector_all("td")
-                            if cells:
+                            if len(cells) >= 2:
                                 name = (await cells[0].inner_text()).strip()
-                                if name and len(name) > 2:
+                                # تجاهل التواريخ والعناوين
+                                if (
+                                    name
+                                    and len(name) > 2
+                                    and not re.match(r"^\d{2}/\d{2}/\d{4}", name)
+                                    and name not in ("الاسم", "الصفة", "العنوان", "تاريخ الإجراء")
+                                ):
                                     party_type = "plaintiff"
                                     if len(cells) > 1:
                                         role = (await cells[1].inner_text()).strip()
-                                        if "مدعى عليه" in role:
+                                        if "مدعى عليه" in role or "مطلوب" in role:
                                             party_type = "defendant"
+                                        elif "متدخل" in role:
+                                            party_type = "intervening"
                                     result["parties"].append(
                                         {"name": name, "type": party_type}
                                     )
