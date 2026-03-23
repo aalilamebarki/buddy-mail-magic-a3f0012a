@@ -163,28 +163,36 @@ async def search_mahakim(
             # اختيار المحكمة الابتدائية إذا طُلب
             if primary_court:
                 # تفعيل خانة البحث بالمحاكم الابتدائية
-                checkbox = await page.query_selector(
-                    'input[name="groupname"], .p-checkbox'
+                # PrimeNG يخفي الـ input — ننقر على النص المرافق
+                cb_label = await page.query_selector(
+                    "text=هل تريد البحث بالمحاكم الابتدائية"
                 )
-                if checkbox:
-                    await checkbox.click()
-                    await page.wait_for_timeout(2000)
+                if cb_label:
+                    await cb_label.click()
+                else:
+                    cb_box = await page.query_selector(
+                        ".p-checkbox, p-checkbox"
+                    )
+                    if cb_box:
+                        await cb_box.click()
 
-                    # فتح القائمة الثانية
-                    dropdowns2 = await page.query_selector_all(".p-dropdown")
-                    if len(dropdowns2) > 1:
-                        await dropdowns2[1].click()
-                        await page.wait_for_timeout(1500)
-                        opts2 = await page.query_selector_all(
-                            ".p-dropdown-item, li.p-dropdown-item"
-                        )
-                        for opt in opts2:
-                            txt = (await opt.inner_text()).strip()
-                            if primary_court in txt or txt in primary_court:
-                                await opt.click()
-                                print(f"[2b] محكمة ابتدائية: {txt}")
-                                break
-                        await page.wait_for_timeout(1000)
+                await page.wait_for_timeout(2000)
+
+                # فتح القائمة الثانية
+                dropdowns2 = await page.query_selector_all(".p-dropdown")
+                if len(dropdowns2) > 1:
+                    await dropdowns2[1].click()
+                    await page.wait_for_timeout(1500)
+                    opts2 = await page.query_selector_all(
+                        ".p-dropdown-item, li.p-dropdown-item"
+                    )
+                    for opt in opts2:
+                        txt = (await opt.inner_text()).strip()
+                        if primary_court in txt or txt in primary_court:
+                            await opt.click()
+                            print(f"[2b] محكمة ابتدائية: {txt}")
+                            break
+                    await page.wait_for_timeout(1000)
 
             # النقر على البحث
             search_btn = await page.query_selector("button:has-text('بحث')")
@@ -225,6 +233,17 @@ async def search_mahakim(
                     val = match.group(1).strip()
                     if val and val != ar_label:
                         info[en_key] = val
+
+            # إصلاح: حقل المحكمة يلتقط أحياناً عنوان الحقل التالي
+            if info.get("court") and "الرقم" in info["court"]:
+                # استخراج اسم المحكمة من النص مباشرة
+                court_match = re.search(
+                    r"المحكمة\s*\n\s*((?:المحكمة|محكمة)[^\n]+)", body
+                )
+                if court_match:
+                    info["court"] = court_match.group(1).strip()
+                else:
+                    info.pop("court", None)
 
             result["caseInfo"] = info
 
@@ -287,23 +306,60 @@ async def search_mahakim(
 
             # ── استخراج الأطراف ──
             try:
-                parties_tabs = await page.query_selector_all(
-                    "p-tabpanel, .p-tabview-panel"
-                )
-                for tab in parties_tabs:
-                    tab_text = await tab.inner_text()
-                    if "الأطراف" in tab_text or "المدعي" in tab_text:
-                        rows = await tab.query_selector_all("tr")
+                party_tab = await page.query_selector("text=لائحة الأطراف")
+                if party_tab:
+                    await party_tab.click()
+                    await page.wait_for_timeout(2000)
+
+                    # Capture visible text after clicking the tab
+                    parties_body = await page.inner_text("body")
+
+                    # البحث عن الجدول النشط في تبويب الأطراف
+                    all_tables = await page.query_selector_all("table")
+                    skip_words = {
+                        "الاسم", "الصفة", "العنوان", "تاريخ الإجراء",
+                        "نوع الإجراء", "القرار", "تاريخ الجلسة المقبلة",
+                        "مدعي", "مدعى عليه", "متدخل",
+                        "لا توجد", "لائحة",
+                    }
+
+                    for tbl in all_tables:
+                        rows = await tbl.query_selector_all("tr")
                         for row in rows:
                             cells = await row.query_selector_all("td")
-                            if cells:
-                                name = (await cells[0].inner_text()).strip()
-                                if name and len(name) > 2:
+                            if len(cells) >= 2:
+                                col0 = (await cells[0].inner_text()).strip()
+                                col1 = (await cells[1].inner_text()).strip()
+
+                                # تحديد أي عمود هو الاسم وأيهم الصفة
+                                # الاسم عادة أطول ولا يكون تاريخاً ولا كلمة واحدة معروفة
+                                is_col0_role = col0 in ("مدعي", "مدعى عليه", "متدخل", "طالب", "مطلوب ضده")
+                                is_col1_role = col1 in ("مدعي", "مدعى عليه", "متدخل", "طالب", "مطلوب ضده")
+
+                                if is_col0_role and col1 and not is_col1_role:
+                                    name, role = col1, col0
+                                elif is_col1_role and col0 and not is_col0_role:
+                                    name, role = col0, col1
+                                elif col0 and not re.match(r"^\d{2}/\d{2}/\d{4}", col0) and col0 not in skip_words:
+                                    name, role = col0, col1
+                                else:
+                                    continue
+
+                                if not name or len(name) < 3 or re.match(r"^\d{2}/\d{2}/\d{4}", name):
+                                    continue
+
+                                party_type = "plaintiff"
+                                if "مدعى عليه" in role or "مطلوب" in role:
+                                    party_type = "defendant"
+                                elif "متدخل" in role:
+                                    party_type = "intervening"
+                                elif "مدعي" in role or "طالب" in role:
                                     party_type = "plaintiff"
-                                    if len(cells) > 1:
-                                        role = (await cells[1].inner_text()).strip()
-                                        if "مدعى عليه" in role:
-                                            party_type = "defendant"
+
+                                # تجنب التكرار
+                                if not any(
+                                    p["name"] == name for p in result["parties"]
+                                ):
                                     result["parties"].append(
                                         {"name": name, "type": party_type}
                                     )
