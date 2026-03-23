@@ -16,6 +16,7 @@ import {
   ExternalLink, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { SyncDialog } from './mahakim/SyncDialog';
+import { BookmarkletButton } from './mahakim/BookmarkletButton';
 import type { MahakimSyncStatusProps } from './mahakim/types';
 import type { SyncJob } from '@/hooks/useMahakimSync';
 import { formatDistanceToNow } from 'date-fns';
@@ -108,7 +109,7 @@ export const MahakimSyncStatus = ({
 
       {/* ── أدوات خفية (للمستخدم المتقدم) ── */}
       {!isActive && !showRecentSuccess && !showRecentFailure && (
-        <div className="flex items-center gap-1.5 justify-center">
+        <div className="flex items-center gap-1.5 justify-center flex-wrap">
           <Button
             variant="ghost"
             size="sm"
@@ -118,6 +119,8 @@ export const MahakimSyncStatus = ({
             <RefreshCw className="h-3 w-3" />
             إعادة المزامنة
           </Button>
+          <span className="text-muted-foreground/30">|</span>
+          <BookmarkletButton caseNumber={caseNumber} />
           <span className="text-muted-foreground/30">|</span>
           <Button
             variant="ghost"
