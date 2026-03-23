@@ -234,6 +234,17 @@ async def search_mahakim(
                     if val and val != ar_label:
                         info[en_key] = val
 
+            # إصلاح: حقل المحكمة يلتقط أحياناً عنوان الحقل التالي
+            if info.get("court") and "الرقم" in info["court"]:
+                # استخراج اسم المحكمة من النص مباشرة
+                court_match = re.search(
+                    r"المحكمة\s*\n\s*((?:المحكمة|محكمة)[^\n]+)", body
+                )
+                if court_match:
+                    info["court"] = court_match.group(1).strip()
+                else:
+                    info.pop("court", None)
+
             result["caseInfo"] = info
 
             # ── استخراج الإجراءات ──
