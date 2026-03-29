@@ -56,8 +56,9 @@ const AuditLog = () => {
     const s = search.toLowerCase();
     return (
       r.invoice_number.toLowerCase().includes(s) ||
-      r.client_name?.toLowerCase().includes(s) ||
-      r.security_hash.toLowerCase().includes(s) ||
+      r.client_name_ar?.toLowerCase().includes(s) ||
+      r.client_name_fr?.toLowerCase().includes(s) ||
+      r.security_seal?.toLowerCase().includes(s) ||
       r.case_number?.toLowerCase().includes(s)
     );
   });
