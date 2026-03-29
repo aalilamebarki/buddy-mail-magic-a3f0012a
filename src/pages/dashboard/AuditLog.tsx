@@ -11,16 +11,18 @@ import { toast } from 'sonner';
 interface AuditRecord {
   id: string;
   invoice_number: string;
-  signature_uuid: string;
-  security_hash: string;
-  client_name: string | null;
+  signature_uuid: string | null;
+  security_seal: string | null;
+  client_name_ar: string | null;
+  client_name_fr: string | null;
   client_cin: string | null;
   amount: number;
   payment_method: string | null;
   case_number: string | null;
   lawyer_name: string | null;
   pdf_path: string | null;
-  browser_info: string | null;
+  user_agent: string | null;
+  issued_at: string;
   created_at: string;
 }
 
