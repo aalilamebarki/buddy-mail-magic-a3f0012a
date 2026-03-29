@@ -64,7 +64,7 @@ const AuditLog = () => {
   });
 
   const totalAmount = filtered.reduce((s, r) => s + Number(r.amount), 0);
-  const uniqueClients = new Set(filtered.map(r => r.client_name).filter(Boolean)).size;
+  const uniqueClients = new Set(filtered.map(r => r.client_name_ar).filter(Boolean)).size;
   const withPdf = filtered.filter(r => r.pdf_path).length;
 
   const copyHash = (hash: string) => {
