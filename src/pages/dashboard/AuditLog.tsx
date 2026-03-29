@@ -67,8 +67,8 @@ const AuditLog = () => {
   const uniqueClients = new Set(filtered.map(r => r.client_name_ar).filter(Boolean)).size;
   const withPdf = filtered.filter(r => r.pdf_path).length;
 
-  const copyHash = (hash: string) => {
-    navigator.clipboard.writeText(hash);
+  const copySeal = (seal: string) => {
+    navigator.clipboard.writeText(seal);
     toast.success('تم نسخ الختم الأمني');
   };
 
