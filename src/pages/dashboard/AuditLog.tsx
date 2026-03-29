@@ -172,13 +172,15 @@ const AuditLog = () => {
                         <div><span className="text-muted-foreground">الملف:</span> {r.case_number || '—'}</div>
                         <div><span className="text-muted-foreground">المحامي:</span> {r.lawyer_name || '—'}</div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground text-xs">الختم:</span>
-                        <code className="text-[10px] font-mono bg-background px-2 py-0.5 rounded truncate flex-1">{r.security_hash}</code>
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyHash(r.security_hash)}>
-                          <Copy className="h-3 w-3" />
-                        </Button>
-                      </div>
+                      {r.security_seal && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground text-xs">الختم:</span>
+                          <code className="text-[10px] font-mono bg-background px-2 py-0.5 rounded truncate flex-1">{r.security_seal}</code>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copySeal(r.security_seal!)}>
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
                       <div className="text-xs text-muted-foreground">
                         {new Date(r.created_at).toLocaleString('ar-MA')}
                       </div>
