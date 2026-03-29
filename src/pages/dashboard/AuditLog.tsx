@@ -73,11 +73,11 @@ const AuditLog = () => {
   };
 
   const exportCSV = () => {
-    const headers = ['رقم الوصل', 'الموكل', 'CIN', 'المبلغ', 'طريقة الأداء', 'رقم الملف', 'المحامي', 'الختم الأمني', 'التاريخ'];
+    const headers = ['رقم الوصل', 'الموكل (عربي)', 'الموكل (فرنسي)', 'CIN', 'المبلغ', 'طريقة الأداء', 'رقم الملف', 'المحامي', 'الختم الأمني', 'التاريخ'];
     const rows = filtered.map(r => [
-      r.invoice_number, r.client_name || '', r.client_cin || '', r.amount,
+      r.invoice_number, r.client_name_ar || '', r.client_name_fr || '', r.client_cin || '', r.amount,
       PAYMENT_LABELS[r.payment_method || ''] || r.payment_method || '', r.case_number || '',
-      r.lawyer_name || '', r.security_hash, new Date(r.created_at).toLocaleString('ar-MA'),
+      r.lawyer_name || '', r.security_seal || '', new Date(r.created_at).toLocaleString('ar-MA'),
     ]);
     const csv = '\uFEFF' + [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
