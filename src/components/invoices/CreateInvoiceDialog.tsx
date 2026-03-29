@@ -244,22 +244,22 @@ const CreateInvoiceDialog = ({ open, onOpenChange, onCreated }: Props) => {
       try {
         const auditPayload = `${invoiceNumber}|${invoice.signature_uuid}|${amount}|${form.paymentMethod}|${now.toISOString()}`;
         const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(auditPayload));
-        const securityHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+        const securitySeal = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
 
         await supabase.from('invoice_receipts_audit').insert({
-          user_id: user.id,
+          issued_by_user_id: user.id,
           invoice_id: invoice.id,
           invoice_number: invoiceNumber,
           signature_uuid: invoice.signature_uuid,
-          security_hash: securityHash,
-          client_name: client?.full_name || null,
+          security_seal: securitySeal,
+          client_name_ar: client?.full_name || null,
           client_cin: client?.cin || null,
           amount,
           payment_method: form.paymentMethod,
           case_number: caseItem?.case_number || null,
           lawyer_name: letterhead?.lawyer_name || null,
           pdf_path: pdfPath,
-          browser_info: navigator.userAgent?.substring(0, 200) || null,
+          user_agent: navigator.userAgent?.substring(0, 200) || null,
         });
       } catch (auditErr) {
         console.warn('Audit log insert failed (non-blocking):', auditErr);

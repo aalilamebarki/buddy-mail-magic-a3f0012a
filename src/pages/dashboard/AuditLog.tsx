@@ -11,16 +11,18 @@ import { toast } from 'sonner';
 interface AuditRecord {
   id: string;
   invoice_number: string;
-  signature_uuid: string;
-  security_hash: string;
-  client_name: string | null;
+  signature_uuid: string | null;
+  security_seal: string | null;
+  client_name_ar: string | null;
+  client_name_fr: string | null;
   client_cin: string | null;
   amount: number;
   payment_method: string | null;
   case_number: string | null;
   lawyer_name: string | null;
   pdf_path: string | null;
-  browser_info: string | null;
+  user_agent: string | null;
+  issued_at: string;
   created_at: string;
 }
 
@@ -54,27 +56,28 @@ const AuditLog = () => {
     const s = search.toLowerCase();
     return (
       r.invoice_number.toLowerCase().includes(s) ||
-      r.client_name?.toLowerCase().includes(s) ||
-      r.security_hash.toLowerCase().includes(s) ||
+      r.client_name_ar?.toLowerCase().includes(s) ||
+      r.client_name_fr?.toLowerCase().includes(s) ||
+      r.security_seal?.toLowerCase().includes(s) ||
       r.case_number?.toLowerCase().includes(s)
     );
   });
 
   const totalAmount = filtered.reduce((s, r) => s + Number(r.amount), 0);
-  const uniqueClients = new Set(filtered.map(r => r.client_name).filter(Boolean)).size;
+  const uniqueClients = new Set(filtered.map(r => r.client_name_ar).filter(Boolean)).size;
   const withPdf = filtered.filter(r => r.pdf_path).length;
 
-  const copyHash = (hash: string) => {
-    navigator.clipboard.writeText(hash);
+  const copySeal = (seal: string) => {
+    navigator.clipboard.writeText(seal);
     toast.success('تم نسخ الختم الأمني');
   };
 
   const exportCSV = () => {
-    const headers = ['رقم الوصل', 'الموكل', 'CIN', 'المبلغ', 'طريقة الأداء', 'رقم الملف', 'المحامي', 'الختم الأمني', 'التاريخ'];
+    const headers = ['رقم الوصل', 'الموكل (عربي)', 'الموكل (فرنسي)', 'CIN', 'المبلغ', 'طريقة الأداء', 'رقم الملف', 'المحامي', 'الختم الأمني', 'التاريخ'];
     const rows = filtered.map(r => [
-      r.invoice_number, r.client_name || '', r.client_cin || '', r.amount,
+      r.invoice_number, r.client_name_ar || '', r.client_name_fr || '', r.client_cin || '', r.amount,
       PAYMENT_LABELS[r.payment_method || ''] || r.payment_method || '', r.case_number || '',
-      r.lawyer_name || '', r.security_hash, new Date(r.created_at).toLocaleString('ar-MA'),
+      r.lawyer_name || '', r.security_seal || '', new Date(r.created_at).toLocaleString('ar-MA'),
     ]);
     const csv = '\uFEFF' + [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -152,7 +155,7 @@ const AuditLog = () => {
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <Badge variant="secondary" className="shrink-0 font-mono text-xs">{r.invoice_number}</Badge>
-                      <span className="text-sm truncate">{r.client_name || '—'}</span>
+                      <span className="text-sm truncate">{r.client_name_ar || r.client_name_fr || '—'}</span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-sm font-bold">{Number(r.amount).toLocaleString('ar-u-nu-latn')} د</span>
@@ -169,13 +172,15 @@ const AuditLog = () => {
                         <div><span className="text-muted-foreground">الملف:</span> {r.case_number || '—'}</div>
                         <div><span className="text-muted-foreground">المحامي:</span> {r.lawyer_name || '—'}</div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground text-xs">الختم:</span>
-                        <code className="text-[10px] font-mono bg-background px-2 py-0.5 rounded truncate flex-1">{r.security_hash}</code>
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyHash(r.security_hash)}>
-                          <Copy className="h-3 w-3" />
-                        </Button>
-                      </div>
+                      {r.security_seal && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground text-xs">الختم:</span>
+                          <code className="text-[10px] font-mono bg-background px-2 py-0.5 rounded truncate flex-1">{r.security_seal}</code>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copySeal(r.security_seal!)}>
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
                       <div className="text-xs text-muted-foreground">
                         {new Date(r.created_at).toLocaleString('ar-MA')}
                       </div>
