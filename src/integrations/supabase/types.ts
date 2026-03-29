@@ -893,6 +893,68 @@ export type Database = {
         }
         Relationships: []
       }
+      invoice_receipts_audit: {
+        Row: {
+          amount: number
+          browser_info: string | null
+          case_number: string | null
+          client_cin: string | null
+          client_name: string | null
+          created_at: string
+          id: string
+          invoice_id: string | null
+          invoice_number: string
+          lawyer_name: string | null
+          payment_method: string | null
+          pdf_path: string | null
+          security_hash: string
+          signature_uuid: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          browser_info?: string | null
+          case_number?: string | null
+          client_cin?: string | null
+          client_name?: string | null
+          created_at?: string
+          id?: string
+          invoice_id?: string | null
+          invoice_number: string
+          lawyer_name?: string | null
+          payment_method?: string | null
+          pdf_path?: string | null
+          security_hash: string
+          signature_uuid: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          browser_info?: string | null
+          case_number?: string | null
+          client_cin?: string | null
+          client_name?: string | null
+          created_at?: string
+          id?: string
+          invoice_id?: string | null
+          invoice_number?: string
+          lawyer_name?: string | null
+          payment_method?: string | null
+          pdf_path?: string | null
+          security_hash?: string
+          signature_uuid?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_receipts_audit_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           amount: number
