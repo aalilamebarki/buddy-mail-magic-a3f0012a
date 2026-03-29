@@ -896,54 +896,60 @@ export type Database = {
       invoice_receipts_audit: {
         Row: {
           amount: number
-          browser_info: string | null
           case_number: string | null
           client_cin: string | null
-          client_name: string | null
+          client_name_ar: string | null
+          client_name_fr: string | null
           created_at: string
           id: string
           invoice_id: string | null
           invoice_number: string
+          issued_at: string
+          issued_by_user_id: string
           lawyer_name: string | null
           payment_method: string | null
           pdf_path: string | null
-          security_hash: string
-          signature_uuid: string
-          user_id: string
+          security_seal: string | null
+          signature_uuid: string | null
+          user_agent: string | null
         }
         Insert: {
-          amount?: number
-          browser_info?: string | null
+          amount: number
           case_number?: string | null
           client_cin?: string | null
-          client_name?: string | null
+          client_name_ar?: string | null
+          client_name_fr?: string | null
           created_at?: string
           id?: string
           invoice_id?: string | null
           invoice_number: string
+          issued_at?: string
+          issued_by_user_id: string
           lawyer_name?: string | null
           payment_method?: string | null
           pdf_path?: string | null
-          security_hash: string
-          signature_uuid: string
-          user_id: string
+          security_seal?: string | null
+          signature_uuid?: string | null
+          user_agent?: string | null
         }
         Update: {
           amount?: number
-          browser_info?: string | null
           case_number?: string | null
           client_cin?: string | null
-          client_name?: string | null
+          client_name_ar?: string | null
+          client_name_fr?: string | null
           created_at?: string
           id?: string
           invoice_id?: string | null
           invoice_number?: string
+          issued_at?: string
+          issued_by_user_id?: string
           lawyer_name?: string | null
           payment_method?: string | null
           pdf_path?: string | null
-          security_hash?: string
-          signature_uuid?: string
-          user_id?: string
+          security_seal?: string | null
+          signature_uuid?: string | null
+          user_agent?: string | null
         }
         Relationships: [
           {
