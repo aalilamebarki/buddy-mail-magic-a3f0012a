@@ -155,7 +155,7 @@ const AuditLog = () => {
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <Badge variant="secondary" className="shrink-0 font-mono text-xs">{r.invoice_number}</Badge>
-                      <span className="text-sm truncate">{r.client_name || '—'}</span>
+                      <span className="text-sm truncate">{r.client_name_ar || r.client_name_fr || '—'}</span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-sm font-bold">{Number(r.amount).toLocaleString('ar-u-nu-latn')} د</span>
