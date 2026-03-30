@@ -59,6 +59,7 @@ const menuItems = [
 const SidebarContent = ({ onNavigate, syncIndicator }: { onNavigate?: () => void; syncIndicator?: React.ReactNode }) => {
   const location = useLocation();
   const { signOut, user, role } = useAuth();
+  const { hasUpdate, remote } = useVersionCheck(role === 'director');
 
   return (
     <div className="flex flex-col h-full">
@@ -93,7 +94,14 @@ const SidebarContent = ({ onNavigate, syncIndicator }: { onNavigate?: () => void
                 )}
               >
                 <item.icon className="h-4 w-4 shrink-0" />
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {/* Update available indicator */}
+                {item.path === '/dashboard/updates' && hasUpdate && (
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-destructive" />
+                  </span>
+                )}
               </Link>
             </RoleGuard>
           ))}
