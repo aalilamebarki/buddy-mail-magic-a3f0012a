@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -6,64 +6,16 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import {
   RefreshCw, CheckCircle2, AlertTriangle, ArrowUpCircle,
-  GitBranch, Shield, Database, Clock, Sparkles, ExternalLink,
+  GitBranch, Shield, Database, Clock, Sparkles,
   Loader2, Info, PackageCheck, Rocket
 } from 'lucide-react';
+import { useVersionCheck } from '@/hooks/useVersionCheck';
 
-// ── Current app version (bump this on each release) ──
-const CURRENT_VERSION = '1.0.0';
-
-// ── Remote version manifest URL (replace with your GitHub raw link) ──
-const VERSION_URL = 'https://raw.githubusercontent.com/YOUR_USER/YOUR_REPO/main/version.json';
-
-interface VersionManifest {
-  version: string;
-  changelog: string;
-  features?: string[];
-  date?: string;
-}
-
-type CheckState = 'idle' | 'checking' | 'up-to-date' | 'update-available' | 'error';
 type UpdateStep = 'idle' | 'compat' | 'instructions';
 
-function compareVersions(a: string, b: string): number {
-  const pa = a.split('.').map(Number);
-  const pb = b.split('.').map(Number);
-  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    const na = pa[i] ?? 0;
-    const nb = pb[i] ?? 0;
-    if (na > nb) return 1;
-    if (na < nb) return -1;
-  }
-  return 0;
-}
-
 const UpdateManager = () => {
-  const [checkState, setCheckState] = useState<CheckState>('idle');
+  const { hasUpdate, remote, isLoading, isError, error, refetch, CURRENT_VERSION } = useVersionCheck();
   const [updateStep, setUpdateStep] = useState<UpdateStep>('idle');
-  const [remote, setRemote] = useState<VersionManifest | null>(null);
-  const [error, setError] = useState('');
-
-  const checkForUpdates = useCallback(async () => {
-    setCheckState('checking');
-    setError('');
-    try {
-      const res = await fetch(VERSION_URL, { cache: 'no-store' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data: VersionManifest = await res.json();
-      setRemote(data);
-      setCheckState(
-        compareVersions(data.version, CURRENT_VERSION) > 0
-          ? 'update-available'
-          : 'up-to-date'
-      );
-    } catch (e: any) {
-      setError(e.message ?? 'فشل الاتصال');
-      setCheckState('error');
-    }
-  }, []);
-
-  useEffect(() => { checkForUpdates(); }, [checkForUpdates]);
 
   const startUpdate = () => {
     setUpdateStep('compat');
@@ -72,7 +24,6 @@ const UpdateManager = () => {
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto" dir="rtl">
-      {/* Header */}
       <div className="flex items-center gap-3">
         <div className="p-2.5 rounded-xl bg-primary/10">
           <Rocket className="h-6 w-6 text-primary" />
@@ -83,7 +34,6 @@ const UpdateManager = () => {
         </div>
       </div>
 
-      {/* Current version card */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
@@ -96,8 +46,7 @@ const UpdateManager = () => {
         </CardHeader>
       </Card>
 
-      {/* Check status */}
-      {checkState === 'checking' && (
+      {isLoading && (
         <Card className="border-primary/30 bg-primary/5">
           <CardContent className="py-6 flex items-center gap-3 justify-center">
             <Loader2 className="h-5 w-5 animate-spin text-primary" />
@@ -106,39 +55,35 @@ const UpdateManager = () => {
         </Card>
       )}
 
-      {checkState === 'error' && (
+      {isError && (
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>خطأ في فحص التحديثات</AlertTitle>
           <AlertDescription>
-            {error || 'تعذّر الاتصال بخادم الإصدارات.'}
+            {error instanceof Error ? error.message : 'تعذّر الاتصال بخادم الإصدارات.'}
             <span className="block mt-1 text-xs opacity-70">تأكد من ضبط رابط ملف version.json في إعدادات الكود.</span>
           </AlertDescription>
         </Alert>
       )}
 
-      {checkState === 'up-to-date' && (
-        <Card className="border-green-500/30 bg-green-500/5">
+      {!isLoading && !isError && !hasUpdate && (
+        <Card className="border-primary/20">
           <CardContent className="py-6 flex items-center gap-3 justify-center">
-            <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
-            <span className="text-sm font-medium text-green-700 dark:text-green-300">
-              نظامك محدّث بآخر إصدار 🎉
-            </span>
+            <CheckCircle2 className="h-5 w-5 text-primary" />
+            <span className="text-sm font-medium text-foreground">نظامك محدّث بآخر إصدار 🎉</span>
           </CardContent>
         </Card>
       )}
 
-      {checkState === 'update-available' && remote && (
-        <Card className="border-amber-500/40 shadow-lg shadow-amber-500/5">
+      {hasUpdate && remote && (
+        <Card className="border-destructive/40 shadow-lg">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between flex-wrap gap-2">
-              <CardTitle className="text-base flex items-center gap-2 text-amber-700 dark:text-amber-300">
+              <CardTitle className="text-base flex items-center gap-2 text-destructive">
                 <ArrowUpCircle className="h-5 w-5" />
                 تحديث جديد متاح!
               </CardTitle>
-              <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 font-mono">
-                v{remote.version}
-              </Badge>
+              <Badge variant="destructive" className="font-mono">v{remote.version}</Badge>
             </div>
             {remote.date && (
               <CardDescription className="flex items-center gap-1 mt-1">
@@ -148,7 +93,6 @@ const UpdateManager = () => {
           </CardHeader>
 
           <CardContent className="space-y-4">
-            {/* Changelog */}
             <p className="text-sm text-muted-foreground">{remote.changelog}</p>
 
             {remote.features && remote.features.length > 0 && (
@@ -172,7 +116,6 @@ const UpdateManager = () => {
 
             <Separator />
 
-            {/* Data safety notice */}
             <Alert>
               <Shield className="h-4 w-4" />
               <AlertTitle>بياناتك في أمان</AlertTitle>
@@ -181,7 +124,6 @@ const UpdateManager = () => {
               </AlertDescription>
             </Alert>
 
-            {/* Update button / flow */}
             {updateStep === 'idle' && (
               <Button onClick={startUpdate} className="w-full gap-2" size="lg">
                 <ArrowUpCircle className="h-5 w-5" />
@@ -211,7 +153,6 @@ const UpdateManager = () => {
 
                   <div className="space-y-3 text-sm">
                     <p className="font-medium text-foreground">اتّبع الخطوات التالية لإتمام التحديث:</p>
-
                     <div className="space-y-2">
                       <div className="flex items-start gap-3 p-3 rounded-lg bg-background border">
                         <span className="shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">1</span>
@@ -220,7 +161,6 @@ const UpdateManager = () => {
                           <p className="text-muted-foreground text-xs">اضغط على أيقونة الترس في أعلى يسار المحرر</p>
                         </div>
                       </div>
-
                       <div className="flex items-start gap-3 p-3 rounded-lg bg-background border">
                         <span className="shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">2</span>
                         <div>
@@ -231,7 +171,6 @@ const UpdateManager = () => {
                           <p className="text-muted-foreground text-xs">ستجد خيار المزامنة مع المستودع</p>
                         </div>
                       </div>
-
                       <div className="flex items-start gap-3 p-3 rounded-lg bg-background border">
                         <span className="shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">3</span>
                         <div>
@@ -245,7 +184,7 @@ const UpdateManager = () => {
                   <Alert>
                     <Info className="h-4 w-4" />
                     <AlertDescription className="text-xs">
-                      بعد المزامنة، قم بتحديث رقم الإصدار في ملف <code className="bg-muted px-1 rounded text-[11px]">UpdateManager.tsx</code> ليتطابق مع الإصدار الجديد.
+                      بعد المزامنة، قم بتحديث رقم الإصدار في ملف <code className="bg-muted px-1 rounded text-[11px]">useVersionCheck.ts</code> ليتطابق مع الإصدار الجديد.
                     </AlertDescription>
                   </Alert>
                 </CardContent>
@@ -255,16 +194,15 @@ const UpdateManager = () => {
         </Card>
       )}
 
-      {/* Manual check button */}
       <div className="flex justify-center">
         <Button
           variant="outline"
           size="sm"
-          onClick={checkForUpdates}
-          disabled={checkState === 'checking'}
+          onClick={() => refetch()}
+          disabled={isLoading}
           className="gap-2"
         >
-          <RefreshCw className={`h-4 w-4 ${checkState === 'checking' ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           إعادة الفحص
         </Button>
       </div>
