@@ -54,6 +54,7 @@ const DocumentGenerator = lazy(() => import("./pages/dashboard/DocumentGenerator
 const Letterheads = lazy(() => import("./pages/dashboard/Letterheads"));
 
 const Billing = lazy(() => import("./pages/dashboard/Billing"));
+const UpdateManager = lazy(() => import("./pages/dashboard/UpdateManager"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
