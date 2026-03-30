@@ -290,6 +290,7 @@ export type Database = {
           id: string
           last_sync_result: Json | null
           last_synced_at: string | null
+          mahakim_appellate_court: string | null
           mahakim_department: string | null
           mahakim_judge: string | null
           mahakim_status: string | null
@@ -312,6 +313,7 @@ export type Database = {
           id?: string
           last_sync_result?: Json | null
           last_synced_at?: string | null
+          mahakim_appellate_court?: string | null
           mahakim_department?: string | null
           mahakim_judge?: string | null
           mahakim_status?: string | null
@@ -334,6 +336,7 @@ export type Database = {
           id?: string
           last_sync_result?: Json | null
           last_synced_at?: string | null
+          mahakim_appellate_court?: string | null
           mahakim_department?: string | null
           mahakim_judge?: string | null
           mahakim_status?: string | null
