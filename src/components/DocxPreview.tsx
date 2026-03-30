@@ -54,30 +54,39 @@ const DocxPreview = forwardRef<DocxPreviewHandle, DocxPreviewProps>(({ title = '
 
       container.innerHTML = '';
 
-      await renderAsync(blob, container, undefined, {
-        className: 'docx-preview',
-        inWrapper: true,
-        ignoreWidth: isMobile,
-        ignoreHeight: isMobile,
-        renderHeaders: true,
-        renderFooters: true,
-        renderFootnotes: true,
-      });
-
-      setPreviewReady(true);
-    } catch (err) {
-      console.error('docx-preview error:', err);
-
-      if (containerRef.current) {
-        containerRef.current.innerHTML = '';
-      }
-
       try {
-        const result = await mammoth.convertToHtml({ arrayBuffer: await blob.arrayBuffer() });
-        setPreviewHtml(result.value || EMPTY_PREVIEW_HTML);
-      } catch {
-        setPreviewHtml(ERROR_PREVIEW_HTML);
+        await renderAsync(blob, container, undefined, {
+          className: 'docx-preview',
+          inWrapper: true,
+          ignoreWidth: isMobile,
+          ignoreHeight: isMobile,
+          renderHeaders: true,
+          renderFooters: true,
+          renderFootnotes: true,
+        });
+
+        // Verify content was actually rendered
+        if (container.children.length === 0 || container.innerHTML.trim() === '') {
+          throw new Error('renderAsync produced empty output');
+        }
+
+        setPreviewReady(true);
+      } catch (renderErr) {
+        console.warn('docx-preview renderAsync failed, trying mammoth fallback:', renderErr);
+        container.innerHTML = '';
+
+        try {
+          const result = await mammoth.convertToHtml({ arrayBuffer: await blob.arrayBuffer() });
+          setPreviewHtml(result.value || EMPTY_PREVIEW_HTML);
+        } catch (mammothErr) {
+          console.error('mammoth fallback also failed:', mammothErr);
+          setPreviewHtml(ERROR_PREVIEW_HTML);
+        }
       }
+    } catch (err) {
+      console.error('DocxPreview error:', err);
+      if (containerRef.current) containerRef.current.innerHTML = '';
+      setPreviewHtml(ERROR_PREVIEW_HTML);
     } finally {
       setLoading(false);
     }

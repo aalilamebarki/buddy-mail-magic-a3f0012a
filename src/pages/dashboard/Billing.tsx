@@ -14,9 +14,12 @@ import { useAccountingEntries } from '@/hooks/useAccounting';
 import { useToast } from '@/hooks/use-toast';
 import { formatDateShort } from '@/lib/formatters';
 import { exportAccountingExcel, exportAccountingPDF } from '@/lib/export-accounting';
-import { downloadInvoicePdf, downloadFeeStatementPdf, previewInvoicePdf } from '@/lib/dynamic-pdf-downloads';
+import { downloadInvoicePdf, downloadFeeStatementPdf } from '@/lib/dynamic-pdf-downloads';
+import { generateInvoicePDF } from '@/lib/generate-invoice-pdf';
+import { formatDateArabic } from '@/lib/formatters';
 import { exportFeeStatementDocx, generateFeeStatementDocxBlob } from '@/lib/export-fee-statement-docx';
 import DocxPreview, { type DocxPreviewHandle } from '@/components/DocxPreview';
+import PdfPreview, { type PdfPreviewHandle } from '@/components/PdfPreview';
 import CreateInvoiceDialog from '@/components/invoices/CreateInvoiceDialog';
 import CreateFeeStatementDialog from '@/components/invoices/CreateFeeStatementDialog';
 
@@ -57,6 +60,7 @@ const Billing = () => {
   const [downloading, setDownloading] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState<string | null>(null);
   const docxPreviewRef = useRef<DocxPreviewHandle>(null);
+  const pdfPreviewRef = useRef<PdfPreviewHandle>(null);
 
   const [accYear, setAccYear] = useState(currentYear);
   const { entries, loading: accLoading, stats } = useAccountingEntries(accYear);
@@ -114,7 +118,34 @@ const Billing = () => {
   const previewInvoice = async (invoice: InvoiceRecord) => {
     setPreviewing(invoice.id);
     try {
-      await previewInvoicePdf(invoice);
+      const letterhead = invoice.letterheads ? {
+        lawyerName: invoice.letterheads.lawyer_name,
+        nameFr: invoice.letterheads.name_fr || undefined,
+        titleAr: invoice.letterheads.title_ar || undefined,
+        titleFr: invoice.letterheads.title_fr || undefined,
+        barNameAr: invoice.letterheads.bar_name_ar || undefined,
+        barNameFr: invoice.letterheads.bar_name_fr || undefined,
+        address: invoice.letterheads.address || undefined,
+        city: invoice.letterheads.city || undefined,
+        phone: invoice.letterheads.phone || undefined,
+        email: invoice.letterheads.email || undefined,
+      } : undefined;
+
+      const pdfBlob = await generateInvoicePDF({
+        invoiceNumber: invoice.invoice_number,
+        signatureUuid: invoice.signature_uuid,
+        clientName: invoice.clients?.full_name || 'غير محدد',
+        caseName: invoice.cases?.title || undefined,
+        caseNumber: invoice.cases?.case_number || undefined,
+        caseType: invoice.cases?.case_type || undefined,
+        amount: Number(invoice.amount || 0),
+        description: invoice.description || undefined,
+        paymentMethod: invoice.payment_method || 'cash',
+        date: formatDateArabic(invoice.created_at, { year: 'numeric', month: 'long', day: 'numeric' }),
+        lawyerName: invoice.letterheads?.lawyer_name || 'مكتب المحاماة',
+        letterhead,
+      });
+      pdfPreviewRef.current?.previewBlob(pdfBlob, `${invoice.invoice_number}.pdf`);
     } catch (e: any) {
       toast({ title: 'خطأ في المعاينة', description: e.message, variant: 'destructive' });
     } finally {
@@ -585,6 +616,7 @@ const Billing = () => {
       </Tabs>
 
       <DocxPreview ref={docxPreviewRef} title="معاينة بيان الأتعاب" />
+      <PdfPreview ref={pdfPreviewRef} title="معاينة الوصل" />
 
       <CreateInvoiceDialog open={invDialogOpen} onOpenChange={setInvDialogOpen} onCreated={refetchInv} />
       <CreateFeeStatementDialog
