@@ -49,6 +49,7 @@ const menuItems = [
   { icon: FileText, label: 'مولّد المستندات', path: '/dashboard/document-generator', roles: ['director', 'partner', 'clerk'] as const },
   { icon: Stamp, label: 'الترويسات', path: '/dashboard/letterheads', roles: ['director', 'partner'] as const },
   
+  { icon: Download, label: 'التحديثات', path: '/dashboard/updates', roles: ['director'] as const },
   { icon: ScrollText, label: 'سجل النشاط', path: '/dashboard/audit-log', roles: ['director'] as const },
   { icon: Settings, label: 'الإعدادات', path: '/dashboard/settings', roles: ['director', 'partner'] as const },
   { icon: User, label: 'الملف الشخصي', path: '/dashboard/profile', roles: ['director', 'partner', 'clerk', 'content_writer', 'client'] as const },
