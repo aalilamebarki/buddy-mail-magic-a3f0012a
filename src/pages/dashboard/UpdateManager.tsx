@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -6,40 +6,15 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import {
   RefreshCw, CheckCircle2, AlertTriangle, ArrowUpCircle,
-  GitBranch, Shield, Database, Clock, Sparkles, ExternalLink,
+  GitBranch, Shield, Database, Clock, Sparkles,
   Loader2, Info, PackageCheck, Rocket
 } from 'lucide-react';
+import { useVersionCheck } from '@/hooks/useVersionCheck';
 
-// ── Current app version (bump this on each release) ──
-const CURRENT_VERSION = '1.0.0';
-
-// ── Remote version manifest URL (replace with your GitHub raw link) ──
-const VERSION_URL = 'https://raw.githubusercontent.com/YOUR_USER/YOUR_REPO/main/version.json';
-
-interface VersionManifest {
-  version: string;
-  changelog: string;
-  features?: string[];
-  date?: string;
-}
-
-type CheckState = 'idle' | 'checking' | 'up-to-date' | 'update-available' | 'error';
 type UpdateStep = 'idle' | 'compat' | 'instructions';
 
-function compareVersions(a: string, b: string): number {
-  const pa = a.split('.').map(Number);
-  const pb = b.split('.').map(Number);
-  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    const na = pa[i] ?? 0;
-    const nb = pb[i] ?? 0;
-    if (na > nb) return 1;
-    if (na < nb) return -1;
-  }
-  return 0;
-}
-
 const UpdateManager = () => {
-  const [checkState, setCheckState] = useState<CheckState>('idle');
+  const { hasUpdate, remote, isLoading, isError, error, refetch, CURRENT_VERSION } = useVersionCheck();
   const [updateStep, setUpdateStep] = useState<UpdateStep>('idle');
   const [remote, setRemote] = useState<VersionManifest | null>(null);
   const [error, setError] = useState('');
