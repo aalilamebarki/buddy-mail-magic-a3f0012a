@@ -14,9 +14,12 @@ import { useAccountingEntries } from '@/hooks/useAccounting';
 import { useToast } from '@/hooks/use-toast';
 import { formatDateShort } from '@/lib/formatters';
 import { exportAccountingExcel, exportAccountingPDF } from '@/lib/export-accounting';
-import { downloadInvoicePdf, downloadFeeStatementPdf, previewInvoicePdf } from '@/lib/dynamic-pdf-downloads';
+import { downloadInvoicePdf, downloadFeeStatementPdf } from '@/lib/dynamic-pdf-downloads';
+import { generateInvoicePDF } from '@/lib/generate-invoice-pdf';
+import { formatDateArabic } from '@/lib/formatters';
 import { exportFeeStatementDocx, generateFeeStatementDocxBlob } from '@/lib/export-fee-statement-docx';
 import DocxPreview, { type DocxPreviewHandle } from '@/components/DocxPreview';
+import PdfPreview, { type PdfPreviewHandle } from '@/components/PdfPreview';
 import CreateInvoiceDialog from '@/components/invoices/CreateInvoiceDialog';
 import CreateFeeStatementDialog from '@/components/invoices/CreateFeeStatementDialog';
 
