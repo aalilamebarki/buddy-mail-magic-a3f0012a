@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 export const CURRENT_VERSION = '1.0.0';
-export const VERSION_URL = 'https://raw.githubusercontent.com/aalilamebarki/Laweyrewith/main/version.json';
+export const VERSION_URL = 'https://raw.githubusercontent.com/aalilamebarki/buddy-mail-magic-c9b09b8a/main/version.json';
 
 export interface VersionManifest {
   version: string;
