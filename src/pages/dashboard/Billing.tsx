@@ -118,7 +118,34 @@ const Billing = () => {
   const previewInvoice = async (invoice: InvoiceRecord) => {
     setPreviewing(invoice.id);
     try {
-      await previewInvoicePdf(invoice);
+      const letterhead = invoice.letterheads ? {
+        lawyerName: invoice.letterheads.lawyer_name,
+        nameFr: invoice.letterheads.name_fr || undefined,
+        titleAr: invoice.letterheads.title_ar || undefined,
+        titleFr: invoice.letterheads.title_fr || undefined,
+        barNameAr: invoice.letterheads.bar_name_ar || undefined,
+        barNameFr: invoice.letterheads.bar_name_fr || undefined,
+        address: invoice.letterheads.address || undefined,
+        city: invoice.letterheads.city || undefined,
+        phone: invoice.letterheads.phone || undefined,
+        email: invoice.letterheads.email || undefined,
+      } : undefined;
+
+      const pdfBlob = await generateInvoicePDF({
+        invoiceNumber: invoice.invoice_number,
+        signatureUuid: invoice.signature_uuid,
+        clientName: invoice.clients?.full_name || 'غير محدد',
+        caseName: invoice.cases?.title || undefined,
+        caseNumber: invoice.cases?.case_number || undefined,
+        caseType: invoice.cases?.case_type || undefined,
+        amount: Number(invoice.amount || 0),
+        description: invoice.description || undefined,
+        paymentMethod: invoice.payment_method || 'cash',
+        date: formatDateArabic(invoice.created_at, { year: 'numeric', month: 'long', day: 'numeric' }),
+        lawyerName: invoice.letterheads?.lawyer_name || 'مكتب المحاماة',
+        letterhead,
+      });
+      pdfPreviewRef.current?.previewBlob(pdfBlob, `${invoice.invoice_number}.pdf`);
     } catch (e: any) {
       toast({ title: 'خطأ في المعاينة', description: e.message, variant: 'destructive' });
     } finally {
