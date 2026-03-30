@@ -60,6 +60,7 @@ const Billing = () => {
   const [downloading, setDownloading] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState<string | null>(null);
   const docxPreviewRef = useRef<DocxPreviewHandle>(null);
+  const pdfPreviewRef = useRef<PdfPreviewHandle>(null);
 
   const [accYear, setAccYear] = useState(currentYear);
   const { entries, loading: accLoading, stats } = useAccountingEntries(accYear);
