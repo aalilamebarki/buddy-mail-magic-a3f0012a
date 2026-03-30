@@ -616,6 +616,7 @@ const Billing = () => {
       </Tabs>
 
       <DocxPreview ref={docxPreviewRef} title="معاينة بيان الأتعاب" />
+      <PdfPreview ref={pdfPreviewRef} title="معاينة الوصل" />
 
       <CreateInvoiceDialog open={invDialogOpen} onOpenChange={setInvDialogOpen} onCreated={refetchInv} />
       <CreateFeeStatementDialog
