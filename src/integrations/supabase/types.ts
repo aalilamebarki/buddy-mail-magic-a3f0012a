@@ -354,6 +354,80 @@ export type Database = {
           },
         ]
       }
+      cassation_chunks: {
+        Row: {
+          chunk_index: number
+          content: string
+          created_at: string | null
+          embedding: string | null
+          id: string
+          ruling_id: string
+        }
+        Insert: {
+          chunk_index?: number
+          content: string
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          ruling_id: string
+        }
+        Update: {
+          chunk_index?: number
+          content?: string
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          ruling_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cassation_chunks_ruling_id_fkey"
+            columns: ["ruling_id"]
+            isOneToOne: false
+            referencedRelation: "cassation_rulings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cassation_rulings: {
+        Row: {
+          chamber: string | null
+          created_at: string | null
+          date: string | null
+          id: string
+          metadata: Json | null
+          parties: string | null
+          ruling_number: string | null
+          source: string | null
+          subject: string | null
+          year: number | null
+        }
+        Insert: {
+          chamber?: string | null
+          created_at?: string | null
+          date?: string | null
+          id?: string
+          metadata?: Json | null
+          parties?: string | null
+          ruling_number?: string | null
+          source?: string | null
+          subject?: string | null
+          year?: number | null
+        }
+        Update: {
+          chamber?: string | null
+          created_at?: string | null
+          date?: string | null
+          id?: string
+          metadata?: Json | null
+          parties?: string | null
+          ruling_number?: string | null
+          source?: string | null
+          subject?: string | null
+          year?: number | null
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
           address: string | null
@@ -1269,6 +1343,8 @@ export type Database = {
           id: string
           is_read: boolean
           message: string
+          push_sent: string | null
+          push_status: string | null
           session_id: string | null
           user_id: string
         }
@@ -1278,6 +1354,8 @@ export type Database = {
           id?: string
           is_read?: boolean
           message: string
+          push_sent?: string | null
+          push_status?: string | null
           session_id?: string | null
           user_id: string
         }
@@ -1287,6 +1365,8 @@ export type Database = {
           id?: string
           is_read?: boolean
           message?: string
+          push_sent?: string | null
+          push_status?: string | null
           session_id?: string | null
           user_id?: string
         }
@@ -1462,12 +1542,30 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      count_embedded_rulings: { Args: never; Returns: number }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      match_cassation_chunks: {
+        Args: {
+          filter_chamber?: string
+          filter_ruling_id?: string
+          filter_year?: number
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          chunk_index: number
+          content: string
+          id: string
+          ruling_id: string
+          similarity: number
+        }[]
       }
       next_accounting_number: {
         Args: { _type: string; _user_id: string }
