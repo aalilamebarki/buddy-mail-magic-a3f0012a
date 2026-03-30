@@ -54,6 +54,7 @@ const DocumentGenerator = lazy(() => import("./pages/dashboard/DocumentGenerator
 const Letterheads = lazy(() => import("./pages/dashboard/Letterheads"));
 
 const Billing = lazy(() => import("./pages/dashboard/Billing"));
+const UpdateManager = lazy(() => import("./pages/dashboard/UpdateManager"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -130,6 +131,7 @@ const App = () => (
                     <Route path="letterheads" element={<Letterheads />} />
                     
                     <Route path="billing" element={<Billing />} />
+                    <Route path="updates" element={<UpdateManager />} />
                   </Route>
 
                   <Route path="*" element={<NotFound />} />
