@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 export const CURRENT_VERSION = '1.0.0';
-export const VERSION_URL = 'https://raw.githubusercontent.com/YOUR_USER/YOUR_REPO/main/version.json';
+export const VERSION_URL = 'https://raw.githubusercontent.com/aalilamebarki/Laweyrewith/main/version.json';
 
 export interface VersionManifest {
   version: string;
