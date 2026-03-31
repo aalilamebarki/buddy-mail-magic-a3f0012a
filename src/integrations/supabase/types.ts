@@ -1121,6 +1121,59 @@ export type Database = {
           },
         ]
       }
+      legal_deadlines: {
+        Row: {
+          case_id: string | null
+          created_at: string | null
+          created_by: string | null
+          days_total: number | null
+          deadline_date: string
+          deadline_type: string
+          id: string
+          notes: string | null
+          notification_date: string | null
+          office_id: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          case_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          days_total?: number | null
+          deadline_date: string
+          deadline_type: string
+          id?: string
+          notes?: string | null
+          notification_date?: string | null
+          office_id: string
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          case_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          days_total?: number | null
+          deadline_date?: string
+          deadline_type?: string
+          id?: string
+          notes?: string | null
+          notification_date?: string | null
+          office_id?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legal_deadlines_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       legal_documents: {
         Row: {
           ai_classification: Json | null
@@ -1545,6 +1598,148 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      task_automation_rules: {
+        Row: {
+          assign_to_role: string | null
+          created_at: string | null
+          created_by: string | null
+          due_days: number | null
+          id: string
+          is_active: boolean | null
+          name: string
+          office_id: string
+          priority: string | null
+          task_description_template: string | null
+          task_title_template: string
+          trigger_event: string
+          updated_at: string | null
+        }
+        Insert: {
+          assign_to_role?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          due_days?: number | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          office_id: string
+          priority?: string | null
+          task_description_template?: string | null
+          task_title_template: string
+          trigger_event: string
+          updated_at?: string | null
+        }
+        Update: {
+          assign_to_role?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          due_days?: number | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          office_id?: string
+          priority?: string | null
+          task_description_template?: string | null
+          task_title_template?: string
+          trigger_event?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      task_comments: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_comments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          assigned_to: string | null
+          automation_source: string | null
+          case_id: string | null
+          comments_count: number | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          due_date: string | null
+          id: string
+          is_automated: boolean | null
+          office_id: string
+          priority: string
+          status: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          automation_source?: string | null
+          case_id?: string | null
+          comments_count?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          is_automated?: boolean | null
+          office_id: string
+          priority?: string
+          status?: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          automation_source?: string | null
+          case_id?: string | null
+          comments_count?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          is_automated?: boolean | null
+          office_id?: string
+          priority?: string
+          status?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
